@@ -2198,8 +2198,8 @@ local game_t = ff6struct{
 		{monsterSpriteTileMaskData = 'uint8_t['..(0x12b300 - 0x12a824 )..']'},	-- 0x12a824 - 0x12b300
 		{itemNames = 'str13_t['..numItems..']'},								-- 0x12b300 - 0x12c000
 		{battleAnimGraphicsSets2bpp = 'battleAnim8x8Tile_t['..(0x20 * 0xb0)..']'},-- 0x12c000 - 0x12ec00	-- should be 2bpp battle animation 16x16-tile-info referenced by .graphicSet
-		{WoBpalettes = 'palette16_8_t'},										-- 0x12ec00 - 0x12ed00
-		{WoRpalettes = 'palette16_8_t'},										-- 0x12ed00 - 0x12ee00
+		{WoBPalettes = 'palette16_8_t'},										-- 0x12ec00 - 0x12ed00
+		{WoRPalettes = 'palette16_8_t'},										-- 0x12ed00 - 0x12ee00
 		{setzerAirshipPalette = 'palette16_t'},									-- 0x12ee00 - 0x12ee20
 
 		{padding_12ee20 = 'uint8_t['..(-(0x12ee20 - 0x12ef00))..']'},			-- 0x12ee20 - 0x12ef00
@@ -2228,7 +2228,11 @@ local game_t = ff6struct{
 		{menuNames = 'menuName_t['..numMenuNames..']'},							-- 0x18cea0 - 0x18cf80
 		{spellDescOffsets = 'uint16_t[54]'},									-- 0x18cf80 - 0x18cfec
 
-		{padding_18cfec = 'uint8_t['..(-(0x18cfec - 0x19a800))..']'},			-- 0x18cfec - 0x19a800
+		{padding_18cfec = 'uint8_t['..(-(0x18cfec - 0x18e6ba))..']'},			-- 0x18cfec - 0x18e6ba
+
+		{SerpentTrenchPalettesCompressed = 'uint8_t['..(-(0x18e6ba - 0x18e800))..']'},-- 0x18e6ba - 0x18e800
+
+		{padding_18e800 = 'uint8_t['..(-(0x18e800 - 0x19a800))..']'},			-- 0x18e800 - 0x19a800
 
 		{mapTilePropsCompressed = 'uint8_t['..(-(0x19a800 - 0x19cd10))..']'},	-- 0x19a800 - 0x19cd10 = map tile properties (compressed)
 		{mapTilePropsOfs = 'uint16_t[0x2a]'},									-- 0x19cd10 - 0x19cd60 = offsets to map tile properties (+0x19a800) into mapTilePropsCompressed ... 0x40 but only 0x29 point to valid compressed data
@@ -2394,8 +2398,8 @@ assertOffset('swordTechDescOffsets', swordTechDescOffsetsAddr)
 assertOffset('monsterSprites', monsterSpritesAddr)
 assertOffset('monsterPalettes', monsterPalettesAddr)
 assertOffset('itemNames', itemNamesAddr)
-assertOffset('WoBpalettes', 0x12ec00)
-assertOffset('WoRpalettes', 0x12ed00)
+assertOffset('WoBPalettes', 0x12ec00)
+assertOffset('WoRPalettes', 0x12ed00)
 assertOffset('setzerAirshipPalette', 0x12ee00)
 assertOffset('darylAirshipPalette', 0x12ef00)
 assertOffset('items', itemsAddr)
