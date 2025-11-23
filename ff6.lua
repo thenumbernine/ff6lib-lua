@@ -2334,6 +2334,8 @@ local game_t = ff6struct{
 		{WoBTileProps = 'WorldTileProps_t[0x100]'},								-- 0x2e9b14 - 0x2e9d14
 		{WoRTileProps = 'WorldTileProps_t[0x100]'},								-- 0x2e9d14 - 0x2e9f14
 
+		{padding_2e9f14 = 'uint8_t['..(-(0x2e9f14 - 0x2ed434))..']'},			-- 0x2e9f14 - 0x2ed434
+
 		{WoBLayoutCompressed = 'uint8_t['..(-(0x2ed434 - 0x2f114f))..']'},		-- 0x2ed434 - 0x2f114f     World of Balance Map Data (compressed)
 		{WoBGfxDataCompressed = 'uint8_t['..(-(0x2f114f - 0x2f3250))..']'},		-- 0x2f114f - 0x2f3250     World of Balance Tile Graphics (compressed)
 

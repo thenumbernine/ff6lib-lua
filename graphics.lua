@@ -1,6 +1,7 @@
 local ffi = require 'ffi'
 local path = require 'ext.path'
 local range = require 'ext.range'
+local assert = require 'ext.assert'
 local Image = require 'image'
 
 -- reads a 8x8 tile
@@ -32,6 +33,17 @@ local function readpixel(tile, x, y, bpp)
 			bit.lshift(bit.band(1, bit.rshift(tile[2*y+17], 7-x)), 3))
 	end
 end
+
+local function readpixellinear(tile, x, y, bpp)
+	assert.eq(bpp, 4)
+	
+	local index = x + 8 * y
+	local data = tile[bit.rshift(index, 1)]
+	if bit.band(index, 1) ~= 0 then data = bit.rshift(data, 4) end
+	data = bit.band(data, 0xf)
+	return data
+end
+
 
 local tileWidth = 8
 local tileHeight = 8
@@ -65,6 +77,31 @@ local function drawTile(im, xofs, yofs, tile, bpp, hflip, vflip, palor, palette)
 					local dstp = im.buffer + (dstx + im.width * dsty)
 					local cx = hflip and tileWidth-1-x or x
 					local colorIndex = bit.bor(palor, readpixel(tile, cx, cy, bpp))
+					local color = palette[colorIndex+1]
+					if color and (not color[4] or color[4] > 0) then
+						dstp[0] = colorIndex
+					end
+				end
+			end
+		end
+	end
+end
+
+-- used by the world map
+local function drawTileLinear(im, xofs, yofs, tile, bpp, hflip, vflip, palor, palette)
+	assert(palette)
+	assert.eq(im.channels, 1)
+	palor = palor or 0
+	for y=0,tileHeight-1 do
+		local dsty = y + yofs
+		if dsty >= 0 and dsty < im.height then
+			local cy = vflip and tileHeight-1-y or y
+			for x=0,tileWidth-1 do
+				local dstx = x + xofs
+				if dstx >= 0 and dstx < im.width then
+					local dstp = im.buffer + (dstx + im.width * dsty)
+					local cx = hflip and tileWidth-1-x or x
+					local colorIndex = bit.bor(palor, readpixellinear(tile, cx, cy, bpp))
 					local color = palette[colorIndex+1]
 					if color and (not color[4] or color[4] > 0) then
 						dstp[0] = colorIndex
@@ -174,6 +211,7 @@ end
 return {
 	readTile = readTile,
 	drawTile = drawTile,
+	drawTileLinear = drawTileLinear,
 	tileWidth = tileWidth,
 	tileHeight = tileHeight,
 	makePalette = makePalette,

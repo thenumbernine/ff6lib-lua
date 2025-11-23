@@ -24,6 +24,7 @@ local tileWidth = require 'graphics'.tileWidth
 local tileHeight = require 'graphics'.tileHeight
 local readTile = require 'graphics'.readTile
 local drawTile = require 'graphics'.drawTile
+local drawTileLinear = require 'graphics'.drawTileLinear
 local decompress = require 'decompress'.decompress
 local decompress0x800 = require 'decompress'.decompress0x800
 
@@ -251,33 +252,6 @@ makePaletteSets(
 	function(index) return bit.band(0xf, index) == 0 end
 )
 
-local worldInfos = table{
-	'WoB',
-	'WoR',
---	'SerpentTrench',
-}:mapi(function(prefix, i)
-	local gfxdatacompressed = game[prefix..'GfxDataCompressed']
-	local gfxstr = decompress0x800(
-		ffi.cast('uint8_t*', gfxdatacompressed),
-		ffi.sizeof(gfxdatacompressed)
-	)
-	local layoutcompressed = game[prefix..'LayoutCompressed']
-	local layoutstr = decompress0x800(
-		ffi.cast('uint8_t*', layoutcompressed),
-		ffi.sizeof(layoutcompressed)
-	)
-	print('world', i, prefix)
-	print('	gfxstr', ('0x%x'):format(#gfxstr))
-	print('	layoutstr', ('0x%x'):format(#layoutstr))
-	return {
-		prefix = prefix,
-		gfxstr = gfxstr,
-		gfxdata = ffi.cast('uint8_t*', gfxstr),
-		layoutstr = layoutstr,
-		layoutdata = ffi.cast('uint8_t*', layoutstr),
-	}
-end)
-
 local function layer1and2tile8x8toptr(tile8x8, gfxDatas)
 
 	-- first 256 is gfx1
@@ -342,27 +316,11 @@ local function layer1and2tile8x8toptr(tile8x8, gfxDatas)
 	-- tiles 0x300-0x3ff aren't used by bg1 & bg2
 end
 
-local function layer3tile8x8toptr(tile8x8, gfxLayer3Index)
-	local bpp = 2
-	local gfxLayer3 = mapTileGraphicsLayer3[gfxLayer3Index]
-	if not gfxLayer3 then return end
-	if not gfxLayer3.data then return end
-	-- 0x40 at the beginning of all layer3 tiles
-	-- also there's only 0x40 unique tiles (only 6 bits are used), so i'm betting this is an extra bitflag that goes along with them ... maybe zLevel?
-	local ofs = 0x40 + bit.band(0xff, tile8x8) * bit.lshift(bpp, 3)
-	assert.lt(ofs, #gfxLayer3.data)
-	local tileptr = ffi.cast('uint8_t*', gfxLayer3.data) + ofs
-	return tileptr, bpp
-end
-
-local function layer1and2drawtile16x16(img, x, y, tile16x16, tilesetIndex, zLevelFlags, gfxDatas, palette)
-	local tileset = mapTilesets[tilesetIndex]
-	if not tileset then return end
-	local data = tileset.data
-	assert.len(data, 0x800)
-	if not data then return end
+local function layer1and2drawtile16x16(img, x, y, tile16x16, tilesetData, zLevelFlags, gfxDatas, palette)
+	if not tilesetData then return end
+	assert.len(tilesetData, 0x800)
 	zLevelFlags = zLevelFlags or 3
-	local tilesetptr = ffi.cast('uint8_t*', data)
+	local tilesetptr = ffi.cast('uint8_t*', tilesetData)
 	for yofs=0,1 do
 		for xofs=0,1 do
 			local i = bit.lshift(bit.bor(xofs, bit.lshift(yofs, 1)), 8)
@@ -394,7 +352,18 @@ local function layer1and2drawtile16x16(img, x, y, tile16x16, tilesetIndex, zLeve
 	end
 end
 
-local function layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3Index, palette)
+local function layer3tile8x8toptr(tile8x8, gfxLayer3Data)
+	local bpp = 2
+	if not gfxLayer3Data then return end
+	-- 0x40 at the beginning of all layer3 tiles
+	-- also there's only 0x40 unique tiles (only 6 bits are used), so i'm betting this is an extra bitflag that goes along with them ... maybe zLevel?
+	local ofs = 0x40 + bit.band(0xff, tile8x8) * bit.lshift(bpp, 3)
+	assert.lt(ofs, #gfxLayer3Data)
+	local tileptr = ffi.cast('uint8_t*', gfxLayer3Data) + ofs
+	return tileptr, bpp
+end
+
+local function layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3Data, palette)
 	for yofs=0,1 do
 		for xofs=0,1 do
 			local hFlip = bit.band(0x40, tile16x16) ~= 0
@@ -413,7 +382,7 @@ local function layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3Index, palette
 			tilesetTile = bit.band(tilesetTile, 0xff)
 			local tile8x8 = bit.band(tilesetTile, 0x3ff)
 			-- bpp is always 2 for layer3
-			local tileptr, bpp = layer3tile8x8toptr(tile8x8, gfxLayer3Index)
+			local tileptr, bpp = layer3tile8x8toptr(tile8x8, gfxLayer3Data)
 			if tileptr then
 				drawTile(img,
 					x + bit.lshift(hFlip and (1-xofs) or xofs, 3),
@@ -429,6 +398,106 @@ local function layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3Index, palette
 		end
 	end
 end
+
+-- gfxData for world is just 0x400 + tilesetData ... they are combined in the same compressed blob
+local function layer1worlddrawtile16x16(img, x, y, tile16x16, tilesetData, gfxData, palette)
+	if not tilesetData then return end
+	if not gfxData then return end
+	assert.eq(#tilesetData, 0x2480)	-- but we only use the first 0x400
+	local tilesetptr = ffi.cast('uint8_t*', tilesetData)
+	assert.eq(tilesetptr + 0x400, gfxData)
+	local highPalData = tilesetptr + 0x2400
+	for yofs=0,1 do
+		for xofs=0,1 do
+			local tile8x8 = tilesetptr[bit.bor(
+				bit.lshift(xofs, 0),
+				bit.lshift(yofs, 1),
+				bit.lshift(tile16x16, 2)
+			)]
+			
+			local bpp = 4
+			local ofs = tile8x8 * bit.lshift(bpp, 3)
+			assert.ge(ofs, 0)
+			assert.lt(ofs, 0x2000)
+			local tileptr = gfxData + ofs
+
+			local highPal = highPalData[bit.rshift(tile8x8, 1)]
+			if 0 ~= bit.band(1, tile8x8) then highPal = bit.rshift(highPal, 4) end
+			highPal = bit.band(0xf, highPal)
+
+			local hFlip8 = false
+			local vFlip8 = false
+			drawTileLinear(img,
+				x + bit.lshift(xofs, 3),
+				y + bit.lshift(yofs, 3),
+				tileptr,
+				bpp,
+				hFlip8,
+				vFlip8,
+				bit.lshift(highPal, bpp),
+				palette
+			)
+		end
+	end
+end
+
+local worldInfos = table{
+	'WoB',				-- gfxstr is 0x2480, layoutstr is 0x10000
+	'WoR',				-- gfxstr is 0x2480, layoutstr is 0x10000
+	'SerpentTrench',	-- gfxstr is 0x2480, layoutstr is 0x4000
+}:mapi(function(prefix, i)
+	local gfxdatacompressed = game[prefix..'GfxDataCompressed']
+	local gfxstr = decompress0x800(
+		ffi.cast('uint8_t*', gfxdatacompressed),
+		ffi.sizeof(gfxdatacompressed)
+	)
+	local layoutcompressed = game[prefix..'LayoutCompressed']
+	local layoutstr = decompress0x800(
+		ffi.cast('uint8_t*', layoutcompressed),
+		ffi.sizeof(layoutcompressed)
+	)
+
+	-- [[
+	local palsrc = op.safeindex(game, prefix..'Palettes')
+	local palette = palsrc and makePalette(palsrc, 4, 16*8)
+	--]]
+	--[[
+	local palette = makePalette(game.mapPalettes, 4, 16 * 8)
+	--]]
+
+	print('world', i, prefix)
+	print('	gfxstr', ('0x%x'):format(#gfxstr))
+	print('	layoutstr', ('0x%x'):format(#layoutstr))
+	print(gfxstr:hexdump())
+	local tilesetdata = gfxstr
+	local gfxdata = ffi.cast('uint8_t*', gfxstr) + 0x400
+	
+	-- [[ while we're here ...
+	if palette then
+		local img = Image(256, 256, 1, 'uint8_t'):clear()
+		img.palette = palette
+		for j=0,15 do
+			for i=0,15 do
+				layer1worlddrawtile16x16(img, i*16, j*16, i+16*j, tilesetdata, gfxdata, palette)
+			end
+		end
+		img:save((maptilesetpath('world'..i..'.png')).path)
+	end
+	--]]
+
+	return {
+		prefix = prefix,
+		gfxstr = gfxstr,
+		tilesetdata = tilesetdata,							-- 0-0x400
+		gfxdata = gfxdata,	-- 0x400 - 0x2400
+		layoutstr = layoutstr,
+		layoutdata = ffi.cast('uint8_t*', layoutstr),
+		layoutSize = i == 3 and vec2i(128, 128) or vec2i(256, 256),
+		palette = palette,
+	}
+end)
+
+
 
 -- key by layout1, layout2, layout3 ...
 -- I think I can safely group maps by layout1 alone ...
@@ -462,18 +531,18 @@ for mapIndex=0,countof(game.maps)-1 do
 		gfxLayer3.mapIndexes[mapIndex] = true
 	end
 
-	local tilesetIndexes = table()
-	local tilesets = table()
+	local tilesetDatas = table()
 	for i=1,2 do
 		local tilesetIndex = tonumber(map['tileset'..i])
-		tilesetIndexes[i] = tilesetIndex
-		tilesets[i] = mapTilesets[tilesetIndexes[i]]
-		print('map tileset'..i..' data size', tilesets[i] and #tilesets[i].data)
-		if tilesets[i] then
-			tilesets[i].mapIndexes[mapIndex] = true
-			tilesets[i].palettes[paletteIndex] = true
-			tilesets[i].gfxstrs[gfxstr] = true
-			tilesets[i].paletteForGfxStr[gfxstr] = paletteIndex
+		local tileset = mapTilesets[tilesetIndex]
+		local tilesetData = tileset.data
+		tilesetDatas[i] = tilesetData
+		print('map tileset'..i..' data size', tileset and #tilesetData)
+		if tileset then
+			tileset.mapIndexes[mapIndex] = true
+			tileset.palettes[paletteIndex] = true
+			tileset.gfxstrs[gfxstr] = true
+			tileset.paletteForGfxStr[gfxstr] = paletteIndex
 			-- map from gfxstr to tilesetIndex/paletteIndex
 			-- this is unique for each set of 640 tile8x8's rendered (used by tilesets)
 			mapGfxStrs[gfxstr] = mapGfxStrs[gfxstr] or {}
@@ -499,20 +568,31 @@ for mapIndex=0,countof(game.maps)-1 do
 		end
 	end
 
+	local palette
+	if paletteIndex >= 0 and paletteIndex < countof(game.mapPalettes) then
+		palette = makePalette(game.mapPalettes + paletteIndex, 4, 16*8)
+	else
+		print(' map has invalid palette!')
+	end
+
 	-- [[ special maps
 	if mapIndex >= 0 
-	and mapIndex <= #worldInfos-1
+	and mapIndex < #worldInfos
 	then
 		local worldInfo = worldInfos[mapIndex+1]
 		local gfx = {}
 		gfx.data = worldInfo.gfxdata
 		gfxs[1] = gfx
-		
-		layerSizes[1] = vec2i(256, 256)
-		
+
+		layerSizes[1] = worldInfo.layoutSize
+
 		local layout = {}
 		layout.data = worldInfo.layoutstr
 		layouts[1] = layout
+
+		tilesetDatas[1] = worldInfo.tilesetdata
+
+		palette = worldInfo.palette or palette
 
 		gfxs[2] = nil
 		gfxs[3] = nil
@@ -520,6 +600,7 @@ for mapIndex=0,countof(game.maps)-1 do
 		gfxLayer3 = nil
 		layouts[2] = nil
 		layouts[3] = nil
+		tilesetDatas[2] = nil
 	end
 	--]]
 
@@ -533,14 +614,6 @@ for mapIndex=0,countof(game.maps)-1 do
 
 		return gfx.data
 	end)
-
-
-	local palette
-	if paletteIndex >= 0 and paletteIndex < countof(game.mapPalettes) then
-		palette = makePalette(game.mapPalettes + paletteIndex, 4, 16*8)
-	else
-		print(' map has invalid palette!')
-	end
 
 	local layout1Data = layouts[1] and layouts[1].data
 	local layer1Size = layerSizes[1]
@@ -628,10 +701,14 @@ for mapIndex=0,countof(game.maps)-1 do
 					local srcY = (dstY + posy) % layerSize.y
 					local tile16x16 = layoutptr[((srcX + layerSize.x * srcY) % #layoutData)]
 
-					if layer == 3 then
-						layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3Index, palette)
+					if mapIndex < #worldInfos then
+						if z == 0 and layer == 1 then
+							layer1worlddrawtile16x16(img, x, y, tile16x16, tilesetDatas[layer], gfxDatas[layer], palette)
+						end
+					elseif layer == 3 then
+						layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3.data, palette)
 					else
-						layer1and2drawtile16x16(img, x, y, tile16x16, tilesetIndexes[layer], bit.lshift(1, z), gfxDatas, palette)
+						layer1and2drawtile16x16(img, x, y, tile16x16, tilesetDatas[layer], bit.lshift(1, z), gfxDatas, palette)
 					end
 				end
 			end
@@ -776,7 +853,7 @@ for _,tilesetIndex in ipairs(mapTilesets:keys():sort()) do
 					x,
 					y,
 					tile16x16,
-					tilesetIndex,
+					mapTilesets[tilesetIndex].data,
 					nil,
 					gfxDatas,
 					palette
@@ -826,29 +903,30 @@ end
 
 for _,gfxLayer3Index in ipairs(mapTileGraphicsLayer3:keys():sort()) do
 	local gfxLayer3 = mapTileGraphicsLayer3[gfxLayer3Index]
+	if gfxLayer3 and gfxLayer3.data then
+		-- layer3 always has the same layout, so it has no tileset, so just use that layout for the graphics tiles
+		local paletteIndex = gfxLayer3.palettes:keys():sort()[1] or 0
+		local palette = makePalette(game.mapPalettes + paletteIndex, 4, 16*8)
 
-	-- layer3 always has the same layout, so it has no tileset, so just use that layout for the graphics tiles
-	local paletteIndex = gfxLayer3.palettes:keys():sort()[1] or 0
-	local palette = makePalette(game.mapPalettes + paletteIndex, 4, 16*8)
-
-	local size = vec2i(16, 16)
-	local img = Image(16 * size.x, 16 * size.y, 1, 'uint8_t'):clear()
-	local tile16x16 = 0
-	for j=0,size.y-1 do
-		for i=0,size.x-1 do
-			layer3drawtile16x16(
-				img,
-				bit.lshift(i, 4),
-				bit.lshift(j, 4),
-				tile16x16,
-				gfxLayer3Index,
-				palette
-			)
-			tile16x16 = tile16x16 + 1
+		local size = vec2i(16, 16)
+		local img = Image(16 * size.x, 16 * size.y, 1, 'uint8_t'):clear()
+		local tile16x16 = 0
+		for j=0,size.y-1 do
+			for i=0,size.x-1 do
+				layer3drawtile16x16(
+					img,
+					bit.lshift(i, 4),
+					bit.lshift(j, 4),
+					tile16x16,
+					gfxLayer3.data,
+					palette
+				)
+				tile16x16 = tile16x16 + 1
+			end
 		end
+		img.palette = palette
+		img:save((maptilespath/('tilegfx2bpp_'..gfxLayer3Index..'.png')).path)
 	end
-	img.palette = palette
-	img:save((maptilespath/('tilegfx2bpp_'..gfxLayer3Index..'.png')).path)
 end
 
 
@@ -951,10 +1029,5 @@ for i=0,0xff do
 end
 print()
 
-
-local WoBLayout = decompress0x800(
-	ffi.cast('uint8_t*', game.WoBLayoutCompressed),
-	ffi.sizeof(game.WoBLayoutCompressed)
-)
 
 end
