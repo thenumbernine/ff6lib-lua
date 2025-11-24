@@ -761,12 +761,12 @@ for mapIndex=0,countof(game.maps)-1 do
 	or mapIndex == 1
 	then
 		local tilemap = Image(layer1Size.x, layer1Size.y, 3, 'uint8_t'):clear()
-		local dst = img.buffer
+		local dst = tilemap.buffer
 		local src = ffi.cast('uint8_t*', layout1Data)
 		for y=0,layer1Size.y-1 do
 			for x=0,layer1Size.x-1 do
 				dst[0] = src[0]
-				dst = dst + img.channels
+				dst = dst + tilemap.channels
 				src = src + 1
 			end
 		end
