@@ -7,7 +7,6 @@ problems remaining:
 - map 61 figaro engine has tile glitches (and in everything's ff6tool too)
 - map 92 south figaro cave behind turtle has tile glitches (and in everything's ff6tool too)
 - map 103 (and in everything's ff6tool)
-- map 130 phantom forest has glitches ... looks like a layer-3 hflip/vflip issue ...
 --]]
 local ffi = require 'ffi'
 local path = require 'ext.path'
@@ -25,20 +24,11 @@ local tileHeight = require 'graphics'.tileHeight
 local readTile = require 'graphics'.readTile
 local drawTile = require 'graphics'.drawTile
 local drawTileLinear = require 'graphics'.drawTileLinear
-local decompress = require 'decompress'.decompress
-local decompress0x800 = require 'decompress'.decompress0x800
+local decompress0x800 = require 'decompress'
 
 -- util? ext.ffi or something?
 local function countof(array)
-	--[[ doesn't work on prims:
-	return ffi.sizeof(array) / ffi.sizeof(ffi.typeof(array[0]))
-	--]]
-	--[[ works on prims, doesn't work on structs:
-	return ffi.sizeof(array) / ffi.alignof(array, 0)
-	--]]
-	-- [[ works on both:
 	return ffi.sizeof(array) / (ffi.cast('uint8_t*', array+1) - ffi.cast('uint8_t*', array+0))
-	--]]
 end
 
 return function(rom, game, romsize)
@@ -471,7 +461,9 @@ local worldInfos = table{
 	print(gfxstr:hexdump())
 	local tilesetdata = gfxstr
 	local gfxdata = ffi.cast('uint8_t*', gfxstr) + 0x400
-	
+
+	local tilePropsData = op.safeindex(game, prefix..'TileProps')
+
 	-- [[ while we're here ...
 	if palette then
 		local img = Image(256, 256, 1, 'uint8_t'):clear()
@@ -494,6 +486,7 @@ local worldInfos = table{
 		layoutdata = ffi.cast('uint8_t*', layoutstr),
 		layoutSize = i == 3 and vec2i(128, 128) or vec2i(256, 256),
 		palette = palette,
+		tilePropsData = tilePropsData,
 	}
 end)
 
@@ -575,6 +568,8 @@ for mapIndex=0,countof(game.maps)-1 do
 		print(' map has invalid palette!')
 	end
 
+	local tilePropsData = op.safeindex(mapTileProps, tonumber(map.tileProps), 'data')
+
 	-- [[ special maps
 	if mapIndex >= 0 
 	and mapIndex < #worldInfos
@@ -593,6 +588,8 @@ for mapIndex=0,countof(game.maps)-1 do
 		tilesetDatas[1] = worldInfo.tilesetdata
 
 		palette = worldInfo.palette or palette
+
+		tilePropsData = worldInfo.tilePropsData
 
 		gfxs[2] = nil
 		gfxs[3] = nil
@@ -718,49 +715,11 @@ for mapIndex=0,countof(game.maps)-1 do
 	img.palette = palette
 	img:save((mappath/('map'..mapIndex..'.png')).path)
 
-	--[[
-	-- This draws all the 8x8 tiles that this map has access to via gfx1/2/3/4
-	-- It is unique to the map, however there are a lot of them.
-	-- So I'll just draw mapTileGraphics per palette used.
-	--
-	-- The tile8x8 will be unique per gfx-combination (and palette)
-	-- save all map tile graphics separately
-	-- hmm why 40?  16x16 for gfx1, 16x16 for gfx2, 16x8 for gfx3 ... gfx4?
-	-- ... gfx1 uses 256 values, gfx2,3,4 use 128 values each, total 640 values
-	-- 10 bits total ... the rest up to 1024 are other stuff like animation, menu, etc.
-	do
-		-- no need to save layer's 8x8 tiles since all its 8x8 tiles are 1:1 in the layer-3 16x16-tile output
-		local size = vec2i(16,40)
-		local img = Image(size.x * tileWidth, size.y * tileHeight, 1, 'uint8_t'):clear()
-		local tile8x8 = 0
-		for j=0,size.y-1 do
-			for i=0,size.x-1 do
-				local tileptr, bpp = layer1and2tile8x8toptr(tile8x8, gfxDatas)
-				if tileptr then
-					readTile(
-						img,
-						bit.lshift(i, 3),
-						bit.lshift(j, 3),
-						tileptr,
-						bpp
-					)
-				end
-				tile8x8 = tile8x8 + 1
-			end
-		end
-		img.palette = palette
-		img:save((mappath/('tile8x8_'..mapIndex..'_1and2.png')).path)
-	end
-	--]]
 
-
-	-- tile properties while we're here
-	local tileProps = mapTileProps[tonumber(map.tileProps)]
-	if tileProps then
+	-- draw tile properties while we're here
+	if tilePropsData then
 		if not layout1Data then
 			print('!!! got tile properties without layer 1 layout data !!!')
-		elseif not tileProps.data then
-			print('!!! got tileProps but with no data !!!')
 		else
 			-- each is 0x200 in size ... draw it I guess
 			local img = Image(
@@ -771,18 +730,14 @@ for mapIndex=0,countof(game.maps)-1 do
 			):clear()
 
 			local layoutptr = ffi.cast('uint8_t*', layout1Data)
-			local tilePropsArray = ffi.cast('mapTileProps_t*', tileProps.data)
+			local tilePropsPtr = ffi.cast('mapTileProps_t*', tilePropsData)
 			for dstY=0,layer1Size.y-1 do
 				for dstX=0,layer1Size.x-1 do
-					local props = tilePropsArray + layoutptr[0]
+					local props = tilePropsPtr + layoutptr[0]
 					for py=0,15 do
 						for px=0,15 do
-							local pix = img.buffer +
-								px + 16 * dstX + img.width * (py + 16 * dstY)
-
-							pix[0] = ffi.cast('uint8_t*', props)[
-								bit.band(px + py, 1)
-							]
+							local pix = img.buffer + px + 16 * dstX + img.width * (py + 16 * dstY)
+							pix[0] = ffi.cast('uint8_t*', props)[bit.band(px + py, 1)]
 						end
 					end
 					layoutptr = layoutptr + 1

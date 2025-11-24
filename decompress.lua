@@ -1,5 +1,6 @@
 local ffi = require 'ffi'
 local vector = require 'ffi.cpp.vector-lua'
+
 -- decompress one block of 2048 bytes
 local function decompress0x800(ptr, len)
 	ptr = ffi.cast('uint8_t*', ptr)
@@ -45,18 +46,4 @@ local function decompress0x800(ptr, len)
 	return out:dataToStr(), ptr
 end
 
-local function decompress(ptr, len)
-	local endptr = ptr + len
-	local s = table()
-	while ptr < endptr do
-		local row
-		row, ptr = decompress0x800(ptr, endptr - ptr)
-		s:insert(row)
-	end
-	return s:concat()
-end
-
-return {
-	decompress = decompress,
-	decompress0x800 = decompress0x800,
-}
+return decompress0x800
