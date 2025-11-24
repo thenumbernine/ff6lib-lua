@@ -765,7 +765,10 @@ for mapIndex=0,countof(game.maps)-1 do
 		local src = ffi.cast('uint8_t*', layout1Data)
 		for y=0,layer1Size.y-1 do
 			for x=0,layer1Size.x-1 do
-				dst[0] = src[0]
+				ffi.cast('uint16_t*', dst)[0] = bit.bor(
+					bit.lshift(bit.band(0xf, src[0]), 1),
+					bit.lshift(bit.band(0xf0, src[0]), 2)
+				)
 				dst = dst + tilemap.channels
 				src = src + 1
 			end
