@@ -2160,12 +2160,12 @@ local game_t = ff6struct{
 		{monsterSpells = 'spellref4_t['..numMonsters..']'},						-- 0x0f3d00 - 0x0f4300
 		{monsterSketches = 'spellref2_t['..numMonsters..']'},					-- 0x0f4300 - 0x0f4600
 		{monsterRages = 'spellref2_t['..numRages..']'},							-- 0x0f4600 - 0x0f4800
-		{monsterRandomBattleGroups = 'monsterRandomBattleGroup_t[0x100]'},		-- 0x0f4800 - 0x0f5000
-		{monsterEventBattleGroups = 'monsterEventBattleGroup_t[0x100]'},		-- 0x0f5000 - 0x0f5400
-		{worldMapBattleGroups = 'monsterRandomBattleGroupRef_t[0x80]'},			-- 0x0f5400 - 0x0f5600
-		{mapBattleGroups = 'uint8_t[0x200]'},									-- 0x0f5600 - 0x0f5800 = index into monsterRandomBattleGroups[]
-		{worldBattleProbability = 'uint8_t[0x80]'},								-- 0x0f5800 - 0x0f5880 = 2 bits per group ... idk what it correlates with? the 512?
-		{mapBattleProbability = 'uint8_t[0x80]'},								-- 0x0f5880 - 0x0f5900 = 2 bits per group ... same question
+		{monsterRandomBattles = 'monsterRandomBattleGroup_t[0x100]'},			-- 0x0f4800 - 0x0f5000
+		{monsterEventBattles = 'monsterEventBattleGroup_t[0x100]'},				-- 0x0f5000 - 0x0f5400
+		{worldMapBattleGroups = 'monsterRandomBattleGroupRef_t[0x80]'},			-- 0x0f5400 - 0x0f5600 = index into monsterRandomBattles[]
+		{mapBattleGroups = 'monsterRandomBattleGroupRef_t[0x80]'},				-- 0x0f5600 - 0x0f5800 = index into monsterRandomBattles[]
+		{worldBattleProbability = 'uint8_t[0x80]'},								-- 0x0f5800 - 0x0f5880 = 2 bits used
+		{mapBattleProbability = 'uint8_t[0x80]'},								-- 0x0f5880 - 0x0f5900 = 2 bits used
 		{formation2s = 'formation2_t['..numFormations..']'},					-- 0x0f5900 - 0x0f6200
 		{formations = 'formation_t['..numFormations..']'},						-- 0x0f6200 - 0x0f83c0
 

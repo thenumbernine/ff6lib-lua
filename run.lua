@@ -260,12 +260,11 @@ end
 print()
 
 for i=0,0xff do
-	print('monster random battle group 0x'..i:hex())
+	print('monster random battle 0x'..i:hex())
 	for j=0,3 do
-		local formationEntry = game.monsterRandomBattleGroups[i][j]
-		print('\t'..formationEntry)
-		print('\t\t'..
-			range(6):mapi(function(k)
+		local formationEntry = game.monsterRandomBattles[i][j]
+		print('\t'..formationEntry..' '
+			..range(6):mapi(function(k)
 				if formationEntry.formationIndex >= game.numFormations then
 					return '(formationIndex='..formationEntry.formationIndex..')'
 				end
@@ -286,6 +285,29 @@ for i=0,0xff do
 	end
 end
 print()
+
+local terrainType = {'grass', 'forest', 'desert', 'dirt'}
+for i=0,0x7f do
+	print('world map battle group #0x'..i:hex())
+	for j=0,3 do
+		print('\t'..terrainType[j+1]..' = monster random battle 0x'..game.worldMapBattleGroups[i][j]:hex())
+	end
+	-- is it probability bits per group?
+	print('\tprobability '..game.worldBattleProbability[i]:bin()..'b')
+end
+print()
+
+for i=0,0x7f do
+	print('map battle group #0x'..i:hex())
+	for j=0,3 do
+		print('\t'..terrainType[j+1]..' = monster random battle 0x'..game.mapBattleGroups[i][j]:hex())
+	end
+	-- is it probability bits per group?
+	print('\tprobability '..game.mapBattleProbability[i]:bin()..'b')
+end
+print()
+
+
 
 -- [[ get some statistics on our structure fields
 local mins = {}
