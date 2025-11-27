@@ -1952,9 +1952,9 @@ local WorldTileProps_t = ff6struct{
 	name = 'WorldTileProps_t',
 	fields = {
 		{blocksChocobo = 'uint16_t:1'},
-		{blocksAirship = 'uint16_t:1'},
+		{airshipCantLand = 'uint16_t:1'},
 		{airshipShadow = 'uint16_t:2'},	-- aka elevation?
-		{blocksMovement = 'uint16_t:1'},
+		{blocksWalking = 'uint16_t:1'},
 		{bottomCharTransparent = 'uint16_t:1'},
 		{enemyEncounters = 'uint16_t:1'},
 		-- now I can't tell from the ascii art, but its either 1 unused and 3 for background, or its 4 for background ...
@@ -1963,8 +1963,10 @@ local WorldTileProps_t = ff6struct{
 		-- https://www.spriters-resource.com/snes/ff6/asset/54685/
 		-- so ... 6 bits?
 		{battleBackground = 'uint16_t:4'},
-		-- hmm ...
-		{unused11 = 'uint16_t:5'},
+		{unknown0_11 = 'uint16_t:2'},
+		{veldt = 'uint16_t:1'},
+		{phoenixCave = 'uint16_t:1'},
+		{kefkasTower = 'uint16_t:1'},
 	},
 }
 assert.eq(ffi.sizeof'WorldTileProps_t', 2)
