@@ -259,6 +259,34 @@ for i=0,game.numFormationSizes-1 do
 end
 print()
 
+for i=0,0xff do
+	print('monster random battle group 0x'..i:hex())
+	for j=0,3 do
+		local formationEntry = game.monsterRandomBattleGroups[i][j]
+		print('\t'..formationEntry)
+		print('\t\t'..
+			range(6):mapi(function(k)
+				if formationEntry.formationIndex >= game.numFormations then
+					return '(formationIndex='..formationEntry.formationIndex..')'
+				end
+
+				local formation = game.formations + formationEntry.formationIndex
+
+				if formation['active'..k] == 0 then return '-' end
+
+				local monsterIndex = formation:getMonsterIndex(k)
+
+				if monsterIndex >= game.numMonsters then
+					return '(monsterIndex='..monsterIndex..')'
+				end
+
+				return tostring(game.monsterNames[monsterIndex])
+			end):concat', '
+		)
+	end
+end
+print()
+
 -- [[ get some statistics on our structure fields
 local mins = {}
 local maxs = {}

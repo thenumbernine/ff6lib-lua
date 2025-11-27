@@ -878,6 +878,15 @@ local formation_t = ff6struct{
 	},
 	metatable = function(mt)
 		local oldFieldToString = mt.fieldToString
+
+		-- index 1-6
+		mt.getMonsterIndex = function(self, i)
+			return bit.bor(
+				self['monster'..i],
+				bit.lshift(self['monster'..i..'hi'], 8)
+			)
+		end
+
 		mt.fieldToString = function(self, key, ctype)
 			if key:match'^monster%dhi$' then return nil end
 			if key:match'^active%d$' then return nil end
@@ -1004,7 +1013,7 @@ assert.eq(ffi.sizeof'formationSize_t', 4)
 ff6struct{
 	name = 'monsterRandomBattleEntry_t',
 	fields = {
-		{battle0 = 'uint16_t:10'},
+		{formationIndex = 'uint16_t:10'},
 		{unknown_0_10 = 'uint16_t:1'},
 		{chooseFromNextFour = 'uint16_t:1'},
 		{unknown_0_12 = 'uint16_t:4'},
@@ -2164,9 +2173,7 @@ local game_t = ff6struct{
 
 		{monsterScripts = 'uint8_t['..(-(0x0f8700 - 0x0fc050))..']'},			-- 0x0f8700 - 0x0fc050
 		{monsterNames = 'monsterName_t['..numMonsters..']'},					-- 0x0fc050 - 0x0fcf50
-
-		{padding_0fcf50  = 'uint8_t[384]'},										-- 0x0fcf50 - 0x0fd0d0
-
+		{monsterNameThing = 'uint8_t['..numMonsters..']'},						-- 0x0fcf50 - 0x0fd0d0
 		{monsterAttackNames = 'monsterName_t['..numMonsters..']'},				-- 0x0fd0d0 - 0x0fdfd0
 
 		{padding_0fdfd0 = 'uint8_t['..(-(0x0fdfd0 - 0x0fdfe0))..']'},			-- 0x0fdfd0 - 0x0fdfe0
