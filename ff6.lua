@@ -1001,6 +1001,26 @@ local formationSize_t = ff6struct{
 }
 assert.eq(ffi.sizeof'formationSize_t', 4)
 
+ff6struct{
+	name = 'monsterRandomBattleEntry_t',
+	fields = {
+		{battle0 = 'uint16_t:10'},
+		{unknown_0_10 = 'uint16_t:1'},
+		{chooseFromNextFour = 'uint16_t:1'},
+		{unknown_0_12 = 'uint16_t:4'},
+	},
+}
+assert.eq(ffi.sizeof'monsterRandomBattleEntry_t', 2)
+
+ffi.cdef[[
+typedef monsterRandomBattleEntry_t monsterRandomBattleGroup_t[4];
+typedef monsterRandomBattleEntry_t monsterEventBattleGroup_t[2];
+]]
+
+ffi.cdef[[
+typedef uint8_t monsterRandomBattleGroupRef_t[4];
+]]
+
 local monsterPalettesAddr = 0x127820
 local numMonsterPalettes = 0x300
 -- ... of type palette8_t
@@ -2131,14 +2151,18 @@ local game_t = ff6struct{
 		{monsterSpells = 'spellref4_t['..numMonsters..']'},						-- 0x0f3d00 - 0x0f4300
 		{monsterSketches = 'spellref2_t['..numMonsters..']'},					-- 0x0f4300 - 0x0f4600
 		{monsterRages = 'spellref2_t['..numRages..']'},							-- 0x0f4600 - 0x0f4800
-
-		{padding_0f4800 = 'uint8_t['..(-(0x0f4800 - 0x0f5900))..']'},			-- 0x0f4800 - 0x0f5900
-
+		{monsterRandomBattleGroups = 'monsterRandomBattleGroup_t[0x100]'},		-- 0x0f4800 - 0x0f5000
+		{monsterEventBattleGroups = 'monsterEventBattleGroup_t[0x100]'},		-- 0x0f5000 - 0x0f5400
+		{worldMapBattleGroups = 'monsterRandomBattleGroupRef_t[0x80]'},			-- 0x0f5400 - 0x0f5600
+		{mapBattleGroups = 'uint8_t[0x200]'},									-- 0x0f5600 - 0x0f5800 = index into monsterRandomBattleGroups[]
+		{worldBattleProbability = 'uint8_t[0x80]'},								-- 0x0f5800 - 0x0f5880 = 2 bits per group ... idk what it correlates with? the 512?
+		{mapBattleProbability = 'uint8_t[0x80]'},								-- 0x0f5880 - 0x0f5900 = 2 bits per group ... same question
 		{formation2s = 'formation2_t['..numFormations..']'},					-- 0x0f5900 - 0x0f6200
 		{formations = 'formation_t['..numFormations..']'},						-- 0x0f6200 - 0x0f83c0
 
-		{padding_0f83c0 = 'uint8_t['..(-(0x0f83c0 - 0x0fc050))..']'},			-- 0x0f83c0 - 0x0fc050
+		{padding_0f83c0 = 'uint8_t['..(-(0x0f83c0 - 0x0f8700))..']'},			-- 0x0f83c0 - 0x0f8700
 
+		{monsterScripts = 'uint8_t['..(-(0x0f8700 - 0x0fc050))..']'},			-- 0x0f8700 - 0x0fc050
 		{monsterNames = 'monsterName_t['..numMonsters..']'},					-- 0x0fc050 - 0x0fcf50
 
 		{padding_0fcf50  = 'uint8_t[384]'},										-- 0x0fcf50 - 0x0fd0d0

@@ -732,9 +732,10 @@ for mapIndex=0,countof(game.maps)-1 do
 			-- RGB (16 bits used)
 			local tileLayoutImg = Image(layer1Size.x, layer1Size.y, 3, 'uint8_t')
 
+--assert.eq(ffi.sizeof'mapTileProps_t', 2)	-- make sure writing uint16_t's works
+--local tilePropsMap = ffi.new('uint16_t[?]', layer1Size.x * layer1Size.y)
 			local layoutptr = ffi.cast('uint8_t*', layout1Data)
-			local tilePropsPtr = ffi.cast('mapTileProps_t*', tilePropsData)
-			assert.eq(ffi.sizeof'mapTileProps_t', 2)	-- make sure writing uint16_t's works
+			local tilePropsPtr = ffi.cast('uint16_t*', tilePropsData)
 			for dstY=0,layer1Size.y-1 do
 				for dstX=0,layer1Size.x-1 do
 					local props = tilePropsPtr + layoutptr[0]
@@ -749,11 +750,17 @@ for mapIndex=0,countof(game.maps)-1 do
 
 					-- write to the 1:1 RGB image
 					local pix = tileLayoutImg.buffer + 3 * (dstX + tileLayoutImg.width * dstY)
-					ffi.cast('uint16_t*', pix)[0] = ffi.cast('uint16_t*', props)[0]
+					ffi.cast('uint16_t*', pix)[0] = props[0]
+--tilePropsMap[dstX + tileLayoutImg.width * dstY] = props[0]
 
 					layoutptr = layoutptr + 1
 				end
 			end
+
+--if mapIndex == 0 or mapIndex == 1 then
+--	print('tile props:')
+--	print(ffi.string(tilePropsMap, ffi.sizeof(tilePropsMap)):hexdump())
+--end
 
 			tileLayoutVisImg.palette = range(256):mapi(function(i)
 				return {
