@@ -24,7 +24,7 @@ local tileHeight = require 'graphics'.tileHeight
 local readTile = require 'graphics'.readTile
 local drawTile = require 'graphics'.drawTile
 local drawTileLinear = require 'graphics'.drawTileLinear
-local decompress0x800 = require 'decompress'
+local decompress = require 'decompress'
 
 -- util? ext.ffi or something?
 local function countof(array)
@@ -42,7 +42,7 @@ for i=0,countof(game.mapLayoutOffsets)-1 do
 	local data
 	if offset ~= 0xffffff then
 		addr = offset + ffi.offsetof('game_t', 'mapLayoutsCompressed')
-		data = decompress0x800(rom + addr, ffi.sizeof(game.mapLayoutsCompressed))
+		data = decompress(rom + addr, ffi.sizeof(game.mapLayoutsCompressed))
 		mapLayouts[i] = {
 			index = i,
 			offset = offset,
@@ -65,7 +65,7 @@ for i=0,countof(game.mapTilePropsOfs)-1 do
 	local data
 	if offset ~= 0xffff then
 		addr = offset + ffi.offsetof('game_t', 'mapTilePropsCompressed')
-		data = decompress0x800(rom + addr, ffi.sizeof(game.mapTilePropsCompressed))
+		data = decompress(rom + addr, ffi.sizeof(game.mapTilePropsCompressed))
 		mapTileProps[i] = {
 			index = i,
 			offset = offset,
@@ -95,7 +95,7 @@ for i=0,countof(game.mapTilesetOffsets)-1 do
 	local data
 	if offset ~= 0xffffff then
 		addr = offset + ffi.offsetof('game_t', 'mapTilesetsCompressed')
-		data = decompress0x800(rom + addr, ffi.sizeof(game.mapTilesetOffsets))
+		data = decompress(rom + addr, ffi.sizeof(game.mapTilesetOffsets))
 		mapTilesets[i] = {
 			index = i,
 			offset = offset,
@@ -178,7 +178,7 @@ local mapTileGraphicsLayer3 = table()	--0-based
 for i=0,countof(game.mapTileGraphicsLayer3Offsets)-1 do
 	local offset = game.mapTileGraphicsLayer3Offsets[i]:value()
 	local addr = offset + ffi.offsetof('game_t', 'mapTileGraphicsLayer3')
-	local data = decompress0x800(rom + addr, ffi.sizeof(game.mapTileGraphicsLayer3))
+	local data = decompress(rom + addr, ffi.sizeof(game.mapTileGraphicsLayer3))
 	mapTileGraphicsLayer3[i] = {
 		index = i,
 		offset = offset,
@@ -404,7 +404,7 @@ local function layer1worlddrawtile16x16(img, x, y, tile16x16, tilesetData, gfxDa
 				bit.lshift(yofs, 1),
 				bit.lshift(tile16x16, 2)
 			)]
-			
+
 			local bpp = 4
 			local ofs = tile8x8 * bit.lshift(bpp, 3)
 			assert.ge(ofs, 0)
@@ -437,12 +437,12 @@ local worldInfos = table{
 	'SerpentTrench',	-- gfxstr is 0x2480, layoutstr is 0x4000
 }:mapi(function(prefix, i)
 	local gfxdatacompressed = game[prefix..'GfxDataCompressed']
-	local gfxstr = decompress0x800(
+	local gfxstr = decompress(
 		ffi.cast('uint8_t*', gfxdatacompressed),
 		ffi.sizeof(gfxdatacompressed)
 	)
 	local layoutcompressed = game[prefix..'LayoutCompressed']
-	local layoutstr = decompress0x800(
+	local layoutstr = decompress(
 		ffi.cast('uint8_t*', layoutcompressed),
 		ffi.sizeof(layoutcompressed)
 	)
@@ -571,7 +571,7 @@ for mapIndex=0,countof(game.maps)-1 do
 	local tilePropsData = op.safeindex(mapTileProps, tonumber(map.tileProps), 'data')
 
 	-- [[ special maps
-	if mapIndex >= 0 
+	if mapIndex >= 0
 	and mapIndex < #worldInfos
 	then
 		local worldInfo = worldInfos[mapIndex+1]
@@ -722,29 +722,40 @@ for mapIndex=0,countof(game.maps)-1 do
 			print('!!! got tile properties without layer 1 layout data !!!')
 		else
 			-- each is 0x200 in size ... draw it I guess
-			local img = Image(
+			local tileLayoutVisImg = Image(
 				bit.lshift(layer1Size.x, 4),
 				bit.lshift(layer1Size.y, 4),
 				1,
 				'uint8_t'
 			):clear()
 
+			-- RGB (16 bits used)
+			local tileLayoutImg = Image(layer1Size.x, layer1Size.y, 3, 'uint8_t')
+
 			local layoutptr = ffi.cast('uint8_t*', layout1Data)
 			local tilePropsPtr = ffi.cast('mapTileProps_t*', tilePropsData)
+			assert.eq(ffi.sizeof'mapTileProps_t', 2)	-- make sure writing uint16_t's works
 			for dstY=0,layer1Size.y-1 do
 				for dstX=0,layer1Size.x-1 do
 					local props = tilePropsPtr + layoutptr[0]
+
+					-- write to the 16:1 8bppIndexed image
 					for py=0,15 do
 						for px=0,15 do
-							local pix = img.buffer + px + 16 * dstX + img.width * (py + 16 * dstY)
+							local pix = tileLayoutVisImg.buffer + px + 16 * dstX + tileLayoutVisImg.width * (py + 16 * dstY)
 							pix[0] = ffi.cast('uint8_t*', props)[bit.band(px + py, 1)]
 						end
 					end
+
+					-- write to the 1:1 RGB image
+					local pix = tileLayoutImg.buffer + 3 * (dstX + tileLayoutImg.width * dstY)
+					ffi.cast('uint16_t*', pix)[0] = ffi.cast('uint16_t*', props)[0]
+
 					layoutptr = layoutptr + 1
 				end
 			end
 
-			img.palette = range(256):mapi(function(i)
+			tileLayoutVisImg.palette = range(256):mapi(function(i)
 				return {
 					math.random(0,255),
 					math.random(0,255),
@@ -752,11 +763,13 @@ for mapIndex=0,countof(game.maps)-1 do
 					255
 				}
 			end)
-			img:save((mappath/('tileprops'..mapIndex..'.png')).path)
+
+			tileLayoutVisImg:save((mappath/('maplayoutviz'..mapIndex..'.png')).path)
+			tileLayoutImg:save((mappath/('maplayout'..mapIndex..'.png')).path)
 		end
 	end
 
-	-- [[ write out maps 0 and 1 as voxelmaps
+	-- [[ write out maps 0 and 1 as RGB (16 bits used) tilemaps
 	if mapIndex == 0
 	or mapIndex == 1
 	then
