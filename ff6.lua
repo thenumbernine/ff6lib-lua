@@ -2162,9 +2162,9 @@ local game_t = ff6struct{
 		{monsterRages = 'spellref2_t['..numRages..']'},							-- 0x0f4600 - 0x0f4800
 		{monsterRandomBattles = 'monsterRandomBattleGroup_t[0x100]'},			-- 0x0f4800 - 0x0f5000
 		{monsterEventBattles = 'monsterEventBattleGroup_t[0x100]'},				-- 0x0f5000 - 0x0f5400
-		{worldMapBattleGroups = 'monsterRandomBattleGroupRef_t[0x80]'},			-- 0x0f5400 - 0x0f5600 = index into monsterRandomBattles[]
+		{worldMapBattleGroups = 'monsterRandomBattleGroupRef_t[0x80]'},			-- 0x0f5400 - 0x0f5600 = index into monsterRandomBattles[] ... 64 sectors (32x32 chunks of 256x256 world map) per WoB, 64 for WoR
 		{mapBattleGroups = 'monsterRandomBattleGroupRef_t[0x80]'},				-- 0x0f5600 - 0x0f5800 = index into monsterRandomBattles[]
-		{worldBattleProbability = 'uint8_t[0x80]'},								-- 0x0f5800 - 0x0f5880 = 2 bits used
+		{worldBattleProbability = 'uint8_t[0x80]'},								-- 0x0f5800 - 0x0f5880 = 2 bits used ... 64 sectors per WoB, 64 per WoR ... 8 items per sector, 2bpp each ( https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:rom_map )
 		{mapBattleProbability = 'uint8_t[0x80]'},								-- 0x0f5880 - 0x0f5900 = 2 bits used
 		{formation2s = 'formation2_t['..numFormations..']'},					-- 0x0f5900 - 0x0f6200
 		{formations = 'formation_t['..numFormations..']'},						-- 0x0f6200 - 0x0f83c0
