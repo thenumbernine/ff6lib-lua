@@ -1992,22 +1992,23 @@ assert.eq(ffi.sizeof'mapEventTrigger_t', 5)
 local WorldTileProps_t = ff6struct{
 	name = 'WorldTileProps_t',
 	fields = {
-		{blocksChocobo = 'uint16_t:1'},
-		{airshipCantLand = 'uint16_t:1'},
-		{airshipShadow = 'uint16_t:2'},	-- aka elevation?
-		{blocksWalking = 'uint16_t:1'},
-		{forest = 'uint16_t:1'},
-		{enemyEncounters = 'uint16_t:1'},
+		{blocksChocobo = 'uint16_t:1'},		-- 0.0
+		{airshipCantLand = 'uint16_t:1'},	-- 0.1
+		{airshipShadow = 'uint16_t:2'},		-- 0.2-3 ... aka elevation?
+		{blocksWalking = 'uint16_t:1'},		-- 0.4
+		{forest = 'uint16_t:1'},			-- 0.5
+		{enemyEncounters = 'uint16_t:1'},	-- 0.6
+		{unknown_0_7 = 'uint16_t:1'},		-- 0.7
 		-- now I can't tell from the ascii art, but its either 1 unused and 3 for background, or its 4 for background ...
 		-- https://web.archive.org/web/20250429144337/https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:fmt:world_map_tile_properties
 		-- there's 56 total
 		-- https://www.spriters-resource.com/snes/ff6/asset/54685/
 		-- so ... 6 bits?
-		{battleBackground = 'uint16_t:4'},
-		{unknown0_11 = 'uint16_t:2'},
-		{veldt = 'uint16_t:1'},
-		{phoenixCave = 'uint16_t:1'},
-		{kefkasTower = 'uint16_t:1'},
+		{battleBackground = 'uint16_t:4'},	-- 1.0-1.3 aka 0.8-0.11
+		{unknown0_12 = 'uint16_t:1'},		-- 1.4 aka 0.12
+		{veldt = 'uint16_t:1'},				-- 1.5 aka 0.13
+		{phoenixCave = 'uint16_t:1'},		-- 1.6 aka 0.14
+		{kefkasTower = 'uint16_t:1'},		-- 1.7 aka 0.15
 	},
 }
 assert.eq(ffi.sizeof'WorldTileProps_t', 2)
