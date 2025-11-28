@@ -1,10 +1,11 @@
+local ffi = require 'ffi'
 local table = require 'ext.table'
 local class = require 'ext.class'
 local assert = require 'ext.assert'
-local ffi = require 'ffi'
 local struct = require 'struct'
-local ff6struct = require 'ff6struct'
 local createVec = require 'vec-ffi.create_vec'
+local ff6struct = require 'ff6lib.ff6struct'
+local reftype = require 'ff6lib.reftype'
 
 -- default output to hex
 local fieldsToHex = {
@@ -177,7 +178,6 @@ end
 
 
 
-local reftype = require 'reftype'
 
 local function gamestrtype(args)
 	local name = assert(args.name)
@@ -992,6 +992,7 @@ local formation2_t = ff6struct{
 		end
 	end,
 }
+assert.eq(ffi.sizeof'formation2_t', 4)
 
 local numFormationSizeOffsets = 13
 
@@ -1029,6 +1030,17 @@ typedef monsterRandomBattleEntry_t monsterEventBattleGroup_t[2];
 ffi.cdef[[
 typedef uint8_t monsterRandomBattleGroupRef_t[4];
 ]]
+
+ff6struct{
+	name = 'WorldSectorBattles_t',
+	fields = {
+		-- each is a lookup into monsterRandomBattles[]
+		{grass = 'uint8_t'},
+		{forest = 'uint8_t'},
+		{desert = 'uint8_t'},
+		{dirt = 'uint8_t'},
+	},
+}
 
 local monsterPalettesAddr = 0x127820
 local numMonsterPalettes = 0x300
@@ -1984,7 +1996,7 @@ local WorldTileProps_t = ff6struct{
 		{airshipCantLand = 'uint16_t:1'},
 		{airshipShadow = 'uint16_t:2'},	-- aka elevation?
 		{blocksWalking = 'uint16_t:1'},
-		{bottomCharTransparent = 'uint16_t:1'},
+		{forest = 'uint16_t:1'},
 		{enemyEncounters = 'uint16_t:1'},
 		-- now I can't tell from the ascii art, but its either 1 unused and 3 for background, or its 4 for background ...
 		-- https://web.archive.org/web/20250429144337/https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:fmt:world_map_tile_properties
@@ -2162,8 +2174,8 @@ local game_t = ff6struct{
 		{monsterRages = 'spellref2_t['..numRages..']'},							-- 0x0f4600 - 0x0f4800
 		{monsterRandomBattles = 'monsterRandomBattleGroup_t[0x100]'},			-- 0x0f4800 - 0x0f5000
 		{monsterEventBattles = 'monsterEventBattleGroup_t[0x100]'},				-- 0x0f5000 - 0x0f5400
-		{worldMapBattleGroups = 'monsterRandomBattleGroupRef_t[0x80]'},			-- 0x0f5400 - 0x0f5600 = index into monsterRandomBattles[] ... 64 sectors (32x32 chunks of 256x256 world map) per WoB, 64 for WoR
-		{mapBattleGroups = 'monsterRandomBattleGroupRef_t[0x80]'},				-- 0x0f5600 - 0x0f5800 = index into monsterRandomBattles[]
+		{worldMapBattleGroups = 'WorldSectorBattles_t[0x80]'},					-- 0x0f5400 - 0x0f5600 = [world][sectorx][sectory]  ... 64 sectors (32x32 chunks of 256x256 world map) per WoB, 64 for WoR
+		{mapBattleGroups = 'WorldSectorBattles_t[0x80]'},						-- 0x0f5600 - 0x0f5800
 		{worldBattleProbability = 'uint8_t[0x80]'},								-- 0x0f5800 - 0x0f5880 = 2 bits used ... 64 sectors per WoB, 64 per WoR ... 8 items per sector, 2bpp each ( https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:rom_map )
 		{mapBattleProbability = 'uint8_t[0x80]'},								-- 0x0f5880 - 0x0f5900 = 2 bits used
 		{formation2s = 'formation2_t['..numFormations..']'},					-- 0x0f5900 - 0x0f6200

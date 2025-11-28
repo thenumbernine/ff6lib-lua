@@ -263,7 +263,8 @@ for i=0,0xff do
 	print('monster random battle 0x'..i:hex())
 	for j=0,3 do
 		local formationEntry = game.monsterRandomBattles[i][j]
-		print('\t'..formationEntry..' '
+		print('\t'
+			--..formationEntry..' '
 			..range(6):mapi(function(k)
 				if formationEntry.formationIndex >= game.numFormations then
 					return '(formationIndex='..formationEntry.formationIndex..')'
@@ -287,16 +288,23 @@ end
 print()
 
 local terrainType = {'grass', 'forest', 'desert', 'dirt'}
+-- first 64 are each 32x32 tile segment in the WoB, next 64 are segments in the WoR
 for i=0,0x7f do
-	print('world map battle group #0x'..i:hex())
-	for j=0,3 do
-		print('\t'..terrainType[j+1]..' = monster random battle 0x'..game.worldMapBattleGroups[i][j]:hex())
-	end
-	-- is it probability bits per group?
+	print('world map battle group #0x'..i:hex()
+		..' x='..bit.band(i, 7)
+		..' y='..bit.band(bit.rshift(i, 3), 7)
+		..' world='..bit.rshift(i, 6)
+	)
+	print('\tmonster random battle', game.worldMapBattleGroups[i])
+
+	-- is it probability bits per group? or for the whole?
 	print('\tprobability '..game.worldBattleProbability[i]:bin()..'b')
 end
 print()
 
+-- wait if this is small map info rather than world map info
+-- then why does it still have 4 entries? how does it pick them?  still by field/forest/desert/dirt?
+--[[
 for i=0,0x7f do
 	print('map battle group #0x'..i:hex())
 	for j=0,3 do
@@ -306,7 +314,7 @@ for i=0,0x7f do
 	print('\tprobability '..game.mapBattleProbability[i]:bin()..'b')
 end
 print()
-
+--]]
 
 
 -- [[ get some statistics on our structure fields
