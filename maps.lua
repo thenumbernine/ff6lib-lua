@@ -444,13 +444,16 @@ local worldInfos = table{
 		ffi.sizeof(layoutcompressed)
 	)
 
-	-- [[
-	local palsrc = op.safeindex(game, prefix..'Palettes')
+	local palsrc
+	if prefix ~= 'SerpentTrench' then
+		palsrc = op.safeindex(game, prefix..'Palettes')
+	else
+		palsrc = decompress(
+			game.SerpentTrenchPalettesCompressed,
+			ffi.sizeof(game.SerpentTrenchPalettesCompressed)
+		)
+	end
 	local palette = palsrc and makePalette(palsrc, 4, 16*8)
-	--]]
-	--[[
-	local palette = makePalette(game.mapPalettes, 4, 16 * 8)
-	--]]
 
 	print('world', i, prefix)
 	print('	gfxstr', ('0x%x'):format(#gfxstr))
