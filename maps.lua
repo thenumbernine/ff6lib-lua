@@ -17,21 +17,18 @@ local assert = require 'ext.assert'
 local tolua = require 'ext.tolua'
 local vec2i = require 'vec-ffi.vec2i'
 local Image = require 'image'
-local makePalette = require 'graphics'.makePalette
-local makePaletteSets = require 'graphics'.makePaletteSets
-local tileWidth = require 'graphics'.tileWidth
-local tileHeight = require 'graphics'.tileHeight
-local readTile = require 'graphics'.readTile
-local drawTile = require 'graphics'.drawTile
-local drawTileLinear = require 'graphics'.drawTileLinear
-local decompress = require 'decompress'
-
--- util? ext.ffi or something?
-local function countof(array)
-	return ffi.sizeof(array) / (ffi.cast('uint8_t*', array+1) - ffi.cast('uint8_t*', array+0))
-end
+local makePalette = require 'ff6lib.graphics'.makePalette
+local makePaletteSets = require 'ff6lib.graphics'.makePaletteSets
+local tileWidth = require 'ff6lib.graphics'.tileWidth
+local tileHeight = require 'ff6lib.graphics'.tileHeight
+local readTile = require 'ff6lib.graphics'.readTile
+local drawTile = require 'ff6lib.graphics'.drawTile
+local drawTileLinear = require 'ff6lib.graphics'.drawTileLinear
 
 return function(rom, game, romsize)
+
+local countof = game.countof
+local decompress = game.decompress
 
 -- this holds the info of the 16x16 map blocks, interaction with player, etc
 -- cache decompressed data
@@ -59,8 +56,8 @@ for i=0,countof(game.mapLayoutOffsets)-1 do
 end
 
 local mapTileProps = table()	-- 0-based
-for i=0,countof(game.mapTilePropsOfs)-1 do
-	local offset = game.mapTilePropsOfs[i]
+for i=0,countof(game.mapTilePropsOffsets)-1 do
+	local offset = game.mapTilePropsOffsets[i]
 	local addr = 0xffffff
 	local data
 	if offset ~= 0xffff then

@@ -1694,7 +1694,7 @@ local map_t = struct{
 		{name='battleBackground', type='uint8_t:7'},			-- 2.0-6
 		{name='layer3Priority', type='uint8_t:1'},				-- 2.7
 		{name='unknown_3', type='uint8_t'},						-- 3
-		{name='tileProps', type='uint8_t'},						-- 4		mapTilePropsOfs[]
+		{name='tileProps', type='uint8_t'},						-- 4		mapTilePropsOffsets[]
 		{name='attacks', type='uint8_t:7'},						-- 5.0-6
 		{name='enableBattles', type='uint8_t:1'},				-- 5.7
 		{name='windowMask', type='uint8_t:2'},					-- 6.0-1: 0=default, 1=imperial camp, 2=ebot's rock, 3=kefka's tower spotlight
@@ -2281,7 +2281,7 @@ local game_t = ff6struct{
 		{padding_18e800 = 'uint8_t['..(-(0x18e800 - 0x19a800))..']'},			-- 0x18e800 - 0x19a800
 
 		{mapTilePropsCompressed = 'uint8_t['..(-(0x19a800 - 0x19cd10))..']'},	-- 0x19a800 - 0x19cd10 = map tile properties (compressed)
-		{mapTilePropsOfs = 'uint16_t[0x2a]'},									-- 0x19cd10 - 0x19cd60 = offsets to map tile properties (+0x19a800) into mapTilePropsCompressed ... 0x40 but only 0x29 point to valid compressed data
+		{mapTilePropsOffsets = 'uint16_t[0x2a]'},									-- 0x19cd10 - 0x19cd60 = offsets to map tile properties (+0x19a800) into mapTilePropsCompressed ... 0x40 but only 0x29 point to valid compressed data
 		{unused_19cd62 = 'uint16_t[0x16]'},										-- 0x19cd60 - 0x19cd90
 		{mapLayoutOffsets = 'uint24_t[0x160]'},									-- 0x19cd90 - 0x19d1b0 = offsets to map data (352 items), (+0x19d1b0)
 		{mapLayoutsCompressed = 'uint8_t['..(-(0x19d1b0 - 0x1e0000))..']'},		-- 0x19d1b0 - 0x1e0000 = map data (compressed)
@@ -2534,6 +2534,13 @@ obj.gamestr = gamestr
 obj.compstr = compstr
 obj.getSpellName = getSpellName
 obj.getEsperName = getEsperName
+
+-- util? ext.ffi or something?
+obj.countof = function(array)
+	return ffi.sizeof(array) / (ffi.cast('uint8_t*', array+1) - ffi.cast('uint8_t*', array+0))
+end
+
+obj.decompress = require 'ff6lib.decompress'
 
 obj.itemForName = {}
 for i=0,numItems-1 do
