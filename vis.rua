@@ -137,20 +137,20 @@ local worldInfos = table{
 	)
 
 	local palsrc
-	if prefix ~= 'SerpentTrench' then
-		palsrc = op.safeindex(game, prefix..'Palettes')
-	else
+	if i == 3 then	-- serpent trench
 		palsrc = decompress(
 			game.SerpentTrenchPalettesCompressed,
 			ffi.sizeof(game.SerpentTrenchPalettesCompressed)
 		)
+	else
+		palsrc = op.safeindex(game, prefix..'Palettes')
 	end
 	local palette = palsrc and makePalette(palsrc, 4, 16*8)
 
 	local tilesetdata = gfxstr
 	local gfxdata = ffi.cast('uint8_t*', gfxstr) + 0x400
 
-	local tilePropsData = op.safeindex(game, prefix..'TileProps')
+	local tilePropsData = i < 3 and game[prefix..'TileProps']
 
 	return {
 		prefix = prefix,
@@ -159,7 +159,9 @@ local worldInfos = table{
 		gfxdata = gfxdata,	-- 0x400 - 0x2400
 		layoutstr = layoutstr,
 		layoutdata = ffi.cast('uint8_t*', layoutstr),
-		layoutSize = i == 3 and vec2i(128, 128) or vec2i(256, 256),
+		layoutSize = i == 3
+			and vec2i(128, 128)	-- serpent trench
+			or vec2i(256, 256),
 		palette = palette,
 		tilePropsData = tilePropsData,
 	}
@@ -598,10 +600,14 @@ print('updateMapIndex', mapIndex)
 
 					if mapIndex < #worldInfos then
 						if z == 0 and layer == 1 then
-							layer1worlddrawtile16x16(img, x, y, tile16x16, tilesetDatas[layer], gfxDatas[layer])
+							if tilesetDatas[layer] and gfxDatas[layer] then
+								layer1worlddrawtile16x16(img, x, y, tile16x16, tilesetDatas[layer], gfxDatas[layer])
+							end
 						end
 					elseif layer == 3 then
-						layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3.data)
+						if gfxLayer3 and gfxLayer3.data then
+							layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3.data)
+						end
 					else
 						layer1and2drawtile16x16(img, x, y, tile16x16, tilesetDatas[layer], bit.lshift(1, z), gfxDatas)
 					end
