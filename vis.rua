@@ -7,8 +7,8 @@ local GLGeometry = require 'gl.geometry'
 local GLSceneObject = require 'gl.sceneobject'
 local ig = require 'imgui'
 local makePalette = require 'ff6lib.graphics'.makePalette
-local drawTile = require 'ff6lib.graphics'.drawTile
-local drawTileLinear = require 'ff6lib.graphics'.drawTileLinear
+local readTile = require 'ff6lib.graphics'.readTile
+local readTileLinear = require 'ff6lib.graphics'.readTileLinear
 
 local infn = cmdline[2]
 assert(infn, "missing filename")
@@ -222,7 +222,7 @@ local function layer1and2tile8x8toptr(tile8x8, gfxDatas)
 	-- tiles 0x300-0x3ff aren't used by bg1 & bg2
 end
 
-local function layer1and2drawtile16x16(img, x, y, tile16x16, tilesetData, zLevelFlags, gfxDatas, palette)
+local function layer1and2drawtile16x16(img, x, y, tile16x16, tilesetData, zLevelFlags, gfxDatas)
 	if not tilesetData then return end
 	assert.len(tilesetData, 0x800)
 	zLevelFlags = zLevelFlags or 3
@@ -242,15 +242,15 @@ local function layer1and2drawtile16x16(img, x, y, tile16x16, tilesetData, zLevel
 					local highPal = bit.band(7, bit.rshift(tilesetTile, 10))
 					local hFlip8 = bit.band(0x4000, tilesetTile) ~= 0
 					local vFlip8 = bit.band(0x8000, tilesetTile) ~= 0
-					drawTile(img,
+					readTile(
+						img,
 						x + bit.lshift(xofs, 3),
 						y + bit.lshift(yofs, 3),
 						tileptr,
 						bpp,
 						hFlip8,
 						vFlip8,
-						bit.lshift(highPal, bpp),
-						palette
+						bit.lshift(highPal, bpp)
 					)
 				end
 			end
@@ -269,7 +269,7 @@ local function layer3tile8x8toptr(tile8x8, gfxLayer3Data)
 	return tileptr, bpp
 end
 
-local function layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3Data, palette)
+local function layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3Data)
 	for yofs=0,1 do
 		for xofs=0,1 do
 			local hFlip = bit.band(0x40, tile16x16) ~= 0
@@ -290,15 +290,14 @@ local function layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3Data, palette)
 			-- bpp is always 2 for layer3
 			local tileptr, bpp = layer3tile8x8toptr(tile8x8, gfxLayer3Data)
 			if tileptr then
-				drawTile(img,
+				readTile(
+					img,
 					x + bit.lshift(hFlip and (1-xofs) or xofs, 3),
 					y + bit.lshift(vFlip and (1-yofs) or yofs, 3),
 					tileptr,
 					bpp,
 					hFlip,
-					vFlip,
-					nil,	-- palor
-					palette
+					vFlip
 				)
 			end
 		end
@@ -306,7 +305,7 @@ local function layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3Data, palette)
 end
 
 -- gfxData for world is just 0x400 + tilesetData ... they are combined in the same compressed blob
-local function layer1worlddrawtile16x16(img, x, y, tile16x16, tilesetData, gfxData, palette)
+local function layer1worlddrawtile16x16(img, x, y, tile16x16, tilesetData, gfxData)
 	if not tilesetData then return end
 	if not gfxData then return end
 	assert.eq(#tilesetData, 0x2480)	-- but we only use the first 0x400
@@ -333,15 +332,15 @@ local function layer1worlddrawtile16x16(img, x, y, tile16x16, tilesetData, gfxDa
 
 			local hFlip8 = false
 			local vFlip8 = false
-			drawTileLinear(img,
+			readTileLinear(
+				img,
 				x + bit.lshift(xofs, 3),
 				y + bit.lshift(yofs, 3),
 				tileptr,
 				bpp,
 				hFlip8,
 				vFlip8,
-				bit.lshift(highPal, bpp),
-				palette
+				bit.lshift(highPal, bpp)
 			)
 		end
 	end
@@ -526,7 +525,7 @@ print('updateMapIndex', mapIndex)
 			minFilter = gl.GL_NEAREST,
 			magFilter = gl.GL_NEAREST,
 			data = palData,
-		}
+		}:unbind()
 	else
 		self.palTex = nil
 	end
@@ -592,12 +591,12 @@ print('updateMapIndex', mapIndex)
 
 					if mapIndex < #worldInfos then
 						if z == 0 and layer == 1 then
-							layer1worlddrawtile16x16(img, x, y, tile16x16, tilesetDatas[layer], gfxDatas[layer], palette)
+							layer1worlddrawtile16x16(img, x, y, tile16x16, tilesetDatas[layer], gfxDatas[layer])
 						end
 					elseif layer == 3 then
-						layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3.data, palette)
+						layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3.data)
 					else
-						layer1and2drawtile16x16(img, x, y, tile16x16, tilesetDatas[layer], bit.lshift(1, z), gfxDatas, palette)
+						layer1and2drawtile16x16(img, x, y, tile16x16, tilesetDatas[layer], bit.lshift(1, z), gfxDatas)
 					end
 				end
 			end

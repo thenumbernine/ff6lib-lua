@@ -49,13 +49,14 @@ local tileWidth = 8
 local tileHeight = 8
 
 -- reads as 8bpp-indexed
-local function readTile(im, xofs, yofs, tile, bpp, hflip, vflip)
+local function readTile(im, xofs, yofs, tile, bpp, hflip, vflip, palor)
+	palor = palor or 0
 	for y=0,tileHeight-1 do
 		local dstp = im.buffer + (xofs + im.width*(yofs+y))
 		local cy = vflip and tileHeight-1-y or y
 		for x=0,tileWidth-1 do
 			local cx = hflip and tileWidth-1-x or x
-			dstp[0] = readpixel(tile, cx, cy, bpp)
+			dstp[0] = bit.bor(palor, readpixel(tile, cx, cy, bpp))
 			dstp = dstp + 1
 		end
 	end
@@ -86,6 +87,27 @@ local function drawTile(im, xofs, yofs, tile, bpp, hflip, vflip, palor, palette)
 		end
 	end
 end
+
+-- used by the world map
+local function readTileLinear(im, xofs, yofs, tile, bpp, hflip, vflip, palor)
+	assert.eq(im.channels, 1)
+	palor = palor or 0
+	for y=0,tileHeight-1 do
+		local dsty = y + yofs
+		if dsty >= 0 and dsty < im.height then
+			local cy = vflip and tileHeight-1-y or y
+			for x=0,tileWidth-1 do
+				local dstx = x + xofs
+				if dstx >= 0 and dstx < im.width then
+					local dstp = im.buffer + (dstx + im.width * dsty)
+					local cx = hflip and tileWidth-1-x or x
+					dstp[0] = bit.bor(palor, readpixellinear(tile, cx, cy, bpp))
+				end
+			end
+		end
+	end
+end
+
 
 -- used by the world map
 local function drawTileLinear(im, xofs, yofs, tile, bpp, hflip, vflip, palor, palette)
@@ -211,6 +233,7 @@ end
 return {
 	readTile = readTile,
 	drawTile = drawTile,
+	readTileLinear = readTileLinear,
 	drawTileLinear = drawTileLinear,
 	tileWidth = tileWidth,
 	tileHeight = tileHeight,
