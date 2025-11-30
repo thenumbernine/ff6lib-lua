@@ -17,13 +17,13 @@ local assert = require 'ext.assert'
 local tolua = require 'ext.tolua'
 local vec2i = require 'vec-ffi.vec2i'
 local Image = require 'image'
-local makePalette = require 'ff6lib.graphics'.makePalette
-local makePaletteSets = require 'ff6lib.graphics'.makePaletteSets
-local tileWidth = require 'ff6lib.graphics'.tileWidth
-local tileHeight = require 'ff6lib.graphics'.tileHeight
-local readTile = require 'ff6lib.graphics'.readTile
-local drawTile = require 'ff6lib.graphics'.drawTile
-local drawTileLinear = require 'ff6lib.graphics'.drawTileLinear
+local makePalette = require 'ff6.graphics'.makePalette
+local makePaletteSets = require 'ff6.graphics'.makePaletteSets
+local tileWidth = require 'ff6.graphics'.tileWidth
+local tileHeight = require 'ff6.graphics'.tileHeight
+local readTile = require 'ff6.graphics'.readTile
+local drawTile = require 'ff6.graphics'.drawTile
+local drawTileLinear = require 'ff6.graphics'.drawTileLinear
 
 return function(rom, game, romsize)
 
@@ -32,49 +32,27 @@ local decompress = game.decompress
 
 -- this holds the info of the 16x16 map blocks, interaction with player, etc
 -- cache decompressed data
-local mapLayouts = table()	-- 0-based
 for i=0,countof(game.mapLayoutOffsets)-1 do
-	local offset = game.mapLayoutOffsets[i]:value()
-	local addr = 0xffffff
-	local data
-	if offset ~= 0xffffff then
-		addr = offset + ffi.offsetof('game_t', 'mapLayoutsCompressed')
-		data = decompress(rom + addr, ffi.sizeof(game.mapLayoutsCompressed))
-		mapLayouts[i] = {
-			index = i,
-			offset = offset,
-			addr = addr,
-			data = data,
-		}
+	local mapLayout = game.getMapLayout(i)
+	if mapLayout then
+		print('mapLayouts[0x'..i:hex()..']'
+			..' offset=0x'..mapLayout.offset:hex()
+			..' addr=0x'..('%06x'):format(mapLayout.addr)
+			..(mapLayout.data and ' size=0x'..(#mapLayout.data):hex() or '')
+		)
+		--if mapLayout.data then print(mapLayout.data:hexdump()) end
 	end
-	print('mapLayouts[0x'..i:hex()..']'
-		..' offset=0x'..offset:hex()
-		..' addr=0x'..('%06x'):format(addr)
-		..(data and ' size=0x'..(#data):hex() or '')
-	)
-	--if data then print(data:hexdump()) end
 end
 
-local mapTileProps = table()	-- 0-based
 for i=0,countof(game.mapTilePropsOffsets)-1 do
-	local offset = game.mapTilePropsOffsets[i]
-	local addr = 0xffffff
-	local data
-	if offset ~= 0xffff then
-		addr = offset + ffi.offsetof('game_t', 'mapTilePropsCompressed')
-		data = decompress(rom + addr, ffi.sizeof(game.mapTilePropsCompressed))
-		mapTileProps[i] = {
-			index = i,
-			offset = offset,
-			addr = addr,
-			data = data,
-		}
+	local tileProps = game.getMapTileProps(i)
+	if tileProps then
+		print('mapTileProps[0x'..i:hex()..']'
+			..' offset=0x'..tileProps.offset:hex()
+			..' addr=0x'..('%06x'):format(tileProps.addr)
+			..(tileProps.data and ' size=0x'..(#tileProps.data):hex() or ''))
+		--if data then print(data:hexdump()) end
 	end
-	print('mapTileProps[0x'..i:hex()..']'
-		..' offset=0x'..offset:hex()
-		..' addr=0x'..('%06x'):format(addr)
-		..(data and ' size=0x'..(#data):hex() or ''))
-	--if data then print(data:hexdump()) end
 end
 
 --[[
@@ -84,32 +62,21 @@ A (layer 1 & 2) tileset is 2048 bytes in size = 256 * 2*2 * 2
 The 2 bytes describing rendering the 8x8 subtile provides a 10-bit index for lookup into the gfx1+2+3+4 set per map.
 That means a map's tileset is unique wrt its gfx1+2+3+4 (+ palette)
 --]]
-local mapTilesets = table()	-- 0-based
 local mapGfxStrs = {}	-- maps from gfxstr = gfx1/2/2/3 to sets of pairs of tileset/palette
 for i=0,countof(game.mapTilesetOffsets)-1 do
-	local offset = game.mapTilesetOffsets[i]:value()
-	local addr = 0xffffff
-	local data
-	if offset ~= 0xffffff then
-		addr = offset + ffi.offsetof('game_t', 'mapTilesetsCompressed')
-		data = decompress(rom + addr, ffi.sizeof(game.mapTilesetOffsets))
-		mapTilesets[i] = {
-			index = i,
-			offset = offset,
-			addr = addr,
-			data = data,
-			mapIndexes = table(),
-			palettes = table(),
-			gfxstrs = {},	-- gfx1/gfx2/gfx3/gfx4
-			paletteForGfxStr = {},
-		}
+	local tileset = game.getMapTileset(i)
+	if tileset then
+		tileset.mapIndexes = table()
+		tileset.palettes = table()
+		tileset.gfxstrs = {}	-- gfx1/gfx2/gfx3/gfx4
+		tileset.paletteForGfxStr = {}
+		print('mapTilesets[0x'..i:hex()..'] offset=0x'
+			..tileset.offset:hex()
+			..' addr=0x'..('%06x'):format(tileset.addr)
+			..(data and ' size=0x'..(#tileset.data):hex() or '')
+		)
+		--if data then print(data:hexdump()) end
 	end
-	print('mapTilesets[0x'..i:hex()..'] offset=0x'
-		..offset:hex()
-		..' addr=0x'..('%06x'):format(addr)
-		..(data and ' size=0x'..(#data):hex() or '')
-	)
-	--if data then print(data:hexdump()) end
 end
 print()
 
@@ -127,24 +94,19 @@ mappalpath:mkdir()
 
 -- map tile graphics, 8x8x4bpp tiles for layers 1 & 2
 -- the last 3 are 0xffffff
-local mapTileGraphics = table()	-- 0-based
 for i=0,countof(game.mapTileGraphicsOffsets)-1 do
-	local offset = game.mapTileGraphicsOffsets[i]:value()
-	local addr = offset + ffi.offsetof('game_t', 'mapTileGraphics')
-	-- this is times something and then a pointer into game.mapTileGraphics
-	print('mapTileGraphics[0x'..i:hex()..'] = 0x'..offset:hex()
+	local gfx = game.getMapTileGraphics(i)
+	if gfx then
+		-- this is times something and then a pointer into game.mapTileGraphics
+		print('mapTileGraphics[0x'..i:hex()..'] = 0x'..gfx.offset:hex()
 -- the space between them is arbitrary
 --		..(i>0 and ('\tdiff=0x'..(game.mapTileGraphicsOffsets[i]:value() - game.mapTileGraphicsOffsets[i-1]:value()):hex()) or '')
-	)
-	mapTileGraphics[i] = {
-		index = i,
-		offset = offset,
-		addr = addr,
-		data = rom + addr,
+		)
+
 		-- bookkeeping:
-		mapIndexes = table(),
-		palettes = table(),
-	}
+		gfx.mapIndexes = table()
+		gfx.palettes = table()
+	end
 end
 do	-- here decompress all 'mapTileGraphics' tiles irrespective of offset table
 	-- 0x30c8 tiles of 8x8x4bpp = 32 bytes in game.mapTileGraphics
@@ -171,25 +133,18 @@ do	-- here decompress all 'mapTileGraphics' tiles irrespective of offset table
 end
 
 -- each points to compressed data, which decompressed is of size 0x1040
-local mapTileGraphicsLayer3 = table()	--0-based
 for i=0,countof(game.mapTileGraphicsLayer3Offsets)-1 do
-	local offset = game.mapTileGraphicsLayer3Offsets[i]:value()
-	local addr = offset + ffi.offsetof('game_t', 'mapTileGraphicsLayer3')
-	local data = decompress(rom + addr, ffi.sizeof(game.mapTileGraphicsLayer3))
-	mapTileGraphicsLayer3[i] = {
-		index = i,
-		offset = offset,
-		addr = addr,
-		data = data,
-		mapIndexes = table(),
-		palettes = table(),
-	}
-	print('mapTileGraphicsLayer3[0x'..i:hex()..'] offset=0x'
-		..offset:hex()
-		..' addr=0x'..('%06x'):format(addr)
-		..' size=0x'..(#data):hex()
-	)
-	--if data then print(data:hexdump()) end
+	local gfxLayer3 = game.getMapTileGraphicsLayer3(i)
+	if gfxLayer3 then
+		gfxLayer3.mapIndexes = table()
+		gfxLayer3.palettes = table()
+		print('mapTileGraphicsLayer3[0x'..i:hex()..'] offset=0x'
+			..gfxLayer3.offset:hex()
+			..' addr=0x'..('%06x'):format(gfxLayer3.addr)
+			..' size=0x'..(#gfxLayer3.data):hex()
+		)
+		--if data then print(data:hexdump()) end
+	end
 end
 -- each is 0x1040 in size .....
 -- wait, is the first 0x40 the tileset?
@@ -199,7 +154,7 @@ do
 	local n = countof(game.mapTileGraphicsLayer3Offsets)
 	local im = Image(16*tileWidth, 16*n*tileHeight, 1, 'uint8_t'):clear()
 	for i=0,n-1 do
-		local gfxLayer3 = mapTileGraphicsLayer3[i]
+		local gfxLayer3 = game.mapTileGraphicsLayer3Cache[i]
 		for x=0,15 do
 			for y=0,15 do
 				readTile(im,
@@ -428,69 +383,24 @@ local function layer1worlddrawtile16x16(img, x, y, tile16x16, tilesetData, gfxDa
 	end
 end
 
-local worldInfos = table{
-	'WoB',				-- gfxstr is 0x2480, layoutstr is 0x10000
-	'WoR',				-- gfxstr is 0x2480, layoutstr is 0x10000
-	'SerpentTrench',	-- gfxstr is 0x2480, layoutstr is 0x4000
-}:mapi(function(prefix, i)
-	local gfxdatacompressed = game[prefix..'GfxDataCompressed']
-	local gfxstr = decompress(
-		ffi.cast('uint8_t*', gfxdatacompressed),
-		ffi.sizeof(gfxdatacompressed)
-	)
-	local layoutcompressed = game[prefix..'LayoutCompressed']
-	local layoutstr = decompress(
-		ffi.cast('uint8_t*', layoutcompressed),
-		ffi.sizeof(layoutcompressed)
-	)
+for i,worldInfo in ipairs(game.worldInfos) do
+	print('world', i, worldInfo.prefix)
+	print('	gfxstr', ('0x%x'):format(#worldInfo.gfxstr))
+	print('	layoutstr', ('0x%x'):format(#worldInfo.layoutstr))
+	--print(worldInfo.gfxstr:hexdump())
 
-	local palsrc
-	if prefix ~= 'SerpentTrench' then
-		palsrc = op.safeindex(game, prefix..'Palettes')
-	else
-		palsrc = decompress(
-			game.SerpentTrenchPalettesCompressed,
-			ffi.sizeof(game.SerpentTrenchPalettesCompressed)
-		)
-	end
-	local palette = palsrc and makePalette(palsrc, 4, 16*8)
-
-	print('world', i, prefix)
-	print('	gfxstr', ('0x%x'):format(#gfxstr))
-	print('	layoutstr', ('0x%x'):format(#layoutstr))
-	print(gfxstr:hexdump())
-	local tilesetdata = gfxstr
-	local gfxdata = ffi.cast('uint8_t*', gfxstr) + 0x400
-
-	local tilePropsData = op.safeindex(game, prefix..'TileProps')
-
-	-- [[ while we're here ...
-	if palette then
+	-- while we're here ...
+	if worldInfo.palette then
 		local img = Image(256, 256, 1, 'uint8_t'):clear()
-		img.palette = palette
+		img.palette = worldInfo.palette
 		for j=0,15 do
 			for i=0,15 do
-				layer1worlddrawtile16x16(img, i*16, j*16, i+16*j, tilesetdata, gfxdata, palette)
+				layer1worlddrawtile16x16(img, i*16, j*16, i+16*j, worldInfo.tilesetdata, worldInfo.gfxdata, worldInfo.palette)
 			end
 		end
 		img:save((maptilesetpath('world'..i..'.png')).path)
 	end
-	--]]
-
-	return {
-		prefix = prefix,
-		gfxstr = gfxstr,
-		tilesetdata = tilesetdata,							-- 0-0x400
-		gfxdata = gfxdata,	-- 0x400 - 0x2400
-		layoutstr = layoutstr,
-		layoutdata = ffi.cast('uint8_t*', layoutstr),
-		layoutSize = i == 3 and vec2i(128, 128) or vec2i(256, 256),
-		palette = palette,
-		tilePropsData = tilePropsData,
-	}
-end)
-
-
+end
 
 -- key by layout1, layout2, layout3 ...
 -- I think I can safely group maps by layout1 alone ...
@@ -514,11 +424,11 @@ for mapIndex=0,countof(game.maps)-1 do
 	end)
 	local gfxstr = gfxIndexes:mapi(tostring):concat'/'
 	local gfxs = range(4):mapi(function(i)
-		return mapTileGraphics[gfxIndexes[i]]
+		return game.getMapTileGraphics(gfxIndexes[i])
 	end)
 
 	local gfxLayer3Index =  tonumber(map.gfxLayer3)
-	local gfxLayer3 = mapTileGraphicsLayer3[gfxLayer3Index]
+	local gfxLayer3 = game.getMapTileGraphicsLayer3(gfxLayer3Index)
 	if gfxLayer3 then
 		gfxLayer3.palettes[paletteIndex] = true
 		gfxLayer3.mapIndexes[mapIndex] = true
@@ -527,7 +437,7 @@ for mapIndex=0,countof(game.maps)-1 do
 	local tilesetDatas = table()
 	for i=1,2 do
 		local tilesetIndex = tonumber(map['tileset'..i])
-		local tileset = mapTilesets[tilesetIndex]
+		local tileset = game.getMapTileset(tilesetIndex)
 		local tilesetData = tileset.data
 		tilesetDatas[i] = tilesetData
 		print('map tileset'..i..' data size', tileset and #tilesetData)
@@ -551,7 +461,7 @@ for mapIndex=0,countof(game.maps)-1 do
 		local height = bit.lshift(1, 4 + map['layer'..i..'HeightLog2Minus4'])
 		layerSizes[i] = vec2i(width, height)
 		local layoutIndex = tonumber(map['layout'..i])
-		layouts[i] = layoutIndex > 0 and mapLayouts[layoutIndex] or nil
+		layouts[i] = layoutIndex > 0 and game.mapLayoutCache[layoutIndex] or nil
 		print('map layer '..i..' size', layerSizes[i], 'volume', layerSizes[i]:volume())
 		print('map layout'..i..' data size', layouts[i] and #layouts[i].data)
 		if i > 1 then
@@ -568,13 +478,14 @@ for mapIndex=0,countof(game.maps)-1 do
 		print(' map has invalid palette!')
 	end
 
-	local tilePropsData = op.safeindex(mapTileProps, tonumber(map.tileProps), 'data')
+	local tileProps = game.getMapTileProps(map.tileProps)
+	local tilePropsData = tileProps and tileProps.data
 
 	-- [[ special maps
 	if mapIndex >= 0
-	and mapIndex < #worldInfos
+	and mapIndex < #game.worldInfos
 	then
-		local worldInfo = worldInfos[mapIndex+1]
+		local worldInfo = game.worldInfos[mapIndex+1]
 		local gfx = {}
 		gfx.data = worldInfo.gfxdata
 		gfxs[1] = gfx
@@ -698,7 +609,7 @@ for mapIndex=0,countof(game.maps)-1 do
 					local srcY = (dstY + posy) % layerSize.y
 					local tile16x16 = layoutptr[((srcX + layerSize.x * srcY) % #layoutData)]
 
-					if mapIndex < #worldInfos then
+					if mapIndex < #game.worldInfos then
 						if z == 0 and layer == 1 then
 							layer1worlddrawtile16x16(img, x, y, tile16x16, tilesetDatas[layer], gfxDatas[layer], palette)
 						end
@@ -813,8 +724,8 @@ end
 print()
 --]]
 
-for _,tilesetIndex in ipairs(mapTilesets:keys():sort()) do
-	local tileset = mapTilesets[tilesetIndex]
+for _,tilesetIndex in ipairs(game.mapTilesetCache:keys():sort()) do
+	local tileset = game.mapTilesetCache[tilesetIndex]
 	local gfxstrs = table.keys(tileset.gfxstrs):sort()
 	if tileset then
 		print('mapTilesets[0x'..tilesetIndex:hex()..']')
@@ -829,7 +740,7 @@ for _,tilesetIndex in ipairs(mapTilesets:keys():sort()) do
 		local gfxDatas = string.split(gfxstr, '/')
 			:mapi(function(s)
 				local i = tonumber(s)
-				local gfx = mapTileGraphics[i]
+				local gfx = game.getMapTileGraphics(i)
 				if not gfx then return end
 				return gfx.data
 			end)
@@ -849,7 +760,7 @@ for _,tilesetIndex in ipairs(mapTilesets:keys():sort()) do
 					x,
 					y,
 					tile16x16,
-					mapTilesets[tilesetIndex].data,
+					game.mapTilesetCache[tilesetIndex].data,
 					nil,
 					gfxDatas,
 					palette
@@ -866,9 +777,9 @@ end
 
 -- 8x8 tiles are going to be 16x40 = 640 in size
 -- depending on whether it is pointed to by gfx1/2/3/4, or what combo are used, this might be 128 or 256 entries
-for _,gfxIndex in ipairs(mapTileGraphics:keys():sort()) do
+for _,gfxIndex in ipairs(game.mapTileGraphicsCache:keys():sort()) do
 	local bpp = 4
-	local gfx = mapTileGraphics[gfxIndex]
+	local gfx = game.mapTileGraphicsCache[gfxIndex]
 	if gfx then
 		-- draw the 8x8 of all tiles here
 		-- notice, some gfxs only ever use only 128 of them
@@ -897,8 +808,8 @@ for _,gfxIndex in ipairs(mapTileGraphics:keys():sort()) do
 	end
 end
 
-for _,gfxLayer3Index in ipairs(mapTileGraphicsLayer3:keys():sort()) do
-	local gfxLayer3 = mapTileGraphicsLayer3[gfxLayer3Index]
+for _,gfxLayer3Index in ipairs(game.mapTileGraphicsLayer3Cache:keys():sort()) do
+	local gfxLayer3 = game.mapTileGraphicsLayer3Cache[gfxLayer3Index]
 	if gfxLayer3 and gfxLayer3.data then
 		-- layer3 always has the same layout, so it has no tileset, so just use that layout for the graphics tiles
 		local paletteIndex = gfxLayer3.palettes:keys():sort()[1] or 0

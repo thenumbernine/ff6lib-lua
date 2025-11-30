@@ -4,8 +4,8 @@ local class = require 'ext.class'
 local assert = require 'ext.assert'
 local struct = require 'struct'
 local createVec = require 'vec-ffi.create_vec'
-local ff6struct = require 'ff6lib.ff6struct'
-local reftype = require 'ff6lib.reftype'
+local ff6struct = require 'ff6.ff6struct'
+local reftype = require 'ff6.reftype'
 
 -- default output to hex
 local fieldsToHex = {
@@ -29,8 +29,8 @@ end
 
 return function(rom)
 -- compstr uses game
-local game
-local obj
+local gameC	-- C object / ffi metatype
+local game	-- Lua wrapper to provide extra Lua closure tables etc
 
 local function findnext(ptr, data)
 	while true do
@@ -138,7 +138,7 @@ local function compstr(p, size)
 				elseif p[0] < 16 then	-- 2-15 = char name
 					c:insert'['
 --					c:insert(('%02d-'):format(p[0]))
-					c:insert(tostring(game.characterNames[p[0]-2]))
+					c:insert(tostring(gameC.characterNames[p[0]-2]))
 					c:insert']'
 				elseif p[0] == 16 then
 					c:insert'[PAUSE]'
@@ -538,13 +538,13 @@ local numSpells = 0x100
 local function getSpellName(i)
 	i = bit.band(i, 0xff)
 	-- black, grey, white
-	if i >= 0 and i < 54 then return tostring(game.spellNames_0to53[i]):trim() end
+	if i >= 0 and i < 54 then return tostring(gameC.spellNames_0to53[i]):trim() end
 	i = i - 54
 	-- esper
-	if i >= 0 and i < 27 then return tostring(game.spellNames_54to80[i]):trim() end
+	if i >= 0 and i < 27 then return tostring(gameC.spellNames_54to80[i]):trim() end
 	i = i - 27
 	-- rest:
-	if i >= 0 and i < 175 then return tostring(game.spellNames_81to255[i]):trim() end
+	if i >= 0 and i < 175 then return tostring(gameC.spellNames_81to255[i]):trim() end
 	error'here'
 end
 
@@ -645,7 +645,7 @@ local longEsperBonusDescBaseAddr = 0x2dfe00
 -- another one that needs 'game'
 local esperBonus_t = reftype{
 	name = 'esperBonus_t',
-	getter = function(i) return game.esperBonusDescs[i] end,
+	getter = function(i) return gameC.esperBonusDescs[i] end,
 }
 
 local esperAttackNamesAddr = 0x26fe8f
@@ -802,7 +802,7 @@ local monsterNamesAddr = 0x0fc050
 -- If I find a uint16_t then I'll make reftype more flexible and make a second monsterRef16_t type.
 local monsterRef_t = reftype{
 	name = 'monsterRef_t',
-	getter = function(i) return game.monsterNames[i] end,
+	getter = function(i) return gameC.monsterNames[i] end,
 }
 
 local numFormations = 0x240
@@ -896,7 +896,7 @@ local formation_t = ff6struct{
 				if self['active'..i] == 0 then return nil end
 				local v = self[key]
 				if self['monster'..i..'hi'] ~= 0 then v = v + 0x100 end
-				return '"'..game.monsterNames[v]..'"'
+				return '"'..gameC.monsterNames[v]..'"'
 			end
 
 			local i = key:match'^pos(%d)$'
@@ -906,7 +906,7 @@ local formation_t = ff6struct{
 
 			if key == 'formationSize' then
 				local v = self[key]
-				local offset = game.formationSizeOffsets[v]
+				local offset = gameC.formationSizeOffsets[v]
 				local formationSize = ffi.cast('formationSize_t*', rom + 0x020000 + offset)
 				return tolua(range(1,6):mapi(function(i)
 					if self['active'..i] ~= 0 then
@@ -1089,7 +1089,7 @@ local itemref_t = reftype{
 	name = 'itemref_t',
 	getter = function(i)
 		if i == 0xff then return nil end
-		return game.itemNames[i]
+		return gameC.itemNames[i]
 	end,
 	getterSkipNone = true,
 }
@@ -1490,7 +1490,7 @@ local menuNamesAddr = 0x018cea0
 local menuref_t = reftype{
 	name = 'menuref_t',
 	getter = function(i)
-		return game.menuNames[i]
+		return gameC.menuNames[i]
 	end,
 }
 
@@ -1670,7 +1670,7 @@ assert.eq(ffi.sizeof'xy8b_t', 2)
 local mapNameRef_t = reftype{
 	name = 'mapNameRef_t',
 	getter = function(i)
-		return obj.mapNames[i]
+		return game.mapNames[i]
 	end,
 }
 
@@ -2481,127 +2481,132 @@ assertOffset('characters', charactersAddr)
 assertOffset('longEsperBonusDescBase', longEsperBonusDescBaseAddr)
 assertOffset('longEsperBonusDescOffsets', longEsperBonusDescOffsetsAddr)
 
-game = ffi.cast('game_t*', rom)
+gameC = ffi.cast('game_t*', rom)
 
-obj = setmetatable({}, {
-	__index = game,
+game = setmetatable({}, {
+	__index = gameC,
 })
 
-obj.numSpells = numSpells
-obj.numBattleAnimSets = numBattleAnimSets
-obj.numBattleAnimEffects = numBattleAnimEffects
-obj.numBattleAnimPalettes = numBattleAnimPalettes
-obj.numEsperBonuses = numEsperBonuses
-obj.numEspers = numEspers
-obj.numMonsters = numMonsters
-obj.numMonsterSprites = numMonsterSprites
-obj.numMonsterPalettes = numMonsterPalettes
-obj.numItems = numItems
-obj.numItemTypes = numItemTypes
-obj.numRareItems = numRareItems
-obj.numRages = numRages
-obj.numMetamorphSets = numMetamorphSets
-obj.numExpLevelUps = numExpLevelUps
-obj.numLevels = numLevels
-obj.numMenuNames = numMenuNames
-obj.numCharacters = numCharacters
-obj.numCharacterSpriteFrames = numCharacterSpriteFrames
-obj.numCharacterSprites = numCharacterSprites
-obj.numCharacterPalettes = numCharacterPalettes
-obj.numMogDances = numMogDances
-obj.numSwordTechs = numSwordTechs
-obj.numBlitzes = numBlitzes
-obj.numLores = numLores
-obj.numShops = numShops
-obj.numMapNames = numMapNames
-obj.numEntranceTriggerOfs = numEntranceTriggerOfs
-obj.numDialogs = numDialogs
-obj.numBattleDialogs = numBattleDialogs
-obj.numBattleDialog2s = numBattleDialog2s
-obj.numBattleMessages = numBattleMessages
-obj.numFormations = numFormations
-obj.numFormationMPs = numFormationMPs
-obj.numFormationSizeOffsets = numFormationSizeOffsets
-obj.numFormationSizes = numFormationSizes
-obj.numPositionedText = numPositionedText
-obj.numBRRSamples = numBRRSamples
-obj.numMenuChars = numMenuChars
+-- assert somewhere
+game.romsize = 0x300000
 
-obj.findnext = findnext
-obj.gamezstr = gamezstr
-obj.compzstr = compzstr
-obj.gamestr = gamestr
-obj.compstr = compstr
-obj.getSpellName = getSpellName
-obj.getEsperName = getEsperName
+game.numSpells = numSpells
+game.numBattleAnimSets = numBattleAnimSets
+game.numBattleAnimEffects = numBattleAnimEffects
+game.numBattleAnimPalettes = numBattleAnimPalettes
+game.numEsperBonuses = numEsperBonuses
+game.numEspers = numEspers
+game.numMonsters = numMonsters
+game.numMonsterSprites = numMonsterSprites
+game.numMonsterPalettes = numMonsterPalettes
+game.numItems = numItems
+game.numItemTypes = numItemTypes
+game.numRareItems = numRareItems
+game.numRages = numRages
+game.numMetamorphSets = numMetamorphSets
+game.numExpLevelUps = numExpLevelUps
+game.numLevels = numLevels
+game.numMenuNames = numMenuNames
+game.numCharacters = numCharacters
+game.numCharacterSpriteFrames = numCharacterSpriteFrames
+game.numCharacterSprites = numCharacterSprites
+game.numCharacterPalettes = numCharacterPalettes
+game.numMogDances = numMogDances
+game.numSwordTechs = numSwordTechs
+game.numBlitzes = numBlitzes
+game.numLores = numLores
+game.numShops = numShops
+game.numMapNames = numMapNames
+game.numEntranceTriggerOfs = numEntranceTriggerOfs
+game.numDialogs = numDialogs
+game.numBattleDialogs = numBattleDialogs
+game.numBattleDialog2s = numBattleDialog2s
+game.numBattleMessages = numBattleMessages
+game.numFormations = numFormations
+game.numFormationMPs = numFormationMPs
+game.numFormationSizeOffsets = numFormationSizeOffsets
+game.numFormationSizes = numFormationSizes
+game.numPositionedText = numPositionedText
+game.numBRRSamples = numBRRSamples
+game.numMenuChars = numMenuChars
+
+game.findnext = findnext
+game.gamezstr = gamezstr
+game.compzstr = compzstr
+game.gamestr = gamestr
+game.compstr = compstr
+game.getSpellName = getSpellName
+game.getEsperName = getEsperName
 
 -- util? ext.ffi or something?
-obj.countof = function(array)
+game.countof = function(array)
 	return ffi.sizeof(array) / (ffi.cast('uint8_t*', array+1) - ffi.cast('uint8_t*', array+0))
 end
 
-obj.decompress = require 'ff6lib.decompress'
+game.decompress = require 'ff6.decompress'
 
-obj.itemForName = {}
+game.itemForName = {}
 for i=0,numItems-1 do
-	local name = tostring(game.itemNames[i])
+	local name = tostring(gameC.itemNames[i])
 	--if i < 231 then name = name:sub(2) end
-	obj.itemForName[name] = i
+	game.itemForName[name] = i
 end
 
-obj.spellForName = {}
+game.spellForName = {}
 for i=0,numItems-1 do
 	local name = getSpellName(i)
 	--if i < 54 then name = name:sub(2) end
-	obj.spellForName[name] = i
+	game.spellForName[name] = i
 end
 
-obj.character_t = character_t
+game.character_t = character_t
 
-obj.mapNames = StringList{
+game.mapNames = StringList{
 	name = 'map names',
-	data = game.mapNameBase,
-	offsets = game.mapNameOffsets,
+	data = gameC.mapNameBase,
+	offsets = gameC.mapNameOffsets,
 	compressed = true,
 }
 
 
 
-obj.dialog = StringList{
+game.dialog = StringList{
 	name = 'dialog',
-	data = game.dialogBase,
-	offsets = game.dialogOffsets,
+	data = gameC.dialogBase,
+	offsets = gameC.dialogOffsets,
 	compressed = true,
 }
 
-obj.battleDialog = StringList{
+game.battleDialog = StringList{
 	name = 'battle dialog',
-	data = game.battleDialogBase,
-	offsets = game.battleDialogOffsets,
+	data = gameC.battleDialogBase,
+	offsets = gameC.battleDialogOffsets,
 	addrBase = rom + 0x0f0000,
 }
 
-obj.battleDialog2 = StringList{
+game.battleDialog2 = StringList{
 	name = 'battle dialog2',
-	data = game.battleDialog2Base,
-	offsets = game.battleDialog2Offsets,
+	data = gameC.battleDialog2Base,
+	offsets = gameC.battleDialog2Offsets,
 	addrBase = rom + 0x100000,
 }
 
-obj.battleMessages = StringList{
+game.battleMessages = StringList{
 	name = 'battle message',
-	data = game.battleMessageBase,
-	offsets = game.battleMessageOffsets,
+	data = gameC.battleMessageBase,
+	offsets = gameC.battleMessageOffsets,
 	addrBase = rom + 0x110000,
 }
 
-obj.positionedText = StringList{
+game.positionedText = StringList{
 	name = 'positioned text',
-	data = game.positionedTextBase,
-	offsets = game.positionedTextOffsets,
+	data = gameC.positionedTextBase,
+	offsets = gameC.positionedTextOffsets,
 	addrBase = rom + 0x030000,
 }
 
-return obj
+require 'ff6.maps'(game)
+
+return game
 
 end

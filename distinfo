@@ -1,17 +1,18 @@
-name = "ff6lib"
+name = "ff6"
 files = {
-	["README.md"] = "ff6lib/README.md",
-	["battleanim.lua"] = "ff6lib/battleanim.lua",
-	["charsprite.lua"] = "ff6lib/charsprite.lua",
-	["decompress.lua"] = "ff6lib/decompress.lua",
-	["ff6.lua"] = "ff6lib/ff6.lua",
-	["ff6struct.lua"] = "ff6lib/ff6struct.lua",
-	["graphics.lua"] = "ff6lib/graphics.lua",
-	["maps.lua"] = "ff6lib/maps.lua",
-	["monstersprite.lua"] = "ff6lib/monstersprite.lua",
-	["reftype.lua"] = "ff6lib/reftype.lua",
-	["run.lua"] = "ff6lib/run.lua",
-	["sounds.lua"] = "ff6lib/sounds.lua",
+	["README.md"] = "ff6/README.md",
+	["battleanim.lua"] = "ff6/battleanim.lua",
+	["charsprite.lua"] = "ff6/charsprite.lua",
+	["decompress.lua"] = "ff6/decompress.lua",
+	["ff6.lua"] = "ff6/ff6.lua",
+	["ff6struct.lua"] = "ff6/ff6struct.lua",
+	["graphics.lua"] = "ff6/graphics.lua",
+	["maps.lua"] = "ff6/maps.lua",
+	["monstersprite.lua"] = "ff6/monstersprite.lua",
+	["reftype.lua"] = "ff6/reftype.lua",
+	["run.lua"] = "ff6/run.lua",
+	["run-maps.lua"] = "ff6/run-maps.lua",
+	["sounds.lua"] = "ff6/sounds.lua",
 }
 deps = {
 	"audio",

@@ -1,13 +1,13 @@
 #!/usr/bin/env luajit
+require 'ext'
 local ffi = require 'ffi'
 local Image = require 'image'
-local makePalette = require 'graphics'.makePalette
-local makePaletteSets = require 'graphics'.makePaletteSets
-local tileWidth = require 'graphics'.tileWidth
-local tileHeight = require 'graphics'.tileHeight
-local readTile = require 'graphics'.readTile
 local gnuplot = require 'gnuplot'
-require 'ext'
+local makePalette = require 'ff6.graphics'.makePalette
+local makePaletteSets = require 'ff6.graphics'.makePaletteSets
+local tileWidth = require 'ff6.graphics'.tileWidth
+local tileHeight = require 'ff6.graphics'.tileHeight
+local readTile = require 'ff6.graphics'.readTile
 
 local infn, outfn = ...
 assert(infn, "missing filename")
@@ -127,7 +127,7 @@ end
 
 local totalPixels = 0
 -- [[
-local writeMonsterSprite = require 'monstersprite'
+local writeMonsterSprite = require 'ff6.monstersprite'
 for i=0,game.numMonsterSprites-1 do
 	print('monsterSprites[0x'..i:hex()..'] = '..game.monsterSprites[i])
 	totalPixels = totalPixels + writeMonsterSprite(game, i)
@@ -358,7 +358,7 @@ print((tolua({
 --]]
 
 -- [[
-local readCharSprite = require 'charsprite'
+local readCharSprite = require 'ff6.charsprite'
 local totalPixels = 0
 -- [=[
 local chx, chy = 0, 0
@@ -563,7 +563,7 @@ for i=0,game.numShops-1 do
 end
 print()
 
-require 'maps'(rom, game, romsize)
+require 'ff6.run-maps'(rom, game, romsize)
 
 print(game.dialog)
 print(game.battleDialog)
@@ -623,7 +623,7 @@ print('battleRedPalette = '..game.battleRedPalette)
 print('battleMenuPalettes = '..game.battleMenuPalettes)
 print()
 
-require 'battleanim'(rom, game, romsize)
+require 'ff6.battleanim'(rom, game, romsize)
 
 do
 	local img = Image(8*16, 8*16, 1, 'uint8_t')
@@ -676,7 +676,7 @@ print('spcMainCode = '..
 	:mapi(function(i) return (' %02x'):format(game.spcMainCode[i]) end):concat()
 )
 --]]
-require 'sounds'(rom, game, romsize)
+require 'ff6.sounds'(rom, game, romsize)
 
 print'end of rom output'
 

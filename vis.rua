@@ -6,9 +6,9 @@ local GLTex2D = require 'gl.tex2d'
 local GLGeometry = require 'gl.geometry'
 local GLSceneObject = require 'gl.sceneobject'
 local ig = require 'imgui'
-local makePalette = require 'ff6lib.graphics'.makePalette
-local readTile = require 'ff6lib.graphics'.readTile
-local readTileLinear = require 'ff6lib.graphics'.readTileLinear
+local makePalette = require 'ff6.graphics'.makePalette
+local readTile = require 'ff6.graphics'.readTile
+local readTileLinear = require 'ff6.graphics'.readTileLinear
 
 local infn = cmdline[2]
 assert(infn, "missing filename")
@@ -18,154 +18,11 @@ if #data == 0x300200 then
 end
 
 local rom = ffi.cast('uint8_t*', data)
-local game = require 'ff6lib.ff6'(rom)
+local game = require 'ff6.ff6'(rom)
 local countof = game.countof
-local decompress = game.decompress
 
--------------------------------- BEGIN ALSO IN ff6lib/maps.lua --------------------------------
+-------------------------------- BEGIN ALSO IN ff6/maps.lua --------------------------------
 -- (I will think about how to unify the two files later)
-
-local mapLayouts = table()	-- 0-based
-local loadMapLayout = |i|do
-	i = i:floor()
-	if i < 0 or i >= countof(game.mapLayoutOffsets) then return end
-
-	if mapLayouts[i] then return mapLayouts[i] end
-	local offset = game.mapLayoutOffsets[i]:value()
-	if offset == 0xffffff then return end
-	local addr = offset + ffi.offsetof('game_t', 'mapLayoutsCompressed')
-	local data = decompress(rom + addr, ffi.sizeof(game.mapLayoutsCompressed))
-	mapLayouts[i] = {
-		index = i,
-		offset = offset,
-		addr = addr,
-		data = data,
-	}
-	return mapLayouts[i]
-end
-
-
-local mapTileGraphics = table()
-local loadMapTileGraphics = |i|do
-	i = i:floor()
-	if i < 0 or i >= countof(game.mapTileGraphicsOffsets) then return end
-
-	if mapTileGraphics[i] then return mapTileGraphics[i] end
-	local offset = game.mapTileGraphicsOffsets[i]:value()
-	local addr = offset + ffi.offsetof('game_t', 'mapTileGraphics')
-	mapTileGraphics[i] = {
-		index = i,
-		offset = offset,
-		addr = addr,
-		data = rom + addr,
-	}
-	return mapTileGraphics[i]
-end
-
-local mapTileGraphicsLayer3 = table()
-local loadMapTileGraphicsLayer3 = |i|do
-	i = i:floor()
-	assert.ge(i, 0)
-	assert.lt(i, countof(game.mapTileGraphicsLayer3Offsets))
-
-	if mapTileGraphicsLayer3[i] then return mapTileGraphicsLayer3[i] end
-	local offset = game.mapTileGraphicsLayer3Offsets[i]:value()
-	local addr = offset + ffi.offsetof('game_t', 'mapTileGraphicsLayer3')
-	local data = decompress(rom + addr, ffi.sizeof(game.mapTileGraphicsLayer3))
-	mapTileGraphicsLayer3[i] = {
-		index = i,
-		offset = offset,
-		addr = addr,
-		data = data,
-	}
-	return mapTileGraphicsLayer3[i]
-end
-
-local mapTilesets = table()
-local loadMapTileset = |i|do
-	i = i:floor()
-	if i < 0 or i >= countof(game.mapTilesetOffsets) then return end
-
-	if mapTilesets[i] then return mapTilesets[i] end
-	local offset = game.mapTilesetOffsets[i]:value()
-	if offset == 0xffffff then return end
-
-	local addr addr = offset + ffi.offsetof('game_t', 'mapTilesetsCompressed')
-	local data = decompress(rom + addr, ffi.sizeof(game.mapTilesetOffsets))
-	mapTilesets[i] = {
-		index = i,
-		offset = offset,
-		addr = addr,
-		data = data,
-	}
-	return mapTilesets[i]
-end
-
-local mapTileProps = table()	-- 0-based
-local loadMapTileProps = |i|do
-	i = i:floor()
-	if i < 0 or i >= countof(game.mapTilePropsOffsets) then return end
-	
-	if mapTileProps[i] then return mapTileProps[i] end
-	local offset = game.mapTilePropsOffsets[i]
-	if offset == 0xffff then return end
-	local addr = offset + ffi.offsetof('game_t', 'mapTilePropsCompressed')
-	local data = decompress(rom + addr, ffi.sizeof(game.mapTilePropsCompressed))
-	mapTileProps[i] = {
-		index = i,
-		offset = offset,
-		addr = addr,
-		data = data,
-	}
-	return mapTileProps[i]
-end
-
-local worldInfos = table{
-	'WoB',				-- gfxstr is 0x2480, layoutstr is 0x10000
-	'WoR',				-- gfxstr is 0x2480, layoutstr is 0x10000
-	'SerpentTrench',	-- gfxstr is 0x2480, layoutstr is 0x4000
-}:mapi(|prefix, i|do
-	local gfxdatacompressed = game[prefix..'GfxDataCompressed']
-	local gfxstr = decompress(
-		ffi.cast('uint8_t*', gfxdatacompressed),
-		ffi.sizeof(gfxdatacompressed)
-	)
-	local layoutcompressed = game[prefix..'LayoutCompressed']
-	local layoutstr = decompress(
-		ffi.cast('uint8_t*', layoutcompressed),
-		ffi.sizeof(layoutcompressed)
-	)
-
-	local palsrc
-	if i == 3 then	-- serpent trench
-		palsrc = decompress(
-			game.SerpentTrenchPalettesCompressed,
-			ffi.sizeof(game.SerpentTrenchPalettesCompressed)
-		)
-	else
-		palsrc = op.safeindex(game, prefix..'Palettes')
-	end
-	local palette = palsrc and makePalette(palsrc, 4, 16*8)
-
-	local tilesetdata = gfxstr
-	local gfxdata = ffi.cast('uint8_t*', gfxstr) + 0x400
-
-	local tilePropsData = i < 3 and game[prefix..'TileProps']
-
-	return {
-		prefix = prefix,
-		gfxstr = gfxstr,
-		tilesetdata = tilesetdata,							-- 0-0x400
-		gfxdata = gfxdata,	-- 0x400 - 0x2400
-		layoutstr = layoutstr,
-		layoutdata = ffi.cast('uint8_t*', layoutstr),
-		layoutSize = i == 3
-			and vec2i(128, 128)	-- serpent trench
-			or vec2i(256, 256),
-		palette = palette,
-		tilePropsData = tilePropsData,
-	}
-end)
 
 local function layer1and2tile8x8toptr(tile8x8, gfxDatas)
 
@@ -354,7 +211,7 @@ local function layer1worlddrawtile16x16(img, x, y, tile16x16, tilesetData, gfxDa
 		end
 	end
 end
--------------------------------- END ALSO IN ff6lib/maps.lua --------------------------------
+-------------------------------- END ALSO IN ff6/maps.lua --------------------------------
 
 
 local App = require 'imgui.appwithorbit'()
@@ -436,18 +293,18 @@ print('updateMapIndex', mapIndex)
 	local paletteIndex = tonumber(map.palette)
 	local gfxs = range(4):mapi(|i|do
 		local gfxIndex = tonumber(map['gfx'..i])
-		local gfx = loadMapTileGraphics(gfxIndex)
+		local gfx = game.getMapTileGraphics(gfxIndex)
 		if not gfx then
 			print("unabled to load gfx"..i.." index "..gfxIndex)
 		end
 		return gfx
 	end)
-	local gfxLayer3 = loadMapTileGraphicsLayer3(tonumber(map.gfxLayer3))
+	local gfxLayer3 = game.getMapTileGraphicsLayer3(tonumber(map.gfxLayer3))
 
 	local tilesetDatas = table()
 	for i=1,2 do
 		local tilesetIndex = tonumber(map['tileset'..i])
-		local tileset = loadMapTileset(tilesetIndex)
+		local tileset = game.getMapTileset(tilesetIndex)
 		if not tileset then
 			print("unabled to load map tileset "..tilesetIndex)
 		end
@@ -463,7 +320,7 @@ print('updateMapIndex', mapIndex)
 			1 << (4 + map['layer'..i..'HeightLog2Minus4'])
 		)
 		local layoutIndex = tonumber(map['layout'..i])
-		local layout = loadMapLayout(layoutIndex)
+		local layout = game.loadMapLayout(layoutIndex)
 		if not layout then
 			print("unable to load layout "..i.." index "..layoutIndex)
 		end
@@ -481,7 +338,7 @@ print('updateMapIndex', mapIndex)
 		palette = makePalette(game.mapPalettes + paletteIndex, 4, 16*8)
 	end
 
-	local tileProps = loadMapTileProps(tonumber(map.tileProps))
+	local tileProps = game.getMapTileProps(tonumber(map.tileProps))
 	if not tileProps then
 		print("unable to load map tile props "..map.tileProps)
 	end
@@ -489,9 +346,9 @@ print('updateMapIndex', mapIndex)
 
 	-- special maps
 	if mapIndex >= 0
-	and mapIndex < #worldInfos
+	and mapIndex < #game.worldInfos
 	then
-		local worldInfo = worldInfos[mapIndex+1]
+		local worldInfo = game.worldInfos[mapIndex+1]
 		local gfx = {}
 		gfx.data = worldInfo.gfxdata
 		gfxs[1] = gfx
@@ -598,7 +455,7 @@ print('updateMapIndex', mapIndex)
 					local srcY = (dstY + posy) % layerSize.y
 					local tile16x16 = layoutptr[((srcX + layerSize.x * srcY) % #layoutData)]
 
-					if mapIndex < #worldInfos then
+					if mapIndex < #game.worldInfos then
 						if z == 0 and layer == 1 then
 							if tilesetDatas[layer] and gfxDatas[layer] then
 								layer1worlddrawtile16x16(img, x, y, tile16x16, tilesetDatas[layer], gfxDatas[layer])
