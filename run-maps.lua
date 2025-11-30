@@ -220,7 +220,7 @@ for mapIndex=0,countof(game.maps)-1 do
 	if mapInfo then
 		local map = mapInfo.map
 		local paletteIndex = tonumber(map.palette)
-		local gfxstr = mapInfo.gfxIndexes:mapi(tostring):concat'/'
+		local gfxLayer3 = mapInfo.gfxLayer3
 		local tilesetDatas = mapInfo.tilesetDatas
 		local layerPos = mapInfo.layerPos
 		local layerSizes = mapInfo.layerSizes
@@ -236,6 +236,7 @@ for mapIndex=0,countof(game.maps)-1 do
 		mapsForLayout1[map.layout1] = mapsForLayout1[map.layout1] or table()
 		mapsForLayout1[map.layout1]:insert(mapIndex)
 
+		local gfxstr = mapInfo.gfxIndexes:mapi(tostring):concat'/'
 		for i=1,2 do
 			local tilesetIndex = tonumber(map['tileset'..i])
 			local tileset = game.getMapTileset(tilesetIndex)
@@ -252,7 +253,12 @@ for mapIndex=0,countof(game.maps)-1 do
 				mapGfxStrs[gfxstr][tilesetIndex..'/'..paletteIndex] = true
 			end
 		end
-		
+
+		if gfxLayer3 then
+			gfxLayer3.palettes[paletteIndex] = true
+			gfxLayer3.mapIndexes[mapIndex] = true
+		end
+
 		for i=1,3 do
 			print('map layer '..i..' size', layerSizes[i], 'volume', layerSizes[i]:volume())
 			print('map layout'..i..' data size', layouts[i] and #layouts[i].data)
@@ -267,7 +273,7 @@ for mapIndex=0,countof(game.maps)-1 do
 
 		for i=1,4 do
 			local gfx = mapInfo.gfxs[i]
-			if gfx then 
+			if gfx then
 				if gfx.palettes then gfx.palettes[paletteIndex] = true end
 				if gfx.mapIndexes then gfx.mapIndexes[mapIndex] = true end
 			end
@@ -284,7 +290,7 @@ for mapIndex=0,countof(game.maps)-1 do
 		):clear()
 		compositeImg.palette = palette
 
-		local layerImgs = mapInfo:createLayerImages()
+		local layerImgs = mapInfo:getLayerImages()
 		for _,layerImg in ipairs(layerImgs) do
 			-- now apply layerImg to compositeImg
 			-- ... maybe later have an option for doing it RGBA using proper blending

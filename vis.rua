@@ -16,7 +16,7 @@ if #data == 0x300200 then
 end
 
 local rom = ffi.cast('uint8_t*', data)
-local game = require 'ff6.ff6'(rom)
+local game = require 'ff6'(rom)
 local countof = game.countof
 
 local App = require 'imgui.appwithorbit'()
@@ -81,8 +81,8 @@ end
 App.updateMapIndex = |:|do
 	local mapIndex = self.mapIndex
 print('updateMapIndex', mapIndex)
-	
-	if self.palTex then 
+
+	if self.palTex then
 		self.palTex:delete()
 		self.palTex = nil
 	end
@@ -93,192 +93,37 @@ print('updateMapIndex', mapIndex)
 		self.layerTexs = nil
 	end
 
-	if mapIndex < 0 or mapIndex >= countof(game.maps) then return end
-	local map = game.maps + mapIndex
-	local paletteIndex = tonumber(map.palette)
-	local gfxs = range(4):mapi(|i|do
-		local gfxIndex = tonumber(map['gfx'..i])
-		local gfx = game.getMapTileGraphics(gfxIndex)
-		if not gfx then
-			print("unabled to load gfx"..i.." index "..gfxIndex)
-		end
-		return gfx
-	end)
-	local gfxLayer3 = game.getMapTileGraphicsLayer3(tonumber(map.gfxLayer3))
+	collectgarbage()
 
-	local tilesetDatas = table()
-	for i=1,2 do
-		local tilesetIndex = tonumber(map['tileset'..i])
-		local tileset = game.getMapTileset(tilesetIndex)
-		if not tileset then
-			print("unabled to load map tileset "..tilesetIndex)
-		end
-		tilesetDatas[i] = tileset?.data
-	end
+	local mapInfo = game.getMap(mapIndex)
+	local palette = mapInfo.palette
 
-	local layerPos = table()
-	local layerSizes = table()
-	local layouts = table()
-	for i=1,3 do
-		layerSizes[i] = vec2i(
-			1 << (4 + map['layer'..i..'WidthLog2Minus4']),
-			1 << (4 + map['layer'..i..'HeightLog2Minus4'])
-		)
-		local layoutIndex = tonumber(map['layout'..i])
-		local layout = game.loadMapLayout(layoutIndex)
-		if not layout then
-			print("unable to load layout "..i.." index "..layoutIndex)
-		end
-		layouts[i] = layout 
-		if i > 1 then
-			local ofs = map['layer'..i..'Pos']
-			layerPos[i] = vec2i(ofs.x, ofs.y)
+	if not palette then return end
+
+	local palData = ffi.new'uint8_t[128*4]'
+	ffi.fill(palData, ffi.sizeof(palData))
+	for i=0,127 do
+		for j=0,3 do
+			palData[j|(i<<2)] = assert(palette[i+1][j+1])
 		end
 	end
+	self.palTex = GLTex2D{
+		width = 16*8,
+		height = 1,
+		internalFormat = gl.GL_RGBA,
+		format = gl.GL_RGBA,
+		type = gl.GL_UNSIGNED_BYTE,
+		minFilter = gl.GL_NEAREST,
+		magFilter = gl.GL_NEAREST,
+		data = palData,
+	}:unbind()
+assert.eq(self.palTex.data, palData)
 
-	local palette
-	if paletteIndex >= 0
-	and paletteIndex < countof(game.mapPalettes)
-	then
-		palette = makePalette(game.mapPalettes + paletteIndex, 4, 16*8)
-	end
-
-	local tileProps = game.getMapTileProps(tonumber(map.tileProps))
-	if not tileProps then
-		print("unable to load map tile props "..map.tileProps)
-	end
-	local tilePropsData = tileProps ?.data
-
-	-- special maps
-	if mapIndex >= 0
-	and mapIndex < #game.worldInfos
-	then
-		local worldInfo = game.worldInfos[mapIndex+1]
-		local gfx = {}
-		gfx.data = worldInfo.gfxdata
-		gfxs[1] = gfx
-
-		layerSizes[1] = worldInfo.layoutSize
-
-		local layout = {}
-		layout.data = worldInfo.layoutstr
-		layouts[1] = layout
-
-		tilesetDatas[1] = worldInfo.tilesetdata
-
-		palette = worldInfo.palette or palette
-
-		tilePropsData = worldInfo.tilePropsData
-
-		gfxs[2] = nil
-		gfxs[3] = nil
-		gfxs[4] = nil
-		gfxLayer3 = nil
-		layouts[2] = nil
-		layouts[3] = nil
-		tilesetDatas[2] = nil
-	end
-
-	if palette then
-		local palData = ffi.new'uint8_t[128*4]'
-		ffi.fill(palData, ffi.sizeof(palData))
-		for i=0,127 do
-			for j=0,3 do
-				palData[j|(i<<2)] = palette[i+1][j+1]
-			end
-		end
-		self.palTex = GLTex2D{
-			width = 16*8, 
-			height = 1,
-			internalFormat = gl.GL_RGBA,
-			format = gl.GL_RGBA,
-			type = gl.GL_UNSIGNED_BYTE,
-			minFilter = gl.GL_NEAREST,
-			magFilter = gl.GL_NEAREST,
-			data = palData,
-		}:unbind()
-	else
-		self.palTex = nil
-	end
-
-	local gfxDatas = range(4):mapi(|i| gfxs[i]?.data)
-	local layout1Data = layouts[1]?.data
-	local layer1Size = layerSizes[1]
-
-
-	-- for now just draw each layer + zlevel to a texture
-	self.layerTexs = table()
-	for _,zAndLayer in ipairs(
-		map.layer3Priority == 0
-		and {
-			{0,3},
-			-- priority 0 sprites here
-			--{1,3},	-- does layer 3 have a zlevel?  where is it?
-			-- priority 1 sprites here
-			{0,2},
-			{0,1},
-			-- priority 2 sprites here
-			{1,2},
-			{1,1},
-			-- priority 3 sprites here
-		}
-		or {
-			{0,2},
-			{0,1},
-			{1,2},
-			{1,1},
-			{0,3},
-		}
-	)do
-		local z, layer = table.unpack(zAndLayer)
-
-		-- TODO size this by layer 1 or size it by the specific layer and modulo later?
-		local img = Image(
-			bit.lshift(layer1Size.x, 4),
-			bit.lshift(layer1Size.y, 4),
-			1,
-			'uint8_t'
-		):clear()
-
-		local layerSize = layerSizes[layer]
-		local layout = layouts[layer]
-		local layoutData = layout and layout.data
-		if layout and layoutData then
-			local posx, posy = 0, 0
-			if layerPos[layer]
-			-- if we have a position for the layer, but we're using parallax, then the position is going to be relative to the view
-			--and map.parallax == 0
-			then
-				posx, posy = layerPos[layer]:unpack()
-			end
-			local layoutptr = ffi.cast('uint8_t*', layoutData)
-			for dstY=0,layer1Size.y-1 do
-				local y = bit.lshift(dstY, 4)
-				for dstX=0,layer1Size.x-1 do
-					local x = bit.lshift(dstX, 4)
-					local srcX = (dstX + posx) % layerSize.x
-					local srcY = (dstY + posy) % layerSize.y
-					local tile16x16 = layoutptr[((srcX + layerSize.x * srcY) % #layoutData)]
-
-					if mapIndex < #game.worldInfos then
-						if z == 0 and layer == 1 then
-							if tilesetDatas[layer] and gfxDatas[layer] then
-								game.layer1worlddrawtile16x16(img, x, y, tile16x16, tilesetDatas[layer], gfxDatas[layer], palette)
-							end
-						end
-					elseif layer == 3 then
-						if gfxLayer3 and gfxLayer3.data then
-							game.layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3.data, palette)
-						end
-					else
-						game.layer1and2drawtile16x16(img, x, y, tile16x16, tilesetDatas[layer], bit.lshift(1, z), gfxDatas, palette)
-					end
-				end
-			end
-
-print('loaded layer', layer, 'z', z)
-			local tex = GLTex2D{
-				width = img.width, 
+	self.layerTexs = mapInfo
+		:getLayerImages()
+		:mapi(|img|
+			GLTex2D{
+				width = img.width,
 				height = img.height,
 				internalFormat = gl.GL_R8UI,
 				format = gl.GL_RED_INTEGER,
@@ -287,10 +132,7 @@ print('loaded layer', layer, 'z', z)
 				magFilter = gl.GL_NEAREST,
 				data = img.buffer,
 			}:unbind()
-			tex.image = img
-			self.layerTexs:insert(tex)
-		end
-	end
+		)
 end
 
 App.update = |:|do
@@ -303,9 +145,12 @@ App.update = |:|do
 
 	if self.layerTexs then
 		self.drawObj.texs[2] = self.palTex
-		for _,tex in ipairs(self.layerTexs) do
-			self.drawObj.texs[1] = tex
-			self.drawObj:draw()
+		for i,tex in ipairs(self.layerTexs) do
+			local k = 'drawLayer'..i
+			if self[k] == nil or self[k] == true then
+				self.drawObj.texs[1] = tex
+				self.drawObj:draw()
+			end
 		end
 	end
 
@@ -316,15 +161,25 @@ end
 App.updateGUI = |:|do
 	if ig.igBeginMainMenuBar() then
 		if ig.igBeginMenu'map:' then
-
 			if ig.luatableInputInt('mapIndex', self, 'mapIndex') then
 				self.mapIndex = self.mapIndex:floor():clamp(0, countof(game.maps)-1)
 				self:updateMapIndex()
 			end
 
+			if self.layerTexs then
+				for i=1,#self.layerTexs do
+					if i > 1 then
+						ig.igSameLine()
+					end
+					local k = 'drawLayer'..i
+					if self[k] == nil then self[k] = true end
+					ig.luatableTooltipCheckbox('tex '..i, self, k)
+				end
+			end
+
 			ig.igEndMenu()
 		end
-		
+
 		local label = 'viewing map #'..self.mapIndex
 		if ig.igBeginMenu(label) then
 			ig.igEndMenu()

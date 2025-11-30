@@ -17,7 +17,7 @@ return function(game)
 	local romsize = game.romsize
 
 	local mapLayoutCache = table()	-- 0-based
-	game.mapLayoutCache = mapLayoutCache 
+	game.mapLayoutCache = mapLayoutCache
 	function game.getMapLayout(i)
 		i = math.floor((assert(tonumber(i))))
 		if i < 0 or i >= countof(game.mapLayoutOffsets) then return end
@@ -47,11 +47,11 @@ return function(game)
 	function game.getMapTileProps(i)
 		i = math.floor((assert(tonumber(i))))
 		if i < 0 or i >= countof(game.mapTilePropsOffsets) then return end
-		
+
 		if mapTilePropsCache[i] then return mapTilePropsCache[i] end
 		local offset = game.mapTilePropsOffsets[i]
 		if offset == 0xffff then return end
-		
+
 		assert.ge(offset, 0)
 		assert.lt(offset, ffi.sizeof(game.mapTilePropsCompressed))
 
@@ -67,7 +67,7 @@ return function(game)
 	end
 
 	local mapTilesetCache = table()
-	game.mapTilesetCache = mapTilesetCache 
+	game.mapTilesetCache = mapTilesetCache
 	function game.getMapTileset(i)
 		i = math.floor((assert(tonumber(i))))
 		if i < 0 or i >= countof(game.mapTilesetOffsets) then return end
@@ -98,7 +98,7 @@ return function(game)
 
 		if mapTileGraphicsCache[i] then return mapTileGraphicsCache[i] end
 		local offset = game.mapTileGraphicsOffsets[i]:value()
-		
+
 		assert.ge(offset, 0, 'mapTileGraphicsOffset['..i..']')
 		assert.lt(offset, ffi.sizeof(game.mapTileGraphics), 'mapTileGraphicsOffset['..i..']')
 
@@ -120,9 +120,9 @@ return function(game)
 
 		if mapTileGraphicsLayer3Cache[i] then return mapTileGraphicsLayer3Cache[i] end
 		local offset = game.mapTileGraphicsLayer3Offsets[i]:value()
-		
-		assert.ge(offset, 0)
-		assert.lt(offset, ffi.sizeof(game.mapTileGraphicsLayer3))
+
+		assert.ge(offset, 0, 'mapTileGraphicsLayer3Offsets['..i..']')
+		assert.lt(offset, ffi.sizeof(game.mapTileGraphicsLayer3), 'mapTileGraphicsLayer3Offsets['..i..']')
 
 		local addr = offset + ffi.offsetof('game_t', 'mapTileGraphicsLayer3')
 		local data = decompress(rom + addr, ffi.sizeof(game.mapTileGraphicsLayer3))
@@ -176,8 +176,8 @@ return function(game)
 			gfxdata = gfxdata,	-- 0x400 - 0x2400
 			layoutstr = layoutstr,
 			layoutdata = ffi.cast('uint8_t*', layoutstr),
-			layoutSize = i == 3 
-				and vec2i(128, 128) 
+			layoutSize = i == 3
+				and vec2i(128, 128)
 				or vec2i(256, 256),
 			palette = palette,
 			tilePropsData = tilePropsData,
@@ -377,7 +377,7 @@ return function(game)
 
 	local MapInfo = class()
 	MapInfo.init = table.union
-	function MapInfo:createLayerImages()
+	function MapInfo:getLayerImages()
 		if self.layerImgs then return self.layerImgs end
 
 		local map = self.map
@@ -388,7 +388,7 @@ return function(game)
 		local layerSizes = self.layerSizes
 		local layouts = self.layouts
 		local palette = self.palette
-	
+
 		-- TODO you don't need the palette if you're not drawing w/alpha channel
 		-- and I could change it from drawTile to readTile to do just that ...
 		if not palette then
@@ -498,7 +498,7 @@ return function(game)
 				end
 			end
 		end
-		self.layerImgs = layerImgs 
+		self.layerImgs = layerImgs
 		return layerImgs
 	end
 
@@ -519,12 +519,7 @@ return function(game)
 			return game.getMapTileGraphics(gfxIndexes[i])
 		end)
 
-		local gfxLayer3Index =  tonumber(map.gfxLayer3)
-		local gfxLayer3 = game.getMapTileGraphicsLayer3(gfxLayer3Index)
-		if gfxLayer3 then
-			gfxLayer3.palettes[paletteIndex] = true
-			gfxLayer3.mapIndexes[mapIndex] = true
-		end
+		local gfxLayer3 = game.getMapTileGraphicsLayer3(tonumber(map.gfxLayer3))
 
 		local tilesets = table()
 		local tilesetDatas = table()
