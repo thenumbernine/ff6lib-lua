@@ -7,8 +7,8 @@ local range = require 'ext.range'
 local vec2i = require 'vec-ffi.vec2i'
 local Image = require 'image'
 local makePalette = require 'ff6.graphics'.makePalette
-local drawTile = require 'ff6.graphics'.drawTile
-local drawTileLinear = require 'ff6.graphics'.drawTileLinear
+local readTile = require 'ff6.graphics'.readTile
+local readTileLinear = require 'ff6.graphics'.readTileLinear
 
 return function(game)
 	local rom = ffi.cast('uint8_t*', game.s)
@@ -249,8 +249,7 @@ return function(game)
 		-- tiles 0x300-0x3ff aren't used by bg1 & bg2
 	end
 
-	-- palette used for drawTile, which is used for transparency detection (for writing multiple tiles over the same img region)
-	function game.layer1and2drawtile16x16(img, x, y, tile16x16, tilesetData, zLevelFlags, gfxDatas, palette)
+	function game.layer1and2drawtile16x16(img, x, y, tile16x16, tilesetData, zLevelFlags, gfxDatas)
 		if not tilesetData then return end
 		assert.len(tilesetData, 0x800)
 		zLevelFlags = zLevelFlags or 3
@@ -270,15 +269,14 @@ return function(game)
 						local highPal = bit.band(7, bit.rshift(tilesetTile, 10))
 						local hFlip8 = bit.band(0x4000, tilesetTile) ~= 0
 						local vFlip8 = bit.band(0x8000, tilesetTile) ~= 0
-						drawTile(img,
+						readTile(img,
 							x + bit.lshift(xofs, 3),
 							y + bit.lshift(yofs, 3),
 							tileptr,
 							bpp,
 							hFlip8,
 							vFlip8,
-							bit.lshift(highPal, bpp),
-							palette
+							bit.lshift(highPal, bpp)
 						)
 					end
 				end
@@ -297,7 +295,7 @@ return function(game)
 		return tileptr, bpp
 	end
 
-	function game.layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3Data, palette)
+	function game.layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3Data)
 		for yofs=0,1 do
 			for xofs=0,1 do
 				local hFlip = bit.band(0x40, tile16x16) ~= 0
@@ -318,15 +316,14 @@ return function(game)
 				-- bpp is always 2 for layer3
 				local tileptr, bpp = game.layer3tile8x8toptr(tile8x8, gfxLayer3Data)
 				if tileptr then
-					drawTile(img,
+					readTile(
+						img,
 						x + bit.lshift(hFlip and (1-xofs) or xofs, 3),
 						y + bit.lshift(vFlip and (1-yofs) or yofs, 3),
 						tileptr,
 						bpp,
 						hFlip,
-						vFlip,
-						nil,	-- palor
-						palette
+						vFlip
 					)
 				end
 			end
@@ -334,7 +331,7 @@ return function(game)
 	end
 
 	-- gfxData for world is just 0x400 + tilesetData ... they are combined in the same compressed blob
-	function game.layer1worlddrawtile16x16(img, x, y, tile16x16, tilesetData, gfxData, palette)
+	function game.layer1worlddrawtile16x16(img, x, y, tile16x16, tilesetData, gfxData)
 		if not tilesetData then return end
 		if not gfxData then return end
 		assert.eq(#tilesetData, 0x2480)	-- but we only use the first 0x400
@@ -361,15 +358,14 @@ return function(game)
 
 				local hFlip8 = false
 				local vFlip8 = false
-				drawTileLinear(img,
+				readTileLinear(img,
 					x + bit.lshift(xofs, 3),
 					y + bit.lshift(yofs, 3),
 					tileptr,
 					bpp,
 					hFlip8,
 					vFlip8,
-					bit.lshift(highPal, bpp),
-					palette
+					bit.lshift(highPal, bpp)
 				)
 			end
 		end
@@ -449,7 +445,7 @@ return function(game)
 			local layerSize = layerSizes[layer]
 			local layout = layouts[layer]
 			local layoutData = layout and layout.data
-			if not layout or not layoutData then
+			if not (layout and layoutData) then
 				print("missing layout "..layer, layout, layoutData)
 			--elseif layerSize:volume() ~= #layouts[layer].data then
 			--	print("map layout"..layer.." data size doesn't match layer size")
@@ -487,12 +483,12 @@ return function(game)
 
 						if self.index < #game.worldInfos then
 							if z == 0 and layer == 1 then
-								game.layer1worlddrawtile16x16(layerImg, x, y, tile16x16, tilesetDatas[layer], gfxDatas[layer], palette)
+								game.layer1worlddrawtile16x16(layerImg, x, y, tile16x16, tilesetDatas[layer], gfxDatas[layer])
 							end
 						elseif layer == 3 then
-							game.layer3drawtile16x16(layerImg, x, y, tile16x16, gfxLayer3.data, palette)
+							game.layer3drawtile16x16(layerImg, x, y, tile16x16, gfxLayer3.data)
 						else
-							game.layer1and2drawtile16x16(layerImg, x, y, tile16x16, tilesetDatas[layer], bit.lshift(1, z), gfxDatas, palette)
+							game.layer1and2drawtile16x16(layerImg, x, y, tile16x16, tilesetDatas[layer], bit.lshift(1, z), gfxDatas)
 						end
 					end
 				end

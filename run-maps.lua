@@ -204,7 +204,7 @@ for i,worldInfo in ipairs(game.worldInfos) do
 		img.palette = worldInfo.palette
 		for j=0,15 do
 			for i=0,15 do
-				game.layer1worlddrawtile16x16(img, i*16, j*16, i+16*j, worldInfo.tilesetdata, worldInfo.gfxdata, worldInfo.palette)
+				game.layer1worlddrawtile16x16(img, i*16, j*16, i+16*j, worldInfo.tilesetdata, worldInfo.gfxdata)
 			end
 		end
 		img:save((maptilesetpath('world'..i..'.png')).path)
@@ -444,8 +444,7 @@ for _,tilesetIndex in ipairs(game.mapTilesetCache:keys():sort()) do
 					tile16x16,
 					game.mapTilesetCache[tilesetIndex].data,
 					nil,
-					gfxDatas,
-					palette
+					gfxDatas
 				)
 				tile16x16 = tile16x16 + 1
 			end
@@ -507,8 +506,7 @@ for _,gfxLayer3Index in ipairs(game.mapTileGraphicsLayer3Cache:keys():sort()) do
 					bit.lshift(i, 4),
 					bit.lshift(j, 4),
 					tile16x16,
-					gfxLayer3.data,
-					palette
+					gfxLayer3.data
 				)
 				tile16x16 = tile16x16 + 1
 			end
