@@ -1,8 +1,11 @@
 local ffi = require 'ffi'
 local op = require 'ext.op'
 local assert = require 'ext.assert'
+local range = require 'ext.range'
 local vec2i = require 'vec-ffi.vec2i'
 local makePalette = require 'ff6.graphics'.makePalette
+local drawTile = require 'ff6.graphics'.drawTile
+local drawTileLinear = require 'ff6.graphics'.drawTileLinear
 
 return function(game)
 	local rom = ffi.cast('uint8_t*', game.s)
@@ -12,7 +15,7 @@ return function(game)
 
 	local mapLayoutCache = table()	-- 0-based
 	game.mapLayoutCache = mapLayoutCache 
-	game.getMapLayout = function(i)
+	function game.getMapLayout(i)
 		i = math.floor((assert(tonumber(i))))
 		if i < 0 or i >= countof(game.mapLayoutOffsets) then return end
 
@@ -38,7 +41,7 @@ return function(game)
 
 	local mapTilePropsCache = table()	-- 0-based
 	game.mapTilePropsCache = mapTilePropsCache
-	game.getMapTileProps = function(i)
+	function game.getMapTileProps(i)
 		i = math.floor((assert(tonumber(i))))
 		if i < 0 or i >= countof(game.mapTilePropsOffsets) then return end
 		
@@ -62,7 +65,7 @@ return function(game)
 
 	local mapTilesetCache = table()
 	game.mapTilesetCache = mapTilesetCache 
-	game.getMapTileset = function(i)
+	function game.getMapTileset(i)
 		i = math.floor((assert(tonumber(i))))
 		if i < 0 or i >= countof(game.mapTilesetOffsets) then return end
 
@@ -86,15 +89,15 @@ return function(game)
 
 	local mapTileGraphicsCache = table()	-- 0-based
 	game.mapTileGraphicsCache = mapTileGraphicsCache
-	game.getMapTileGraphics = function(i)
+	function game.getMapTileGraphics(i)
 		i = math.floor((assert(tonumber(i))))
 		if i < 0 or i >= countof(game.mapTileGraphicsOffsets) then return end
 
 		if mapTileGraphicsCache[i] then return mapTileGraphicsCache[i] end
 		local offset = game.mapTileGraphicsOffsets[i]:value()
 		
-		assert.ge(offset, 0)
-		assert.lt(offset, ffi.sizeof(game.mapTileGraphics))
+		assert.ge(offset, 0, 'mapTileGraphicsOffset['..i..']')
+		assert.lt(offset, ffi.sizeof(game.mapTileGraphics), 'mapTileGraphicsOffset['..i..']')
 
 		local addr = offset + ffi.offsetof('game_t', 'mapTileGraphics')
 		mapTileGraphicsCache[i] = {
@@ -108,7 +111,7 @@ return function(game)
 
 	local mapTileGraphicsLayer3Cache = table()
 	game.mapTileGraphicsLayer3Cache = mapTileGraphicsLayer3Cache
-	game.getMapTileGraphicsLayer3 = function(i)
+	function game.getMapTileGraphicsLayer3(i)
 		i = math.floor((assert(tonumber(i))))
 		if i < 0 or i >= countof(game.mapTileGraphicsLayer3Offsets) then return end
 
@@ -177,4 +180,299 @@ return function(game)
 			tilePropsData = tilePropsData,
 		}
 	end)
+
+	-- useful function for maps
+	function game.layer1and2tile8x8toptr(tile8x8, gfxDatas)
+
+		-- first 256 is gfx1
+		if tile8x8 < 0x100 then
+			local bpp = 4
+			local gfxData = gfxDatas[1]
+			if not gfxData then return end
+			local tileptr = gfxData + tile8x8 * bit.lshift(bpp, 3)
+			return tileptr, bpp
+		end
+
+		-- next 256 belong to gfx2?
+		-- or only 128 of it?
+		--if tile8x8 < 0x200 then
+		-- (what does bit-7 here represent?)
+		if tile8x8 < 0x180 then
+			local bpp = 4
+			local gfxData = gfxDatas[2]
+			if not gfxData then return end
+			tile8x8 = bit.band(0x7f, tile8x8)
+			local tileptr = gfxData + tile8x8 * bit.lshift(bpp, 3)
+			return tileptr, bpp
+		end
+
+		-- if gfx3 == gfx4 then gfx3's tiles are 0x180-0x27f
+		if gfxDatas[3] == gfxDatas[4] then
+			local bpp = 4
+			local gfxData = gfxDatas[3]
+			if not gfxData then return end
+			-- is it 0x180 -> 0 or 0x180 -> 0x80?
+			tile8x8 = bit.band(0xff, tile8x8 - 0x80)
+			local tileptr = gfxData + tile8x8 * bit.lshift(bpp, 3)
+			return tileptr, bpp
+		end
+
+		-- [[ from 0x180 to 0x200 I'm getting discrepencies as well...
+		-- (what does bit-7 here represent?)
+		if tile8x8 < 0x200 then
+			local bpp = 4
+			local gfxData = gfxDatas[3]
+			if not gfxData then return end
+			tile8x8 = bit.band(0x7f, tile8x8)
+			local tileptr = gfxData + tile8x8 * bit.lshift(bpp, 3)
+			return tileptr, bpp
+		end
+		--]]
+
+		-- gfx3 doesn't use indexes 0x80 and over (reserved for something else?)
+		-- (what does bit-7 here represent?)
+		if tile8x8 < 0x280 then
+			local bpp = 4
+			local gfxData = gfxDatas[4]
+			if not gfxData then return end
+			tile8x8 = bit.band(0x7f, tile8x8)
+			local tileptr = gfxData + tile8x8 * bit.lshift(bpp, 3)
+			return tileptr, bpp
+		end
+
+		-- extra notes to remember for later:
+		-- animated tiles start at 0x280
+		-- dialog graphics start at 0x2e0
+		-- tiles 0x300-0x3ff aren't used by bg1 & bg2
+	end
+
+	-- palette used for drawTile, which is used for transparency detection (for writing multiple tiles over the same img region)
+	function game.layer1and2drawtile16x16(img, x, y, tile16x16, tilesetData, zLevelFlags, gfxDatas, palette)
+		if not tilesetData then return end
+		assert.len(tilesetData, 0x800)
+		zLevelFlags = zLevelFlags or 3
+		local tilesetptr = ffi.cast('uint8_t*', tilesetData)
+		for yofs=0,1 do
+			for xofs=0,1 do
+				local i = bit.lshift(bit.bor(xofs, bit.lshift(yofs, 1)), 8)
+				local tilesetTile = bit.bor(
+					tilesetptr[tile16x16 + i],
+					bit.lshift(tilesetptr[tile16x16 + bit.bor(0x400, i)], 8)
+				)
+				local tileZLevel = bit.band(bit.rshift(tilesetTile, 13), 1)
+				if bit.band(bit.lshift(1, tileZLevel), zLevelFlags) ~= 0 then
+					local tile8x8 = bit.band(tilesetTile, 0x3ff)
+					local tileptr, bpp = game.layer1and2tile8x8toptr(tile8x8, gfxDatas)
+					if tileptr then
+						local highPal = bit.band(7, bit.rshift(tilesetTile, 10))
+						local hFlip8 = bit.band(0x4000, tilesetTile) ~= 0
+						local vFlip8 = bit.band(0x8000, tilesetTile) ~= 0
+						drawTile(img,
+							x + bit.lshift(xofs, 3),
+							y + bit.lshift(yofs, 3),
+							tileptr,
+							bpp,
+							hFlip8,
+							vFlip8,
+							bit.lshift(highPal, bpp),
+							palette
+						)
+					end
+				end
+			end
+		end
+	end
+
+	function game.layer3tile8x8toptr(tile8x8, gfxLayer3Data)
+		local bpp = 2
+		if not gfxLayer3Data then return end
+		-- 0x40 at the beginning of all layer3 tiles
+		-- also there's only 0x40 unique tiles (only 6 bits are used), so i'm betting this is an extra bitflag that goes along with them ... maybe zLevel?
+		local ofs = 0x40 + bit.band(0xff, tile8x8) * bit.lshift(bpp, 3)
+		assert.lt(ofs, #gfxLayer3Data)
+		local tileptr = ffi.cast('uint8_t*', gfxLayer3Data) + ofs
+		return tileptr, bpp
+	end
+
+	function game.layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3Data, palette)
+		for yofs=0,1 do
+			for xofs=0,1 do
+				local hFlip = bit.band(0x40, tile16x16) ~= 0
+				local vFlip = bit.band(0x80, tile16x16) ~= 0
+				-- wait because tile16x16 << 2 has to be 8 bits
+				-- that means tile16x16 can only be 6 bits
+				-- and it also means that zLevel, hFlip, vFlip, highPal all must be 0
+				-- nope, in fact, hFlip is bit 6, vFlip  is bit 7
+				-- zLevel might be the bit of the extra 0x40 bytes at the beginning ...
+				-- or in fact 0x40 bytes means 8 bits per unique tile, so idk what goes in there ...
+				local tilesetTile = bit.bor(
+					bit.lshift(bit.band(0x3f, tile16x16), 2),
+					bit.lshift(yofs, 1),
+					xofs
+				)
+				tilesetTile = bit.band(tilesetTile, 0xff)
+				local tile8x8 = bit.band(tilesetTile, 0x3ff)
+				-- bpp is always 2 for layer3
+				local tileptr, bpp = game.layer3tile8x8toptr(tile8x8, gfxLayer3Data)
+				if tileptr then
+					drawTile(img,
+						x + bit.lshift(hFlip and (1-xofs) or xofs, 3),
+						y + bit.lshift(vFlip and (1-yofs) or yofs, 3),
+						tileptr,
+						bpp,
+						hFlip,
+						vFlip,
+						nil,	-- palor
+						palette
+					)
+				end
+			end
+		end
+	end
+
+	-- gfxData for world is just 0x400 + tilesetData ... they are combined in the same compressed blob
+	function game.layer1worlddrawtile16x16(img, x, y, tile16x16, tilesetData, gfxData, palette)
+		if not tilesetData then return end
+		if not gfxData then return end
+		assert.eq(#tilesetData, 0x2480)	-- but we only use the first 0x400
+		local tilesetptr = ffi.cast('uint8_t*', tilesetData)
+		assert.eq(tilesetptr + 0x400, gfxData)
+		local highPalData = tilesetptr + 0x2400
+		for yofs=0,1 do
+			for xofs=0,1 do
+				local tile8x8 = tilesetptr[bit.bor(
+					bit.lshift(xofs, 0),
+					bit.lshift(yofs, 1),
+					bit.lshift(tile16x16, 2)
+				)]
+
+				local bpp = 4
+				local ofs = tile8x8 * bit.lshift(bpp, 3)
+				assert.ge(ofs, 0)
+				assert.lt(ofs, 0x2000)
+				local tileptr = gfxData + ofs
+
+				local highPal = highPalData[bit.rshift(tile8x8, 1)]
+				if 0 ~= bit.band(1, tile8x8) then highPal = bit.rshift(highPal, 4) end
+				highPal = bit.band(0xf, highPal)
+
+				local hFlip8 = false
+				local vFlip8 = false
+				drawTileLinear(img,
+					x + bit.lshift(xofs, 3),
+					y + bit.lshift(yofs, 3),
+					tileptr,
+					bpp,
+					hFlip8,
+					vFlip8,
+					bit.lshift(highPal, bpp),
+					palette
+				)
+			end
+		end
+	end
+	
+	local mapInfoCache = table()
+	game.mapInfoCache = mapInfoCache
+	function game.getMap(mapIndex)
+		mapIndex = math.floor((assert(tonumber(mapIndex))))
+		if mapIndex < 0 or mapIndex >= countof(game.maps) then return end
+		if game.mapInfoCache[mapIndex] then return game.mapInfoCache[mapIndex] end
+
+		local map = game.maps + mapIndex
+		local paletteIndex = tonumber(map.palette)
+
+		local gfxIndexes = range(4):mapi(function(i)
+			return tonumber(map['gfx'..i])
+		end)
+		local gfxs = range(4):mapi(function(i)
+			return game.getMapTileGraphics(gfxIndexes[i])
+		end)
+
+		local gfxLayer3Index =  tonumber(map.gfxLayer3)
+		local gfxLayer3 = game.getMapTileGraphicsLayer3(gfxLayer3Index)
+		if gfxLayer3 then
+			gfxLayer3.palettes[paletteIndex] = true
+			gfxLayer3.mapIndexes[mapIndex] = true
+		end
+
+		local tilesets = table()
+		local tilesetDatas = table()
+		for i=1,2 do
+			local tilesetIndex = tonumber(map['tileset'..i])
+			local tileset = game.getMapTileset(tilesetIndex)
+			tilesets[i] = tileset
+			tilesetDatas[i] = tileset.data
+		end
+
+		local layerPos = table()
+		local layerSizes = table()
+		local layouts = table()
+		for i=1,3 do
+			local width = bit.lshift(1, 4 + map['layer'..i..'WidthLog2Minus4'])
+			local height = bit.lshift(1, 4 + map['layer'..i..'HeightLog2Minus4'])
+			layerSizes[i] = vec2i(width, height)
+			local layoutIndex = tonumber(map['layout'..i])
+			layouts[i] = layoutIndex > 0 and game.mapLayoutCache[layoutIndex] or nil
+			if i > 1 then
+				local ofs = map['layer'..i..'Pos']
+				layerPos[i] = vec2i(ofs.x, ofs.y)
+			end
+		end
+
+		local palette
+		if paletteIndex >= 0 and paletteIndex < countof(game.mapPalettes) then
+			palette = makePalette(game.mapPalettes + paletteIndex, 4, 16*8)
+		end
+
+		local tileProps = game.getMapTileProps(map.tileProps)
+		local tilePropsData = tileProps and tileProps.data
+
+		-- [[ special maps
+		if mapIndex >= 0
+		and mapIndex < #game.worldInfos
+		then
+			local worldInfo = game.worldInfos[mapIndex+1]
+			local gfx = {}
+			gfx.data = worldInfo.gfxdata
+			gfxs[1] = gfx
+
+			layerSizes[1] = worldInfo.layoutSize
+
+			local layout = {}
+			layout.data = worldInfo.layoutstr
+			layouts[1] = layout
+
+			tilesetDatas[1] = worldInfo.tilesetdata
+
+			palette = worldInfo.palette or palette
+
+			tilePropsData = worldInfo.tilePropsData
+
+			gfxs[2] = nil
+			gfxs[3] = nil
+			gfxs[4] = nil
+			gfxLayer3 = nil
+			layouts[2] = nil
+			layouts[3] = nil
+			tilesetDatas[2] = nil
+		end
+		--]]
+	
+		local mapInfo = {
+			index = mapIndex,
+			map = map,
+			gfxIndexes = gfxIndexes,
+			gfxs = gfxs,
+			gfxLayer3 = gfxLayer3,
+			tilesetDatas = tilesetDatas,
+			layerPos = layerPos,
+			layerSizes = layerSizes,
+			layouts = layouts,
+			palette = palette,
+			tilePropsData = tilePropsData,
+		}
+		game.mapInfoCache[mapIndex] = mapInfo
+		return mapInfo
+	end
 end
