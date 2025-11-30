@@ -27,25 +27,6 @@ local countof = game.countof
 
 
 
--- [======[ TODO find out what I need to load that is causing segfaults when I don't load it
-for i=0,countof(game.mapLayoutOffsets)-1 do
-	game.getMapLayout(i)
-end
-for i=0,countof(game.mapTilePropsOffsets)-1 do
-	game.getMapTileProps(i)
-end
-for i=0,countof(game.mapTilesetOffsets)-1 do
-	game.getMapTileset(i)
-end
-for i=0,countof(game.mapTileGraphicsOffsets)-1 do
-	game.getMapTileGraphics(i)
-end
-for i=0,countof(game.mapTileGraphicsLayer3Offsets)-1 do
-	game.getMapTileGraphicsLayer3(i)
-end
---]======]
-
-
 local App = require 'imgui.appwithorbit'()
 App.title = 'FF6 Data Visualizer'
 
