@@ -17,7 +17,34 @@ end
 
 local rom = ffi.cast('uint8_t*', data)
 local game = require 'ff6'(rom)
+
+-- don't lose these.  they will GC otherwise.
+_G.data = data
+_G.rom = rom
+_G.game = game
+
 local countof = game.countof
+
+
+
+-- [======[ TODO find out what I need to load that is causing segfaults when I don't load it
+for i=0,countof(game.mapLayoutOffsets)-1 do
+	game.getMapLayout(i)
+end
+for i=0,countof(game.mapTilePropsOffsets)-1 do
+	game.getMapTileProps(i)
+end
+for i=0,countof(game.mapTilesetOffsets)-1 do
+	game.getMapTileset(i)
+end
+for i=0,countof(game.mapTileGraphicsOffsets)-1 do
+	game.getMapTileGraphics(i)
+end
+for i=0,countof(game.mapTileGraphicsLayer3Offsets)-1 do
+	game.getMapTileGraphicsLayer3(i)
+end
+--]======]
+
 
 local App = require 'imgui.appwithorbit'()
 App.title = 'FF6 Data Visualizer'
@@ -72,7 +99,8 @@ void main() {
 			mode = gl.GL_TRIANGLE_STRIP,
 		}
 	}
-
+	
+	self.mapSize = vec2d()
 
 	self.mapIndex = 0
 	self:updateMapIndex()
@@ -96,15 +124,51 @@ print('updateMapIndex', mapIndex)
 	collectgarbage()
 
 	local mapInfo = game.getMap(mapIndex)
+	if not mapInfo then
+		print("map "..mapIndex.." missing")
+		return
+	end
+
+	local map = mapInfo.map
+	local paletteIndex = tonumber(map.palette)
+	local gfxLayer3 = mapInfo.gfxLayer3
+	local tilesetDatas = mapInfo.tilesetDatas
+	local layerPos = mapInfo.layerPos
+	local layerSizes = mapInfo.layerSizes
+	local layouts = mapInfo.layouts
+	local palette = mapInfo.palette
+	local tilePropsData = mapInfo.tilePropsData
+
+	print('maps[0x'..mapIndex:hex()..'] addr '
+		..'0x'..(ffi.cast('uint8_t*', map) - rom):hex()
+		..' = '..map[0])
+
+	local gfxstr = mapInfo.gfxIndexes:mapi(tostring):concat'/'
+	for i=1,2 do
+		local tilesetData = tilesetDatas[i]
+		print('map tileset'..i..' data size', tilesetData and #tilesetData)
+	end
+
+	for i=1,3 do
+		print('map layer '..i..' size', layerSizes[i], 'volume', layerSizes[i]:volume())
+		print('map layout'..i..' data size', layouts[i] and #layouts[i].data)
+		if i > 1 then
+			print('map layer'..i..' pos', layerPos[i])
+		end
+	end
+
 	local palette = mapInfo.palette
 
-	if not palette then return end
+	if not palette then 
+		print("map "..mapIndex.." has no palette")
+		return 
+	end
 
 	local palData = ffi.new'uint8_t[128*4]'
 	ffi.fill(palData, ffi.sizeof(palData))
 	for i=0,127 do
 		for j=0,3 do
-			palData[j|(i<<2)] = assert(palette[i+1][j+1])
+			palData[j|(i<<2)] = palette[i+1][j+1]
 		end
 	end
 	self.palTex = GLTex2D{
@@ -121,8 +185,8 @@ assert.eq(self.palTex.data, palData)
 
 	self.layerTexs = mapInfo
 		:getLayerImages()
-		:mapi(|img|
-			GLTex2D{
+		:mapi(|img| do
+			local tex = GLTex2D{
 				width = img.width,
 				height = img.height,
 				internalFormat = gl.GL_R8UI,
@@ -132,24 +196,57 @@ assert.eq(self.palTex.data, palData)
 				magFilter = gl.GL_NEAREST,
 				data = img.buffer,
 			}:unbind()
-		)
+			tex.image = img
+			return tex
+		end)
+	if #self.layerTexs > 0 then
+		self.mapSize:set(self.layerTexs[1].width, self.layerTexs[1].height)
+	end
 end
 
 App.update = |:|do
 	gl.glClear(gl.GL_COLOR_BUFFER_BIT)
 
-	gl.glEnable(gl.GL_BLEND)
-	gl.glBlendFunc(gl.GL_ONE, gl.GL_ONE)
-
-	self.drawObj.uniforms.mvProjMat = self.view.mvProjMat.ptr
+	local view = self.view
+	view.mvMat
+		:applyScale(self.mapSize.x / 1024, self.mapSize.y / 1024, 1)
+	view.mvProjMat:mul4x4(view.projMat, view.mvMat)
+	self.drawObj.uniforms.mvProjMat = view.mvProjMat.ptr
 
 	if self.layerTexs then
 		self.drawObj.texs[2] = self.palTex
 		for i,tex in ipairs(self.layerTexs) do
 			local k = 'drawLayer'..i
 			if self[k] == nil or self[k] == true then
+				
+				--[[ TODO FIXME
+				local blend = tex.image.blend
+				if blend then
+					gl.glEnable(gl.GL_BLEND)
+					if (blend & 2) ~= 0 then -- sub
+						--gl.glBlendEquation(gl.GL_FUNC_SUBTRACT)		-- sprite minus framebuffer
+						gl.glBlendEquation(gl.GL_FUNC_REVERSE_SUBTRACT)	-- framebuffer minus sprite
+					else
+						gl.glBlendEquation(gl.GL_FUNC_ADD)
+					end				
+					local half = (blend & 1) ~= 0
+					gl.glBlendColor(1, 1, 1, half and .5 or 1)
+					if half then
+						gl.glBlendFunc(gl.GL_CONSTANT_ALPHA, gl.GL_CONSTANT_ALPHA)
+					else
+						gl.glBlendFunc(gl.GL_ONE, gl.GL_ONE)
+					end
+				else
+				--]]do
+					gl.glEnable(gl.GL_ALPHA_TEST)
+					gl.glAlphaFunc(gl.GL_GREATER, .5)
+				end
+
 				self.drawObj.texs[1] = tex
 				self.drawObj:draw()
+
+				gl.glDisable(gl.GL_BLEND)
+				gl.glDisable(gl.GL_ALPHA_TEST)
 			end
 		end
 	end

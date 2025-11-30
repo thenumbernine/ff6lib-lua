@@ -52,8 +52,8 @@ return function(game)
 		local offset = game.mapTilePropsOffsets[i]
 		if offset == 0xffff then return end
 
-		assert.ge(offset, 0)
-		assert.lt(offset, ffi.sizeof(game.mapTilePropsCompressed))
+		assert.ge(offset, 0, 'mapTilePropsOffsets['..i..']')
+		assert.lt(offset, ffi.sizeof(game.mapTilePropsCompressed), 'mapTilePropsOffsets['..i..']')
 
 		local addr = offset + ffi.offsetof('game_t', 'mapTilePropsCompressed')
 		local data = decompress(rom + addr, ffi.sizeof(game.mapTilePropsCompressed))
@@ -169,7 +169,7 @@ return function(game)
 
 		local tilePropsData = op.safeindex(game, prefix..'TileProps')
 
-		return {
+		local worldInfo = {
 			prefix = prefix,
 			gfxstr = gfxstr,
 			tilesetdata = tilesetdata,							-- 0-0x400
@@ -182,6 +182,7 @@ return function(game)
 			palette = palette,
 			tilePropsData = tilePropsData,
 		}
+		return worldInfo 
 	end)
 
 	-- useful function for maps
@@ -375,29 +376,15 @@ return function(game)
 	MapInfo.init = table.union
 	function MapInfo:getLayerImages()
 		if self.layerImgs then return self.layerImgs end
-
 		local map = self.map
-		local gfxs = self.gfxs
-		local gfxLayer3 = self.gfxLayer3
-		local tilesetDatas = self.tilesetDatas
-		local layerPos = self.layerPos
-		local layerSizes = self.layerSizes
-		local layouts = self.layouts
-		local palette = self.palette
-
-		-- TODO you don't need the palette if you're not drawing w/alpha channel
-		-- and I could change it from drawTile to readTile to do just that ...
-		if not palette then
-			return
-		end
+		if not map then return end
 
 		local gfxDatas = range(4):mapi(function(i)
-			local gfx = gfxs[i]
+			local gfx = self.gfxs[i]
 			return gfx and gfx.data
 		end)
 
-		local layout1Data = layouts[1] and layouts[1].data
-		local layer1Size = layerSizes[1]
+		local layer1Size = self.layerSizes[1]
 
 		local layerImgs = table()
 		for _,zAndLayer in ipairs(
@@ -423,7 +410,7 @@ return function(game)
 			}
 		)do
 			local z, layer = table.unpack(zAndLayer)
-			local blend = -1
+			local blend = nil
 
 			-- layer 3 avg
 			if map.colorMath == 1 and layer == 3 then
@@ -439,22 +426,12 @@ return function(game)
 				blend = 1
 			-- there's more ofc but meh
 			end
-			-- TODO NOTICE blend does nothing at the moment
-			-- because I'm outputting 8bpp-indexed
 
-			local layerSize = layerSizes[layer]
-			local layout = layouts[layer]
+			local layerSize = self.layerSizes[layer]
+			local layout = self.layouts[layer]
 			local layoutData = layout and layout.data
 			if not (layout and layoutData) then
 				print("missing layout "..layer, layout, layoutData)
-			--elseif layerSize:volume() ~= #layouts[layer].data then
-			--	print("map layout"..layer.." data size doesn't match layer size")
-			-- I guess just modulo?
-			--elseif layout1Data 	-- if we're missing layout[1].data then we are in the dark as to volume check
-			--and #layoutData ~= #layout1Data
-			--then
-				-- sometimes happens like with map 6 Blackjack Exterior
-				--print("layer "..layer.."'s data size doesn't match layer 1's data size:", #layoutData, #layout1Data)
 			else
 				local layerImg = Image(
 					bit.lshift(layer1Size.x, 4),
@@ -462,15 +439,16 @@ return function(game)
 					1,
 					'uint8_t'
 				):clear()
+				layerImg.blend = blend
 				layerImgs:insert(layerImg)
-				layerImg.palette = palette
+				layerImg.palette = self.palette
 
 				local posx, posy = 0, 0
-				if layerPos[layer]
+				if self.layerPos[layer]
 				-- if we have a position for the layer, but we're using parallax, then the position is going to be relative to the view
 				--and map.parallax == 0
 				then
-					posx, posy = layerPos[layer]:unpack()
+					posx, posy = self.layerPos[layer]:unpack()
 				end
 				local layoutptr = ffi.cast('uint8_t*', layoutData)
 				for dstY=0,layer1Size.y-1 do
@@ -483,12 +461,12 @@ return function(game)
 
 						if self.index < #game.worldInfos then
 							if z == 0 and layer == 1 then
-								game.layer1worlddrawtile16x16(layerImg, x, y, tile16x16, tilesetDatas[layer], gfxDatas[layer])
+								game.layer1worlddrawtile16x16(layerImg, x, y, tile16x16, self.tilesetDatas[layer], gfxDatas[layer])
 							end
 						elseif layer == 3 then
-							game.layer3drawtile16x16(layerImg, x, y, tile16x16, gfxLayer3.data)
+							game.layer3drawtile16x16(layerImg, x, y, tile16x16, self.gfxLayer3 and self.gfxLayer3.data)
 						else
-							game.layer1and2drawtile16x16(layerImg, x, y, tile16x16, tilesetDatas[layer], bit.lshift(1, z), gfxDatas)
+							game.layer1and2drawtile16x16(layerImg, x, y, tile16x16, self.tilesetDatas[layer], bit.lshift(1, z), gfxDatas)
 						end
 					end
 				end
@@ -517,13 +495,11 @@ return function(game)
 
 		local gfxLayer3 = game.getMapTileGraphicsLayer3(tonumber(map.gfxLayer3))
 
-		local tilesets = table()
 		local tilesetDatas = table()
 		for i=1,2 do
 			local tilesetIndex = tonumber(map['tileset'..i])
 			local tileset = game.getMapTileset(tilesetIndex)
-			tilesets[i] = tileset
-			tilesetDatas[i] = tileset.data
+			tilesetDatas[i] = tileset and tileset.data
 		end
 
 		local layerPos = table()
@@ -534,7 +510,7 @@ return function(game)
 			local height = bit.lshift(1, 4 + map['layer'..i..'HeightLog2Minus4'])
 			layerSizes[i] = vec2i(width, height)
 			local layoutIndex = tonumber(map['layout'..i])
-			layouts[i] = layoutIndex > 0 and game.mapLayoutCache[layoutIndex] or nil
+			layouts[i] = layoutIndex > 0 and game.getMapLayout(layoutIndex) or nil
 			if i > 1 then
 				local ofs = map['layer'..i..'Pos']
 				layerPos[i] = vec2i(ofs.x, ofs.y)
@@ -542,7 +518,9 @@ return function(game)
 		end
 
 		local palette
-		if paletteIndex >= 0 and paletteIndex < countof(game.mapPalettes) then
+		if paletteIndex >= 0 
+		and paletteIndex < countof(game.mapPalettes)
+		then
 			palette = makePalette(game.mapPalettes + paletteIndex, 4, 16*8)
 		end
 
@@ -566,7 +544,9 @@ return function(game)
 
 			tilesetDatas[1] = worldInfo.tilesetdata
 
-			palette = worldInfo.palette or palette
+			if worldInfo.palette then
+				palette = worldInfo.palette
+			end
 
 			tilePropsData = worldInfo.tilePropsData
 
@@ -580,6 +560,9 @@ return function(game)
 		end
 		--]]
 
+--TODO just adding this print line makes a lot of maps work that otherwise didn't
+-- hmmmmmm
+print('mapInfo', mapIndex, 'palette', palette)
 		local mapInfo = MapInfo{
 			index = mapIndex,
 			map = map,

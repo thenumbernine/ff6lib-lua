@@ -228,7 +228,9 @@ for mapIndex=0,countof(game.maps)-1 do
 		local palette = mapInfo.palette
 		local tilePropsData = mapInfo.tilePropsData
 
-		print('maps[0x'..mapIndex:hex()..'] = '..map[0])
+		print('maps[0x'..mapIndex:hex()..'] addr '
+			..'0x'..(ffi.cast('uint8_t*', map) - rom):hex()
+			..' = '..map[0])
 		-- map.gfx* points into mapTileGraphicsOffsets into mapTileGraphics
 		-- these are 8x8 tiles
 

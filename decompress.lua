@@ -42,8 +42,8 @@ local function decompress0x800(ptr, len)
 			end
 		end
 	end
-	--return ffi.string(buf, ffi.sizeof(buf)), ptr
-	return out:dataToStr(), ptr
+	local result = out:dataToStr()
+	return result, ptr
 end
 
 return decompress0x800
