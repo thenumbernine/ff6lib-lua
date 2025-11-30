@@ -298,7 +298,37 @@ for i=0,0x7f do
 	print('\tmonster random battle', game.worldMapBattleGroups[i])
 
 	-- is it probability bits per group? or for the whole?
+	-- [[ one byte per sector
 	print('\tprobability '..game.worldBattleProbability[i]:bin()..'b')
+	--]]
+	--[[ planar, where 1 plane = 8x8x2 bits = 128 bits = 16 bytes (if it is one world at a time...)
+	local prob = 0
+	for j=0,3 do
+		error"TODO wob vs wor"
+		local byteIndex = bit.rshift(i, 2)
+		local bitIndex = bit.lshift(bit.band(i, 3), 1)
+		prob = bit.bor(
+			prob,
+			bit.lshift(
+				bit.band(
+					bit.rshift(game.worldBattleProbability[byteIndex + 16 * j], bitIndex), 
+					3),
+				bit.lshift(j, 1)
+			)
+		)
+	end
+	print('\tprobability '..prob:bin()..'b')
+	--]]
+end
+print()
+
+print("all probs in bits")
+for i=0,game.countof(game.worldBattleProbability)-1 do
+	for j=7,0,-1 do
+		local b = bit.band(bit.lshift(1, j), game.worldBattleProbability[i]) ~= 0
+		io.write(b and '1' or '0')
+	end
+	print()
 end
 print()
 
