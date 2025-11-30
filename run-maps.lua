@@ -220,17 +220,14 @@ for mapIndex=0,countof(game.maps)-1 do
 	if mapInfo then
 		local map = mapInfo.map
 		local paletteIndex = tonumber(map.palette)
-		local gfxIndexes = mapInfo.gfxIndexes
-		local gfxs = mapInfo.gfxs
-		local gfxstr = gfxIndexes:mapi(tostring):concat'/'
-		local gfxLayer3 = mapInfo.gfxLayer3
+		local gfxstr = mapInfo.gfxIndexes:mapi(tostring):concat'/'
 		local tilesetDatas = mapInfo.tilesetDatas
 		local layerPos = mapInfo.layerPos
 		local layerSizes = mapInfo.layerSizes
 		local layouts = mapInfo.layouts
 		local palette = mapInfo.palette
 		local tilePropsData = mapInfo.tilePropsData
-		
+
 		print('maps[0x'..mapIndex:hex()..'] = '..map[0])
 		-- map.gfx* points into mapTileGraphicsOffsets into mapTileGraphics
 		-- these are 8x8 tiles
@@ -268,117 +265,15 @@ for mapIndex=0,countof(game.maps)-1 do
 			print(' map has invalid palette!')
 		end
 
-		local gfxDatas = range(4):mapi(function(i)
-			local gfx = gfxs[i]
-			if not gfx then return end
-
-			-- bookkeeping:
-			if gfx.palettes then gfx.palettes[paletteIndex] = true end
-			if gfx.mapIndexes then gfx.mapIndexes[mapIndex] = true end
-
-			return gfx.data
-		end)
-
-		local layout1Data = layouts[1] and layouts[1].data
-		local layer1Size = layerSizes[1]
-
-		local layerImgs = table()
-		for _,zAndLayer in ipairs(
-			map.layer3Priority == 0
-			and {
-				{0,3},
-				-- priority 0 sprites here
-				--{1,3},	-- does layer 3 have a zlevel?  where is it?
-				-- priority 1 sprites here
-				{0,2},
-				{0,1},
-				-- priority 2 sprites here
-				{1,2},
-				{1,1},
-				-- priority 3 sprites here
-			}
-			or {
-				{0,2},
-				{0,1},
-				{1,2},
-				{1,1},
-				{0,3},
-			}
-		)do
-			local z, layer = table.unpack(zAndLayer)
-			local blend = -1
-
-			-- layer 3 avg
-			if map.colorMath == 1 and layer == 3 then
-				blend = 1
-			-- layer 2 avg
-			elseif map.colorMath == 4 and layer == 2 then
-				blend = 1
-			-- layer 3 add
-			elseif map.colorMath == 5 and layer == 3 then
-				blend = 0
-			-- layer 1 avg
-			elseif map.colorMath == 8 and layer == 1 then
-				blend = 1
-			-- there's more ofc but meh
-			end
-			-- TODO NOTICE blend does nothing at the moment
-			-- because I'm outputting 8bpp-indexed
-
-			local layerSize = layerSizes[layer]
-			local layout = layouts[layer]
-			local layoutData = layout and layout.data
-			if not layout or not layoutData then
-				print("missing layout "..layer, layout, layoutData)
-			--elseif layerSize:volume() ~= #layouts[layer].data then
-			--	print("map layout"..layer.." data size doesn't match layer size")
-			-- I guess just modulo?
-			--elseif layout1Data 	-- if we're missing layout[1].data then we are in the dark as to volume check
-			--and #layoutData ~= #layout1Data
-			--then
-				-- sometimes happens like with map 6 Blackjack Exterior
-				--print("layer "..layer.."'s data size doesn't match layer 1's data size:", #layoutData, #layout1Data)
-			else
-				local layerImg = Image(
-					bit.lshift(layer1Size.x, 4),
-					bit.lshift(layer1Size.y, 4),
-					1,
-					'uint8_t'
-				):clear()
-				layerImgs:insert(layerImg)
-				layerImg.palette = palette
-
-				local posx, posy = 0, 0
-				if layerPos[layer]
-				-- if we have a position for the layer, but we're using parallax, then the position is going to be relative to the view
-				--and map.parallax == 0
-				then
-					posx, posy = layerPos[layer]:unpack()
-				end
-				local layoutptr = ffi.cast('uint8_t*', layoutData)
-				for dstY=0,layer1Size.y-1 do
-					local y = bit.lshift(dstY, 4)
-					for dstX=0,layer1Size.x-1 do
-						local x = bit.lshift(dstX, 4)
-						local srcX = (dstX + posx) % layerSize.x
-						local srcY = (dstY + posy) % layerSize.y
-						local tile16x16 = layoutptr[((srcX + layerSize.x * srcY) % #layoutData)]
-
-						if mapIndex < #game.worldInfos then
-							if z == 0 and layer == 1 then
-								game.layer1worlddrawtile16x16(layerImg, x, y, tile16x16, tilesetDatas[layer], gfxDatas[layer], palette)
-							end
-						elseif layer == 3 then
-							game.layer3drawtile16x16(layerImg, x, y, tile16x16, gfxLayer3.data, palette)
-						else
-							game.layer1and2drawtile16x16(layerImg, x, y, tile16x16, tilesetDatas[layer], bit.lshift(1, z), gfxDatas, palette)
-						end
-					end
-				end
+		for i=1,4 do
+			local gfx = mapInfo.gfxs[i]
+			if gfx then 
+				if gfx.palettes then gfx.palettes[paletteIndex] = true end
+				if gfx.mapIndexes then gfx.mapIndexes[mapIndex] = true end
 			end
 		end
 
-
+		local layer1Size = layerSizes[1]
 		local compositeImg = Image(
 			-- map size is in 16x16 tiles, right?
 			-- and should I size it by the first layer, or by the max of all layers?
@@ -389,6 +284,7 @@ for mapIndex=0,countof(game.maps)-1 do
 		):clear()
 		compositeImg.palette = palette
 
+		local layerImgs = mapInfo:createLayerImages()
 		for _,layerImg in ipairs(layerImgs) do
 			-- now apply layerImg to compositeImg
 			-- ... maybe later have an option for doing it RGBA using proper blending
@@ -405,6 +301,7 @@ for mapIndex=0,countof(game.maps)-1 do
 		compositeImg:save((mappath/('map'..mapIndex..'.png')).path)
 
 
+		local layout1Data = layouts[1] and layouts[1].data
 		-- draw tile properties while we're here
 		if tilePropsData then
 			if not layout1Data then
