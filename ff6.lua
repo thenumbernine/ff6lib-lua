@@ -27,7 +27,22 @@ for _,size in ipairs{8, 16, 32} do
 	end
 end
 
-return function(rom)
+local romsize = 0x300000
+
+-- you must pass this a string
+-- and it saves the strong
+-- all so GC doesn't free pointers while this is using them.
+return function(romstr)
+assert.type(romstr, 'string')
+if #romstr == 0x300200 then
+	romstr = romstr:sub(0x201)
+end
+assert.len(romstr, romsize)
+-- TODO checksum
+
+
+local rom = ffi.cast('uint8_t*', romstr)
+
 -- compstr uses game
 local gameC	-- C object / ffi metatype
 local game	-- Lua wrapper to provide extra Lua closure tables etc
@@ -2533,8 +2548,9 @@ game = setmetatable({}, {
 	__index = gameC,
 })
 
--- assert somewhere
-game.romsize = 0x300000
+game.rom = rom
+game.romstr = romstr
+game.romsize = romsize
 
 game.numSpells = numSpells
 game.numBattleAnimSets = numBattleAnimSets

@@ -10,19 +10,8 @@ local makePalette = require 'ff6.graphics'.makePalette
 
 local infn = cmdline[2]
 assert(infn, "missing filename")
-local data = assert(path(infn):read())
-if #data == 0x300200 then
-	data = data:sub(0x201)
-end
-
-local rom = ffi.cast('uint8_t*', data)
-local game = require 'ff6'(rom)
-
--- don't lose these.  they will GC otherwise.
-_G.data = data
-_G.rom = rom
-_G.game = game
-
+local game = require 'ff6'((assert(path(infn):read())))
+local rom = game.rom
 local countof = game.countof
 
 

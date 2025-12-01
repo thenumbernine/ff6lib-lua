@@ -11,19 +11,14 @@ local readTile = require 'ff6.graphics'.readTile
 
 local infn, outfn = ...
 assert(infn, "missing filename")
-local data = assert(path(infn):read())
-if #data == 0x300200 then
-	data = data:sub(0x201)
-end
--- TODO checksum
-
-local romsize = #data
-local rom = ffi.cast('uint8_t*', data)
 
 -- you can only load this once, from there all the types' metatables are bound to the game pointer
 -- so even if you load a second game file, all the metatypes will be bound to the first pointer
 -- I can't change that without associating the C data with the Lua object.
-local game = require 'ff6'(rom)
+-- TODO TODO TODO fix this
+local game = require 'ff6'((assert(path(infn):read())))
+local rom = game.rom
+local romsize = game.romsize
 
 for i=0,game.numSpells-1 do
 	print('spell #'..i)
