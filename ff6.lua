@@ -2238,7 +2238,7 @@ local game_t = ff6struct{
 		{monsterEventBattles = 'monsterRandomBattleEntry2_t[0x100]'},			-- 0x0f5000 - 0x0f5400
 		{worldSectorRandomBattlesPerTerrain = 'RandomBattlesPerTerrain_t[0x80]'},	-- 0x0f5400 - 0x0f5600 = [world][sectorx][sectory]  ... 64 sectors (32x32 chunks of 256x256 world map) per WoB, 64 for WoR
 		{mapBattleGroups = 'RandomBattlesPerTerrain_t[0x80]'},					-- 0x0f5600 - 0x0f5800 ... not sure if this struct is correct
-		{worldBattleProbability = 'uint8_t[0x80]'},								-- 0x0f5800 - 0x0f5880 = 2 bits used ... 64 sectors per WoB, 64 per WoR ... 8 items per sector, 2bpp each ( https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:rom_map )
+		{worldSectorRandomBattleEncounterRatesPerTerrain = 'uint8_t[0x80]'},	-- 0x0f5800 - 0x0f5880 = 2 bits used ... 64 sectors per WoB, 64 per WoR ... 8 items per sector, 2bpp each ( https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:rom_map )
 		{mapBattleProbability = 'uint8_t[0x80]'},								-- 0x0f5880 - 0x0f5900 = 2 bits used
 		{formation2s = 'formation2_t['..numFormations..']'},					-- 0x0f5900 - 0x0f6200
 		{formations = 'formation_t['..numFormations..']'},						-- 0x0f6200 - 0x0f83c0
