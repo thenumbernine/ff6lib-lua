@@ -887,6 +887,35 @@ local formation_t = ff6struct{
 			)
 		end
 
+		-- index 1-6
+		mt.getMonsterPos = function(self, i)
+			return self['pos'..i]
+		end
+
+		-- index 1-6
+		mt.getMonsterActive = function(self, i)
+			return self['active'..i] ~= 0
+		end
+
+		-- index 1-6
+		mt.getMonsterInfo = function(self, i)
+			return {
+				monster = self:getMonsterIndex(i),
+				pos = self:getMonsterPos(i),
+				active = self:getMonsterActive(i),
+			}
+		end
+
+		-- index 1-6
+		-- is it a pointer into an array of 6? or just one single value?
+		mt.getFormationSize = function(self, i)
+			local offset = gameC.formationSizeOffsets[self.formationSize]
+			local addr = 0x020000 + offset
+			local formationSize = ffi.cast('formationSize_t*', rom + addr)
+			return formationSize[i-1]
+		end
+
+--[=[
 		mt.fieldToString = function(self, key, ctype)
 			if key:match'^monster%dhi$' then return nil end
 			if key:match'^active%d$' then return nil end
@@ -904,6 +933,7 @@ local formation_t = ff6struct{
 				if self['active'..i] == 0 then return nil end
 			end
 
+			-- is this how this works?
 			if key == 'formationSize' then
 				local v = self[key]
 				local offset = gameC.formationSizeOffsets[v]
@@ -917,6 +947,7 @@ local formation_t = ff6struct{
 
 			return oldFieldToString(self, key, ctype)
 		end
+--]=]
 	end,
 }
 assert.eq(ffi.sizeof'formation_t', 0xf)
@@ -1003,8 +1034,22 @@ local numFormationSizes = 48
 local formationSize_t = ff6struct{
 	name = 'formationSize_t',
 	fields = {
-		{unknown_0 = 'uint8_t'},
-		{unknown_1 = 'uint8_t'},
+		{unused_0_0 = 'uint8_t:1'},		-- 0.0
+		{unused_0_1 = 'uint8_t:1'},		-- 0.1
+		{unused_0_2 = 'uint8_t:1'},		-- 0.2
+		{unused_0_3 = 'uint8_t:1'},		-- 0.3
+		{unused_0_4 = 'uint8_t:1'},		-- 0.4
+		{unused_0_5 = 'uint8_t:1'},		-- 0.5
+		{unused_0_6 = 'uint8_t:1'},		-- 0.6
+		{unknown_0_7 = 'uint8_t:1'},	-- 0.7
+		{unknown_1_0 = 'uint8_t:1'},	-- 1.0
+		{unused_1_1 = 'uint8_t:1'},		-- 1.1
+		{unused_1_2 = 'uint8_t:1'},		-- 1.2
+		{unknown_1_3 = 'uint8_t:1'},	-- 1.3
+		{unknown_1_4 = 'uint8_t:1'},	-- 1.4
+		{unused_1_5 = 'uint8_t:1'},		-- 1.5
+		{unused_1_6 = 'uint8_t:1'},		-- 1.6
+		{unused_1_7 = 'uint8_t:1'},		-- 1.7
 		{width = 'uint8_t'},
 		{height = 'uint8_t'},
 	},
@@ -1014,25 +1059,26 @@ assert.eq(ffi.sizeof'formationSize_t', 4)
 ff6struct{
 	name = 'monsterRandomBattleEntry_t',
 	fields = {
-		{formationIndex = 'uint16_t:10'},
-		{unknown_0_10 = 'uint16_t:1'},
-		{chooseFromNextFour = 'uint16_t:1'},
-		{unknown_0_12 = 'uint16_t:4'},
+		{formation = 'uint16_t:15'},			-- only 10 bits are used, since thats all you need to index numFormations = 0x240
+		{chooseFromNextFour = 'uint16_t:1'},	-- only set for random battle #0x70: Behemoth, Ninja x2, {Brainpain x2, Misfit, Apokrypohs}, Dragon
 	},
 }
 assert.eq(ffi.sizeof'monsterRandomBattleEntry_t', 2)
 
-ffi.cdef[[
-typedef monsterRandomBattleEntry_t monsterRandomBattleGroup_t[4];
-typedef monsterRandomBattleEntry_t monsterEventBattleGroup_t[2];
-]]
+local monsterRandomBattleEntry2_t = createVec{
+	dim = 2,
+	ctype = 'monsterRandomBattleEntry_t',
+	vectype = 'monsterRandomBattleEntry2_t',
+}
 
-ffi.cdef[[
-typedef uint8_t monsterRandomBattleGroupRef_t[4];
-]]
+local monsterRandomBattleEntry4_t = createVec{
+	dim = 4,
+	ctype = 'monsterRandomBattleEntry_t',
+	vectype = 'monsterRandomBattleEntry4_t',
+}
 
 ff6struct{
-	name = 'WorldSectorBattles_t',
+	name = 'RandomBattlesPerTerrain_t',
 	fields = {
 		-- each is a lookup into monsterRandomBattles[]
 		{grass = 'uint8_t'},
@@ -2053,7 +2099,7 @@ local game_t = ff6struct{
 
 		{padding_02ced0 = 'uint8_t['..(-(0x02ced0 - 0x02d01a))..']'},			-- 0x02ced0 - 0x02d01a
 
-		{formationSizeOffsets = 'uint16_t['..numFormationSizeOffsets..']'},		-- 0x02d01a - 0x02d034
+		{formationSizeOffsets = 'uint16_t['..numFormationSizeOffsets..']'},		-- 0x02d01a - 0x02d034 = offset by +0x020000 into formationSize[] 
 		{formationSizes = 'formationSize_t['..numFormationSizes..']'},			-- 0x02d034 - 0x02d0f4
 
 		-- 0x036f00 - ? = menu portrait palette assignment (1 byte each)
@@ -2173,10 +2219,10 @@ local game_t = ff6struct{
 		{monsterSpells = 'spellref4_t['..numMonsters..']'},						-- 0x0f3d00 - 0x0f4300
 		{monsterSketches = 'spellref2_t['..numMonsters..']'},					-- 0x0f4300 - 0x0f4600
 		{monsterRages = 'spellref2_t['..numRages..']'},							-- 0x0f4600 - 0x0f4800
-		{monsterRandomBattles = 'monsterRandomBattleGroup_t[0x100]'},			-- 0x0f4800 - 0x0f5000
-		{monsterEventBattles = 'monsterEventBattleGroup_t[0x100]'},				-- 0x0f5000 - 0x0f5400
-		{worldMapBattleGroups = 'WorldSectorBattles_t[0x80]'},					-- 0x0f5400 - 0x0f5600 = [world][sectorx][sectory]  ... 64 sectors (32x32 chunks of 256x256 world map) per WoB, 64 for WoR
-		{mapBattleGroups = 'WorldSectorBattles_t[0x80]'},						-- 0x0f5600 - 0x0f5800
+		{monsterRandomBattles = 'monsterRandomBattleEntry4_t[0x100]'},			-- 0x0f4800 - 0x0f5000
+		{monsterEventBattles = 'monsterRandomBattleEntry2_t[0x100]'},			-- 0x0f5000 - 0x0f5400
+		{worldSectorRandomBattlesPerTerrain = 'RandomBattlesPerTerrain_t[0x80]'},	-- 0x0f5400 - 0x0f5600 = [world][sectorx][sectory]  ... 64 sectors (32x32 chunks of 256x256 world map) per WoB, 64 for WoR
+		{mapBattleGroups = 'RandomBattlesPerTerrain_t[0x80]'},					-- 0x0f5600 - 0x0f5800 ... not sure if this struct is correct
 		{worldBattleProbability = 'uint8_t[0x80]'},								-- 0x0f5800 - 0x0f5880 = 2 bits used ... 64 sectors per WoB, 64 per WoR ... 8 items per sector, 2bpp each ( https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:rom_map )
 		{mapBattleProbability = 'uint8_t[0x80]'},								-- 0x0f5880 - 0x0f5900 = 2 bits used
 		{formation2s = 'formation2_t['..numFormations..']'},					-- 0x0f5900 - 0x0f6200

@@ -238,17 +238,40 @@ end
 print()
 
 for i=0,game.numFormations-1 do
-	print('formation #'..i)
+	print('formation=0x'..i:hex())
 	if i < game.numFormationMPs then
-		print('mp='..game.formationMPs[i])
+		print('\tmp='..game.formationMPs[i])
 	end
-	print(game.formations[i])
-	print(game.formation2s[i])
+
+	local formation = game.formations + i
+	for j=1,6 do
+		io.write('\t#0x', j:hex(), ':')
+		local active = formation:getMonsterActive(j)
+		io.write(' active=', tostring(active))
+		if active then
+			local monsterIndex = formation:getMonsterIndex(j)
+			io.write(', monster=0x', monsterIndex:hex())
+			if monsterIndex < game.countof(game.monsterNames) then
+				io.write(' "', tostring(game.monsterNames[monsterIndex]), '"')
+			end
+			io.write(', pos=', tostring(formation:getMonsterPos(j)))
+			io.write(', size=', tostring(formation:getFormationSize(j)))
+		end
+		print()
+	end
+	print('',game.formation2s[i])
 	print()
 end
 
 for i=0,game.numFormationSizeOffsets-1 do
-	print('formation offset ptr #'..i..' = '..('0x%04x'):format(game.formationSizeOffsets[i]))
+	local offset = game.formationSizeOffsets[i]
+	local addr = offset + 0x020000
+	print('formation size offset #0x'..i:hex()
+		..' offset='..('0x%04x'):format(offset)
+		..' addr='..('0x%04x'):format(addr)
+		..' formationSize='..ffi.cast('formationSize_t*', rom + addr)[0]
+		..(i==0 and '' or (' delta=0x'..(game.formationSizeOffsets[i] - game.formationSizeOffsets[i-1]):hex()))
+	)
 end
 print()
 
@@ -260,42 +283,57 @@ end
 print()
 
 for i=0,0xff do
-	print('monster random battle 0x'..i:hex())
+	print('monster random battle options 0x'..i:hex())
+	local formationCounts = {}
 	for j=0,3 do
-		local formationEntry = game.monsterRandomBattles[i][j]
-		print('\t'
-			--..formationEntry..' '
-			..range(6):mapi(function(k)
-				if formationEntry.formationIndex >= game.numFormations then
-					return '(formationIndex='..formationEntry.formationIndex..')'
+		local formationEntry = game.monsterRandomBattles[i].s[j]
+		local formationIndex = formationEntry.formation
+		local formationDesc = 'formation=0x'..formationIndex:hex()..':'
+		if formationIndex < game.numFormations then
+			local formation = game.formations + formationIndex
+			local monsterCounts = {}
+			for k=1,6 do
+				if formation:getMonsterActive(k) then
+					local monsterIndex = formation:getMonsterIndex(k)
+					local key = '#'..monsterIndex
+					if monsterIndex < game.numMonsters then
+						key = key ..':'..tostring(game.monsterNames[monsterIndex])
+					end
+					monsterCounts[key] = (monsterCounts[key] or 0) + 1
 				end
-
-				local formation = game.formations + formationEntry.formationIndex
-
-				if formation['active'..k] == 0 then return '-' end
-
-				local monsterIndex = formation:getMonsterIndex(k)
-
-				if monsterIndex >= game.numMonsters then
-					return '(monsterIndex='..monsterIndex..')'
-				end
-
-				return tostring(game.monsterNames[monsterIndex])
+			end
+			formationDesc = formationDesc .. ' '
+			..table.keys(monsterCounts):sort():mapi(function(key)
+				local count = monsterCounts[key]
+				if count == 1 then return key end
+				return key..' x'..count
 			end):concat', '
-		)
+		end
+		if formationEntry.chooseFromNextFour ~= 0 then
+			formationDesc = formationDesc .. ' (chooseFromNextFour)'
+		end
+		formationCounts[formationDesc] = (formationCounts[formationDesc] or 0) + (j == 3 and 1 or 5)
+	end
+	for _,formationDesc in ipairs(table.keys(formationCounts):sort()) do
+		local formationCount = formationCounts[formationDesc]
+		print('', formationCount..'/16 '..formationDesc)
 	end
 end
 print()
 
-local terrainType = {'grass', 'forest', 'desert', 'dirt'}
+local terrains = {'grass', 'forest', 'desert', 'dirt'}	-- also fields of WorldSectorBattles_t
 -- first 64 are each 32x32 tile segment in the WoB, next 64 are segments in the WoR
 for i=0,0x7f do
-	print('world map battle group #0x'..i:hex()
+	print('map sector encounter #0x'..i:hex()
+		..' world='..bit.rshift(i, 6)
 		..' x='..bit.band(i, 7)
 		..' y='..bit.band(bit.rshift(i, 3), 7)
-		..' world='..bit.rshift(i, 6)
 	)
-	print('\tmonster random battle', game.worldMapBattleGroups[i])
+	local randomBattlesPerTerrain = game.worldSectorRandomBattlesPerTerrain + i
+	for _,terrain in ipairs(terrains) do
+		local battleIndex = randomBattlesPerTerrain[terrain]
+		print('', terrain, '0x'..battleIndex:hex())
+	end
 
 	-- is it probability bits per group? or for the whole?
 	-- [[ one byte per sector
@@ -338,7 +376,7 @@ print()
 for i=0,0x7f do
 	print('map battle group #0x'..i:hex())
 	for j=0,3 do
-		print('\t'..terrainType[j+1]..' = monster random battle 0x'..game.mapBattleGroups[i][j]:hex())
+		print('\t'..terrains[j+1]..' = monster random battle 0x'..game.mapBattleGroups[i][j]:hex())
 	end
 	-- is it probability bits per group?
 	print('\tprobability '..game.mapBattleProbability[i]:bin()..'b')
