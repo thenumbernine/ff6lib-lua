@@ -326,10 +326,13 @@ for mapIndex=0,countof(game.maps)-1 do
 				-- RGB (16 bits used)
 				local tileLayoutImg = Image(layer1Size.x, layer1Size.y, 3, 'uint8_t')
 
+				-- TODO you can do this using tileLayoutVisImg somehow ...
+				local traversabilityImg = Image(layer1Size.x, layer1Size.y, 3, 'uint8_t')
+
 	--assert.eq(ffi.sizeof'mapTileProps_t', 2)	-- make sure writing uint16_t's works
 	--local tilePropsMap = ffi.new('uint16_t[?]', layer1Size.x * layer1Size.y)
 				local layoutptr = ffi.cast('uint8_t*', layout1Data)
-				local tilePropsPtr = ffi.cast('uint16_t*', tilePropsData)
+				local tilePropsPtr = ffi.cast('WorldTileProps_t*', tilePropsData)
 				for dstY=0,layer1Size.y-1 do
 					for dstX=0,layer1Size.x-1 do
 						local props = tilePropsPtr + layoutptr[0]
@@ -344,8 +347,35 @@ for mapIndex=0,countof(game.maps)-1 do
 
 						-- write to the 1:1 RGB image
 						local pix = tileLayoutImg.buffer + 3 * (dstX + tileLayoutImg.width * dstY)
-						ffi.cast('uint16_t*', pix)[0] = props[0]
-	--tilePropsMap[dstX + tileLayoutImg.width * dstY] = props[0]
+						ffi.cast('uint16_t*', pix)[0] = ffi.cast('uint16_t*', props)[0]
+						--tilePropsMap[dstX + tileLayoutImg.width * dstY] = props[0]
+
+						local pix = traversabilityImg.buffer + 3 * (dstX + tileLayoutImg.width * dstY)
+						local r = ((tonumber(props.airshipShadow) + 1) / 4) * 255
+						local g, b = r, r
+						if props.blocksChocobo == 0
+						and props.airshipCantLand == 0
+						and props.blocksWalking == 0
+						then
+							-- black to grey
+							r = bit.rshift(r, 1)
+							g = bit.rshift(g, 1)
+							b = bit.rshift(b, 1)
+						elseif props.blocksChocobo == 1
+						and props.airshipCantLand == 1
+						and props.blocksWalking == 1
+						then
+							-- grey to white
+							r = bit.rshift(r, 1) + 128
+							g = bit.rshift(g, 1) + 128
+							b = bit.rshift(b, 1) + 128
+						else
+							-- red yellow green cyan blue violet
+							if props.blocksChocobo == 0 then r = 0 end
+							if props.airshipCantLand == 0 then g = 0 end
+							if props.blocksWalking == 0 then b = 0 end
+						end
+						pix[0], pix[1], pix[2] = r, g, b
 
 						layoutptr = layoutptr + 1
 					end
@@ -367,6 +397,7 @@ for mapIndex=0,countof(game.maps)-1 do
 
 				tileLayoutVisImg:save((mappath/('maplayoutviz'..mapIndex..'.png')).path)
 				tileLayoutImg:save((mappath/('maplayout'..mapIndex..'.png')).path)
+				traversabilityImg:save((mappath/('traversability'..mapIndex..'.png')).path)
 			end
 		end
 
