@@ -47,16 +47,9 @@ local rom = ffi.cast('uint8_t*', romstr)
 local gameC	-- C object / ffi metatype
 local game	-- Lua wrapper to provide extra Lua closure tables etc
 
-local function findnext(ptr, data)
+local function findu8(ptr, ch)
 	while true do
-		local found = true
-		for j=1,#data do
-			if ptr[j-1] ~= data[j] then
-				found = false
-				break
-			end
-		end
-		if found then return ptr end
+		if ptr[0] == ch then return ptr end
 		ptr = ptr + 1
 	end
 end
@@ -90,7 +83,7 @@ local function gamestr(ptr, len)
 end
 
 local function gamezstr(ptr)
-	local pend = findnext(ptr, {0})
+	local pend = findu8(ptr, 0)
 	return gamestr(ptr, pend - ptr)
 end
 
@@ -187,12 +180,9 @@ local function compstr(p, size)
 end
 
 local function compzstr(ptr)
-	local pend = findnext(ptr, {0})
+	local pend = findu8(ptr, 0)
 	return compstr(ptr, pend - ptr)
 end
-
-
-
 
 local function gamestrtype(args)
 	local name = assert(args.name)
@@ -433,7 +423,7 @@ function StringList:__tostring()
 				error("offset "..i.." was out of bound")
 			end
 			local ptr = rom + addrBase + offset
-			local pend = findnext(ptr, {0})
+			local pend = findu8(ptr, 0)
 			local addrEnd = pend - rom
 			for j=addrBase+offset, addrEnd do
 				assert.le(addrMin, j)
@@ -2592,7 +2582,7 @@ game.numPositionedText = numPositionedText
 game.numBRRSamples = numBRRSamples
 game.numMenuChars = numMenuChars
 
-game.findnext = findnext
+game.findu8 = findu8
 game.gamezstr = gamezstr
 game.compzstr = compzstr
 game.gamestr = gamestr
@@ -2668,6 +2658,36 @@ game.positionedText = StringList{
 }
 
 require 'ff6.maps'(game)
+
+
+--[[ 0xd1600
+					-- Game Genie code:
+rom[0xd1614] = 0x97	-- B5FF-8F79
+rom[0xd1618] = 0xc1	-- AFFF-8479
+rom[0xd1619] = 0x8f -- 6EFF-8459
+					-- wait I used +0xC00000 ... didn't seem to work ... whats the correct offset for ROM GG codes?
+print(compzstr(ffi.cast('uint8_t*', rom+0xd1600)))
+--[=[
+test = table{0x2a, 0x24, 0x25, 0x2a, 0x20, 0x61, 0x7f, 0x20, 0x85, 0x46, 0x67, 0x83, 0x87, 0x3e, 0x63, 0x86, 0x32, 0x20, 0x2d, 0x23,
+	0x97,--0x92,	-- 14: " o"
+	0x94, 			-- 15: "n "
+	0x46, 			-- 16: "m"
+	0x52, 			-- 17: "y"
+	0xc1,--0xa1,	-- 18: " b"
+	0x8f,--0xf2,	-- 19: "oo"
+	0x4d,			-- 1a: "t"
+	0x4c,			-- 1b: "s"
+	0x5e			-- 1c: "!"
+}:mapi(function(ch) return string.char(ch) end):concat()
+print(#test)
+for i=0,#test-1 do
+	print(i:hex(), ('%q'):format(compstr(ffi.cast('uint8_t*', test)+i, 1)))
+end
+print()
+--]=]
+os.exit()
+--]]
+
 
 return game
 
