@@ -2382,6 +2382,13 @@ local game_t = ff6struct{
 
 		{padding_271848 = 'uint8_t['..(-(0x271848 - 0x297000))..']'},			-- 0x271848	- 0x297000
 
+-- 0xE70000-0xE70150 battleBackgroundProperties[56]
+-- 0xE70150-0xE71650 battleBackgroundPalette ... is it 56 or 96?
+-- 0xE71650-0xE71731 battleBackgroundGraphicsOffsets[75] 24bit
+-- 0xE71848-0xE718AA battleBackgroundLayoutOffsets[49] 16bit +0xE70000
+-- 0xE71928-0xE7A9E7 battleBackgroundLayoutCompressed 32x32x4bpp
+-- 0xE7A9E7-0xE96300 battleBackgroundGraphicsCompressed 4bpp
+
 		{monsterSpriteData = 'uint8_t['..(-(0x297000 - 0x2d0000))..']'},		-- 0x297000 - 0x2d0000 = monster graphics
 
 		{menuImages = 'uint8_t['..(-(0x2d0000 - 0x2d0e00))..']'},				-- 0x2d0000 - 0x2d0e00 = menu images 0x200 = bg pattern, 0x180 = borders, so 0x380 total ... x8 per menu scheme
