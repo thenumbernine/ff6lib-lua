@@ -20,6 +20,8 @@ local game = require 'ff6'((assert(path(infn):read())))
 local rom = game.rom
 local romsize = game.romsize
 
+local countof = game.countof
+
 for i=0,game.numSpells-1 do
 	print('spell #'..i)
 	print('Name="'..game.getSpellName(i)..'"')
@@ -119,6 +121,25 @@ for i=0,game.numMonsters-1 do
 	if i < game.numRages then print('rages = '..game.monsterRages[i]) end
 	print()
 end
+
+
+-- [[ battle backgrounds
+-- wonder where I should put this ...
+-- with monster formations?
+-- with world maps?
+-- meh, it is here for now.
+
+for i=0,countof(game.battleBackgroundProperties)-1 do
+	local bg = game.battleBackgroundProperties + i
+	print('battle bg 0x'..i:hex()..' = '..bg)
+	print('\tmog dance', game.mogDanceNames[game.battleBackgroundDance[i]])
+end
+--os.exit()
+
+--]]
+
+
+
 
 local totalPixels = 0
 -- [[
@@ -246,7 +267,7 @@ for i=0,game.numFormations-1 do
 		if active then
 			local monsterIndex = formation:getMonsterIndex(j)
 			io.write(', monster=0x', monsterIndex:hex())
-			if monsterIndex < game.countof(game.monsterNames) then
+			if monsterIndex < countof(game.monsterNames) then
 				io.write(' "', tostring(game.monsterNames[monsterIndex]), '"')
 			end
 			io.write(', pos=', tostring(formation:getMonsterPos(j)))

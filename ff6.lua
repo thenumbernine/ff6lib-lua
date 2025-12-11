@@ -2064,6 +2064,48 @@ local WorldTileProps_t = ff6struct{
 }
 assert.eq(ffi.sizeof'WorldTileProps_t', 2)
 
+local battleBackgroundProps_t = struct{
+	name = 'battleBackgroundProps_t',
+	packed = true,
+	tostringFields = true,
+	tostringOmitFalse = true,
+	tostringOmitNil = true,
+	tostringOmitEmpty = true,
+	fields = {
+		{
+			type = struct{
+				anonymous = true,
+				union = true,
+				fields = {
+					{
+						name = 'graphics1combined',		-- if this is 0xff then graphics1 is invalid.
+						type = 'uint8_t'
+					},
+					{
+						type = struct{
+							anonymous = true,
+							fields = {
+								{name='graphics1', type='uint8_t:7'},				-- 0.0-0.6 \_ combined, 0xff = none
+								{name='graphics1doubleSized', type='uint8_t:1'},	-- 0.7     / 
+							},
+						},
+					},
+				},
+			},
+		},
+		{name='graphics2', type='uint8_t'},					-- 1: 0xff = none.
+		{name='graphics3', type='uint8_t'},					-- 2: 0xff = none.
+		{name='layout1', type='uint8_t'},					-- 3: battleBackgroundLayout[]
+		{name='layout2', type='uint8_t'},					-- 4:
+		{name='palette', type='uint8_t:7'},					-- 5.0-5.6
+		{name='wavy', type='uint8_t:1'},					-- 5.7
+	},
+	metatable = function(mt)
+		mt.typeToString = fieldsToHex
+	end,
+}
+assert.eq(ffi.sizeof(battleBackgroundProps_t), 6)
+
 ---------------- GAME ----------------
 
 -- TODO this is clever but ... rigid and with lots of redundancies
@@ -2212,7 +2254,7 @@ local game_t = ff6struct{
 		{monsterNames = 'monsterName_t['..numMonsters..']'},									-- 0x0fc050 - 0x0fcf50
 		{monsterNameThing = 'uint8_t['..numMonsters..']'},										-- 0x0fcf50 - 0x0fd0d0
 		{monsterAttackNames = 'monsterName_t['..numMonsters..']'},								-- 0x0fd0d0 - 0x0fdfd0
-		{padding_0fdfd0 = 'uint8_t[0x10]'},														-- 0x0fdfd0 - 0x0fdfe0 -- 'ff's
+		{padding_0fdfd0 = 'uint8_t[0x10]'},														-- 0x0fdfd0 - 0x0fdfe0 = 'ff's
 		{battleDialogOffsets = 'uint16_t['..numBattleDialogs..']'},								-- 0x0fdfe0 - 0x0fe1e0
 		{battleDialogBase = 'uint8_t['..(-(0x0fe1e0 - 0x0ff450))..']'},							-- 0x0fe1e0 - 0x0ff450
 
@@ -2229,12 +2271,12 @@ local game_t = ff6struct{
 		{unknown_0ffe80  = 'uint8_t['..(-(0x0ffe80 - 0x0ffeae))..']'},							-- 0x0ffe76 - 0x0ffeae
 
 		{esperBonusDescs = 'esperBonusDesc_t['..numEsperBonuses..']'},							-- 0x0ffeae - 0x0fff47
-		{padding_0fff47  = 'uint8_t[87]'},														-- 0x0fff47 - 0x0fff9e -- 'ff's
+		{padding_0fff47  = 'uint8_t[87]'},														-- 0x0fff47 - 0x0fff9e = 'ff's
 		{blitzDescOffsets = 'uint16_t['..numBlitzes..']'},										-- 0x0fff9e - 0x0fffae
 		{swordTechDescOffsets = 'uint16_t['..numSwordTechs..']'},								-- 0x0fffae - 0x0fffbe
 		{battleAnimScripts = 'uint8_t['..(-(0x0fffbe - 0x107fb2))..']'},						-- 0x0fffbe - 0x107fb2 <- indexed into with battleAnimScriptOffsets[i] + 0x100000
 		{battleAnimSets = 'battleAnimSet_t['..numBattleAnimSets..']'},							-- 0x107fb2 - 0x1097fa
-		{padding_1097fa = 'uint8_t['..(-(0x1097fa - 0x109800))..']'},												-- 0x1097fa - 0x109800 -- 'ff's, just like the end of battleAnimSets
+		{padding_1097fa = 'uint8_t['..(-(0x1097fa - 0x109800))..']'},							-- 0x1097fa - 0x109800 = 'ff's, just like the end of battleAnimSets
 
 		{unknown_109800 = 'uint8_t['..(-(0x109800 - 0x10d000))..']'},							-- 0x109800 - 0x10d000
 
@@ -2308,7 +2350,7 @@ local game_t = ff6struct{
 		{padding_1fbaff = 'uint8_t[31]'},														-- 0x1fbaff - 0x1fbb00
 		{entranceTriggerOfs = 'uint16_t['..numEntranceTriggerOfs..']'},							-- 0x1fbb00 - 0x1fbf02 -- offset by +0x1fbb00
 		{entranceTriggers = 'entranceTrigger_t[0x469]'},										-- 0x1fbf02 - 0x1fd978 = entranceTrigger_t[] (only 415 used?)
-		{padding_1fd978 = 'uint8_t[136]'},														-- 0x1fd978 - 0x1fda00 = 0xFF filler
+		{padding_1fd978 = 'uint8_t[136]'},														-- 0x1fd978 - 0x1fda00 = 'ff's
 		{mapTileGraphicsOffsets = 'uint24_t[0x52]'},											-- 0x1fda00 - 0x1fdaf6 = town tile graphics pointers (+0x1fdb00), points into mapTileGraphics
 		{padding_1fdaf6 = 'uint8_t[10]'},														-- 0x1fdaf6 - 0x1fdb00
 		{mapTileGraphics = 'uint8_t['..(-(0x1fdb00 - 0x25f400))..']'},							-- 0x1fdb00 - 0x25f400 = map tile graphics for layers 1&2, 4bpp
@@ -2337,7 +2379,7 @@ local game_t = ff6struct{
 		{esperAttackNames = 'str10_t['..numEspers..']'},										-- 0x26fe8f - 0x26ff9d
 		{mogDanceNames = 'str12_t['..numMogDances..']'},										-- 0x26ff9d - 0x26fffd
 		{padding_26fffd = 'uint8_t[3]'},														-- 0x26fffd - 0x270000
-		{battleBackgroundProperties = 'uint8_t[0x150]'},										-- 0x270000 - 0x270150 = 56*6?
+		{battleBackgroundProperties = 'battleBackgroundProps_t[56]'},							-- 0x270000 - 0x270150 = 56*6
 		{battleBackgroundPalette = 'palette8_t[0x150]'},										-- 0x270150 - 0x271650 ... everything's says 56 or 96?
 		{battleBackgroundGraphicsOffsets = 'uint16_t[0xfc]'},									-- 0x271650 - 0x271848	-- pointers to top background palettes (168 elements, 75 used)
 		{battleBackgroundLayoutOffsets = 'uint16_t[0x70]'},										-- 0x271848 - 0x271928 = +0x270000 .  49 are valid. invalid contain 0x1928
@@ -2372,15 +2414,15 @@ local game_t = ff6struct{
 		{expForLevelUp = 'uint16_t['..numExpLevelUps..']'},										-- 0x2d8220 - 0x2d82f4
 		{treasureOfs = 'uint16_t[0x1a0]'},														-- 0x2d82f4 - 0x2d8634 	-- offset +0x2d8634 into treasures
 		{treasures = 'treasure_t[0x11e]'},														-- 0x2d8634 - 0x2d8bca
-
-		{unknown_2d8bca  = 'uint8_t['..(-(0x2d8bca - 0x2d8f00))..']'},							-- 0x2d8bca - 0x2d8f00
-
+		{padding_2d8bca  = 'uint8_t['..(-(0x2d8bca - 0x2d8e5b))..']'},							-- 0x2d8bca - 0x2d8e5b = 'ff's
+		{battleBackgroundDance = 'uint8_t[0x40]'},												-- 0x2d8e5b - 0x2d8e9b
+		{padding_2d8e9b  = 'uint8_t['..(-(0x2d8e9b - 0x2d8f00))..']'},							-- 0x2d8e9b - 0x2d8f00 = 'ff's
 		{maps = 'map_t[0x19f]'},																-- 0x2d8f00 - 0x2dc47f
 		{padding_2dc47f = 'uint8_t[1]'},														-- 0x2dc47f - 0x2df480
 		{mapPalettes = 'palette16_8_t[48]'},													-- 0x2dc480 - 0x2df480 = map palettes (48 elements, 16x8 colors each)
 		{entranceAreaTriggerOfs = 'uint16_t['..numEntranceTriggerOfs..']'},						-- 0x2df480 - 0x2df882
 		{entranceAreaTriggers = 'entranceAreaTrigger_t[0x98]'},									-- 0x2df882 - 0x2dfcaa
-		{padding_2dfcaa = 'uint8_t['..(-(0x2dfcaa - 0x2dfe00))..']'},							-- 0x2dfcaa - 0x2dfe00 = 0xFF filler
+		{padding_2dfcaa = 'uint8_t['..(-(0x2dfcaa - 0x2dfe00))..']'},							-- 0x2dfcaa - 0x2dfe00 = 'ff's
 		{longEsperBonusDescBase = 'uint8_t['..(-(0x2dfe00 - 0x2dffd0))..']'},					-- 0x2dfe00 - 0x2dffd0
 		{longEsperBonusDescOffsets = 'uint16_t['..numEsperBonuses..']'},						-- 0x2dffd0 - 0x2dfff2
 
