@@ -95,15 +95,15 @@ end
 
 
 local function readCharSprite(game, charIndex, processFrame)
-	local rom = ffi.cast('uint8_t*', game.padding_000000)
+	local rom = game.rom
 	assert(charIndex >= 0 and charIndex < game.numCharacterSprites)
 
 	local width = tileWidth*tilesWide
 	local height = tileHeight*tilesHigh
 
 	local palIndex = game.characterPaletteIndexes[charIndex]
---print('charIndex', charIndex, 'palIndex', palIndex)	
---[[	
+--print('charIndex', charIndex, 'palIndex', palIndex)
+--[[
 	if palIndex >= 8 then palIndex = 0 end	-- TODO or idk
 	if charIndex == 18 then palIndex = 8 end	-- special for morphed terra
 --]]

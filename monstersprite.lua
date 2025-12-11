@@ -8,7 +8,7 @@ local function writeMonsterSprite(
 )
 	path'monsters':mkdir()
 
-	local rom = ffi.cast('uint8_t*', game.padding_000000)
+	local rom = game.rom
 	local monsterSprite = game.monsterSprites[index]
 
 	local offset = monsterSprite.offset
