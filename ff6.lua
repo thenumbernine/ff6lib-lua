@@ -2373,21 +2373,15 @@ local game_t = ff6struct{
 		{spellNames_81to255 = 'str10_t[175]'},									-- 0x26f7b9 - 0x26fe8f
 		{esperAttackNames = 'str10_t['..numEspers..']'},						-- 0x26fe8f - 0x26ff9d
 		{mogDanceNames = 'str12_t['..numMogDances..']'},						-- 0x26ff9d - 0x26fffd
+		{padding_26fffd = 'uint8_t['..(-(0x26fffd - 0x270000))..']'},			-- 0x26fffd - 0x270000
+		{battleBackgroundProperties = 'uint8_t[0x150]'},						-- 0x270000 - 0x270150 = 56*6?
+		{battleBackgroundPalette = 'uint8_t[0x1500]'},							-- 0x270150 - 0x271650 ... is it 56 or 96?
+		{battleBackgroundGraphicsOffsets = 'uint16_t[0xfc]'},					-- 0x271650 - 0x271848	-- pointers to top background palettes (168 elements, 75 used)
+		{battleBackgroundLayoutOffsets = 'uint16_t[0x70]'},						-- 0x271848 - 0x271928 = +0x270000 .  49 are valid. invalid contain 0x1928
+		{battleBackgroundLayoutCompressed = 'uint8_t['..(-(0x271928-0x27a9e7))..']'},-- 0x271928 - 0x27a9e7 = 32x32x4bpp
+		{battleBackgroundGraphicsCompressed = 'uint8_t['..(-(0x27a9e7-0x296300))..']'},-- 0x27a9e7 - 0x296300 = 4bpp
 
-		{padding_26fffd = 'uint8_t['..(-(0x26fffd - 0x271650))..']'},			-- 0x26fffd - 0x271650
-
-		-- 0x270150 - = bottom battle background palettes (16 colors each)
-
-		{topBackgroundPaletteOffset = 'uint16_t[252]'},							-- 0x271650 - 0x271848	-- pointers to top background palettes (168 elements, 75 used)
-
-		{padding_271848 = 'uint8_t['..(-(0x271848 - 0x297000))..']'},			-- 0x271848	- 0x297000
-
--- 0xE70000-0xE70150 battleBackgroundProperties[56]
--- 0xE70150-0xE71650 battleBackgroundPalette ... is it 56 or 96?
--- 0xE71650-0xE71731 battleBackgroundGraphicsOffsets[75] 24bit
--- 0xE71848-0xE718AA battleBackgroundLayoutOffsets[49] 16bit +0xE70000
--- 0xE71928-0xE7A9E7 battleBackgroundLayoutCompressed 32x32x4bpp
--- 0xE7A9E7-0xE96300 battleBackgroundGraphicsCompressed 4bpp
+		{padding_296300 = 'uint8_t['..(-(0x296300 - 0x297000))..']'},			-- 0x296300	- 0x297000
 
 		{monsterSpriteData = 'uint8_t['..(-(0x297000 - 0x2d0000))..']'},		-- 0x297000 - 0x2d0000 = monster graphics
 
@@ -2525,7 +2519,6 @@ assertOffset('mpIncPerLevelUp', 0x26f502)
 assertOffset('spellNames_0to53', 0x26f567)
 assertOffset('esperAttackNames', esperAttackNamesAddr)
 assertOffset('mogDanceNames', mogDanceNamesAddr)
-assertOffset('topBackgroundPaletteOffset', 0x271650)
 assertOffset('monsterSpriteData', monsterSpriteDataAddr)
 assertOffset('menuImages', 0x2d0000)
 assertOffset('menuWindowPalettes', 0x2d1c00)
