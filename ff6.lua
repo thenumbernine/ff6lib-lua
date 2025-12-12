@@ -2354,9 +2354,7 @@ local game_t = ff6struct{
 		{mapTileGraphicsOffsets = 'uint24_t[0x52]'},											-- 0x1fda00 - 0x1fdaf6 = town tile graphics pointers (+0x1fdb00), points into mapTileGraphics
 		{padding_1fdaf6 = 'uint8_t[10]'},														-- 0x1fdaf6 - 0x1fdb00
 		{mapTileGraphics = 'uint8_t['..(-(0x1fdb00 - 0x25f400))..']'},							-- 0x1fdb00 - 0x25f400 = map tile graphics for layers 1&2, 4bpp
-
-		{unknown_25f400 = 'uint8_t['..(-(0x25f400 - 0x260000))..']'},							-- 0x25f400 - 0x260000
-
+		{unknown_25f400 = 'uint8_t['..(-(0x25f400 - 0x260000))..']'},							-- 0x25f400 - 0x260000 -- there's one battle bg in here
 		{mapAnimGraphics = 'uint8_t['..(-(0x260000 - 0x268000))..']'},							-- 0x260000 - 0x268000 = 4bpp
 		{characterPalettes = 'palette16_t['..numCharacterPalettes..']'},						-- 0x268000 - 0x268400	-- also town tile palettes?
 		{mapNameOffsets = 'uint16_t['..numMapNames..']'},										-- 0x268400 - 0x268780
@@ -2381,8 +2379,8 @@ local game_t = ff6struct{
 		{padding_26fffd = 'uint8_t[3]'},														-- 0x26fffd - 0x270000
 		{battleBackgroundProperties = 'battleBackgroundProps_t[56]'},							-- 0x270000 - 0x270150 = 56*6
 		{battleBackgroundPalette = 'palette8_t[0x150]'},										-- 0x270150 - 0x271650 ... everything's says 56 or 96?
-		{battleBackgroundGraphicsOffsets = 'uint16_t[0xfc]'},									-- 0x271650 - 0x271848	-- pointers to top background palettes (168 elements, 75 used)
-		{battleBackgroundLayoutOffsets = 'uint16_t[0x70]'},										-- 0x271848 - 0x271928 = +0x270000 .  49 are valid. invalid contain 0x1928
+		{battleBackgroundGraphicsOffsets = 'uint24_t[0xa8]'},									-- 0x271650 - 0x271848 = 75 used, the rest are 0's, points into battleBackgroundGraphicsCompressed 
+		{battleBackgroundLayoutOffsets = 'uint16_t[0x70]'},										-- 0x271848 - 0x271928 = +0x270000 .  49 are valid. invalid contain 0x1928.  points into battleBackgroundLayoutCompressed 
 		{battleBackgroundLayoutCompressed = 'uint8_t['..(-(0x271928-0x27a9e7))..']'},			-- 0x271928 - 0x27a9e7 = 32x32x4bpp
 		{battleBackgroundGraphicsCompressed = 'uint8_t['..(-(0x27a9e7-0x296300))..']'},			-- 0x27a9e7 - 0x296300 = 4bpp
 		{theEndGraphics1 = 'uint8_t['..(-(0x296300 - 0x297000))..']'},							-- 0x296300 - 0x297000 = 4bpp

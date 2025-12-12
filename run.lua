@@ -128,13 +128,67 @@ end
 -- with monster formations?
 -- with world maps?
 -- meh, it is here for now.
+local decompress = require 'ff6.decompress'
+local battleBgGfxs = table()	-- 0-based
+for i=0,countof(game.battleBackgroundGraphicsOffsets)-1 do
+	local addr = game.battleBackgroundGraphicsOffsets[i]:value()
+	if addr ~= 0 then
+		addr = addr - 0xc00000
+		assert.ge(addr, 0)
+		assert.lt(addr, romsize) 
+		local data = decompress(rom + addr, romsize)
+		-- size is very arbitrary and a lot look like bad data
+		print('battle bg gfx [0x'..i:hex()..'] = 0x'..addr:hex()
+			..(data and ' len=0x'..(#data):hex() or '')
+		)
+		battleBgGfxs[i] = {
+			index = i,
+			addr = addr,
+			data = data,
+		}
+	end
+end
+print()
+
+--[[
+size is always 0x800
+there's 32x19 8x8 tiles that I see, so 608 = 0x260 tiles ...
+ 2 bytes per tile = 0x4c0 bytes total
+ 3 bytes per tile = 0x720 bytes total
+--]]
+local battleBgLayouts = table()	-- 0-based
+for i=0,countof(game.battleBackgroundLayoutOffsets)-1 do
+	local offset = game.battleBackgroundLayoutOffsets[i]
+	local addr = offset + 0x270000
+	assert.ge(addr, ffi.offsetof('game_t', 'battleBackgroundLayoutCompressed'))
+	assert.lt(addr, ffi.offsetof('game_t', 'battleBackgroundLayoutCompressed') + ffi.sizeof(game.battleBackgroundLayoutCompressed))
+	local data = decompress(rom + addr, ffi.sizeof(game.battleBackgroundLayoutCompressed))
+	print('battle bg layout [0x'..i:hex()..'] ='
+		..' offset=0x'..addr:hex()
+		..' addr=0x'..addr:hex()
+		..(data and ' len=0x'..(#data):hex() or '')
+	)
+	if data then
+		print(data:hexdump())
+	end
+	battleBgLayouts[i] = {
+		index = i,
+		offset = offset,
+		addr = addr,
+		data = data,
+	}
+end
+print()
 
 for i=0,countof(game.battleBackgroundProperties)-1 do
 	local bg = game.battleBackgroundProperties + i
 	print('battle bg 0x'..i:hex()..' = '..bg)
 	print('\tmog dance', game.mogDanceNames[game.battleBackgroundDance[i]])
+
+	-- same rendering as with maps?
+	-- but use what sizes
 end
---os.exit()
+os.exit()
 
 --]]
 
