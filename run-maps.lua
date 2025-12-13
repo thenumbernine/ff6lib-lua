@@ -96,7 +96,9 @@ for i=0,countof(game.mapTileGraphicsOffsets)-1 do
 	local gfx = game.getMapTileGraphics(i)
 	if gfx then
 		-- this is times something and then a pointer into game.mapTileGraphics
-		print('mapTileGraphics[0x'..i:hex()..'] = 0x'..gfx.offset:hex()
+		print('mapTileGraphics[0x'..i:hex()..']'
+			..' offset=0x'..gfx.offset:hex()
+			..' addr=0x'..gfx.addr:hex()
 -- the space between them is arbitrary
 --		..(i>0 and ('\tdiff=0x'..(game.mapTileGraphicsOffsets[i]:value() - game.mapTileGraphicsOffsets[i-1]:value()):hex()) or '')
 		)
