@@ -1,5 +1,4 @@
 local ffi = require 'ffi'
-local tolua = require 'ext.tolua'
 local Image = require 'image'
 local makePalette = require 'graphics'.makePalette
 local makePaletteSets = require 'graphics'.makePaletteSets

@@ -1,5 +1,6 @@
 #!/usr/bin/env luajit
 require 'ext'
+require 'vec-ffi'
 local ffi = require 'ffi'
 local Image = require 'image'
 local gnuplot = require 'gnuplot'
@@ -124,72 +125,168 @@ end
 
 
 -- [[ battle backgrounds
--- wonder where I should put this ...
--- with monster formations?
--- with world maps?
--- meh, it is here for now.
-local decompress = require 'ff6.decompress'
-local battleBgGfxs = table()	-- 0-based
-for i=0,countof(game.battleBackgroundGraphicsOffsets)-1 do
-	local addr = game.battleBackgroundGraphicsOffsets[i]:value()
-	if addr ~= 0 then
-		addr = addr - 0xc00000
-		assert.ge(addr, 0)
-		assert.lt(addr, romsize) 
-		local data = decompress(rom + addr, romsize)
-		-- size is very arbitrary and a lot look like bad data
-		print('battle bg gfx [0x'..i:hex()..'] = 0x'..addr:hex()
+do
+	-- wonder where I should put this ...
+	-- with monster formations?
+	-- with world maps?
+	-- meh, it is here for now.
+	local decompress = require 'ff6.decompress'
+	local battleBgGfxs = table()	-- 0-based
+	for i=0,countof(game.battleBackgroundGraphicsOffsets)-1 do
+		local addr = game.battleBackgroundGraphicsOffsets[i]:value()
+		if addr ~= 0 then
+			addr = addr - 0xc00000
+			assert.ge(addr, 0)
+			assert.lt(addr, romsize) 
+			local data = decompress(rom + addr, romsize)
+			-- size is very arbitrary and a lot look like bad data
+			print('battle bg gfx [0x'..i:hex()..'] = 0x'..addr:hex()
+				..(data and ' len=0x'..(#data):hex() or '')
+			)
+			battleBgGfxs[i] = {
+				index = i,
+				addr = addr,
+				data = data,
+			}
+		end
+	end
+	print()
+
+	--[[
+	size is always 0x800
+	there's 32x19 8x8 tiles that I see, so 608 = 0x260 tiles ...
+	 2 bytes per tile = 0x4c0 bytes total
+	 3 bytes per tile = 0x720 bytes total
+	--]]
+	local battleBgLayouts = table()	-- 0-based
+	for i=0,countof(game.battleBackgroundLayoutOffsets)-1 do
+		local offset = game.battleBackgroundLayoutOffsets[i]
+		local addr = offset + 0x270000
+		assert.ge(addr, ffi.offsetof('game_t', 'battleBackgroundLayoutCompressed'))
+		assert.lt(addr, ffi.offsetof('game_t', 'battleBackgroundLayoutCompressed') + ffi.sizeof(game.battleBackgroundLayoutCompressed))
+		local data = decompress(rom + addr, ffi.sizeof(game.battleBackgroundLayoutCompressed))
+		print('battle bg layout [0x'..i:hex()..'] ='
+			..' offset=0x'..addr:hex()
+			..' addr=0x'..addr:hex()
 			..(data and ' len=0x'..(#data):hex() or '')
 		)
-		battleBgGfxs[i] = {
+		if data then
+			print(data:hexdump(64, 2))
+		end
+		battleBgLayouts[i] = {
 			index = i,
+			offset = offset,
 			addr = addr,
 			data = data,
 		}
 	end
-end
-print()
+	print()
 
---[[
-size is always 0x800
-there's 32x19 8x8 tiles that I see, so 608 = 0x260 tiles ...
- 2 bytes per tile = 0x4c0 bytes total
- 3 bytes per tile = 0x720 bytes total
---]]
-local battleBgLayouts = table()	-- 0-based
-for i=0,countof(game.battleBackgroundLayoutOffsets)-1 do
-	local offset = game.battleBackgroundLayoutOffsets[i]
-	local addr = offset + 0x270000
-	assert.ge(addr, ffi.offsetof('game_t', 'battleBackgroundLayoutCompressed'))
-	assert.lt(addr, ffi.offsetof('game_t', 'battleBackgroundLayoutCompressed') + ffi.sizeof(game.battleBackgroundLayoutCompressed))
-	local data = decompress(rom + addr, ffi.sizeof(game.battleBackgroundLayoutCompressed))
-	print('battle bg layout [0x'..i:hex()..'] ='
-		..' offset=0x'..addr:hex()
-		..' addr=0x'..addr:hex()
-		..(data and ' len=0x'..(#data):hex() or '')
-	)
-	if data then
-		print(data:hexdump())
+	local drawTile = require 'ff6.graphics'.drawTile
+	local battlebgpath = path'battlebg'
+	battlebgpath:mkdir()
+	for i=0,countof(game.battleBackgroundProperties)-1 do
+		local bg = game.battleBackgroundProperties + i
+		print('battle bg 0x'..i:hex()..' = '..bg)
+		print('\tmog dance', game.mogDanceNames[game.battleBackgroundDance[i]])
+
+		-- same rendering as with maps?
+		-- but use what sizes
+		local layout1 = battleBgLayouts[bg.layout1]
+		local layout1Data = layout1 and layout1.data
+		local layout2 = battleBgLayouts[bg.layout2]
+		local layout2Data = layout2 and layout2.data
+		local layouts = table{layout1, layout2}
+		local layoutDatas = table{layout1Data, layout2Data}
+
+		--local gfx1 = bg.graphics1combined < 0xff and battleBgGfxs[bg.graphics1] or nil
+		local gfx1 = battleBgGfxs[bg.graphics1]	-- 0x7f max, 0x4a present, no need to test for 'none'
+		local gfx2 = battleBgGfxs[bg.graphics2]
+		local gfx3 = battleBgGfxs[bg.graphics3]
+		local gfxs = table{[0]=gfx1, [1]=gfx2, [7]=gfx3}
+		local doubleSized = bg.graphics1doubleSized ~= 0
+
+		print('\tgfx 1 len', gfx1 and gfx1.data and '0x'..(#gfx1.data):hex())
+		print('\tgfx 2 len', gfx2 and gfx2.data and '0x'..(#gfx2.data):hex())
+		print('\tgfx 3 len', gfx3 and gfx3.data and '0x'..(#gfx3.data):hex())
+
+		local paletteIndex = bg.palette
+		-- first 0x50 palette entries are zero
+		local palette = range(0,0x4f):mapi(function(i)
+			if bit.band(i, 0xf) == 0 then return {0,0,0,0} end
+			return {0,0,0,255}
+		end):append(
+			makePalette(game.battleBackgroundPalettes + paletteIndex * 16*3, 4, 16*3)
+		)
+
+		local layoutSize = vec2i(32, 19)
+		local img = Image(layoutSize.x * 8, layoutSize.y * 8, 1, 'uint8_t')
+		local bpp = 4
+		local tile8size = 8 * bpp
+		for layoutIndex=0,1 do
+			local layoutData = layoutDatas[layoutIndex+1]
+			if layoutData then
+				local layoutPtr = ffi.cast('uint16_t*', layoutData)
+				for y=0,layoutSize.y-1 do
+					for x=0,layoutSize.x-1 do
+						local tileIndex = layoutPtr[x + layoutSize.x * y]
+						local hflip = 0 ~= bit.band(0x4000, tileIndex)
+						local vflip = 0 ~= bit.band(0x8000, tileIndex)
+						local priority = 0 ~= bit.band(0x2000, tileIndex)
+						local palhi = bit.band(7, bit.rshift(tileIndex, 10))
+						local tile8index = bit.band(0x3ff, tileIndex)
+						-- TODO here, select gfx based on tile8index
+						-- is bits 8&9 the gfx select, or do the gfx #s vary like for the maps?
+						-- very often the gfx will have length 0 ...
+						-- sometimes anywhere from 0x800 to 0x1000 and anywhere between, or sometimes less, honestly it's just random
+						-- but never 0x2000
+						-- 0x2000 = 256 x 8x4
+						-- 0x1000 = 128 x 8x4
+						-- 0x800 = 64 x 8x4
+						-- ex; first tile in first layout is 0x5440 = 4000 | 1440
+						-- so bit 4000 is set <-> hflip (right?)
+						-- then 1420-142f in a row = 0001 0100 0010 0000 - 0001 0100 0010 1111
+						-- 000 101 000 0100000 = palhi=5, gfx=0, tile8index=32
+						-- 000 101 000 0101111 = palhi=5, gfx=0, tile8index=47
+						-- 1490 = 000 101 001 0010000 = 9*16 = gfx=1, tile=16
+						-- then 1862 works, but 1b81 doesn't ...
+						-- 1b81 = 000 110 111 000 0001 = 
+
+						-- how to determine gfxIndex and tile8index ?
+						-- for battle 1
+						--local gfxIndex = bit.rshift(tile8index, 8)
+						local gfxIndex = bit.rshift(tile8index, 7)
+						local gfx = gfxs[gfxIndex]
+						local gfxData = gfx and gfx.data
+						if gfxData then 
+							local tileOffset = bit.band(0x7f, tile8index) * tile8size 
+
+							-- TODO pick gfx based on ... what?
+							if tileOffset < #gfxData + tile8size then
+								local tilePtr =  ffi.cast('uint8_t*', gfxData) + tileOffset 
+								drawTile(
+									img,
+									x * 8,
+									y * 8,
+									tilePtr,
+									bpp,
+									hflip,
+									vflip,
+									--0x50 + 
+									bit.lshift(palhi, 4),
+									palette
+								)
+							end
+						end
+					end
+				end
+			end
+		end
+		img.palette = palette
+		img:save(battlebgpath('bg'..i..'.png').path)
 	end
-	battleBgLayouts[i] = {
-		index = i,
-		offset = offset,
-		addr = addr,
-		data = data,
-	}
-end
-print()
-
-for i=0,countof(game.battleBackgroundProperties)-1 do
-	local bg = game.battleBackgroundProperties + i
-	print('battle bg 0x'..i:hex()..' = '..bg)
-	print('\tmog dance', game.mogDanceNames[game.battleBackgroundDance[i]])
-
-	-- same rendering as with maps?
-	-- but use what sizes
 end
 os.exit()
-
 --]]
 
 
