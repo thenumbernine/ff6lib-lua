@@ -185,10 +185,10 @@ do
 	local drawTile = require 'ff6.graphics'.drawTile
 	local battlebgpath = path'battlebg'
 	battlebgpath:mkdir()
-	for i=0,countof(game.battleBackgroundProperties)-1 do
-		local bg = game.battleBackgroundProperties + i
-		print('battle bg 0x'..i:hex()..' = '..bg)
-		print('\tmog dance', game.mogDanceNames[game.battleBackgroundDance[i]])
+	for battleBgIndex=0,countof(game.battleBackgroundProperties)-1 do
+		local bg = game.battleBackgroundProperties + battleBgIndex
+		print('battle bg 0x'..battleBgIndex:hex()..' = '..bg)
+		print('\tmog dance', game.mogDanceNames[game.battleBackgroundDance[battleBgIndex]])
 
 		-- same rendering as with maps?
 		-- but use what sizes
@@ -230,11 +230,11 @@ do
 				for y=0,layoutSize.y-1 do
 					for x=0,layoutSize.x-1 do
 						local tileIndex = layoutPtr[x + layoutSize.x * y]
-						local hflip = 0 ~= bit.band(0x4000, tileIndex)
-						local vflip = 0 ~= bit.band(0x8000, tileIndex)
-						local priority = 0 ~= bit.band(0x2000, tileIndex)
-						local palhi = bit.band(7, bit.rshift(tileIndex, 10))
-						local tile8index = bit.band(0x3ff, tileIndex)
+						local vflip = 0 ~= bit.band(0x8000, tileIndex)			-- bit 15
+						local hflip = 0 ~= bit.band(0x4000, tileIndex)			-- bit 14
+						local priority = 0 ~= bit.band(0x2000, tileIndex)		-- bit 13
+						local palhi = bit.band(7, bit.rshift(tileIndex, 10))	-- bits 10-12
+						
 						-- TODO here, select gfx based on tile8index
 						-- is bits 8&9 the gfx select, or do the gfx #s vary like for the maps?
 						-- very often the gfx will have length 0 ...
@@ -251,15 +251,32 @@ do
 						-- 1490 = 000 101 001 0010000 = 9*16 = gfx=1, tile=16
 						-- then 1862 works, but 1b81 doesn't ...
 						-- 1b81 = 000 110 111 000 0001 = 
+						-- batle bg #1:
+						-- 5c04 = 010 111 000 0000100 = hflip=1, palhi=7, gfx=0, index=4
 
 						-- how to determine gfxIndex and tile8index ?
 						-- for battle 1
 						--local gfxIndex = bit.rshift(tile8index, 8)
-						local gfxIndex = bit.rshift(tile8index, 7)
+						local gfxIndex = bit.band(7, bit.rshift(tileIndex, 7))	-- bits 7-9
+						local tile8index = bit.band(0x7f, tileIndex)			-- bits 0-6
 						local gfx = gfxs[gfxIndex]
 						local gfxData = gfx and gfx.data
+if battleBgIndex==1 
+and x == 0
+and y == 0
+then
+	print('tileIndex', '0x'..tileIndex:hex())
+	print('vflip', vflip)
+	print('hflip', hflip)
+	print('priority', priority)
+	print('palhi', palhi)
+	print('gfxIndex', gfxIndex)
+	print('tile8index', tile8index)
+	print('gfx', gfx, 'data', gfxData, 'len', gfxData and '0x'..(#gfxData):hex())
+end
+
 						if gfxData then 
-							local tileOffset = bit.band(0x7f, tile8index) * tile8size 
+							local tileOffset = tile8index * tile8size 
 
 							-- TODO pick gfx based on ... what?
 							if tileOffset < #gfxData + tile8size then
@@ -281,9 +298,10 @@ do
 					end
 				end
 			end
+			if layout1 == layout2 then break end
 		end
 		img.palette = palette
-		img:save(battlebgpath('bg'..i..'.png').path)
+		img:save(battlebgpath('bg'..battleBgIndex..'.png').path)
 	end
 end
 os.exit()
