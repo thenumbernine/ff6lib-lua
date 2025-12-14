@@ -132,28 +132,45 @@ do
 	-- meh, it is here for now.
 	local decompress = require 'ff6.decompress'
 	local battleBgGfxs = table()	-- 0-based
-	for i=0,countof(game.battleBackgroundGraphicsOffsets)-1 do
-		local addr = game.battleBackgroundGraphicsOffsets[i]:value()
+	for i=0,countof(game.battleBgGfxAddrs)-1 do
+		local addr = game.battleBgGfxAddrs[i]:value()
 		if addr ~= 0 then
 			addr = addr - 0xc00000
 			assert.ge(addr, 0)
-			assert.lt(addr, romsize) 
-			local pstart = rom + addr
-			local data, pend = decompress(pstart, romsize)
-			if data then
+			assert.lt(addr, romsize)
+
+			-- some addrs point into battleBgGfxCompressed, and those need to be decompressed
+			-- some point into mapTileGraphics and those don't need to be decompressed
+			local isBattleBgGfxCompressed = addr >= ffi.offsetof('game_t', 'battleBgGfxCompressed')
+				and addr < ffi.offsetof('game_t', 'battleBgGfxCompressed') + ffi.sizeof(game.battleBgGfxCompressed)
+
+			if isBattleBgGfxCompressed then
+				local pstart = rom + addr
+				local data, pend = decompress(pstart, romsize)
+				if not data then
+					print('battleBgGfxs[0x'..i:hex()..'] = 0x'..addr:hex()..' failed to decompress')
+				else
+					-- size is very arbitrary and a lot look like bad data
+					print('battleBgGfxs[0x'..i:hex()..'] = 0x'..addr:hex()
+						..' uncompressed=0x'..(#data):hex()
+						..' compressed=0x'..(pend-pstart):hex()
+						..' isBattleBgGfxCompressed'
+					)
+
+					battleBgGfxs[i] = {
+						index = i,
+						addr = addr,
+						data = data,
+					}
+				end
+			else
 				-- size is very arbitrary and a lot look like bad data
-				print('battle bg gfx [0x'..i:hex()..'] = 0x'..addr:hex()
-					..' uncompressed=0x'..(#data):hex()
-					..' compressed=0x'..(pend-pstart):hex()
-				)
-				
-				-- pad?  since a lot don't fully reach 0x1000...
-				--data = data..('\0'):rep(0x1000 - #data)
+				print('battleBgGfxs[0x'..i:hex()..'] = 0x'..addr:hex()..' is uncompressed')
 
 				battleBgGfxs[i] = {
 					index = i,
 					addr = addr,
-					data = data,
+					data = rom + addr,
 				}
 			end
 		end
@@ -167,20 +184,18 @@ do
 	 3 bytes per tile = 0x720 bytes total
 	--]]
 	local battleBgLayouts = table()	-- 0-based
-	for i=0,countof(game.battleBackgroundLayoutOffsets)-1 do
-		local offset = game.battleBackgroundLayoutOffsets[i]
+	for i=0,countof(game.battleBgLayoutOffsets)-1 do
+		local offset = game.battleBgLayoutOffsets[i]
 		local addr = offset + 0x270000
-		assert.ge(addr, ffi.offsetof('game_t', 'battleBackgroundLayoutCompressed'))
-		assert.lt(addr, ffi.offsetof('game_t', 'battleBackgroundLayoutCompressed') + ffi.sizeof(game.battleBackgroundLayoutCompressed))
-		local data = decompress(rom + addr, ffi.sizeof(game.battleBackgroundLayoutCompressed))
-		print('battle bg layout [0x'..i:hex()..'] ='
+		assert.ge(addr, ffi.offsetof('game_t', 'battleBgLayoutCompressed'))
+		assert.lt(addr, ffi.offsetof('game_t', 'battleBgLayoutCompressed') + ffi.sizeof(game.battleBgLayoutCompressed))
+		local data = decompress(rom + addr, ffi.sizeof(game.battleBgLayoutCompressed))
+		print('battleBgLayouts[0x'..i:hex()..'] ='
 			..' offset=0x'..addr:hex()
 			..' addr=0x'..addr:hex()
 			..(data and ' len=0x'..(#data):hex() or '')
 		)
-		if data then
-			print(data:hexdump(64, 2))
-		end
+		--if data then print(data:hexdump(64, 2)) end
 		battleBgLayouts[i] = {
 			index = i,
 			offset = offset,
@@ -193,10 +208,11 @@ do
 	local drawTile = require 'ff6.graphics'.drawTile
 	local battlebgpath = path'battlebg'
 	battlebgpath:mkdir()
-	for battleBgIndex=0,countof(game.battleBackgroundProperties)-1 do
-		local bg = game.battleBackgroundProperties + battleBgIndex
-		print('battle bg 0x'..battleBgIndex:hex()..' = '..bg)
-		print('\tmog dance', game.mogDanceNames[game.battleBackgroundDance[battleBgIndex]])
+	local emptyGfx = {data=('\0'):rep(0x1000)}
+	for battleBgIndex=0,countof(game.battleBgProperties)-1 do
+		local bg = game.battleBgProperties + battleBgIndex
+		print('battleBg[0x'..battleBgIndex:hex()..'] = '..bg)
+		print('\tmog dance', game.mogDanceNames[game.battleBgDance[battleBgIndex]])
 
 		-- same rendering as with maps?
 		-- but use what sizes
@@ -211,28 +227,30 @@ do
 		local gfx1 = battleBgGfxs[bg.graphics1]	-- 0x7f max, 0x4a present, no need to test for 'none'
 		local gfx2 = battleBgGfxs[bg.graphics2]
 		local gfx3 = battleBgGfxs[bg.graphics3]
-		local doubleSized = bg.graphics1doubleSized ~= 0
+		local doubleSized = bg.graphics1doubleSized ~= 0 and bg.graphics1combined ~= 0xff
 
-		print('\tgfx 1', gfx1 and gfx1.data and 'len=0x'..(#gfx1.data):hex() or '')
-		print('\tgfx 2', gfx2 and gfx2.data and 'len=0x'..(#gfx2.data):hex() or '')
-		print('\tgfx 3', gfx3 and gfx3.data and 'len=0x'..(#gfx3.data):hex() or '')
+		print('\tgfx 1', gfx1 and type(gfx1.data) == 'string' and 'len=0x'..(#gfx1.data):hex() or (gfx1 and 'addr=0x'..gfx1.addr:hex()) or 'nil')
+		print('\tgfx 2', gfx2 and type(gfx2.data) == 'string' and 'len=0x'..(#gfx2.data):hex() or (gfx2 and 'addr=0x'..gfx2.addr:hex()) or 'nil')
+		print('\tgfx 3', gfx3 and type(gfx3.data) == 'string' and 'len=0x'..(#gfx3.data):hex() or (gfx3 and 'addr=0x'..gfx3.addr:hex()) or 'nil')
 
--- ok how does the gfx stuff work ... i have no idea
-if gfx1 and #gfx1.data == 0 then gfx1 = nil end
-if gfx2 and #gfx2.data == 0 then gfx2 = nil end
-if gfx3 and #gfx3.data == 0 then gfx3 = nil end
---if not gfx2 then gfx2 = gfx3 end
---if not gfx1 then gfx1 = gfx2 end
---if (not gfx1 or not gfx1.data or #gfx1.data == 0) and (gfx3 and gfx3.data) then
---	gfx1 = {data=gfx3.data:sub(0x801)}
---	gfx1.data = gfx1.data .. ('\0'):rep(0x800 - #gfx1.data)
---end
-		local gfxs
-		--if doubleSized then
-		--	gfxs = table{[0]=gfx1, [1]=gfx2, [3]=gfx3}
-		--else
-			gfxs = table{[0]=gfx1, [1]=gfx2, [7]=gfx3}
-		--end
+		if doubleSized then
+			assert.eq(gfx2, nil)
+			assert(gfx1)
+			assert.type(gfx1.data, 'cdata')	-- uint8_t* and not 'string'
+			gfx2 = {
+				data = gfx1.data + 0x1000
+			}
+		end
+		local gfxs = table{
+			[0]=gfx1 or emptyGfx,	-- battle bg 8 points to gfx1 which is empty
+			[1]=gfx2,
+			[3]=gfx3,
+			[4]=emptyGfx,
+			[6]=emptyGfx,			-- battle bg 0 etc 2nd half has gfx==6 always for empty tiles?
+			[7]=gfx3 or emptyGfx,
+		}
+
+		-- 177f = 000 101 110 1111111
 
 		local paletteIndex = bg.palette
 		-- first 0x50 palette entries are zero
@@ -240,61 +258,41 @@ if gfx3 and #gfx3.data == 0 then gfx3 = nil end
 			if bit.band(i, 0xf) == 0 then return {0,0,0,0} end
 			return {0,0,0,255}
 		end):append(
-			makePalette(game.battleBackgroundPalettes + paletteIndex * 16*3, 4, 16*3)
+			makePalette(game.battleBgPalettes + paletteIndex * 16*3, 4, 16*3)
 		)
 
 		local layoutSize = vec2i(32, 32)
 		local img = Image(layoutSize.x * 8, layoutSize.y * 8, 1, 'uint8_t'):clear()
 		local bpp = 4
 		local tile8size = 8 * bpp
-		for layoutIndex=0,1 do
+		for layoutIndex=1,0,-1 do
 			local layoutData = layoutDatas[layoutIndex+1]
 			if layoutData then
 				local layoutPtr = ffi.cast('uint16_t*', layoutData)
-				local failedTiles = 0
 				for y=0,layoutSize.y-1 do
 					for x=0,layoutSize.x-1 do
-						local wroteTile
 						local tileIndex = layoutPtr[x + layoutSize.x * y]
 						local vflip = 0 ~= bit.band(0x8000, tileIndex)			-- bit 15
 						local hflip = 0 ~= bit.band(0x4000, tileIndex)			-- bit 14
 						local priority = 0 ~= bit.band(0x2000, tileIndex)		-- bit 13
 						local palhi = bit.band(7, bit.rshift(tileIndex, 10))	-- bits 10-12
-						
+
 						local gfxIndex, tile8index
-						--if doubleSized then	-- ???
-						--	gfxIndex = bit.band(3, bit.rshift(tileIndex, 8))	-- bits 8-9
-						--	tile8index = bit.band(0xff, tileIndex)				-- bits 0-7
-						--else
-							gfxIndex = bit.band(7, bit.rshift(tileIndex, 7))	-- bits 7-9
-							tile8index = bit.band(0x7f, tileIndex)				-- bits 0-6
-						--end
+						gfxIndex = bit.band(7, bit.rshift(tileIndex, 7))	-- bits 7-9
+						tile8index = bit.band(0x7f, tileIndex)				-- bits 0-6
 						local gfx = gfxs[gfxIndex]
 						local gfxData = gfx and gfx.data
--- [[
-if battleBgIndex==1 
---and x == 0
-and y == 0
-then
-	print()
-	print('tileIndex', '0x'..tileIndex:hex())
-	print('vflip', vflip)
-	print('hflip', hflip)
-	print('priority', priority)
-	print('palhi', palhi)
-	print('gfxIndex', gfxIndex)
-	print('tile8index', tile8index)
-	--print('gfx', gfx, 'data', gfxData, gfxData and ('len=0x'..(#gfxData):hex()) or '')
-end
---]]
+						local gfxDataLen = type(gfxData) == 'string' and #gfxData or nil
 
-						if gfxData then 
-							local tileOffset = tile8index * tile8size 
+						if not gfxData then
+							--print('tried to use gfx', gfxIndex,' with no data')
+						else
+							local tileOffset = tile8index * tile8size
 
-							-- TODO pick gfx based on ... what?
-							if tileOffset < #gfxData + tile8size then
-								local tilePtr =  ffi.cast('uint8_t*', gfxData) + tileOffset 
-								wroteTile = true
+							if not gfxDataLen	-- is not compressed
+							or tileOffset < gfxDataLen + tile8size	-- is compressed and in data range
+							then
+								local tilePtr =  ffi.cast('uint8_t*', gfxData) + tileOffset
 								drawTile(
 									img,
 									x * 8,
@@ -303,18 +301,16 @@ end
 									bpp,
 									hflip,
 									vflip,
-									--0x50 + 
 									bit.lshift(palhi, 4),
 									palette
 								)
+							else
+								-- fails a lot on bg 49 which is garbage
+								--print('tried to write tile8index', tile8index:hex(), 'tileIndex', tileIndex:hex(), 'that was oob compressed range', gfxDataLen:hex())
 							end
-						end
-						if not wroteTile then
-							failedTiles = failedTiles + 1
 						end
 					end
 				end
-				print('failed tiles:', failedTiles)
 			end
 			--if layout1 == layout2 then break end
 		end
@@ -322,10 +318,6 @@ end
 		img:save(battlebgpath('bg'..battleBgIndex..'.png').path)
 	end
 end
-error[[
-TODO the size-zero battle bg gfx match up with map tile gfx...
-then you correlate them and get some other info from the map tile gfx or something??? idk
-]]
 --os.exit()
 --]]
 

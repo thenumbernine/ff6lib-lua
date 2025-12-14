@@ -182,7 +182,7 @@ return function(game)
 			palette = palette,
 			tilePropsData = tilePropsData,
 		}
-		return worldInfo 
+		return worldInfo
 	end)
 
 	-- useful function for maps
@@ -518,7 +518,7 @@ return function(game)
 		end
 
 		local palette
-		if paletteIndex >= 0 
+		if paletteIndex >= 0
 		and paletteIndex < countof(game.mapPalettes)
 		then
 			palette = makePalette(game.mapPalettes + paletteIndex, 4, 16*8)

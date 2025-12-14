@@ -1742,7 +1742,7 @@ local map_t = struct{
 		{name='enableSpotlights', type='uint8_t:1'},			-- 1.5
 		{name='unknown_1_6', type='uint8_t:1'},					-- 1.6
 		{name='showTimer', type='uint8_t:1'},					-- 1.7
-		{name='battleBackground', type='uint8_t:7'},			-- 2.0-6
+		{name='battleBG', type='uint8_t:7'},					-- 2.0-6
 		{name='layer3Priority', type='uint8_t:1'},				-- 2.7
 		{name='unknown_3', type='uint8_t'},						-- 3
 		{name='tileProps', type='uint8_t'},						-- 4		mapTilePropsOffsets[]
@@ -2055,7 +2055,7 @@ local WorldTileProps_t = ff6struct{
 		-- there's 56 total
 		-- https://www.spriters-resource.com/snes/ff6/asset/54685/
 		-- so ... 6 bits?
-		{battleBackground = 'uint16_t:4'},	-- 1.0-1.3 aka 0.8-0.11
+		{battleBG = 'uint16_t:4'},			-- 1.0-1.3 aka 0.8-0.11
 		{unknown0_12 = 'uint16_t:1'},		-- 1.4 aka 0.12
 		{veldt = 'uint16_t:1'},				-- 1.5 aka 0.13
 		{phoenixCave = 'uint16_t:1'},		-- 1.6 aka 0.14
@@ -2064,8 +2064,8 @@ local WorldTileProps_t = ff6struct{
 }
 assert.eq(ffi.sizeof'WorldTileProps_t', 2)
 
-local battleBackgroundProps_t = struct{
-	name = 'battleBackgroundProps_t',
+local battleBgProps_t = struct{
+	name = 'battleBgProps_t',
 	packed = true,
 	tostringFields = true,
 	tostringOmitFalse = true,
@@ -2086,7 +2086,7 @@ local battleBackgroundProps_t = struct{
 							anonymous = true,
 							fields = {
 								{name='graphics1', type='uint8_t:7'},				-- 0.0-0.6 \_ combined, 0xff = none
-								{name='graphics1doubleSized', type='uint8_t:1'},	-- 0.7     / 
+								{name='graphics1doubleSized', type='uint8_t:1'},	-- 0.7     /
 							},
 						},
 					},
@@ -2095,7 +2095,7 @@ local battleBackgroundProps_t = struct{
 		},
 		{name='graphics2', type='uint8_t'},					-- 1: 0xff = none.
 		{name='graphics3', type='uint8_t'},					-- 2: 0xff = none.
-		{name='layout1', type='uint8_t'},					-- 3: battleBackgroundLayout[]
+		{name='layout1', type='uint8_t'},					-- 3: battleBgLayout[]
 		{name='layout2', type='uint8_t'},					-- 4:
 		{name='palette', type='uint8_t:7'},					-- 5.0-5.6
 		{name='wavy', type='uint8_t:1'},					-- 5.7
@@ -2104,7 +2104,7 @@ local battleBackgroundProps_t = struct{
 		mt.typeToString = fieldsToHex
 	end,
 }
-assert.eq(ffi.sizeof(battleBackgroundProps_t), 6)
+assert.eq(ffi.sizeof(battleBgProps_t), 6)
 
 ---------------- GAME ----------------
 
@@ -2377,12 +2377,12 @@ local game_t = ff6struct{
 		{esperAttackNames = 'str10_t['..numEspers..']'},										-- 0x26fe8f - 0x26ff9d
 		{mogDanceNames = 'str12_t['..numMogDances..']'},										-- 0x26ff9d - 0x26fffd
 		{padding_26fffd = 'uint8_t[3]'},														-- 0x26fffd - 0x270000
-		{battleBackgroundProperties = 'battleBackgroundProps_t[56]'},							-- 0x270000 - 0x270150 = 56*6
-		{battleBackgroundPalettes = 'color_t[0xa80]'},											-- 0x270150 - 0x271650 ... everything's says 56 or 96? max index is 0x34 = 52
-		{battleBackgroundGraphicsOffsets = 'uint24_t[0xa8]'},									-- 0x271650 - 0x271848 = 75 used, the rest are 0's, points into battleBackgroundGraphicsCompressed 
-		{battleBackgroundLayoutOffsets = 'uint16_t[0x70]'},										-- 0x271848 - 0x271928 = +0x270000 .  49 are valid. invalid contain 0x1928.  points into battleBackgroundLayoutCompressed 
-		{battleBackgroundLayoutCompressed = 'uint8_t['..(-(0x271928-0x27a9e7))..']'},			-- 0x271928 - 0x27a9e7 = 32x32x4bpp
-		{battleBackgroundGraphicsCompressed = 'uint8_t['..(-(0x27a9e7-0x296300))..']'},			-- 0x27a9e7 - 0x296300 = 4bpp
+		{battleBgProperties = 'battleBgProps_t[56]'},											-- 0x270000 - 0x270150 = 56*6
+		{battleBgPalettes = 'color_t[0xa80]'},													-- 0x270150 - 0x271650 ... everything's says 56 or 96? max index is 0x34 = 52
+		{battleBgGfxAddrs = 'uint24_t[0xa8]'},													-- 0x271650 - 0x271848 = 75 used, the rest are 0's, most points into battleBgGfxCompressed
+		{battleBgLayoutOffsets = 'uint16_t[0x70]'},												-- 0x271848 - 0x271928 = +0x270000 .  49 are valid. invalid contain 0x1928.  points into battleBgLayoutCompressed
+		{battleBgLayoutCompressed = 'uint8_t['..(-(0x271928-0x27a9e7))..']'},					-- 0x271928 - 0x27a9e7 = 32x32x4bpp
+		{battleBgGfxCompressed = 'uint8_t['..(-(0x27a9e7-0x296300))..']'},						-- 0x27a9e7 - 0x296300 = 4bpp
 		{theEndGraphics1 = 'uint8_t['..(-(0x296300 - 0x297000))..']'},							-- 0x296300 - 0x297000 = 4bpp
 		{monsterSpriteData = 'uint8_t['..(-(0x297000 - 0x2d0000))..']'},						-- 0x297000 - 0x2d0000 = monster graphics
 		{menuImages = 'uint8_t['..(-(0x2d0000 - 0x2d0e00))..']'},								-- 0x2d0000 - 0x2d0e00 = menu images 0x200 = bg pattern, 0x180 = borders, so 0x380 total ... x8 per menu scheme
@@ -2413,7 +2413,7 @@ local game_t = ff6struct{
 		{treasureOfs = 'uint16_t[0x1a0]'},														-- 0x2d82f4 - 0x2d8634 	-- offset +0x2d8634 into treasures
 		{treasures = 'treasure_t[0x11e]'},														-- 0x2d8634 - 0x2d8bca
 		{padding_2d8bca  = 'uint8_t['..(-(0x2d8bca - 0x2d8e5b))..']'},							-- 0x2d8bca - 0x2d8e5b = 'ff's
-		{battleBackgroundDance = 'uint8_t[0x40]'},												-- 0x2d8e5b - 0x2d8e9b
+		{battleBgDance = 'uint8_t[0x40]'},														-- 0x2d8e5b - 0x2d8e9b
 		{padding_2d8e9b  = 'uint8_t['..(-(0x2d8e9b - 0x2d8f00))..']'},							-- 0x2d8e9b - 0x2d8f00 = 'ff's
 		{maps = 'map_t[0x19f]'},																-- 0x2d8f00 - 0x2dc47f
 		{padding_2dc47f = 'uint8_t[1]'},														-- 0x2dc47f - 0x2df480
