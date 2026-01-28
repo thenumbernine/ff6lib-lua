@@ -1,25 +1,33 @@
+--------------------------------------------
+-- generated with dist/build-distinfo.rua --
+--------------------------------------------
+
 name = "ff6"
 files = {
-	["README.md"] = "ff6/README.md",
-	["battleanim.lua"] = "ff6/battleanim.lua",
-	["charsprite.lua"] = "ff6/charsprite.lua",
-	["decompress.lua"] = "ff6/decompress.lua",
-	["ff6.lua"] = "ff6/ff6.lua",
-	["ff6struct.lua"] = "ff6/ff6struct.lua",
-	["graphics.lua"] = "ff6/graphics.lua",
-	["maps.lua"] = "ff6/maps.lua",
-	["monstersprite.lua"] = "ff6/monstersprite.lua",
-	["reftype.lua"] = "ff6/reftype.lua",
-	["run.lua"] = "ff6/run.lua",
-	["run-maps.lua"] = "ff6/run-maps.lua",
-	["sounds.lua"] = "ff6/sounds.lua",
+	"README.md",
+	"battleanim.lua",
+	"charsprite.lua",
+	"decompress.lua",
+	"distinfo",
+	"ff6.lua",
+	"ff6struct.lua",
+	"graphics.lua",
+	"maps.lua",
+	"monstersprite.lua",
+	"reftype.lua",
+	"run-maps.lua",
+	"run.lua",
+	"sounds.lua",
+	"vis.rua",
 }
 deps = {
 	"audio",
 	"ext",
 	"ffi",
+	"gl",
+	"gnuplot",
 	"image",
+	"imgui",
 	"struct",
 	"vec-ffi",
-	"gnuplot",
 }
