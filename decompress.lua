@@ -1,5 +1,5 @@
 local ffi = require 'ffi'
-local vector = require 'ffi.cpp.vector-lua'
+local vector = require 'stl.vector-lua'
 
 -- decompress one block of 2048 bytes
 local function decompress0x800(ptr, len)
