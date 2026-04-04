@@ -67,7 +67,7 @@ for i=0,countof(game.mapTilesetOffsets)-1 do
 		tileset.mapIndexes = table()
 		tileset.palettes = table()
 		tileset.gfxstrs = {}	-- gfx1/gfx2/gfx3/gfx4
-		tileset.paletteForGfxStr = {}
+		tileset.palettesForGfxStr = {}
 		print('mapTilesets[0x'..i:hex()..'] offset=0x'
 			..tileset.offset:hex()
 			..' addr=0x'..('%06x'):format(tileset.addr)
@@ -175,6 +175,12 @@ do
 	im:save((maptilespath/'tiles-layer3.png').path)
 end
 
+-- mapPalettes is type palette16_8_t[48]
+-- which is color_t[48][8][16]
+-- (so 16 is inner-most, then 8, then 48)
+-- That means 2x of the 8x16 colors fit into each 256-color palette.
+-- That means 48 128-color palettes fit into 24 different 256-color palettes.
+-- So divide by 2 to find the filename location of your map-palette-index.
 makePaletteSets(
 	mappalpath,
 	game.mapPalettes,
@@ -251,7 +257,9 @@ for mapIndex=0,countof(game.maps)-1 do
 				tileset.mapIndexes[mapIndex] = true
 				tileset.palettes[paletteIndex] = true
 				tileset.gfxstrs[gfxstr] = true
-				tileset.paletteForGfxStr[gfxstr] = paletteIndex
+				tileset.palettesForGfxStr[gfxstr] = tileset.palettesForGfxStr[gfxstr] or table()
+				tileset.palettesForGfxStr[gfxstr]:insertUnique(paletteIndex)
+print('setting gfxstr', gfxstr, 'paletteIndex', paletteIndex)
 				-- map from gfxstr to tilesetIndex/paletteIndex
 				-- this is unique for each set of 640 tile8x8's rendered (used by tilesets)
 				mapGfxStrs[gfxstr] = mapGfxStrs[gfxstr] or {}
@@ -451,44 +459,52 @@ for _,tilesetIndex in ipairs(game.mapTilesetCache:keys():sort()) do
 		print('','palettes='..tolua(tileset.palettes:keys():sort()))
 		print('','gfxstrs='..tolua(gfxstrs))
 	end
-	for tilesetGfxPerm,gfxstr in ipairs(gfxstrs) do
-		local paletteIndex = tileset.paletteForGfxStr[gfxstr] or 0
-		local palette = makePalette(game.mapPalettes + paletteIndex, 4, 16*8)
+	for _,gfxstr in ipairs(gfxstrs) do
+		local gfxIndexes = string.split(gfxstr, '/'):mapi(function(s)
+			return (assert(tonumber(s)))
+		end)
+		local gfxDatas = gfxIndexes:mapi(function(i)
+			local gfx = game.getMapTileGraphics(i)
+			if not gfx then return end
+			return gfx.data
+		end)
 
-		local gfxDatas = string.split(gfxstr, '/')
-			:mapi(function(s)
-				local i = tonumber(s)
-				local gfx = game.getMapTileGraphics(i)
-				if not gfx then return end
-				return gfx.data
-			end)
+		-- starting to wonder why key is just gfx1/2/3/4 and not /paletteIndex as well....
+		local paletteIndexes = table(tileset.palettesForGfxStr[gfxstr] or {0}):sort()
+		for _,paletteIndex in ipairs(paletteIndexes) do
+			local palette = makePalette(game.mapPalettes + paletteIndex, 4, 16*8)
 
---print('drawing '..gfxstr..' with palette '..paletteIndex)
+	--print('drawing '..gfxstr..' with palette '..paletteIndex)
 
-		local size = vec2i(16, 16)
-		local img = Image(16 * size.x, 16 * size.y, 1, 'uint8_t'):clear()
-		-- what is its format?
-		local tile16x16 = 0
-		for j=0,size.y-1 do
-			local y = bit.lshift(j, 4)
-			for i=0,size.x-1 do
-				local x = bit.lshift(i, 4)
-				game.layer1and2drawtile16x16(
-					img,
-					x,
-					y,
-					tile16x16,
-					game.mapTilesetCache[tilesetIndex].data,
-					nil,
-					gfxDatas
-				)
-				tile16x16 = tile16x16 + 1
+			local size = vec2i(16, 16)
+			local img = Image(16 * size.x, 16 * size.y, 1, 'uint8_t'):clear()
+			-- what is its format?
+			local tile16x16 = 0
+			for j=0,size.y-1 do
+				local y = bit.lshift(j, 4)
+				for i=0,size.x-1 do
+					local x = bit.lshift(i, 4)
+					game.layer1and2drawtile16x16(
+						img,
+						x,
+						y,
+						tile16x16,
+						game.mapTilesetCache[tilesetIndex].data,
+						nil,
+						gfxDatas
+					)
+					tile16x16 = tile16x16 + 1
+				end
 			end
+			img.palette = palette
+			img:save((maptilesetpath/('tileset_'..tilesetIndex
+				..'_gfx1='..gfxIndexes[1]
+				..'_gfx2='..gfxIndexes[2]
+				..'_gfx3='..gfxIndexes[3]
+				..'_gfx4='..gfxIndexes[4]
+				..'_palette='..paletteIndex
+				..'.png')).path)
 		end
-		img.palette = palette
-		img:save((maptilesetpath/('tileset_'..tilesetIndex
-			..(#gfxstrs > 1 and ('_'..tilesetGfxPerm) or '')
-			..'.png')).path)
 	end
 end
 
