@@ -224,6 +224,8 @@ end
 -- I think I can safely group maps by layout1 alone ...
 local mapsForLayout1 = table()
 
+local mapIndexesForGfxStr = {}
+
 for mapIndex=0,countof(game.maps)-1 do
 	local mapInfo = game.getMap(mapIndex)
 	if mapInfo then
@@ -266,6 +268,9 @@ print('setting gfxstr', gfxstr, 'paletteIndex', paletteIndex)
 				mapGfxStrs[gfxstr][tilesetIndex..'/'..paletteIndex] = true
 			end
 		end
+
+		mapIndexesForGfxStr[gfxstr] = mapIndexesForGfxStr[gfxstr] or table()
+		mapIndexesForGfxStr[gfxstr]:insert(mapIndex)
 
 		if gfxLayer3 then
 			gfxLayer3.palettes[paletteIndex] = true
@@ -434,6 +439,10 @@ print('setting gfxstr', gfxstr, 'paletteIndex', paletteIndex)
 		--]]
 	end
 end
+print()
+
+print'map indexes per gfx sets:'
+print(require 'ext.tolua'(mapIndexesForGfxStr))
 print()
 
 --[[
