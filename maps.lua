@@ -6,6 +6,9 @@ local table = require 'ext.table'
 local range = require 'ext.range'
 local vec2i = require 'vec-ffi.vec2i'
 local Image = require 'image'
+local tileWidth = require 'ff6.graphics'.tileWidth
+local tileHeight = require 'ff6.graphics'.tileHeight
+local readpixel = require 'ff6.graphics'.readpixel
 local makePalette = require 'ff6.graphics'.makePalette
 local readTile = require 'ff6.graphics'.readTile
 local readTileLinear = require 'ff6.graphics'.readTileLinear
@@ -317,15 +320,28 @@ return function(game)
 				-- bpp is always 2 for layer3
 				local tileptr, bpp = game.layer3tile8x8toptr(tile8x8, gfxLayer3Data)
 				if tileptr then
-					readTile(
-						img,
-						x + bit.lshift(hFlip and (1-xofs) or xofs, 3),
-						y + bit.lshift(vFlip and (1-yofs) or yofs, 3),
-						tileptr,
-						bpp,
-						hFlip,
-						vFlip
-					)
+					local xofs = x + bit.lshift(hFlip and (1-xofs) or xofs, 3)
+					local yofs = y + bit.lshift(vFlip and (1-yofs) or yofs, 3)
+					--[[
+					readTile(img, xofs, yofs, tileptr, bpp, hFlip, vFlip)
+					--]]
+					-- [[
+					for y=0,tileHeight-1 do
+						local dstp = img.buffer + (xofs + img.width*(yofs+y))
+						local dstp = img.buffer + (xofs + img.width*(yofs+y))
+						local cy = vFlip and tileHeight-1-y or y
+						for x=0,tileWidth-1 do
+							local cx = hFlip and tileWidth-1-x or x
+							dstp[0] = readpixel(tileptr, cx, cy, bpp)
+							-- leave 0 as 0 for transparency's sake
+							-- offset the other colors by 8 ...
+							if dstp[0] > 0 then
+								dstp[0] = bit.bor(8, dstp[0])
+							end
+							dstp = dstp + 1
+						end
+					end
+					--]]
 				end
 			end
 		end

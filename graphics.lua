@@ -231,6 +231,7 @@ local function makePaletteSets(dir, pal, numColors, isTransparent)
 end
 
 return {
+	readpixel = readpixel,
 	readTile = readTile,
 	drawTile = drawTile,
 	readTileLinear = readTileLinear,
