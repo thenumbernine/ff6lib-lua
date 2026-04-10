@@ -500,7 +500,8 @@ for _,tilesetIndex in ipairs(game.mapTilesetCache:keys():sort()) do
 						tile16x16,
 						game.mapTilesetCache[tilesetIndex].data,
 						nil,
-						gfxDatas
+						gfxDatas,
+						nil -- mapInfo.gfxLayer3 and mapInfo.gfxLayer3.data
 					)
 					tile16x16 = tile16x16 + 1
 				end

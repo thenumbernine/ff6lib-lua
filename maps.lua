@@ -189,7 +189,7 @@ return function(game)
 	end)
 
 	-- useful function for maps
-	function game.layer1and2tile8x8toptr(tile8x8, gfxDatas)
+	function game.layer1and2tile8x8toptr(tile8x8, gfxDatas, gfxLayer3Data)
 
 		-- first 256 is gfx1
 		if tile8x8 < 0x100 then
@@ -247,13 +247,24 @@ return function(game)
 			return tileptr, bpp
 		end
 
+		-- animated?
+		-- TODO FIXME
+		-- 0x280 - 0x2e0 = 0x60 values
+		if tile8x8 < 0x2e0 then
+			local bpp = 2
+			local gfxData = gfxLayer3Data
+			if not gfxData then return end
+			tile8x8 = (tile8x8 - 0x280) % 0x60
+			local tileptr = ffi.cast('uint8_t*', gfxData) + tile8x8 * bit.lshift(bpp, 3)
+			return tileptr, bpp
+		end
 		-- extra notes to remember for later:
 		-- animated tiles start at 0x280
 		-- dialog graphics start at 0x2e0
 		-- tiles 0x300-0x3ff aren't used by bg1 & bg2
 	end
 
-	function game.layer1and2drawtile16x16(img, x, y, tile16x16, tilesetData, zLevelFlags, gfxDatas)
+	function game.layer1and2drawtile16x16(img, x, y, tile16x16, tilesetData, zLevelFlags, gfxDatas, gfxLayer3Data)
 		if not tilesetData then return end
 		assert.len(tilesetData, 0x800)
 		zLevelFlags = zLevelFlags or 3
@@ -268,7 +279,7 @@ return function(game)
 				local tileZLevel = bit.band(bit.rshift(tilesetTile, 13), 1)
 				if bit.band(bit.lshift(1, tileZLevel), zLevelFlags) ~= 0 then
 					local tile8x8 = bit.band(tilesetTile, 0x3ff)
-					local tileptr, bpp = game.layer1and2tile8x8toptr(tile8x8, gfxDatas)
+					local tileptr, bpp = game.layer1and2tile8x8toptr(tile8x8, gfxDatas, gfxLayer3Data)
 					if tileptr then
 						local highPal = bit.band(7, bit.rshift(tilesetTile, 10))
 						local hFlip8 = bit.band(0x4000, tilesetTile) ~= 0
@@ -482,7 +493,7 @@ return function(game)
 						elseif layer == 3 then
 							game.layer3drawtile16x16(layerImg, x, y, tile16x16, self.gfxLayer3 and self.gfxLayer3.data)
 						else
-							game.layer1and2drawtile16x16(layerImg, x, y, tile16x16, self.tilesetDatas[layer], bit.lshift(1, z), gfxDatas)
+							game.layer1and2drawtile16x16(layerImg, x, y, tile16x16, self.tilesetDatas[layer], bit.lshift(1, z), gfxDatas, self.gfxLayer3 and self.gfxLayer3.data)
 						end
 					end
 				end
