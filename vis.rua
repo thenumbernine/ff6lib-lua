@@ -244,11 +244,26 @@ App.updateGUI = |:|do
 			ig.igEndMenu()
 		end
 
+		--[[
 		local label = 'viewing map #'..self.mapIndex
 		if ig.igBeginMenu(label) then
 			ig.igEndMenu()
 		end
+		--]]
+
 		ig.igEndMainMenuBar()
+	end
+
+	local mapInfo = game.getMap(self.mapIndex)
+	if mapInfo then
+		local map = mapInfo.map
+		if map then
+			ig.igText(
+				'maps[0x'..self.mapIndex:hex()..'] addr '
+					..'0x'..(ffi.cast('uint8_t*', map) - rom):hex()
+					..' = '..tostring(map[0]):gsub(',', ',\n  ')
+			)
+		end
 	end
 end
 
