@@ -23,9 +23,12 @@ App.initGL = |:, ...|do
 	App.super.initGL(self, ...)
 
 	self.view.ortho = true
-	self.view.orthoSize = 1
+	self.view.orthoSize = 256
 
-	self.drawObj = GLSceneObject{
+	self.showTileProps = false
+	self.showTreasures = true
+
+	self.layerDrawObj = GLSceneObject{
 		program = {
 			version = 'latest',
 			precision = 'best',
@@ -34,8 +37,8 @@ in vec2 vertex;
 out vec2 tcv;
 uniform mat4 mvProjMat;
 void main() {
-	tcv = vec2(vertex.x, 1. - vertex.y);
-	gl_Position = mvProjMat * vec4(vertex * 2. - 1., 0., 1.);
+	tcv = vertex;
+	gl_Position = mvProjMat * vec4(vertex, 0., 1.);
 }
 ]],
 			fragmentCode = [[
@@ -67,9 +70,49 @@ void main() {
 		},
 		geometry = {
 			mode = gl.GL_TRIANGLE_STRIP,
-		}
+		},
 	}
-	
+
+	self.rectObj = GLSceneObject{
+		program = {
+			version = 'latest',
+			precision = 'best',
+			vertexCode = [[
+in vec2 vertex;
+uniform mat4 mvProjMat;
+uniform vec4 bbox;
+void main() {
+	gl_Position = mvProjMat * vec4(
+		bbox.x + bbox.z * vertex.x,
+		bbox.y + bbox.w * vertex.y,
+		0.,
+		1.);
+}
+]],
+			fragmentCode = [[
+out vec4 fragColor;
+void main() {
+	fragColor = vec4(1., 1., 1., 1.);
+}
+]],
+		},
+		vertexes = {
+			data = {
+				0, 0,
+				1, 0,
+				0, 1,
+				1, 1,
+			},
+			dim = 2,
+		},
+		geometry = {
+			mode = gl.GL_TRIANGLE_STRIP,
+		},
+		uniforms = {
+			bbox = {0,0,1,1},
+		},
+	}
+
 	self.mapSize = vec2d()
 
 	self.mapIndex = 0
@@ -129,9 +172,9 @@ print('updateMapIndex', mapIndex)
 
 	local palette = mapInfo.palette
 
-	if not palette then 
+	if not palette then
 		print("map "..mapIndex.." has no palette")
-		return 
+		return
 	end
 
 	local palData = ffi.new'uint8_t[128*4]'
@@ -153,6 +196,7 @@ print('updateMapIndex', mapIndex)
 	}:unbind()
 assert.eq(self.palTex.data, palData)
 
+	-- layer images already have 16x16 tiles baked into them...
 	self.layerTexs = mapInfo
 		:getLayerImages()
 		:mapi(|img| do
@@ -172,19 +216,42 @@ assert.eq(self.palTex.data, palData)
 	if #self.layerTexs > 0 then
 		self.mapSize:set(self.layerTexs[1].width, self.layerTexs[1].height)
 	end
+
+	local layout1Data = layouts[1] and layouts[1].data
+	if layout1Data then
+		-- uint8_t into the tilePropsPtr table, which is a table of 2-byte-sized either WorldTileProps_t or mapTileProps_t
+		local layoutptr = ffi.cast('uint8_t*', layout1Data)
+		--if tilePropsData then
+		--local tilePropsPtr = ffi.cast('WorldTileProps_t*', tilePropsData)
+
+		self.tilePropsTex = GLTex2D{
+			width = layerSizes[1].x,
+			height = layerSizes[1].y,
+			internalFormat = gl.GL_R8UI,
+			format = gl.GL_RED_INTEGER,
+			type = gl.GL_UNSIGNED_BYTE,
+			minFilter = gl.GL_NEAREST,
+			magFilter = gl.GL_NEAREST,
+			data = layout1Data,
+		}:unbind()
+	else
+		self.tilePropsTex = nil
+	end
 end
 
 App.update = |:|do
 	gl.glClear(gl.GL_COLOR_BUFFER_BIT)
 
 	local view = self.view
-	view.mvMat
-		:applyScale(self.mapSize.x / 1024, self.mapSize.y / 1024, 1)
+	-- mapSize is in texels
+	-- so now coords are in 16x16 tiles
+	view.mvMat:applyScale(1, -1)
+	view.mvMat:applyScale(self.mapSize.x / 16, self.mapSize.y / 16, 1)
 	view.mvProjMat:mul4x4(view.projMat, view.mvMat)
-	self.drawObj.uniforms.mvProjMat = view.mvProjMat.ptr
+	self.layerDrawObj.uniforms.mvProjMat = view.mvProjMat.ptr
 
 	if self.layerTexs then
-		self.drawObj.texs[2] = self.palTex
+		self.layerDrawObj.texs[2] = self.palTex
 		for i,tex in ipairs(self.layerTexs) do
 			local k = 'drawLayer'..i
 			if self[k] == nil or self[k] == true then
@@ -196,7 +263,7 @@ App.update = |:|do
 						gl.glBlendEquation(gl.GL_FUNC_REVERSE_SUBTRACT)	-- framebuffer minus sprite
 					else
 						gl.glBlendEquation(gl.GL_FUNC_ADD)
-					end				
+					end
 					local half = (blend & 1) ~= 0
 					gl.glBlendColor(1, 1, 1, half and .5 or 1)
 					if half then
@@ -209,8 +276,8 @@ App.update = |:|do
 				gl.glEnable(gl.GL_ALPHA_TEST)
 				gl.glAlphaFunc(gl.GL_GREATER, .5)
 
-				self.drawObj.texs[1] = tex
-				self.drawObj:draw()
+				self.layerDrawObj.texs[1] = tex
+				self.layerDrawObj:draw()
 
 				gl.glDisable(gl.GL_BLEND)
 				gl.glDisable(gl.GL_ALPHA_TEST)
@@ -218,11 +285,62 @@ App.update = |:|do
 		end
 	end
 
+	gl.glEnable(gl.GL_BLEND)
+	gl.glBlendEquation(gl.GL_FUNC_ADD)
+	gl.glBlendColor(1, 1, 1, .5)
+	gl.glBlendFunc(gl.GL_CONSTANT_ALPHA, gl.GL_CONSTANT_ALPHA)
+
+	-- TODO enable/disable flags with this ...
+	if self.showTileProps
+	and self.tilePropsTex
+	then
+		self.layerDrawObj.texs[1] = self.tilePropsTex
+		self.layerDrawObj:draw()
+	end
+
+	self.numTreasures = nil
+	local mapIndex = self.mapIndex
+	if self.showTreasures
+	and mapIndex >= 0
+	and mapIndex < countof(game.treasureOfs)
+	then
+		view:setupModelView()
+		view.mvMat:applyScale(1, -1)
+		view.mvProjMat:mul4x4(view.projMat, view.mvMat)
+		self.rectObj.uniforms.mvProjMat = view.mvProjMat.ptr
+
+		local startOfs = game.treasureOfs[mapIndex]
+		assert.eq(startOfs % ffi.sizeof'treasure_t', 0)
+		local startIndex = startOfs / ffi.sizeof'treasure_t'
+
+		local endIndex
+		if mapIndex == countof(game.treasureOfs)-1 then
+			endIndex = countof(game.treasures)
+		else
+			local endOfs = game.treasureOfs[mapIndex+1]
+			assert.eq(endOfs % ffi.sizeof'treasure_t', 0)
+			endIndex = endOfs / ffi.sizeof'treasure_t'
+		end
+		self.numTreasures = endIndex - startIndex
+		for i=startIndex,endIndex-1 do
+			local t = game.treasures + i
+			self.rectObj.uniforms.bbox[1] = t.pos.x
+			self.rectObj.uniforms.bbox[2] = t.pos.y
+			self.rectObj.uniforms.bbox[3] = 1
+			self.rectObj.uniforms.bbox[4] = 1
+			self.rectObj:draw()
+		end
+	end
+
+	gl.glDisable(gl.GL_BLEND)
+
 	-- draw gui
 	App.super.update(self)
 end
 
 App.updateGUI = |:|do
+	local mapInfo = game.getMap(self.mapIndex)
+
 	if ig.igBeginMainMenuBar() then
 		if ig.igBeginMenu'map:' then
 			if ig.luatableInputInt('mapIndex', self, 'mapIndex') then
@@ -241,6 +359,20 @@ App.updateGUI = |:|do
 				end
 			end
 
+			--[[ TODO flgs for both WorldTileProps_t and mapTileProps_t
+			for name in WorldTileProps_t:fielditer() do
+				ig.luatableTooltipCheckbox('traversible '..name, self.traverseFlags, name)
+			end
+			--]]
+			-- [[ until then
+			local layouts = mapInfo and mapInfo.layouts
+			local layout1Data = layouts and layouts[1] and layouts[1].data
+			if layout1Data then
+				ig.luatableTooltipCheckbox('showTileProps', self, 'showTileProps')
+			end
+			ig.luatableTooltipCheckbox('showTreasures', self, 'showTreasures')
+			--]]
+
 			ig.igEndMenu()
 		end
 
@@ -254,16 +386,19 @@ App.updateGUI = |:|do
 		ig.igEndMainMenuBar()
 	end
 
-	local mapInfo = game.getMap(self.mapIndex)
 	if mapInfo then
 		local map = mapInfo.map
 		if map then
-			ig.igText(
-				'maps[0x'..self.mapIndex:hex()..'] addr '
-					..'0x'..(ffi.cast('uint8_t*', map) - rom):hex()
-					..' = '..tostring(map[0]):gsub(',', ',\n  ')
-			)
+			ig.igText('maps[0x'..self.mapIndex:hex()..']:')
+			ig.igText('addr 0x'..(ffi.cast('uint8_t*', map) - rom):hex())
+			for name in map[0]:fielditer() do
+				ig.igText(name..' = '..tostring(map[0][name]))
+			end
 		end
+	end
+
+	if self.numTreasures then
+		ig.igText('# treasures = '..tostring(self.numTreasures))
 	end
 end
 
