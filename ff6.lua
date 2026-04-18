@@ -1858,8 +1858,8 @@ assert.eq(ffi.sizeof'mapTileProps_t', 2)
 local mapAnimProps_t = ff6struct{
 	name = 'mapAnimProps_t',
 	fields = {
-		{speed='uint16_t'},		-- 0-1
-		{frames='uint16_t[4]'},	-- 2-9
+		{speed = 'uint16_t'},		-- 0-1
+		{frames = 'uint16_t[4]'},	-- 2-9
 	},
 }
 assert.eq(ffi.sizeof'mapAnimProps_t', 0xa)
@@ -1867,12 +1867,40 @@ assert.eq(ffi.sizeof'mapAnimProps_t', 0xa)
 local mapAnimPropsLayer3_t = ff6struct{
 	name = 'mapAnimPropsLayer3_t',
 	fields = {
-		{speed='uint16_t'},		-- 0-1
-		{size='uint16_t'},		-- 2-3
-		{frames='uint16_t[8]'},	-- 4-0x13
+		{speed = 'uint16_t'},		-- 0-1
+		{size = 'uint16_t'},		-- 2-3
+		{frames = 'uint16_t[8]'},	-- 4-0x13
 	},
 }
 assert.eq(ffi.sizeof'mapAnimPropsLayer3_t', 0x14)
+
+local mapPalAnim_t = ff6struct{
+	name = 'mapPalAnim_t',
+	fields = {
+		{colorCounter = 'uint8_t:4'},
+		{type = 'uint8_t:4'},
+		{frameCounter = 'uint8_t'},
+		{firstColor = 'uint8_t'},
+		{numColors = 'uint8_t'},
+		{romColorOffset = 'uint16_t'},
+	},
+}
+assert.eq(ffi.sizeof'mapPalAnim_t', 6)
+--[[
+there's 20 of these in a row. 2 per 10
+the 10 are:
+	River
+	Lava/Cyan's Dream
+	Imperial Camp
+	Beach
+	Doma Castle
+	Waterfall
+	Narshe
+	Kefka's Tower
+	Darill's Tomb
+--]]
+
+
 
 local mapTilesetOfsAddr = 0x1fba00
 
@@ -2106,6 +2134,7 @@ local battleBgProps_t = struct{
 }
 assert.eq(ffi.sizeof(battleBgProps_t), 6)
 
+
 ---------------- GAME ----------------
 
 -- TODO this is clever but ... rigid and with lots of redundancies
@@ -2119,12 +2148,16 @@ local game_t = ff6struct{
 		{characterMenuImageOffsets = 'uint16_t[16]'},											-- 0x0051ba - 0x0051da
 		{characterMenuImageTileLayout = 'uint8_t[25]'},											-- 0x0051da - 0x0051f3
 
-		-- 0x00c27f - 0x00c28f = something to do with battle background? -rpglegion
-		-- 0x0091d5-0x0091ff = map animation properties pointer table (+0x0091ff)
-		-- 0x0091ff-0x00979f = map animation properties [20]
-		-- 0x0097ad-0x009825 = map animation properties layer 3 [6]
-		-- 0x00979f-0x0097ad = map animation properties layer 3 pointer table (+0x0097ad)
-		{unknown_0051f3 = 'uint8_t['..(-(0x0051f3 - 0x00ce3a))..']'}, 							-- 0x0051f3 - 0x00ce3a
+		{unknown_0051f3 = 'uint8_t['..(-(0x0051f3 - 0x0091d5))..']'}, 							-- 0x0051f3 - 0x0091d5
+
+		{mapAnimPropOfs = 'uint16_t[0x15]'},													-- 0x0091d5 - 0x0091ff = map animation properties pointer table (+0x0091ff) (only 10 used)
+		{mapAnimProps = 'mapAnimProps_t[144]'},													-- 0x0091ff - 0x00979f = map animation properties [144] @ 10 bytes each
+		{mapAnimPropsLayer3Ofs = 'uint16_t[7]'},												-- 0x00979f - 0x0097ad = map animation properties layer 3 pointer table (+0x0097ad) (only 6 used)
+		{mapAnimPropsLayer3 = 'mapAnimPropsLayer3_t[6]'},										-- 0x0097ad - 0x009825 = map animation properties layer 3 [6]
+		{mapPalAnim = 'mapPalAnim_t[20]'},														-- 0x009825 - 0x00989d = map palette animation
+
+		{unknown_00989d = 'uint8_t['..(-(0x00989d - 0x00ce3a))..']'},							-- 0x00989d - 0x00ce3a
+		-- 0x00c27f-0x00c28f = something to do with battle background? -rpglegion
 
 		-- offset of map character sprite parts
 		-- interleaved row-major, 2x3
