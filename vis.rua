@@ -27,6 +27,8 @@ App.initGL = |:, ...|do
 
 	self.showTileProps = false
 	self.showTreasures = true
+	self.showEventTriggers = true
+	self.showEntranceTriggers = true
 
 	self.layerDrawObj = GLSceneObject{
 		program = {
@@ -91,8 +93,9 @@ void main() {
 ]],
 			fragmentCode = [[
 out vec4 fragColor;
+uniform vec4 color;
 void main() {
-	fragColor = vec4(1., 1., 1., 1.);
+	fragColor = color;
 }
 ]],
 		},
@@ -110,6 +113,7 @@ void main() {
 		},
 		uniforms = {
 			bbox = {0,0,1,1},
+			color = {1,1,1,1},
 		},
 	}
 
@@ -298,10 +302,11 @@ App.update = |:|do
 		self.layerDrawObj:draw()
 	end
 
-	self.numTreasures = nil
 	local mapIndex = self.mapIndex
-	if self.showTreasures
-	and mapIndex >= 0
+	self.numTreasures = nil
+	self.numEventTriggers = nil
+	self.numEntranceTriggers = nil
+	if mapIndex >= 0
 	and mapIndex < countof(game.treasureOfs)
 	then
 		view:setupModelView()
@@ -309,28 +314,64 @@ App.update = |:|do
 		view.mvProjMat:mul4x4(view.projMat, view.mvMat)
 		self.rectObj.uniforms.mvProjMat = view.mvProjMat.ptr
 
-		local startOfs = game.treasureOfs[mapIndex]
-		assert.eq(startOfs % ffi.sizeof'treasure_t', 0)
-		local startIndex = startOfs / ffi.sizeof'treasure_t'
+		if self.showTreasures then
+			local startOfs = game.treasureOfs[mapIndex]
+			assert.eq(startOfs % ffi.sizeof'treasure_t', 0)
+			local startIndex = startOfs / ffi.sizeof'treasure_t'
 
-		local endIndex
-		if mapIndex == countof(game.treasureOfs)-1 then
-			endIndex = countof(game.treasures)
-		else
-			local endOfs = game.treasureOfs[mapIndex+1]
-			assert.eq(endOfs % ffi.sizeof'treasure_t', 0)
-			endIndex = endOfs / ffi.sizeof'treasure_t'
+			local endIndex
+			if mapIndex == countof(game.treasureOfs)-1 then
+				endIndex = countof(game.treasures)
+			else
+				local endOfs = game.treasureOfs[mapIndex+1]
+				assert.eq(endOfs % ffi.sizeof'treasure_t', 0)
+				endIndex = endOfs / ffi.sizeof'treasure_t'
+			end
+			self.numTreasures = endIndex - startIndex
+			for i=startIndex,endIndex-1 do
+				local t = game.treasures + i
+				self.rectObj.uniforms.bbox[1] = t.pos.x
+				self.rectObj.uniforms.bbox[2] = t.pos.y
+				self.rectObj.uniforms.bbox[3] = 1
+				self.rectObj.uniforms.bbox[4] = 1
+				self.rectObj.uniforms.color = {0,0,1,1}
+				self.rectObj:draw()
+			end
 		end
-		self.numTreasures = endIndex - startIndex
-		for i=startIndex,endIndex-1 do
-			local t = game.treasures + i
-			self.rectObj.uniforms.bbox[1] = t.pos.x
-			self.rectObj.uniforms.bbox[2] = t.pos.y
-			self.rectObj.uniforms.bbox[3] = 1
-			self.rectObj.uniforms.bbox[4] = 1
-			self.rectObj:draw()
+		if self.showEventTriggers then
+			local ofs = ffi.offsetof('game_t', 'mapEventTriggers') - ffi.offsetof('game_t', 'mapEventTriggerOfs')
+			local startIndex = (game.mapEventTriggerOfs[mapIndex] - ofs) / ffi.sizeof'mapEventTrigger_t'
+			local endIndex = mapIndex == countof(game.mapEventTriggerOfs)-1
+				and startIndex -- countof(game.mapEventTriggers)
+				or (game.mapEventTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof'mapEventTrigger_t'
+			for i=startIndex,endIndex-1 do
+				local e = game.mapEventTriggers + i
+				self.rectObj.uniforms.bbox[1] = e.pos.x
+				self.rectObj.uniforms.bbox[2] = e.pos.y
+				self.rectObj.uniforms.bbox[3] = 1
+				self.rectObj.uniforms.bbox[4] = 1
+				self.rectObj.uniforms.color = {0,0,1,1}
+				self.rectObj:draw()
+			end
+		end
+		if self.showEntranceTriggers then
+			local ofs = ffi.offsetof('game_t', 'entranceTriggers') - ffi.offsetof('game_t', 'entranceTriggerOfs')
+			local startIndex = (game.entranceTriggerOfs[mapIndex] - ofs) / ffi.sizeof'entranceTrigger_t'
+			local endIndex = mapIndex == countof(game.entranceTriggerOfs)-1
+				and countof(game.entranceTriggers)
+				or (game.entranceTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof'entranceTrigger_t'
+			for i=startIndex,endIndex-1 do
+				local e = game.entranceTriggers + i
+				self.rectObj.uniforms.bbox[1] = e.pos.x
+				self.rectObj.uniforms.bbox[2] = e.pos.y
+				self.rectObj.uniforms.bbox[3] = 1
+				self.rectObj.uniforms.bbox[4] = 1
+				self.rectObj.uniforms.color = {1,0,0,1}
+				self.rectObj:draw()
+			end
 		end
 	end
+
 
 	gl.glDisable(gl.GL_BLEND)
 
@@ -371,6 +412,7 @@ App.updateGUI = |:|do
 				ig.luatableTooltipCheckbox('showTileProps', self, 'showTileProps')
 			end
 			ig.luatableTooltipCheckbox('showTreasures', self, 'showTreasures')
+			ig.luatableTooltipCheckbox('showEventTriggers', self, 'showEventTriggers')
 			--]]
 
 			ig.igEndMenu()
@@ -399,6 +441,12 @@ App.updateGUI = |:|do
 
 	if self.numTreasures then
 		ig.igText('# treasures = '..tostring(self.numTreasures))
+	end
+	if self.numEventTriggers then
+		ig.igText('# event triggers = '..tostring(self.numEventTriggers))
+	end
+	if self.numEntranceTriggers then
+		ig.igText('# entrance triggers = '..tostring(self.numEntranceTriggers))
 	end
 end
 

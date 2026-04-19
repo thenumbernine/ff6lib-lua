@@ -2197,7 +2197,9 @@ local game_t = ff6struct{
 		{unknown_03c406 = 'uint8_t['..(-(0x03c406 - 0x040000))..']'},							-- 0x03c406 - 0x040000
 
 		{mapEventTriggerOfs = 'uint16_t['..((0x040342 - 0x040000)/2)..']'},						-- 0x040000 - 0x040342 = offset by +0x040000
-		{mapEventTriggerData = 'uint8_t['..(-(0x040342 - 0x041a10))..']'},						-- 0x040342 - 0x041a10 = map event triggers (5 bytes each)
+		{mapEventTriggers = 'mapEventTrigger_t[0x48f]'},										-- 0x040342 - 0x041a0d = map event triggers (5 bytes each)
+
+		{padding_041a0d = 'uint8_t['..(-(0x041a0d - 0x041a10))..']'},							-- 0x041a0d - 0x041a10
 
 		{npcOfs = 'uint16_t['..(-(0x041a10 - 0x041d52)/2)..']'},								-- 0x041a10 - 0x041d52 = npc offsets (+0x041a10)
 		{npcs = 'npc_t[0x891]'},																-- 0x041d52 - 0x046a6b = npc data

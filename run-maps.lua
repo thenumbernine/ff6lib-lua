@@ -580,37 +580,34 @@ end
 
 
 print()
-local mapEventTriggerBase = ffi.cast('mapEventTrigger_t*', game.mapEventTriggerData+0)
 for i=0,countof(game.mapEventTriggerOfs)-1 do
 	-- offsets are relative to 0x40000
 	-- but the data starts at 0x40342
 	-- and it is a reference into a list of structs 5 bytes wide ...
-	local startIndex = (game.mapEventTriggerOfs[i] - 0x342) / ffi.sizeof'mapEventTrigger_t'
+	local ofs = ffi.offsetof('game_t', 'mapEventTriggers') - ffi.offsetof('game_t', 'mapEventTriggerOfs')
+	local startIndex = (game.mapEventTriggerOfs[i] - ofs) / ffi.sizeof'mapEventTrigger_t'
 	local endIndex = i == countof(game.mapEventTriggerOfs)-1
-		and ffi.sizeof(game.mapEventTriggerData) / ffi.sizeof'mapEventTrigger_t'
-		or (game.mapEventTriggerOfs[i+1] - 0x342) / ffi.sizeof'mapEventTrigger_t'
+		and startIndex -- countof(game.mapEventTriggers)
+		or (game.mapEventTriggerOfs[i+1] - ofs) / ffi.sizeof'mapEventTrigger_t'
 	print('mapEventTrigger[0x'..i:hex()..']:')
 	for index=startIndex,endIndex-1 do
-		print('\t0x'..index:hex()..' = '..mapEventTriggerBase[index])
+		print('\t0x'..index:hex()..' = '..game.mapEventTriggers[index])
 	end
 end
 print()
 
--- there are less entrance trigger offsets than entrance triggers
--- all the entranceTriggerOfs point into entranceTriggers aligned to entranceTrigger_t:
--- so I could dump the whole list of 0x469 entranceTrigger_t's
---  instead of just the offset list
--- These are for the world map I guess?
--- The very first one is the chocobo stable next to Dragons Neck Colloseum in WoB.
--- but I don't see the Narshe trigger in this list ...
-for i=0,game.numEntranceTriggerOfs-1 do
+for i=0,countof(game.entranceTriggerOfs)-1 do
 	-- TODO use ref_t or whateever
-	local addr = game.entranceTriggerOfs[i] + ffi.offsetof('game_t', 'entranceTriggerOfs')
-	--assert.eq((addr - ffi.offsetof('game_t', 'entranceTriggers')) % ffi.sizeof'entranceTrigger_t', 0)
-	local entranceTrigger = ffi.cast('entranceTrigger_t*', rom + addr)
-	print('entranceTriggerOfs[0x'..i:hex()..'] ='
-		..' addr: $'..('%06x'):format(addr))
-		--..' '..entranceTrigger)
+	local ofs = ffi.offsetof('game_t', 'entranceTriggers') - ffi.offsetof('game_t', 'entranceTriggerOfs')
+	assert.eq((game.entranceTriggerOfs[i] - ofs) % ffi.sizeof'entranceTrigger_t', 0)
+	local startIndex = (game.entranceTriggerOfs[i] - ofs) / ffi.sizeof'entranceTrigger_t'
+	local endIndex = i == countof(game.entranceTriggerOfs)-1
+		and countof(game.entranceTriggers)
+		or (game.entranceTriggerOfs[i+1] - ofs) / ffi.sizeof'entranceTrigger_t'
+	print('entranceTrigger[0x'..i:hex()..']:')
+	for index=startIndex,endIndex-1 do
+		print('\t0x'..index:hex()..' = '..game.entranceTriggers[index])
+	end
 end
 print()
 
