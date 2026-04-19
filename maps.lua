@@ -117,25 +117,28 @@ return function(game)
 
 	local mapTileGraphicsLayer3Cache = table()
 	game.mapTileGraphicsLayer3Cache = mapTileGraphicsLayer3Cache
+	function game.getMapTileGraphicsLayer3ForAddr(addr, i, offset)
+		local o = mapTileGraphicsLayer3Cache[addr]
+		if not o then
+			local data = decompress(rom + addr, ffi.sizeof(game.mapTileGraphicsLayer3))
+			o = {
+				index = i,	-- optional
+				offset = offset,	-- optional
+				addr = addr,
+				data = data,
+			}
+			mapTileGraphicsLayer3Cache[addr] = o
+		end
+		return o
+	end
 	function game.getMapTileGraphicsLayer3(i)
 		i = math.floor((assert(tonumber(i))))
 		if i < 0 or i >= countof(game.mapTileGraphicsLayer3Offsets) then return end
-
-		if mapTileGraphicsLayer3Cache[i] then return mapTileGraphicsLayer3Cache[i] end
 		local offset = game.mapTileGraphicsLayer3Offsets[i]:value()
-
 		assert.ge(offset, 0, 'mapTileGraphicsLayer3Offsets['..i..']')
 		assert.lt(offset, ffi.sizeof(game.mapTileGraphicsLayer3), 'mapTileGraphicsLayer3Offsets['..i..']')
-
 		local addr = offset + ffi.offsetof('game_t', 'mapTileGraphicsLayer3')
-		local data = decompress(rom + addr, ffi.sizeof(game.mapTileGraphicsLayer3))
-		mapTileGraphicsLayer3Cache[i] = {
-			index = i,
-			offset = offset,
-			addr = addr,
-			data = data,
-		}
-		return mapTileGraphicsLayer3Cache[i]
+		return game.getMapTileGraphicsLayer3ForAddr(addr, i, offset)
 	end
 
 	-- NOTICE this decompresses always
@@ -189,7 +192,7 @@ return function(game)
 	end)
 
 	-- useful function for maps
-	function game.layer1and2tile8x8toptr(tile8x8, gfxDatas, gfxLayer3Data)
+	function game.layer1and2tile8x8toptr(tile8x8, gfxDatas, gfxLayer3Data, gfxLayer3Ofs)
 
 		-- first 256 is gfx1
 		if tile8x8 < 0x100 then
@@ -251,11 +254,15 @@ return function(game)
 		-- TODO FIXME
 		-- 0x280 - 0x2e0 = 0x60 values
 		if tile8x8 < 0x2e0 then
-			local bpp = 2
+			local bpp = 4
 			local gfxData = gfxLayer3Data
 			if not gfxData then return end
 			tile8x8 = (tile8x8 - 0x280) % 0x60
-			local tileptr = ffi.cast('uint8_t*', gfxData) + tile8x8 * bit.lshift(bpp, 3)
+			local ofs = tile8x8 * bit.lshift(bpp, 3)
+ofs = ofs + (gfxLayer3Ofs or 0)
+			assert.le(0, ofs)
+			assert.lt(ofs, #gfxData)
+			local tileptr = ffi.cast('uint8_t*', gfxData) + ofs
 			return tileptr, bpp
 		end
 		-- extra notes to remember for later:
@@ -264,7 +271,7 @@ return function(game)
 		-- tiles 0x300-0x3ff aren't used by bg1 & bg2
 	end
 
-	function game.layer1and2drawtile16x16(img, x, y, tile16x16, tilesetData, zLevelFlags, gfxDatas, gfxLayer3Data)
+	function game.layer1and2drawtile16x16(img, x, y, tile16x16, tilesetData, zLevelFlags, gfxDatas, gfxLayer3Data, gfxLayer3Ofs)
 		if not tilesetData then return end
 		assert.len(tilesetData, 0x800)
 		zLevelFlags = zLevelFlags or 3
@@ -279,7 +286,7 @@ return function(game)
 				local tileZLevel = bit.band(bit.rshift(tilesetTile, 13), 1)
 				if bit.band(bit.lshift(1, tileZLevel), zLevelFlags) ~= 0 then
 					local tile8x8 = bit.band(tilesetTile, 0x3ff)
-					local tileptr, bpp = game.layer1and2tile8x8toptr(tile8x8, gfxDatas, gfxLayer3Data)
+					local tileptr, bpp = game.layer1and2tile8x8toptr(tile8x8, gfxDatas, gfxLayer3Data, gfxLayer3Ofs)
 					if tileptr then
 						local highPal = bit.band(7, bit.rshift(tilesetTile, 10))
 						local hFlip8 = bit.band(0x4000, tilesetTile) ~= 0
@@ -299,18 +306,23 @@ return function(game)
 		end
 	end
 
-	function game.layer3tile8x8toptr(tile8x8, gfxLayer3Data)
+	function game.layer3tile8x8toptr(tile8x8, gfxLayer3Data, gfxLayer3Ofs)
 		local bpp = 2
 		if not gfxLayer3Data then return end
 		-- 0x40 at the beginning of all layer3 tiles
-		-- also there's only 0x40 unique tiles (only 6 bits are used), so i'm betting this is an extra bitflag that goes along with them ... maybe zLevel?
+		-- also there's only 0x40 unique tiles (only 6 bits are used),
+		-- so i'm betting this is an extra bitflag that goes along with them ... maybe zLevel?
+		--local ofs = 0x40 + bit.band(0xff, tile8x8) * bit.lshift(bpp, 3)
 		local ofs = 0x40 + bit.band(0xff, tile8x8) * bit.lshift(bpp, 3)
+ofs = ofs + (gfxLayer3Ofs or 0)
+--ofs = ofs + (gfxLayer3Ofs or 0) * bit.lshift(bpp, 3)
+--ofs = ofs % #gfxLayer3Data
 		assert.lt(ofs, #gfxLayer3Data)
 		local tileptr = ffi.cast('uint8_t*', gfxLayer3Data) + ofs
 		return tileptr, bpp
 	end
 
-	function game.layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3Data)
+	function game.layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3Data, gfxLayer3Ofs)
 		for yofs=0,1 do
 			for xofs=0,1 do
 				local hFlip = bit.band(0x40, tile16x16) ~= 0
@@ -329,7 +341,7 @@ return function(game)
 				tilesetTile = bit.band(tilesetTile, 0xff)
 				local tile8x8 = bit.band(tilesetTile, 0x3ff)
 				-- bpp is always 2 for layer3
-				local tileptr, bpp = game.layer3tile8x8toptr(tile8x8, gfxLayer3Data)
+				local tileptr, bpp = game.layer3tile8x8toptr(tile8x8, gfxLayer3Data, gfxLayer3Ofs)
 				if tileptr then
 					local xofs = x + bit.lshift(hFlip and (1-xofs) or xofs, 3)
 					local yofs = y + bit.lshift(vFlip and (1-yofs) or yofs, 3)
@@ -414,8 +426,8 @@ return function(game)
 		local layer1Size = self.layerSizes[1]
 
 		local layerImgs = table()
-		for _,zAndLayer in ipairs(
-			map.layer3Priority == 0
+		
+		local zAndLayers = map.layer3Priority == 0
 			and {
 				{0,3},
 				-- priority 0 sprites here
@@ -435,7 +447,8 @@ return function(game)
 				{1,1},
 				{0,3},
 			}
-		)do
+
+		for _,zAndLayer in ipairs(zAndLayers)do
 			local z, layer = table.unpack(zAndLayer)
 			local blend = nil
 
@@ -457,43 +470,110 @@ return function(game)
 			local layerSize = self.layerSizes[layer]
 			local layout = self.layouts[layer]
 			local layoutData = layout and layout.data
-			if not (layout and layoutData) then
-				print("missing layout "..layer, layout, layoutData)
-			else
-				local layerImg = Image(
-					bit.lshift(layer1Size.x, 4),
-					bit.lshift(layer1Size.y, 4),
-					1,
-					'uint8_t'
-				):clear()
-				layerImg.blend = blend
-				layerImgs:insert(layerImg)
-				layerImg.palette = self.palette
+			
 
-				local posx, posy = 0, 0
-				if self.layerPos[layer]
-				-- if we have a position for the layer, but we're using parallax, then the position is going to be relative to the view
-				--and map.parallax == 0
-				then
-					posx, posy = self.layerPos[layer]:unpack()
+			local numAnimFrames = 1
+			local animProps 
+--[=[ trying to load animated map frames...			
+			if layer == 3 then
+				-- there's ofs 0..6
+				-- there's props 0..5
+				-- most anim layer 3 are #0
+				-- i'm betting #0 is empty rather than #6 is empty
+				-- then again, there's a lot of animated maps ....
+				-- well either way
+				-- props[3] has 2 entries, the rest have 4
+				-- but if 0 is nil and ofs 1 => props 0 then that's 4
+				-- but narshe mines uses animatedLayer3==4
+				-- does it have 2 frames?
+				-- i think it has 4 frames...
+				-- [[
+				if map.animatedLayer3 ~= 0 then
+					numAnimFrames = map.animatedLayer3 == 4 and 2 or 4
+					animProps = game.mapAnimPropsLayer3 + (map.animatedLayer3-1)
 				end
-				local layoutptr = ffi.cast('uint8_t*', layoutData)
-				for dstY=0,layer1Size.y-1 do
-					local y = bit.lshift(dstY, 4)
-					for dstX=0,layer1Size.x-1 do
-						local x = bit.lshift(dstX, 4)
-						local srcX = (dstX + posx) % layerSize.x
-						local srcY = (dstY + posy) % layerSize.y
-						local tile16x16 = layoutptr[((srcX + layerSize.x * srcY) % #layoutData)]
+				--]]
+				--[[
+				numAnimFrames = map.animatedLayer3 == 3 and 2 or 4
+				animProps = game.mapAnimPropsLayer3 + map.animatedLayer3
+				--]]
+			end
+--]=]
+			for animFrame=0,numAnimFrames-1 do
+				if not (layout and layoutData) then
+					print("missing layout "..layer, layout, layoutData)
+				else
+					local layerImg = Image(
+						bit.lshift(layer1Size.x, 4),
+						bit.lshift(layer1Size.y, 4),
+						1,
+						'uint8_t'
+					):clear()
+					layerImg.blend = blend
+					layerImgs:insert(layerImg)
+					layerImg.palette = self.palette
 
-						if self.index < #game.worldInfos then
-							if z == 0 and layer == 1 then
-								game.layer1worlddrawtile16x16(layerImg, x, y, tile16x16, self.tilesetDatas[layer], gfxDatas[layer])
+					local posx, posy = 0, 0
+					if self.layerPos[layer]
+					-- if we have a position for the layer, but we're using parallax, then the position is going to be relative to the view
+					--and map.parallax == 0
+					then
+						posx, posy = self.layerPos[layer]:unpack()
+					end
+					local layoutptr = ffi.cast('uint8_t*', layoutData)
+
+					-- i'm just guessing here ...
+--[[ offset into decompressed data?  there seems to be room for it.
+local gfxLayer3Data = self.gfxLayer3 and self.gfxLayer3.data
+local gfxLayer3Ofs = (animProps and gfxLayer3Data) and (animFrame * animProps.size * 4) or 0
+--]]
+--[[ offset before decompress?
+local gfxLayer3Data = 
+	self.gfxLayer3 
+	and self.gfxLayer3.data
+	and (
+		animProps
+		and game.getMapTileGraphicsLayer3ForAddr(
+			self.gfxLayer3.addr 
+			+ animFrame * animProps.size
+		).data
+		or self.gfxLayer3.data
+	)
+local gfxLayer3Ofs = 0
+--]]
+-- [[ or maybe animation means we use animation area's gfxLayer3 data?
+-- ofc
+-- I forgot to even use this
+-- TODO I should also use mapAnimGraphicsOffsets I guess? but why? 
+-- TODO TODO
+-- oh am I supposed to take the anim data and overlay it with the orig data?
+-- and that's why the orig layer3 works when there's anim info present?
+local gfxLayer3Data = self.gfxLayer3 and self.gfxLayer3.data
+local gfxLayer3Ofs = 0
+if animProps then
+	gfxLayer3Data = game.getMapTileGraphicsLayer3ForAddr(
+		ffi.offsetof('game_t', 'mapAnimGraphicsLayer3')
+		+ animFrame * animProps.size * 4
+	).data
+	gfxLayer3Ofs = -0x40	-- cuz for non-anim i'm skipping 0x40 into it for some reason...
+end
+--]]
+					for dstY=0,layer1Size.y-1 do
+						local y = bit.lshift(dstY, 4)
+						for dstX=0,layer1Size.x-1 do
+							local x = bit.lshift(dstX, 4)
+							local srcX = (dstX + posx) % layerSize.x
+							local srcY = (dstY + posy) % layerSize.y
+							local tile16x16 = layoutptr[((srcX + layerSize.x * srcY) % #layoutData)]
+							if self.index < #game.worldInfos then
+								if z == 0 and layer == 1 then
+									game.layer1worlddrawtile16x16(layerImg, x, y, tile16x16, self.tilesetDatas[layer], gfxDatas[layer])
+								end
+							elseif layer == 3 then
+								game.layer3drawtile16x16(layerImg, x, y, tile16x16, gfxLayer3Data, gfxLayer3Ofs)
+							else
+								game.layer1and2drawtile16x16(layerImg, x, y, tile16x16, self.tilesetDatas[layer], bit.lshift(1, z), gfxDatas, gfxLayer3Data, gfxLayer3Ofs)
 							end
-						elseif layer == 3 then
-							game.layer3drawtile16x16(layerImg, x, y, tile16x16, self.gfxLayer3 and self.gfxLayer3.data)
-						else
-							game.layer1and2drawtile16x16(layerImg, x, y, tile16x16, self.tilesetDatas[layer], bit.lshift(1, z), gfxDatas, self.gfxLayer3 and self.gfxLayer3.data)
 						end
 					end
 				end

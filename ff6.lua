@@ -1855,21 +1855,33 @@ local mapTileProps_t = ff6struct{
 }
 assert.eq(ffi.sizeof'mapTileProps_t', 2)
 
+local uint16_4_t = createVec{
+	dim = 4,
+	ctype = 'uint16_t',
+	vectype = 'uint16_4_t',
+}
+
 local mapAnimProps_t = ff6struct{
 	name = 'mapAnimProps_t',
 	fields = {
 		{speed = 'uint16_t'},		-- 0-1
-		{frames = 'uint16_t[4]'},	-- 2-9
+		{frames = 'uint16_4_t'},	-- 2-9
 	},
 }
 assert.eq(ffi.sizeof'mapAnimProps_t', 0xa)
+
+local uint16_8_t = createVec{
+	dim = 8,
+	ctype = 'uint16_t',
+	vectype = 'uint16_8_t',
+}
 
 local mapAnimPropsLayer3_t = ff6struct{
 	name = 'mapAnimPropsLayer3_t',
 	fields = {
 		{speed = 'uint16_t'},		-- 0-1
 		{size = 'uint16_t'},		-- 2-3
-		{frames = 'uint16_t[8]'},	-- 4-0x13
+		{frames = 'uint16_8_t'},	-- 4-0x13
 	},
 }
 assert.eq(ffi.sizeof'mapAnimPropsLayer3_t', 0x14)

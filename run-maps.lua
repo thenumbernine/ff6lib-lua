@@ -155,7 +155,9 @@ do
 	local n = countof(game.mapTileGraphicsLayer3Offsets)
 	local im = Image(16*tileWidth, 16*n*tileHeight, 1, 'uint8_t'):clear()
 	for i=0,n-1 do
-		local gfxLayer3 = game.mapTileGraphicsLayer3Cache[i]
+		local offset = game.mapTileGraphicsLayer3Offsets[i]:value()
+		local addr = offset + ffi.offsetof('game_t', 'mapTileGraphicsLayer3')
+		local gfxLayer3 = game.mapTileGraphicsLayer3Cache[addr]
 		for x=0,15 do
 			for y=0,15 do
 				readTile(im,
@@ -551,8 +553,8 @@ for _,gfxIndex in ipairs(game.mapTileGraphicsCache:keys():sort()) do
 	end
 end
 
-for _,gfxLayer3Index in ipairs(game.mapTileGraphicsLayer3Cache:keys():sort()) do
-	local gfxLayer3 = game.mapTileGraphicsLayer3Cache[gfxLayer3Index]
+for _,gfxLayer3Addr in ipairs(game.mapTileGraphicsLayer3Cache:keys():sort()) do
+	local gfxLayer3 = game.mapTileGraphicsLayer3Cache[gfxLayer3Addr]
 	if gfxLayer3 and gfxLayer3.data then
 		-- layer3 always has the same layout, so it has no tileset, so just use that layout for the graphics tiles
 		local paletteIndex = gfxLayer3.palettes:keys():sort()[1] or 0
@@ -574,12 +576,48 @@ for _,gfxLayer3Index in ipairs(game.mapTileGraphicsLayer3Cache:keys():sort()) do
 			end
 		end
 		img.palette = palette
-		img:save((maptilespath/('tilegfx2bpp_'..gfxLayer3Index..'.png')).path)
+		img:save((maptilespath/('tilegfx2bpp_'..gfxLayer3Addr:hex()..'.png')).path)
 	end
 end
-
-
 print()
+
+for i=0,countof(game.mapAnimPropOfs)-1 do
+	local ofs = game.mapAnimPropOfs[i]
+	print('mapAnimPropOfs[0x'..i:hex()..'] = $'..ofs:hex())
+end
+print()
+
+for i=0,countof(game.mapAnimProps)-1 do
+	print('mapAnimProps[0x'..i:hex()..'] = '..game.mapAnimProps[i])
+end
+print()
+
+-- these are 7 values of i * 0x14
+-- coincidentally, sizeof(mapAnimPropsLayer3_t) == 0x14
+-- and there are only 6 of it
+for i=0,countof(game.mapAnimPropsLayer3Ofs)-1 do
+	local ofs = game.mapAnimPropsLayer3Ofs[i]
+	print('mapAnimPropsLayer3Ofs[0x'..i:hex()..'] = $'..ofs:hex())
+end
+print()
+
+-- same with this, 
+-- frames seems to be a list whose first element is always 0
+-- and whose successive are alwyas equally spaced by '.size'
+-- ... except [3], whose size is 640 and frames are {0, 640, 0, 640} ...
+-- so only it has a count of 2, 
+-- the others have a count of 4
+-- and all of them are just += size
+for i=0,countof(game.mapAnimPropsLayer3)-1 do
+	print('mapAnimPropsLayer3[0x'..i:hex()..'] = '..game.mapAnimPropsLayer3[i])
+end
+print()
+
+for i=0,countof(game.mapPalAnim)-1 do
+	print('mapPalAnim[0x'..i:hex()..'] = '..game.mapPalAnim[i])
+end
+print()
+
 for i=0,countof(game.mapEventTriggerOfs)-1 do
 	-- offsets are relative to 0x40000
 	-- but the data starts at 0x40342
