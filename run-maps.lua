@@ -580,12 +580,19 @@ end
 
 
 print()
-for i=0,ffi.sizeof(game.mapEventTriggerOfs)/2-1 do
-	local addr = game.mapEventTriggerOfs[i] + ffi.offsetof('game_t', 'mapEventTriggerOfs')
-	local mapEventTrigger = ffi.cast('mapEventTrigger_t*', rom + addr)
-	print('mapEventTrigger[0x'..i:hex()..'] ='
-		--..' $'..('%04x'):format(addr)
-		..' '..mapEventTrigger)
+local mapEventTriggerBase = ffi.cast('mapEventTrigger_t*', game.mapEventTriggerData+0)
+for i=0,countof(game.mapEventTriggerOfs)-1 do
+	-- offsets are relative to 0x40000
+	-- but the data starts at 0x40342
+	-- and it is a reference into a list of structs 5 bytes wide ...
+	local startIndex = (game.mapEventTriggerOfs[i] - 0x342) / ffi.sizeof'mapEventTrigger_t'
+	local endIndex = i == countof(game.mapEventTriggerOfs)-1
+		and ffi.sizeof(game.mapEventTriggerData) / ffi.sizeof'mapEventTrigger_t'
+		or (game.mapEventTriggerOfs[i+1] - 0x342) / ffi.sizeof'mapEventTrigger_t'
+	print('mapEventTrigger[0x'..i:hex()..']:')
+	for index=startIndex,endIndex-1 do
+		print('\t0x'..index:hex()..' = '..mapEventTriggerBase[index])
+	end
 end
 print()
 
