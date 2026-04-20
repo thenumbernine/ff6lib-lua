@@ -480,12 +480,41 @@ for _,tilesetIndex in ipairs(game.mapTilesetCache:keys():sort()) do
 			return gfx.data
 		end)
 
+
+
+
+		-- TODO how to specify animation # as well?
+		-- might have to just write these out based on mapindex ... and just skip unique ones?
+
+		-- trying to load animated map frames...
+		do--if not disableAnimationGeneration then
+			local index = 0 --map.animatedLayers1And2
+			local startOffset = game.mapAnimPropOfs[index]
+			assert.eq(startOffset % ffi.sizeof'mapAnimProps_t', 0)
+			local startIndex = startOffset / ffi.sizeof'mapAnimProps_t'
+			local count = 32
+			local animLayers1And2Props = table()
+			for i=0,count-1 do
+				local p = game.mapAnimProps + startIndex + i
+				animLayers1And2Props:insert(p)
+			end
+
+			if #animLayers1And2Props == 0 then
+				animLayers1And2Props = nil
+			else
+				gfxDatas[5] = range(0,count-1):mapi(function(i)
+					local p = game.mapAnimProps[startIndex + i]
+					return ffi.string(game.mapAnimGraphics + p.frames.s[0], 0x80)
+				end):concat()
+			end
+		end
+
 		-- starting to wonder why key is just gfx1/2/3/4 and not /paletteIndex as well....
 		local paletteIndexes = table(tileset.palettesForGfxStr[gfxstr] or {0}):sort()
 		for _,paletteIndex in ipairs(paletteIndexes) do
 			local palette = makePalette(game.mapPalettes + paletteIndex, 4, 16*8)
 
-	--print('drawing '..gfxstr..' with palette '..paletteIndex)
+--print('drawing '..gfxstr..' with palette '..paletteIndex)
 
 			local size = vec2i(16, 16)
 			local img = Image(16 * size.x, 16 * size.y, 1, 'uint8_t'):clear()

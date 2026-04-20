@@ -1,4 +1,8 @@
 #!/usr/bin/env luajit
+
+-- maps.lua and me being lazy
+disableAnimationGeneration = true
+
 require 'ext'
 require 'vec-ffi'
 local ffi = require 'ffi'
