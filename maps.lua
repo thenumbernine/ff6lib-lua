@@ -311,8 +311,10 @@ return function(game)
 		if not gfxLayer3Data then return end
 		local ofs = (gfxLayer3Ofs or 0) + bit.band(0xff, tile8x8) * bit.lshift(bpp, 3)
 -- which to use ...
-ofs = ofs % #gfxLayer3Data
+-- welp looks like some tiles are truly oob, so i bet here i should be remapping them to somewhere else ...
+--ofs = ofs % #gfxLayer3Data
 --assert.lt(ofs, #gfxLayer3Data)
+if ofs >= #gfxLayer3Data then return end
 		local tileptr = ffi.cast('uint8_t*', gfxLayer3Data) + ofs
 		return tileptr, bpp
 	end
@@ -425,7 +427,7 @@ ofs = ofs % #gfxLayer3Data
 		local layerImgs = table()
 		-- put animated frames in this.  key = layer, value = table of anim frames, maybe extra key for animation speed?
 		local layerAnimImgs = table()
-		
+
 		local zAndLayers = map.layer3Priority == 0
 			and {
 				{0,3},
@@ -469,23 +471,58 @@ ofs = ofs % #gfxLayer3Data
 			local layerSize = self.layerSizes[layer]
 			local layout = self.layouts[layer]
 			local layoutData = layout and layout.data
-			
+
 			local gfxLayer3Data = self.gfxLayer3 and self.gfxLayer3.data
 
 			local numAnimFrames = 1
-			local animProps 
--- [=[ trying to load animated map frames...			
-			if layer == 3 then
+			local animProps
+-- [=[ trying to load animated map frames...
+			if layer == 1 or layer == 2 then
+				if map.animatedLayers1And2 ~= 0 then
+					local index = map.animatedLayers1And2-1
+					local startOffset = game.mapAnimPropOfs[index]
+					local endOffset = game.mapAnimPropOfs[index+1]
+					assert.eq(startOffset % ffi.sizeof'mapAnimProps_t', 0)
+					assert.eq(endOffset % ffi.sizeof'mapAnimProps_t', 0)
+					local startIndex = startOffset / ffi.sizeof'mapAnimProps_t'
+					local endIndex = endOffset / ffi.sizeof'mapAnimProps_t'
+					-- if there's 0x13 different offsets ...
+					-- and they point into subset of a table of 0x8f different records ...
+					-- and they point into animation data from 0x260000-0x268000 (so 0x8000 = 32k of data)
+					for i=startIndex,endIndex-1 do
+						local p = game.mapAnimProps + i
+						for j=0,3 do
+							local frame = p.frames.s[j]
+							-- so one index is the frame # from 0..3
+							-- the other index is the index into the mapAnimProps for this particular offset
+							-- one is across time (i'm betting the frame #?)
+							-- the other is across tile indexes / memory range?
+						end
+					end
+				end
+			elseif layer == 3 then
 				if map.animatedLayer3 ~= 0 then
 					local index = map.animatedLayer3-1
-					numAnimFrames = map.animatedLayer3 == 4 and 2 or 4
-					animProps = game.mapAnimPropsLayer3 + index
-
 					local offset = game.mapAnimGraphicsLayer3Ofs[index]:value()
-					local addr = offset + ffi.offsetof('game_t', 'mapAnimGraphicsLayer3')
 					local nextOffset = game.mapAnimGraphicsLayer3Ofs[index+1]:value()
+					local addr = offset + ffi.offsetof('game_t', 'mapAnimGraphicsLayer3')
 					local size = nextOffset - offset
-					gfxLayer3Data = game.getMapTileGraphicsLayer3ForAddr(addr, size, index, offset).data
+					local animData = game.getMapTileGraphicsLayer3ForAddr(addr, size, index, offset).data
+
+					if animData then
+						-- TODO cache per offset, since some only have 2 unique
+						animProps = game.mapAnimPropsLayer3 + index
+						numAnimFrames = animProps.frames.dim
+						assert.eq(numAnimFrames, 8)
+						if not gfxLayer3Data then
+							gfxLayer3Data = animData
+						else
+							-- or can I just skip these?
+							gfxLayer3Data = animData
+							--gfxLayer3Data = animData..gfxLayer3Data:sub(#animData+1)
+							--gfxLayer3Data = animData..gfxLayer3Data
+						end
+					end
 				end
 			end
 --]=]
@@ -501,13 +538,13 @@ ofs = ofs % #gfxLayer3Data
 						'uint8_t'
 					):clear()
 					layerImg.blend = blend
-					
+
 					if animProps then
 						layerAnimImgs:insert(layerImg)
 					else
 						layerImgs:insert(layerImg)
 					end
-					
+
 					layerImg.palette = self.palette
 
 					local posx, posy = 0, 0
@@ -533,7 +570,7 @@ ofs = ofs % #gfxLayer3Data
 							elseif layer == 3 then
 								local gfxLayer3Ofs
 								if animProps then
-									gfxLayer3Ofs = animFrame * animProps.size
+									gfxLayer3Ofs = animProps.frames.s[animFrame]
 									--gfxLayer3Ofs = bit.lshift(gfxLayer3Ofs, 2)
 								else
 									-- for non-animated, you skip the first 0x40
