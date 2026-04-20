@@ -26,6 +26,8 @@ App.initGL = |:, ...|do
 	self.view.orthoSize = 256
 
 	self.showTileProps = false
+	self.showTileMask = 0xff
+	self.showTileOfs = 0
 	self.showTreasures = true
 	self.showEventTriggers = true
 	self.showEntranceTriggers = true
@@ -46,10 +48,15 @@ void main() {
 			fragmentCode = [[
 uniform usampler2D tex;
 uniform sampler2D palTex;
+uniform int mask;
+uniform int offset;
 in vec2 tcv;
 out vec4 fragColor;
 void main() {
 	int index = int(texture(tex, tcv, 0).r);
+	index &= mask;		// mask = what in input tex to draw
+	index += offset;	// offset = where in palette to draw it
+	index &= 0x7f;		// pal size is 128 so...
 	fragColor = texture(palTex, vec2(
 		(float(index) + .5) / 128.,
 		0.
@@ -281,6 +288,8 @@ App.update = |:|do
 				gl.glAlphaFunc(gl.GL_GREATER, .5)
 
 				self.layerDrawObj.texs[1] = tex
+				self.layerDrawObj.uniforms.mask = 0xff
+				self.layerDrawObj.uniforms.offset = 0
 				self.layerDrawObj:draw()
 
 				gl.glDisable(gl.GL_BLEND)
@@ -299,6 +308,8 @@ App.update = |:|do
 	and self.tilePropsTex
 	then
 		self.layerDrawObj.texs[1] = self.tilePropsTex
+		self.layerDrawObj.uniforms.mask = self.showTileMask
+		self.layerDrawObj.uniforms.offset = self.showTileOfs
 		self.layerDrawObj:draw()
 	end
 
@@ -410,6 +421,10 @@ App.updateGUI = |:|do
 			local layout1Data = layouts and layouts[1] and layouts[1].data
 			if layout1Data then
 				ig.luatableTooltipCheckbox('showTileProps', self, 'showTileProps')
+				ig.igSameLine()
+				ig.luatableInputInt('showTileMask', self, 'showTileMask')
+				ig.igSameLine()
+				ig.luatableInputInt('showTileOfs', self, 'showTileOfs')
 			end
 			ig.luatableTooltipCheckbox('showTreasures', self, 'showTreasures')
 			ig.luatableTooltipCheckbox('showEventTriggers', self, 'showEventTriggers')

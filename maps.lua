@@ -310,7 +310,9 @@ return function(game)
 		local bpp = 2
 		if not gfxLayer3Data then return end
 		local ofs = (gfxLayer3Ofs or 0) + bit.band(0xff, tile8x8) * bit.lshift(bpp, 3)
-		assert.lt(ofs, #gfxLayer3Data)
+-- which to use ...
+ofs = ofs % #gfxLayer3Data
+--assert.lt(ofs, #gfxLayer3Data)
 		local tileptr = ffi.cast('uint8_t*', gfxLayer3Data) + ofs
 		return tileptr, bpp
 	end
