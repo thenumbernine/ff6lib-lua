@@ -536,7 +536,6 @@ return function(game)
 
 					-- TODO cache per offset, since some only have 2 unique
 					animLayer3Props = game.mapAnimPropsLayer3 + index
-					numAnimFrames = assert.eq(animLayer3Props.frames.dim, 8)
 				end
 			end
 
@@ -545,10 +544,8 @@ return function(game)
 
 			local numAnimFrames = 1
 			if layer == 3 and animLayer3Props then numAnimFrames = 8 end
-			if layer == 1 or 2 then numAnimFrames = 4 end
-			if disableAnimationGeneration then
-				numAnimFrames = 1
-			end
+			if layer == 1 or layer == 2 then numAnimFrames = 4 end
+			if disableAnimationGeneration then numAnimFrames = 1 end
 
 			-- max is 1 (no anim), 4 (layers 1 & 2 anim), or 8 (layer 3 anim)
 			for animFrameIndex=0,numAnimFrames-1 do
