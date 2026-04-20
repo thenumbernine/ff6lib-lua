@@ -490,7 +490,7 @@ return function(game)
 			gfxAnimLayers1And2Data = range(0,numFrames-1):mapi(function(frameIndex)
 				return range(0,count-1):mapi(function(i)
 					local p = game.mapAnimProps[startIndex + i]
-					return ffi.string(game.mapAnimGraphics + p.frames.s[0], 0x80)
+					return ffi.string(game.mapAnimGraphics + p.frames.s[frameIndex], 0x80)
 				end):concat()
 			end)
 
@@ -593,7 +593,7 @@ return function(game)
 						gfxLayer3Ofs = 0
 					end
 
-					gfxDatas[5] = gfxAnimLayers1And2Data[1+animFrameIndex]
+					gfxDatas[5] = gfxAnimLayers1And2Data[1 + (animFrameIndex % 4)]
 
 					for dstY=0,layer1Size.y-1 do
 						local y = bit.lshift(dstY, 4)
