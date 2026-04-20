@@ -472,11 +472,12 @@ if ofs >= #gfxLayer3Data then return end
 			local layout = self.layouts[layer]
 			local layoutData = layout and layout.data
 
-			local gfxLayer3Data = self.gfxLayer3 and self.gfxLayer3.data
+			local gfxLayer3BaseData = self.gfxLayer3 and self.gfxLayer3.data
 			local gfxLayer3AnimData
 
 			local numAnimFrames = 1
-			local animProps
+			local animLayers1And2Props
+			local animLayer3Props
 -- [=[ trying to load animated map frames...
 			if layer == 1 or layer == 2 then
 				if map.animatedLayers1And2 ~= 0 then
@@ -490,16 +491,27 @@ if ofs >= #gfxLayer3Data then return end
 					-- if there's 0x13 different offsets ...
 					-- and they point into subset of a table of 0x8f different records ...
 					-- and they point into animation data from 0x260000-0x268000 (so 0x8000 = 32k of data)
-					for i=startIndex,endIndex-1 do
-						local p = game.mapAnimProps + i
+					animLayers1And2Props = table()
+					for absIndex=startIndex,endIndex-1 do
+						local i = absIndex - startIndex
+						local p = game.mapAnimProps + absIndex
+						animLayers1And2Props:insert(p)
 						for j=0,3 do
 							local frame = p.frames.s[j]
 							-- so one index is the frame # from 0..3
 							-- the other index is the index into the mapAnimProps for this particular offset
 							-- one is across time (i'm betting the frame #?)
 							-- the other is across tile indexes / memory range?
+							-- this is in everything8215's ff6/ff6-map.js line 838 or so
+							-- looks like every mapAnimProp defines 0x100 bytes of data, copied to vram 0xA000 + i * 0x100
 						end
 					end
+					numAnimFrames = math.max(
+						-- if layer3 set the anim frames to 8 then keep 8
+						numAnimFrames, 
+						-- otherwise use 4
+						assert.eq(animLayers1And2Props[1].frames.dim, 4)
+					) 
 				end
 			elseif layer == 3 then
 				if map.animatedLayer3 ~= 0 then
@@ -511,14 +523,14 @@ if ofs >= #gfxLayer3Data then return end
 					gfxLayer3AnimData = game.getMapTileGraphicsLayer3ForAddr(addr, size, index, offset).data
 
 					-- TODO cache per offset, since some only have 2 unique
-					animProps = game.mapAnimPropsLayer3 + index
-					numAnimFrames = animProps.frames.dim
-					assert.eq(numAnimFrames, 8)
+					animLayer3Props = game.mapAnimPropsLayer3 + index
+					numAnimFrames = assert.eq(animLayer3Props.frames.dim, 8)
 				end
 			end
 --]=]
 
-			for animFrame=0,numAnimFrames-1 do
+			-- max is 1 (no anim), 4 (layers 1 & 2 anim), or 8 (layer 3 anim)
+			for animFrameIndex=0,numAnimFrames-1 do
 				if not (layout and layoutData) then
 					print("missing layout "..layer, layout, layoutData)
 				else
@@ -530,7 +542,7 @@ if ofs >= #gfxLayer3Data then return end
 					):clear()
 					layerImg.blend = blend
 
-					if animProps then
+					if animLayer3Props then
 						layerAnimImgs:insert(layerImg)
 					else
 						layerImgs:insert(layerImg)
@@ -547,6 +559,21 @@ if ofs >= #gfxLayer3Data then return end
 					end
 					local layoutptr = ffi.cast('uint8_t*', layoutData)
 
+					local gfxLayer3Ofs
+					local gfxLayer3Data
+					if not animLayer3Props then
+						-- for non-animated, you skip the first 0x40
+						-- 0x40 at the beginning of all layer3 tiles
+						-- also there's only 0x40 unique tiles (only 6 bits are used),
+						-- so i'm betting this is an extra bitflag that goes along with them ... maybe zLevel?
+						gfxLayer3Ofs = 0x40
+						gfxLayer3Data = gfxLayer3BaseData
+					else
+						local ofs = animLayer3Props.frames.s[animFrameIndex]
+						gfxLayer3Data = gfxLayer3AnimData:sub(ofs+1, ofs+animLayer3Props.size)
+						gfxLayer3Ofs = 0
+					end
+
 					for dstY=0,layer1Size.y-1 do
 						local y = bit.lshift(dstY, 4)
 						for dstX=0,layer1Size.x-1 do
@@ -556,24 +583,33 @@ if ofs >= #gfxLayer3Data then return end
 							local tile16x16 = layoutptr[((srcX + layerSize.x * srcY) % #layoutData)]
 							if self.index < #game.worldInfos then
 								if z == 0 and layer == 1 then
-									game.layer1worlddrawtile16x16(layerImg, x, y, tile16x16, self.tilesetDatas[layer], gfxDatas[layer])
+									game.layer1worlddrawtile16x16(
+										layerImg, 
+										x, y, 
+										tile16x16, 
+										self.tilesetDatas[layer], 
+										gfxDatas[layer]
+									)
 								end
 							elseif layer == 3 then
-								if animProps then
-									local gfxLayer3Ofs = animProps.frames.s[animFrame]
-									--local gfxLayer3Ofs = bit.lshift(gfxLayer3Ofs, 2)
-									--game.layer3drawtile16x16(layerImg, x, y, tile16x16, gfxLayer3AnimData, gfxLayer3Ofs)
-									game.layer3drawtile16x16(layerImg, x, y, tile16x16, gfxLayer3AnimData:sub(gfxLayer3Ofs+1, gfxLayer3Ofs+animProps.size), 0)
-								else
-									-- for non-animated, you skip the first 0x40
-									-- 0x40 at the beginning of all layer3 tiles
-									-- also there's only 0x40 unique tiles (only 6 bits are used),
-									-- so i'm betting this is an extra bitflag that goes along with them ... maybe zLevel?
-									game.layer3drawtile16x16(layerImg, x, y, tile16x16, gfxLayer3Data, 0x40)
-								end
+								game.layer3drawtile16x16(
+									layerImg,
+									x, y,
+									tile16x16,
+									gfxLayer3Data,
+									gfxLayer3Ofs
+								)
 							else
-								-- TODO handle animation?
-								game.layer1and2drawtile16x16(layerImg, x, y, tile16x16, self.tilesetDatas[layer], bit.lshift(1, z), gfxDatas, gfxLayer3Data, 0)
+								game.layer1and2drawtile16x16(
+									layerImg, 
+									x, y, 
+									tile16x16, 
+									self.tilesetDatas[layer], 
+									bit.lshift(1, z), 
+									gfxDatas, 
+									gfxLayer3Data, 	-- should this be the default gfx-layer3-data, or should it be the layer3-animated data?
+									gfxLayer3Ofs
+								)
 							end
 						end
 					end
