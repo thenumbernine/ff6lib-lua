@@ -284,16 +284,10 @@ assert.eq(self.palTex.data, palData)
 	end
 end
 
-App.update = |:|do
-	gl.glClear(gl.GL_COLOR_BUFFER_BIT)
 
-	local view = self.view
-	-- mapSize is in texels
-	-- so now coords are in 16x16 tiles
-	view.mvMat:applyScale(1, -1)
-	view.mvMat:applyScale(self.mapSize.x / 16, self.mapSize.y / 16, 1)
-	view.mvProjMat:mul4x4(view.projMat, view.mvMat)
-	self.layerDrawObj.uniforms.mvProjMat = view.mvProjMat.ptr
+-- called by update and called by save ...
+App.draw = |:, animFrameIndex|do
+	self.layerDrawObj.uniforms.mvProjMat = self.view.mvProjMat.ptr
 
 	local drawTex = |tex|do
 		self.layerDrawObj.texs[2] = self.palTex
@@ -333,8 +327,6 @@ App.update = |:|do
 		if map
 		and self.layerAnimTexs
 		then
-			local t = timer.getTime() % 8
-
 			-- also in maps.lua ...
 			local zAndLayers = map.layer3Priority == 0
 				and zAndLayersWithoutLayer3Priority
@@ -349,7 +341,7 @@ App.update = |:|do
 				then
 					local animTexs = self.layerAnimTexs[z][layer]
 					if animTexs and #animTexs > 0 then
-						drawTex(animTexs[math.floor((t * self.animSpeed) % #animTexs) + 1])
+						drawTex(animTexs[animFrameIndex % #animTexs + 1])
 					end
 				end
 			end
@@ -364,6 +356,22 @@ App.update = |:|do
 			end
 		end
 	end
+end
+
+App.update = |:|do
+	gl.glClear(gl.GL_COLOR_BUFFER_BIT)
+
+	local view = self.view
+	-- mapSize is in texels
+	-- so now coords are in 16x16 tiles
+	view.mvMat:applyScale(1, -1)
+	view.mvMat:applyScale(self.mapSize.x / 16, self.mapSize.y / 16, 1)
+	view.mvProjMat:mul4x4(view.projMat, view.mvMat)
+
+	-- draw layers blended together
+	self:draw(math.floor(timer.getTime() * self.animSpeed) % 8)	-- mod by max anim frame gcd
+
+	-- draw overlays of things in the map:
 
 	gl.glEnable(gl.GL_BLEND)
 	gl.glBlendEquation(gl.GL_FUNC_ADD)
@@ -450,7 +458,6 @@ App.update = |:|do
 		end
 	end
 
-
 	gl.glDisable(gl.GL_BLEND)
 
 	-- draw gui
@@ -499,8 +506,12 @@ App.updateGUI = |:|do
 				end
 			end
 
-			if ig.igButton'save texs' then
-				if self.layerAnimTexs then
+			if self.layerAnimTexs then
+				if ig.igButton'save texs' then
+					local animScreenshotPath = path'vis-map-animframes'
+					animScreenshotPath:mkdir(true)
+
+					local numFrames = 1
 					local zAndLayers = map.layer3Priority == 0
 						and zAndLayersWithoutLayer3Priority
 						or zAndLayersWithLayer3Priority
@@ -509,9 +520,8 @@ App.updateGUI = |:|do
 						if self.layerAnimTexs[z]
 						and self.layerAnimTexs[z][layer]
 						then
+							numFrames = math.max(numFrames, #self.layerAnimTexs[z][layer])
 							for frameIndex,frameTex in ipairs(self.layerAnimTexs[z][layer]) do
-								local animScreenshotPath = path'vis-map-animframes'
-								animScreenshotPath:mkdir(true)
 								frameTex.image:save((animScreenshotPath/(
 									'map'..self.mapIndex
 									..'_z='..z
@@ -522,6 +532,75 @@ App.updateGUI = |:|do
 							end
 						end
 					end
+
+
+					-- save a composite image while we're here
+					local GLPingPong = require 'gl.pingpong'
+					local pp = GLPingPong{
+						numBuffers = 1,
+						width = tonumber(self.mapSize.x),
+						height = tonumber(self.mapSize.y),
+						internalFormat = gl.GL_RGBA,
+						format = gl.GL_RGBA,
+						type = gl.GL_UNSIGNED_BYTE,
+						minFilter = gl.GL_NEAREST,
+						magFilter = gl.GL_NEAREST,
+					}
+					local fboTex = pp:cur()
+
+
+					local pushMvMat = self.view.mvMat:clone()
+					local pushProjMat = self.view.projMat:clone()
+					local view = self.view
+					view.mvMat
+						:setIdent()
+						:applyScale(1, -1)
+						:applyScale(fboTex.width / 16, fboTex.height / 16, 1)
+					view.projMat:setOrtho(0, fboTex.width / 16, -fboTex.height / 16, 0, -1000, 1000)
+					view.mvProjMat:mul4x4(view.projMat, view.mvMat)
+
+					gl.glViewport(0, 0, fboTex.width, fboTex.height)
+
+					for frameIndex=1,numFrames do
+						local fbo = pp.fbo
+						fbo:bind()
+							:setColorAttachmentTex2D(fboTex.id, 0)
+							:drawBuffers(gl.GL_COLOR_ATTACHMENT0)
+						assert(fbo:check())
+
+						gl.glClearColor(0,0,0,1)
+						gl.glClear(gl.GL_COLOR_BUFFER_BIT)
+
+						self:draw(frameIndex-1)
+
+						-- readpixels while we're here ...
+						local image = Image(fboTex.width, fboTex.height, 4, 'uint8_t')	-- TODO tex :getChannels() :getCType()
+						gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT0)
+						gl.glReadPixels(
+							0, 0, fboTex.width, fboTex.height,
+							gl.GL_RGBA, --fboTex.format,
+							gl.GL_UNSIGNED_BYTE, --fboTex.type,
+							image.buffer
+						)
+						gl.glReadBuffer(gl.GL_BACK)
+
+						image
+							:flip()
+							:save((animScreenshotPath/(
+								'map'..self.mapIndex
+								..'_composite'
+								..'_frame='..frameIndex
+								..'.png'
+							)).path)
+
+						fbo:unbind()
+					end
+
+					gl.glViewport(0, 0, self.width, self.height)
+
+					self.view.mvMat:copy(pushMvMat)
+					self.view.projMat:copy(pushProjMat)
+					self.view.mvProjMat:mul4x4(self.view.projMat, self.view.mvMat)
 				end
 			end
 
