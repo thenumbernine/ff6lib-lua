@@ -2408,7 +2408,7 @@ local game_t = ff6struct{
 		{mapTileGraphicsLayer3 = 'uint8_t['..(-(0x268780 - 0x26cd60))..']'},					-- 0x268780 - 0x26cd60  map tile garphics for layer 3, 2bpp
 		{mapTileGraphicsLayer3Offsets = 'uint24_t[18]'},										-- 0x26cd60 - 0x26cd96 = offset, +0x268780 .. there's 19, but only 18 point to valid compressed data ...
 		{padding_26cd96 = 'uint8_t[10]'},														-- 0x26cd96 - 0x26cda0
-		{mapAnimGraphicsOffsets = 'uint24_t[10]'},												-- 0x26cda0 - 0x26cdbe = offset, +0x26cdc0 to mapAnimGraphicsLayer3
+		{mapAnimGraphicsLayer3Ofs = 'uint24_t[10]'},											-- 0x26cda0 - 0x26cdbe = offset, +0x26cdc0 to mapAnimGraphicsLayer3.  has values [0]=0 thru [6]=0x23d8 (which is the end of mapAnimGraphicsLayer3), so there's 6 entries
 		{padding_26cdbe = 'uint8_t[2]'},														-- 0x26cdbe - 0x26cdc0
 		{mapAnimGraphicsLayer3 = 'uint8_t['..(-(0x26cdc0 - 0x26f198))..']'},					-- 0x26cdc0 - 0x26f198 = 2bpp, compressed
 		{padding_26f198 = 'uint8_t['..(-(0x26f198 - 0x26f200))..']'},							-- 0x26f198 - 0x26f200 = FF's, probably tail filler of mapAnimGraphicsLayer3
@@ -2567,7 +2567,7 @@ assertOffset('itemColosseumInfos', itemColosseumInfosAddr)
 assertOffset('mapTilesetOffsets', mapTilesetOfsAddr)
 assertOffset('characterPalettes', 0x268000)
 assertOffset('mapNameOffsets', 0x268400)
-assertOffset('mapAnimGraphicsOffsets', 0x26cda0)
+assertOffset('mapAnimGraphicsLayer3Ofs', 0x26cda0)
 assertOffset('mapAnimGraphicsLayer3', 0x26cdc0)
 assertOffset('hpIncPerLevelUp', 0x26f4a0)
 assertOffset('mpIncPerLevelUp', 0x26f502)
