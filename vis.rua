@@ -24,7 +24,7 @@ App.initGL = |:, ...|do
 
 	self.view.ortho = true
 	self.view.orthoSize = 256
-
+	self.animSpeed = 15
 	self.showTileProps = false
 	self.showTileMask = 0xff
 	self.showTileOfs = 0
@@ -208,22 +208,24 @@ print('updateMapIndex', mapIndex)
 assert.eq(self.palTex.data, palData)
 
 	-- layer images already have 16x16 tiles baked into them...
-	self.layerTexs = mapInfo
-		:getLayerImages()
-		:mapi(|img| do
-			local tex = GLTex2D{
-				width = img.width,
-				height = img.height,
-				internalFormat = gl.GL_R8UI,
-				format = gl.GL_RED_INTEGER,
-				type = gl.GL_UNSIGNED_BYTE,
-				minFilter = gl.GL_NEAREST,
-				magFilter = gl.GL_NEAREST,
-				data = img.buffer,
-			}:unbind()
-			tex.image = img
-			return tex
-		end)
+	local imgToTex = |img|do
+		local tex = GLTex2D{
+			width = img.width,
+			height = img.height,
+			internalFormat = gl.GL_R8UI,
+			format = gl.GL_RED_INTEGER,
+			type = gl.GL_UNSIGNED_BYTE,
+			minFilter = gl.GL_NEAREST,
+			magFilter = gl.GL_NEAREST,
+			data = img.buffer,
+		}:unbind()
+		tex.image = img
+		return tex
+	end
+	local layerImgs, layerAnimImgs = mapInfo:getLayerImages()
+	self.layerTexs = layerImgs:mapi(imgToTex)
+	self.layerAnimTexs = layerAnimImgs:mapi(imgToTex)
+
 	if #self.layerTexs > 0 then
 		self.mapSize:set(self.layerTexs[1].width, self.layerTexs[1].height)
 	end
@@ -261,41 +263,52 @@ App.update = |:|do
 	view.mvProjMat:mul4x4(view.projMat, view.mvMat)
 	self.layerDrawObj.uniforms.mvProjMat = view.mvProjMat.ptr
 
-	if self.layerTexs then
+	local drawTex = |tex|do
 		self.layerDrawObj.texs[2] = self.palTex
-		for i,tex in ipairs(self.layerTexs) do
-			local k = 'drawLayer'..i
-			if self[k] == nil or self[k] == true then
-				local blend = tex.image.blend
-				if blend then
-					gl.glEnable(gl.GL_BLEND)
-					if (blend & 2) ~= 0 then -- sub
-						--gl.glBlendEquation(gl.GL_FUNC_SUBTRACT)		-- sprite minus framebuffer
-						gl.glBlendEquation(gl.GL_FUNC_REVERSE_SUBTRACT)	-- framebuffer minus sprite
-					else
-						gl.glBlendEquation(gl.GL_FUNC_ADD)
-					end
-					local half = (blend & 1) ~= 0
-					gl.glBlendColor(1, 1, 1, half and .5 or 1)
-					if half then
-						gl.glBlendFunc(gl.GL_CONSTANT_ALPHA, gl.GL_CONSTANT_ALPHA)
-					else
-						gl.glBlendFunc(gl.GL_ONE, gl.GL_ONE)
-					end
-				end
-
-				gl.glEnable(gl.GL_ALPHA_TEST)
-				gl.glAlphaFunc(gl.GL_GREATER, .5)
-
-				self.layerDrawObj.texs[1] = tex
-				self.layerDrawObj.uniforms.mask = 0xff
-				self.layerDrawObj.uniforms.offset = 0
-				self.layerDrawObj:draw()
-
-				gl.glDisable(gl.GL_BLEND)
-				gl.glDisable(gl.GL_ALPHA_TEST)
+		local blend = tex.image.blend
+		if blend then
+			gl.glEnable(gl.GL_BLEND)
+			if (blend & 2) ~= 0 then -- sub
+				--gl.glBlendEquation(gl.GL_FUNC_SUBTRACT)		-- sprite minus framebuffer
+				gl.glBlendEquation(gl.GL_FUNC_REVERSE_SUBTRACT)	-- framebuffer minus sprite
+			else
+				gl.glBlendEquation(gl.GL_FUNC_ADD)
+			end
+			local half = (blend & 1) ~= 0
+			gl.glBlendColor(1, 1, 1, half and .5 or 1)
+			if half then
+				gl.glBlendFunc(gl.GL_CONSTANT_ALPHA, gl.GL_CONSTANT_ALPHA)
+			else
+				gl.glBlendFunc(gl.GL_ONE, gl.GL_ONE)
 			end
 		end
+
+		gl.glEnable(gl.GL_ALPHA_TEST)
+		gl.glAlphaFunc(gl.GL_GREATER, .5)
+
+		self.layerDrawObj.texs[1] = tex
+		self.layerDrawObj.uniforms.mask = 0xff
+		self.layerDrawObj.uniforms.offset = 0
+		self.layerDrawObj:draw()
+
+		gl.glDisable(gl.GL_BLEND)
+		gl.glDisable(gl.GL_ALPHA_TEST)
+	end
+	if self.layerTexs then
+		for i,tex in ipairs(self.layerTexs) do
+			local k = 'drawLayer'..i
+			if self[k] == nil or self[k] == true then	
+				drawTex(tex)
+			end
+		end
+	end
+	if self.layerAnimTexs 
+	and #self.layerAnimTexs > 0
+	then
+		local t = timer.getTime()
+		drawTex(
+			self.layerAnimTexs[math.floor((t * self.animSpeed) % #self.layerAnimTexs) + 1]
+		)
 	end
 
 	gl.glEnable(gl.GL_BLEND)
@@ -421,14 +434,14 @@ App.updateGUI = |:|do
 			local layout1Data = layouts and layouts[1] and layouts[1].data
 			if layout1Data then
 				ig.luatableTooltipCheckbox('showTileProps', self, 'showTileProps')
-				ig.igSameLine()
 				ig.luatableInputInt('showTileMask', self, 'showTileMask')
-				ig.igSameLine()
 				ig.luatableInputInt('showTileOfs', self, 'showTileOfs')
 			end
 			ig.luatableTooltipCheckbox('showTreasures', self, 'showTreasures')
 			ig.luatableTooltipCheckbox('showEventTriggers', self, 'showEventTriggers')
 			--]]
+
+			ig.luatableInputFloat('animSpeed', self, 'animSpeed')
 
 			ig.igEndMenu()
 		end

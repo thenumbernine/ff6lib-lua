@@ -409,7 +409,9 @@ ofs = ofs % #gfxLayer3Data
 	local MapInfo = class()
 	MapInfo.init = table.union
 	function MapInfo:getLayerImages()
-		if self.layerImgs then return self.layerImgs end
+		if self.layerImgs then
+			return self.layerImgs, self.layerAnimImgs
+		end
 		local map = self.map
 		if not map then return end
 
@@ -421,6 +423,8 @@ ofs = ofs % #gfxLayer3Data
 		local layer1Size = self.layerSizes[1]
 
 		local layerImgs = table()
+		-- put animated frames in this.  key = layer, value = table of anim frames, maybe extra key for animation speed?
+		local layerAnimImgs = table()
 		
 		local zAndLayers = map.layer3Priority == 0
 			and {
@@ -497,7 +501,13 @@ ofs = ofs % #gfxLayer3Data
 						'uint8_t'
 					):clear()
 					layerImg.blend = blend
-					layerImgs:insert(layerImg)
+					
+					if animProps then
+						layerAnimImgs:insert(layerImg)
+					else
+						layerImgs:insert(layerImg)
+					end
+					
 					layerImg.palette = self.palette
 
 					local posx, posy = 0, 0
@@ -546,7 +556,8 @@ ofs = ofs % #gfxLayer3Data
 			end
 		end
 		self.layerImgs = layerImgs
-		return layerImgs
+		self.layerAnimImgs = layerAnimImgs
+		return layerImgs, layerAnimImgs
 	end
 
 	local mapInfoCache = table()
