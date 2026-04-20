@@ -481,70 +481,69 @@ for _,tilesetIndex in ipairs(game.mapTilesetCache:keys():sort()) do
 		end)
 
 
-
-
 		-- TODO how to specify animation # as well?
 		-- might have to just write these out based on mapindex ... and just skip unique ones?
 
-		-- trying to load animated map frames...
-		do--if not disableAnimationGeneration then
-			local index = 0 --map.animatedLayers1And2
-			local startOffset = game.mapAnimPropOfs[index]
-			assert.eq(startOffset % ffi.sizeof'mapAnimProps_t', 0)
-			local startIndex = startOffset / ffi.sizeof'mapAnimProps_t'
-			local count = 32
-			local animLayers1And2Props = table()
-			for i=0,count-1 do
-				local p = game.mapAnimProps + startIndex + i
-				animLayers1And2Props:insert(p)
-			end
+		--for frameIndex=0,3 do
+		-- but we have disableAnimationGeneration set so ...
+		for frameIndex=0,0 do
+			-- trying to load animated map frames...
+			do--if not disableAnimationGeneration then
+				local index = 0 --map.animatedLayers1And2
+				local startOffset = game.mapAnimPropOfs[index]
+				assert.eq(startOffset % ffi.sizeof'mapAnimProps_t', 0)
+				local startIndex = startOffset / ffi.sizeof'mapAnimProps_t'
+				local count = 32
+				local animLayers1And2Props = table()
+				for i=0,count-1 do
+					local p = game.mapAnimProps + startIndex + i
+					animLayers1And2Props:insert(p)
+				end
 
-			if #animLayers1And2Props == 0 then
-				animLayers1And2Props = nil
-			else
 				gfxDatas[5] = range(0,count-1):mapi(function(i)
 					local p = game.mapAnimProps[startIndex + i]
-					return ffi.string(game.mapAnimGraphics + p.frames.s[0], 0x80)
+					return ffi.string(game.mapAnimGraphics + p.frames.s[frameIndex ], 0x80)
 				end):concat()
 			end
-		end
 
-		-- starting to wonder why key is just gfx1/2/3/4 and not /paletteIndex as well....
-		local paletteIndexes = table(tileset.palettesForGfxStr[gfxstr] or {0}):sort()
-		for _,paletteIndex in ipairs(paletteIndexes) do
-			local palette = makePalette(game.mapPalettes + paletteIndex, 4, 16*8)
+			-- starting to wonder why key is just gfx1/2/3/4 and not /paletteIndex as well....
+			local paletteIndexes = table(tileset.palettesForGfxStr[gfxstr] or {0}):sort()
+			for _,paletteIndex in ipairs(paletteIndexes) do
+				local palette = makePalette(game.mapPalettes + paletteIndex, 4, 16*8)
 
---print('drawing '..gfxstr..' with palette '..paletteIndex)
+	--print('drawing '..gfxstr..' with palette '..paletteIndex)
 
-			local size = vec2i(16, 16)
-			local img = Image(16 * size.x, 16 * size.y, 1, 'uint8_t'):clear()
-			-- what is its format?
-			local tile16x16 = 0
-			for j=0,size.y-1 do
-				local y = bit.lshift(j, 4)
-				for i=0,size.x-1 do
-					local x = bit.lshift(i, 4)
-					game.layer1and2drawtile16x16(
-						img,
-						x,
-						y,
-						tile16x16,
-						game.mapTilesetCache[tilesetIndex].data,
-						nil,
-						gfxDatas,
-						nil -- mapInfo.gfxLayer3 and mapInfo.gfxLayer3.data
-					)
-					tile16x16 = tile16x16 + 1
+				local size = vec2i(16, 16)
+				local img = Image(16 * size.x, 16 * size.y, 1, 'uint8_t'):clear()
+				-- what is its format?
+				local tile16x16 = 0
+				for j=0,size.y-1 do
+					local y = bit.lshift(j, 4)
+					for i=0,size.x-1 do
+						local x = bit.lshift(i, 4)
+						game.layer1and2drawtile16x16(
+							img,
+							x,
+							y,
+							tile16x16,
+							game.mapTilesetCache[tilesetIndex].data,
+							nil,
+							gfxDatas,
+							nil -- mapInfo.gfxLayer3 and mapInfo.gfxLayer3.data
+						)
+						tile16x16 = tile16x16 + 1
+					end
 				end
+				img.palette = palette
+				img:save((maptilesetpath/('tileset_'..tilesetIndex
+					..'_gfx1='..gfxIndexes[1]
+					..'_gfx2='..gfxIndexes[2]
+					..'_gfx3='..gfxIndexes[3]
+					..'_gfx4='..gfxIndexes[4]
+					..'_palette='..paletteIndex
+					..'_frame='..frameIndex
+					..'.png')).path)
 			end
-			img.palette = palette
-			img:save((maptilesetpath/('tileset_'..tilesetIndex
-				..'_gfx1='..gfxIndexes[1]
-				..'_gfx2='..gfxIndexes[2]
-				..'_gfx3='..gfxIndexes[3]
-				..'_gfx4='..gfxIndexes[4]
-				..'_palette='..paletteIndex
-				..'.png')).path)
 		end
 	end
 end
@@ -586,7 +585,7 @@ for _,gfxLayer3Addr in ipairs(game.mapTileGraphicsLayer3Cache:keys():sort()) do
 	local gfxLayer3 = game.mapTileGraphicsLayer3Cache[gfxLayer3Addr]
 	if gfxLayer3 and gfxLayer3.data then
 		-- layer3 always has the same layout, so it has no tileset, so just use that layout for the graphics tiles
-		local paletteIndex = gfxLayer3.palettes:keys():sort()[1] or 0
+		local paletteIndex = gfxLayer3.palettes and gfxLayer3.palettes:keys():sort()[1] or 0
 		local palette = makePalette(game.mapPalettes + paletteIndex, 4, 16*8)
 
 		local size = vec2i(16, 16)

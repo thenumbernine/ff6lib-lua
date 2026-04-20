@@ -339,10 +339,11 @@ App.update = |:|do
 			local zAndLayers = map.layer3Priority == 0
 				and zAndLayersWithoutLayer3Priority
 				or zAndLayersWithLayer3Priority
-
-			for _,zAndLayer in ipairs(zAndLayers)do
+			for _,zAndLayer in ipairs(zAndLayers) do
 				local z, layer = table.unpack(zAndLayer)
-				if self.layerAnimTexs[z] 
+				local k = 'showAnimTex_'..z..'_'..layer
+				if self[k]
+				and self.layerAnimTexs[z] 
 				and self.layerAnimTexs[z][layer]
 				then
 					local animTexs = self.layerAnimTexs[z][layer]
@@ -485,6 +486,25 @@ App.updateGUI = |:|do
 			end
 			if self.layerAnimTexs then
 				ig.luatableTooltipCheckbox('showAnimTexs', self, 'showAnimTexs')
+				
+				local mapInfo = game.getMap(self.mapIndex)
+				local map = mapInfo and mapInfo.map
+				if self.layerAnimTexs then
+					local zAndLayers = map.layer3Priority == 0
+						and zAndLayersWithoutLayer3Priority
+						or zAndLayersWithLayer3Priority
+					for _,zAndLayer in ipairs(zAndLayers) do
+						local z, layer = table.unpack(zAndLayer)
+						if self.layerAnimTexs[z] 
+						and self.layerAnimTexs[z][layer]
+						then
+							local k = 'showAnimTex_'..z..'_'..layer
+							if self[k] == nil then self[k] = true end
+							ig.igSameLine()
+							ig.luatableTooltipCheckbox(k, self, k)
+						end
+					end
+				end
 			end
 
 			--[[ TODO flgs for both WorldTileProps_t and mapTileProps_t
@@ -502,6 +522,7 @@ App.updateGUI = |:|do
 			end
 			ig.luatableTooltipCheckbox('showTreasures', self, 'showTreasures')
 			ig.luatableTooltipCheckbox('showEventTriggers', self, 'showEventTriggers')
+			ig.luatableTooltipCheckbox('showEntranceTriggers', self, 'showEntranceTriggers')
 			--]]
 
 			ig.luatableInputFloat('animSpeed', self, 'animSpeed')

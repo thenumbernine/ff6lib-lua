@@ -467,7 +467,7 @@ return function(game)
 		local gfxAnimLayers1And2Data	-- goes in gfxDatas[5], [4] of them
 
 		-- trying to load animated map frames...
-		do--if not disableAnimationGeneration then
+		do
 			local index = map.animatedLayers1And2
 			local startOffset = game.mapAnimPropOfs[index]
 			assert.eq(startOffset % ffi.sizeof'mapAnimProps_t', 0)
@@ -525,20 +525,18 @@ return function(game)
 			local animLayer3Props
 			local gfxLayer3AnimData
 
-			if not disableAnimationGeneration then
-				if layer == 3 then
-					if map.animatedLayer3 ~= 0 then
-						local index = map.animatedLayer3-1
-						local offset = game.mapAnimGraphicsLayer3Ofs[index]:value()
-						local nextOffset = game.mapAnimGraphicsLayer3Ofs[index+1]:value()
-						local addr = offset + ffi.offsetof('game_t', 'mapAnimGraphicsLayer3')
-						local size = nextOffset - offset
-						gfxLayer3AnimData = game.getMapTileGraphicsLayer3ForAddr(addr, size, index, offset).data
+			if layer == 3 then
+				if map.animatedLayer3 ~= 0 then
+					local index = map.animatedLayer3-1
+					local offset = game.mapAnimGraphicsLayer3Ofs[index]:value()
+					local nextOffset = game.mapAnimGraphicsLayer3Ofs[index+1]:value()
+					local addr = offset + ffi.offsetof('game_t', 'mapAnimGraphicsLayer3')
+					local size = nextOffset - offset
+					gfxLayer3AnimData = game.getMapTileGraphicsLayer3ForAddr(addr, size, index, offset).data
 
-						-- TODO cache per offset, since some only have 2 unique
-						animLayer3Props = game.mapAnimPropsLayer3 + index
-						numAnimFrames = assert.eq(animLayer3Props.frames.dim, 8)
-					end
+					-- TODO cache per offset, since some only have 2 unique
+					animLayer3Props = game.mapAnimPropsLayer3 + index
+					numAnimFrames = assert.eq(animLayer3Props.frames.dim, 8)
 				end
 			end
 
@@ -548,6 +546,9 @@ return function(game)
 			local numAnimFrames = 1
 			if layer == 3 and animLayer3Props then numAnimFrames = 8 end
 			if layer == 1 or 2 then numAnimFrames = 4 end
+			if disableAnimationGeneration then
+				numAnimFrames = 1
+			end
 
 			-- max is 1 (no anim), 4 (layers 1 & 2 anim), or 8 (layer 3 anim)
 			for animFrameIndex=0,numAnimFrames-1 do
