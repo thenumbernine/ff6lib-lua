@@ -32,6 +32,8 @@ App.initGL = |:, ...|do
 	self.showEventTriggers = true
 	self.showEntranceTriggers = true
 
+	self.showLayer3AnimTex = true
+
 	self.layerDrawObj = GLSceneObject{
 		program = {
 			version = 'latest',
@@ -306,9 +308,11 @@ App.update = |:|do
 	and #self.layerAnimTexs > 0
 	then
 		local t = timer.getTime()
-		drawTex(
-			self.layerAnimTexs[math.floor((t * self.animSpeed) % #self.layerAnimTexs) + 1]
-		)
+		if self.showLayer3AnimTex then
+			drawTex(
+				self.layerAnimTexs[math.floor((t * self.animSpeed) % #self.layerAnimTexs) + 1]
+			)
+		end
 	end
 
 	gl.glEnable(gl.GL_BLEND)
@@ -422,6 +426,9 @@ App.updateGUI = |:|do
 					if self[k] == nil then self[k] = true end
 					ig.luatableTooltipCheckbox('tex '..i, self, k)
 				end
+			end
+			if self.layerAnimTexs then
+				ig.luatableTooltipCheckbox('showLayer3AnimTex', self, 'showLayer3AnimTex')
 			end
 
 			--[[ TODO flgs for both WorldTileProps_t and mapTileProps_t

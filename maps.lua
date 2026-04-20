@@ -218,7 +218,9 @@ return function(game)
 		end
 
 		-- if gfx3 == gfx4 then gfx3's tiles are 0x180-0x27f
-		if gfxDatas[3] == gfxDatas[4] then
+		if gfxDatas[3] == gfxDatas[4]
+		and tile8x8 < 0x280
+		then
 			local bpp = 4
 			local gfxData = gfxDatas[3]
 			if not gfxData then return end
@@ -255,11 +257,18 @@ return function(game)
 		-- TODO FIXME
 		-- 0x280 - 0x2e0 = 0x60 values
 		if tile8x8 < 0x2e0 then
+			tile8x8 = (tile8x8 - 0x280) % 0x60
+			--[[
 			local bpp = 2
 			local gfxData = gfxLayer3Data
-			if not gfxData then return end
-			tile8x8 = (tile8x8 - 0x280) % 0x60
 			local ofs = (gfxLayer3Ofs or 0) + tile8x8 * bit.lshift(bpp, 3)
+			--]]
+			-- [[
+			local bpp = 4
+			local gfxData = gfxDatas[5]
+			local ofs = tile8x8 * bit.lshift(bpp, 3)
+			--]]
+			if not gfxData then return end
 			assert.le(0, ofs)
 			assert.lt(ofs, #gfxData)
 			local tileptr = ffi.cast('uint8_t*', gfxData) + ofs
@@ -314,7 +323,7 @@ return function(game)
 -- welp looks like some tiles are truly oob, so i bet here i should be remapping them to somewhere else ...
 --ofs = ofs % #gfxLayer3Data
 --assert.lt(ofs, #gfxLayer3Data)
-if ofs >= #gfxLayer3Data then return end
+		if ofs >= #gfxLayer3Data then return end
 		local tileptr = ffi.cast('uint8_t*', gfxLayer3Data) + ofs
 		return tileptr, bpp
 	end
@@ -479,15 +488,30 @@ if ofs >= #gfxLayer3Data then return end
 			local animLayers1And2Props
 			local animLayer3Props
 -- [=[ trying to load animated map frames...
-			if layer == 1 or layer == 2 then
+			if layer == 1 
+			or layer == 2 
+			then
+				--[[
 				if map.animatedLayers1And2 ~= 0 then
 					local index = map.animatedLayers1And2-1
+				--]]
+				-- [[
+				do
+					local index = map.animatedLayers1And2
+				--]]
 					local startOffset = game.mapAnimPropOfs[index]
-					local endOffset = game.mapAnimPropOfs[index+1]
 					assert.eq(startOffset % ffi.sizeof'mapAnimProps_t', 0)
-					assert.eq(endOffset % ffi.sizeof'mapAnimProps_t', 0)
 					local startIndex = startOffset / ffi.sizeof'mapAnimProps_t'
+					
+					--[[
+					assert.eq(endOffset % ffi.sizeof'mapAnimProps_t', 0)
+					local endOffset = game.mapAnimPropOfs[index+1]
 					local endIndex = endOffset / ffi.sizeof'mapAnimProps_t'
+					--]]
+					-- [[
+					local endIndex = startIndex + 10
+					--local endIndex = startIndex + 32
+					--]]
 					-- if there's 0x13 different offsets ...
 					-- and they point into subset of a table of 0x8f different records ...
 					-- and they point into animation data from 0x260000-0x268000 (so 0x8000 = 32k of data)
@@ -506,12 +530,55 @@ if ofs >= #gfxLayer3Data then return end
 							-- looks like every mapAnimProp defines 0x100 bytes of data, copied to vram 0xA000 + i * 0x100
 						end
 					end
-					numAnimFrames = math.max(
-						-- if layer3 set the anim frames to 8 then keep 8
-						numAnimFrames, 
-						-- otherwise use 4
-						assert.eq(animLayers1And2Props[1].frames.dim, 4)
-					) 
+					
+					-- hmm, some offsets match the next ...
+					-- what else would determine this list's size?
+					-- or is it fixed at 20 records?
+					if #animLayers1And2Props == 0 then
+						animLayers1And2Props = nil
+					else
+						--[[
+						numAnimFrames = math.max(
+							-- if layer3 set the anim frames to 8 then keep 8
+							numAnimFrames, 
+							-- otherwise use 4
+							(assert.eq(animLayers1And2Props[1].frames.dim, 4))
+						) 
+						--]]
+
+						-- ok each animLayers1And2Props entry represents 0x100 bytes of data
+						-- each 4bpp tile is 32 bytes
+						-- so each animLayers1And2Props represents 8 tiles ...
+						-- there's 0x100 tiles ...
+						-- then there needs to be 32 animLayers1And2Props to fill up 0x100 tile8x8 indexes ...
+						-- then there needs to be 2x this to fill up 0x200 tile8x8 indexes
+						-- gfxDatas[1] needs to represent 0x100 tile8x8's so it needs to be 8192 = 0x2000 bytes in size = 0x20 records
+						-- gfxDatas[2] needs to represent 0x80 tile8x8's so it needs to be 4096 = 0x1000 bytes in size = 0x10 records
+						-- gfxDatas[3] needs to be 0x80 if gfxDatas[4] is present or 0x100 if not present
+						-- gfxDatas[4] = 0x80
+
+						-- first ofs is 0
+						-- second is 0x50 = 80 bytes
+						-- struct size is 10 bytes
+						-- implies 8 records per ofs
+
+						--[[
+						for j=0,(endIndex-startIndex)-1 do
+							-- TODO this will vary per animation frame...
+							gfxDatas[1+j] = ffi.cast('uint8_t*', 
+								game.mapAnimGraphics + animLayers1And2Props[1].frames.s[0]
+							)
+						end
+						--]]
+						gfxDatas[5] = range(0,7):mapi(function(i)
+							local p = game.mapAnimProps[startIndex + i]
+							return ffi.string(
+								game.mapAnimGraphics + p.frames.s[0],
+								0x100
+							)
+						end):concat()
+print('setting gfxDatas[5] to size 0x'..#gfxDatas[5]:hex())						
+					end
 				end
 			elseif layer == 3 then
 				if map.animatedLayer3 ~= 0 then
