@@ -561,6 +561,7 @@ App.updateGUI = |:|do
 
 					gl.glViewport(0, 0, fboTex.width, fboTex.height)
 
+					local compositeImgs = table()
 					for frameIndex=1,numFrames do
 						local fbo = pp.fbo
 						fbo:bind()
@@ -584,17 +585,23 @@ App.updateGUI = |:|do
 						)
 						gl.glReadBuffer(gl.GL_BACK)
 
-						image
-							:flip()
-							:save((animScreenshotPath/(
-								'map'..self.mapIndex
-								..'_composite'
-								..'_frame='..frameIndex
-								..'.png'
-							)).path)
+						image = image:flip()
+						compositeImgs:insert(image)
+						image:save((animScreenshotPath/(
+							'map'..self.mapIndex
+							..'_composite'
+							..'_frame='..frameIndex
+							..'.png'
+						)).path)
 
 						fbo:unbind()
 					end
+
+					-- save the whole as an animation
+					compositeImgs[1]:save(
+						(animScreenshotPath/('map'..self.mapIndex..'_animated.gif')).path,
+						compositeImgs:unpack(2)
+					)
 
 					gl.glViewport(0, 0, self.width, self.height)
 
