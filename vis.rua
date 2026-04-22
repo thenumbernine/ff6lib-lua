@@ -507,7 +507,11 @@ App.updateGUI = |:|do
 			end
 
 			if self.layerAnimTexs then
-				if ig.igButton'save texs' then
+				local doSaveLayerPNGs = ig.igButton'save layer pngs' 
+				local doSaveGIF = ig.igButton'save animated gif'
+				if doSaveLayerPNGs
+				or doSaveGIF 
+				then
 					local animScreenshotPath = path'vis-map-animframes'
 					animScreenshotPath:mkdir(true)
 
@@ -521,18 +525,19 @@ App.updateGUI = |:|do
 						and self.layerAnimTexs[z][layer]
 						then
 							numFrames = math.max(numFrames, #self.layerAnimTexs[z][layer])
-							for frameIndex,frameTex in ipairs(self.layerAnimTexs[z][layer]) do
-								frameTex.image:save((animScreenshotPath/(
-									'map'..self.mapIndex
-									..'_z='..z
-									..'_layer='..layer
-									..'_frame='..frameIndex
-									..'.png'
-								)).path)
+							if doSaveLayerPNGs then
+								for frameIndex,frameTex in ipairs(self.layerAnimTexs[z][layer]) do
+									frameTex.image:save((animScreenshotPath/(
+										'map'..self.mapIndex
+										..'_z='..z
+										..'_layer='..layer
+										..'_frame='..frameIndex
+										..'.png'
+									)).path)
+								end
 							end
 						end
 					end
-
 
 					-- save a composite image while we're here
 					local GLPingPong = require 'gl.pingpong'
@@ -587,21 +592,25 @@ App.updateGUI = |:|do
 
 						image = image:flip()
 						compositeImgs:insert(image)
-						image:save((animScreenshotPath/(
-							'map'..self.mapIndex
-							..'_composite'
-							..'_frame='..frameIndex
-							..'.png'
-						)).path)
+						if doSaveLayerPNGs then
+							image:save((animScreenshotPath/(
+								'map'..self.mapIndex
+								..'_composite'
+								..'_frame='..frameIndex
+								..'.png'
+							)).path)
+						end
 
 						fbo:unbind()
 					end
 
 					-- save the whole as an animation
-					compositeImgs[1]:save(
-						(animScreenshotPath/('map'..self.mapIndex..'_animated.gif')).path,
-						compositeImgs:unpack(2)
-					)
+					if doSaveGIF then
+						compositeImgs[1]:save(
+							(animScreenshotPath/('map'..self.mapIndex..'_animated.gif')).path,
+							compositeImgs:unpack(2)
+						)
+					end
 
 					gl.glViewport(0, 0, self.width, self.height)
 
