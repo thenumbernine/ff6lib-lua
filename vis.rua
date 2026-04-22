@@ -219,6 +219,9 @@ print('updateMapIndex', mapIndex)
 			palData[j|(i<<2)] = palette[i+1][j+1]
 		end
 	end
+	if self.palTex then
+		self.palTex:delete()
+	end
 	self.palTex = GLTex2D{
 		width = 16*8,
 		height = 1,
@@ -247,9 +250,23 @@ assert.eq(self.palTex.data, palData)
 		return tex
 	end
 	local layerImgs, layerAnimImgs = mapInfo:getLayerImages()
+
+	if self.layerTexs then
+		for _,tex in ipairs(self.layerTexs) do
+			tex:delete()
+		end
+	end
 	self.layerTexs = layerImgs:mapi(imgToTex)
 
-
+	if self.layerAnimTexs then
+		for z, layerAnimImgs_z in pairs(self.layerAnimTexs) do
+			for layer, layerAnimImgs_z_layer in pairs(layerAnimImgs_z) do
+				for _,tex in ipairs(layerAnimImgs_z_layer) do
+					tex:delete()
+				end
+			end
+		end
+	end
 	self.layerAnimTexs = table()
 	for z, layerAnimImgs_z in pairs(layerAnimImgs) do
 		self.layerAnimTexs[z] = table()
@@ -262,6 +279,10 @@ assert.eq(self.palTex.data, palData)
 		self.mapSize:set(self.layerTexs[1].width, self.layerTexs[1].height)
 	end
 
+	if self.tilePropsTex then
+		self.tilePropsTex:delete()
+	end
+	self.tilePropsTex = nil
 	local layout1Data = layouts[1] and layouts[1].data
 	if layout1Data then
 		-- uint8_t into the tilePropsPtr table, which is a table of 2-byte-sized either WorldTileProps_t or mapTileProps_t
@@ -279,8 +300,6 @@ assert.eq(self.palTex.data, palData)
 			magFilter = gl.GL_NEAREST,
 			data = layout1Data,
 		}:unbind()
-	else
-		self.tilePropsTex = nil
 	end
 end
 
