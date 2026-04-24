@@ -63,6 +63,7 @@ function App:initGL(...)
 	self.showTreasures = true
 	self.showEventTriggers = true
 	self.showEntranceTriggers = true
+	self.showNPCs = true
 
 	self.showAnimTexs = true
 
@@ -336,7 +337,7 @@ assert.eq(self.palTex.data, palData)
 	do
 		local ofs = ffi.offsetof(game_t, 'mapEventTriggers') - ffi.offsetof(game_t, 'mapEventTriggerOfs')
 		local startIndex = (game.mapEventTriggerOfs[mapIndex] - ofs) / ffi.sizeof'mapEventTrigger_t'
-		local endIndex = mapIndex == countof(game.mapEventTriggerOfs)-1
+		local endIndex = mapIndex >= countof(game.mapEventTriggerOfs)-1
 			and startIndex -- countof(game.mapEventTriggers)
 			or (game.mapEventTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof'mapEventTrigger_t'
 		for i=startIndex,endIndex-1 do
@@ -349,12 +350,25 @@ assert.eq(self.palTex.data, palData)
 	do
 		local ofs = ffi.offsetof(game_t, 'entranceTriggers') - ffi.offsetof(game_t, 'entranceTriggerOfs')
 		local startIndex = (game.entranceTriggerOfs[mapIndex] - ofs) / ffi.sizeof'entranceTrigger_t'
-		local endIndex = mapIndex == countof(game.entranceTriggerOfs)-1
+		local endIndex = mapIndex >= countof(game.entranceTriggerOfs)-1
 			and countof(game.entranceTriggers)
 			or (game.entranceTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof'entranceTrigger_t'
 		for i=startIndex,endIndex-1 do
 			local e = game.entranceTriggers + i
 			self.entranceTriggers:insert(ffi.new('entranceTrigger_t', e[0]))
+		end
+	end
+
+	self.npcs = table()
+	do
+		local ofs = ffi.offsetof(game_t, 'npcs') - ffi.offsetof(game_t, 'npcOfs')
+		local startIndex = (game.npcOfs[mapIndex] - ofs) / ffi.sizeof'npc_t'
+		local endIndex = mapIndex >= countof(game.npcOfs)-1
+			and startIndex
+			or (game.npcOfs[mapIndex+1] - ofs) / ffi.sizeof'npc_t'
+		for i=startIndex,endIndex-1 do
+			local n = game.npcs + i
+			self.npcs:insert(ffi.new('npc_t', n[0]))
 		end
 	end
 end
@@ -499,6 +513,16 @@ function App:update()
 				self.rectObj.uniforms.bbox[3] = 1
 				self.rectObj.uniforms.bbox[4] = 1
 				self.rectObj.uniforms.color = {1,0,0,1}
+				self.rectObj:draw()
+			end
+		end
+		if self.showNPCs then
+			for _,n in ipairs(self.npcs) do
+				self.rectObj.uniforms.bbox[1] = n.x
+				self.rectObj.uniforms.bbox[2] = n.y
+				self.rectObj.uniforms.bbox[3] = 1
+				self.rectObj.uniforms.bbox[4] = 1
+				self.rectObj.uniforms.color = {0,1,0,1}
 				self.rectObj:draw()
 			end
 		end
@@ -713,10 +737,9 @@ function App:updateGUI()
 
 			local map = mapInfo.map
 			if map then
-				ig.igText('maps[0x'..number.hex(self.mapIndex)..']:')
-				ig.igText('addr 0x'..number.hex(ffi.cast('uint8_t*', map) - rom))
+				ig.igText('map #'..self.mapIndex)
 				for name in map[0]:fielditer() do
-					ig.igText(name..' = '..tostring(map[0][name]))
+					ig.igText(' '..name..' = '..tostring(map[0][name]))
 				end
 			end
 			ig.igEnd()
@@ -724,12 +747,16 @@ function App:updateGUI()
 
 		if ig.igBegin('objects', nil, 0) then
 			ig.luatableCheckbox('showTreasures', self, 'showTreasures')
+			ig.luatableCheckbox('showEventTriggers', self, 'showEventTriggers')
+			ig.luatableCheckbox('showEntranceTriggers', self, 'showEntranceTriggers')
+			ig.luatableCheckbox('showNPCs', self, 'showNPCs')
+			
 			ig.igText('# treasures = '..tostring(#self.treasures))
 			for i,t in ipairs(self.treasures) do
-				ig.igText('treasure #'..i)
+				ig.igText('treasure #'..(i-1))
 				ig.igText(' pos = '..t.pos)
 				ig.igText(' switch = '..t.switch)
-				ig.igText(' unknown_2_3 = '..t.unknown_2_3)
+				ig.igText(' empty = '..t.empty)
 				ig.igText(' type = '..t.type)	-- combo: empty, monster, item, gp
 				if t.type == 0 then	-- empty
 					ig.igText(' empty = '..t.battleOrItemOrGP)
@@ -744,11 +771,27 @@ function App:updateGUI()
 				end
 			end
 
-			ig.luatableCheckbox('showEventTriggers', self, 'showEventTriggers')
 			ig.igText('# event triggers = '..tostring(#self.mapEventTriggers))
+			for i,e in ipairs(self.mapEventTriggers) do
+				ig.igText('event trigger #'..(i-1))
+				ig.igText(' pos = '..e.pos)
+				ig.igText(' event code = $'..number.hex(e.eventCode:value()))
+			end
 
-			ig.luatableCheckbox('showEntranceTriggers', self, 'showEntranceTriggers')
 			ig.igText('# entrance triggers = '..tostring(#self.entranceTriggers))
+			for i,e in ipairs(self.entranceTriggers) do
+				ig.igText('entrance trigger #'..(i-1))
+				ig.igText(' pos = '..e.pos)
+				ig.igText(' map = '..e.mapIndex)
+				ig.igText(' setParentMap = '..e.setParentMap)
+				ig.igText(' zLevel = '..e.zLevel)
+				ig.igText(' showDestName = '..e.showDestName)
+				ig.igText(' destFacingDir = '..e.destFacingDir)
+				ig.igText(' unknown_3_6 = '..e.unknown_3_6)
+				ig.igText(' dest = '..e.dest)
+			end
+			
+			ig.igText('# NPCs = '..tostring(#self.npcs))
 
 			ig.igEnd()
 		end
@@ -764,8 +807,10 @@ function App:event(e)
 		if e.type == sdl.SDL_EVENT_KEY_UP then
 			if e.key.key == sdl.SDLK_LEFT then
 				self.mapIndex = math.clamp(math.floor(self.mapIndex - 1), 0, countof(game.maps)-1)
+				self:updateMapIndex()
 			elseif e.key.key == sdl.SDLK_RIGHT then
 				self.mapIndex = math.clamp(math.floor(self.mapIndex + 1), 0, countof(game.maps)-1)
+				self:updateMapIndex()
 			end
 		end
 	end

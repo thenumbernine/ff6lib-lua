@@ -1925,8 +1925,8 @@ local treasure_t = ff6struct{
 
 	fields = {
 		{pos = 'xy8b_t'},
-		{switch = 'uint16_t:9'},
-		{unused_2_1 = 'uint16_t:1'},
+		{switch = 'uint16_t:9'},	-- global index / bitflag? into game state data?
+		{unused_2_1 = 'uint16_t:1'},	-- does this bit go in 'switch' too? like in npc_t switch is 10 bits...
 		{unused_2_2 = 'uint16_t:1'},
 		{empty = 'uint16_t:1'},		-- set iff type == 0 i.e. empty
 		{unused_2_4 = 'uint16_t:1'},
