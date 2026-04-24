@@ -8,6 +8,7 @@ local timer = require 'ext.timer'
 local number = require 'ext.number'
 local path = require 'ext.path'
 local vec2d = require 'vec-ffi.vec2d'
+local sdl = require 'sdl'
 local gl = require 'gl.setup'(cmdline.gl)
 local Image = require 'image'
 local GLTex2D = require 'gl.tex2d'
@@ -19,6 +20,7 @@ local makePalette = require 'ff6.graphics'.makePalette
 local infn = cmdline[1]
 assert(infn, "missing filename")
 local game = require 'ff6'((assert(path(infn):read())))
+local game_t = game.game_t
 local rom = game.rom
 local countof = game.countof
 
@@ -309,6 +311,52 @@ assert.eq(self.palTex.data, palData)
 			data = layout1Data,
 		}:unbind()
 	end
+
+	self.treasures = table()
+	do
+		local startOfs = game.treasureOfs[mapIndex]
+		assert.eq(startOfs % ffi.sizeof(game.treasure_t), 0)
+		local startIndex = startOfs / ffi.sizeof(game.treasure_t)
+
+		local endIndex
+		if mapIndex == countof(game.treasureOfs)-1 then
+			endIndex = countof(game.treasures)
+		else
+			local endOfs = game.treasureOfs[mapIndex+1]
+			assert.eq(endOfs % ffi.sizeof(game.treasure_t), 0)
+			endIndex = endOfs / ffi.sizeof(game.treasure_t)
+		end
+		for i=startIndex,endIndex-1 do
+			local t = game.treasures + i
+			self.treasures:insert(game.treasure_t(t[0]))
+		end
+	end
+
+	self.mapEventTriggers = table()
+	do
+		local ofs = ffi.offsetof(game_t, 'mapEventTriggers') - ffi.offsetof(game_t, 'mapEventTriggerOfs')
+		local startIndex = (game.mapEventTriggerOfs[mapIndex] - ofs) / ffi.sizeof'mapEventTrigger_t'
+		local endIndex = mapIndex == countof(game.mapEventTriggerOfs)-1
+			and startIndex -- countof(game.mapEventTriggers)
+			or (game.mapEventTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof'mapEventTrigger_t'
+		for i=startIndex,endIndex-1 do
+			local e = game.mapEventTriggers + i
+			self.mapEventTriggers:insert(ffi.new('mapEventTrigger_t', e[0]))
+		end
+	end
+
+	self.entranceTriggers = table()
+	do
+		local ofs = ffi.offsetof(game_t, 'entranceTriggers') - ffi.offsetof(game_t, 'entranceTriggerOfs')
+		local startIndex = (game.entranceTriggerOfs[mapIndex] - ofs) / ffi.sizeof'entranceTrigger_t'
+		local endIndex = mapIndex == countof(game.entranceTriggerOfs)-1
+			and countof(game.entranceTriggers)
+			or (game.entranceTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof'entranceTrigger_t'
+		for i=startIndex,endIndex-1 do
+			local e = game.entranceTriggers + i
+			self.entranceTriggers:insert(ffi.new('entranceTrigger_t', e[0]))
+		end
+	end
 end
 
 
@@ -416,9 +464,6 @@ function App:update()
 	end
 
 	local mapIndex = self.mapIndex
-	self.numTreasures = nil
-	self.numEventTriggers = nil
-	self.numEntranceTriggers = nil
 	if mapIndex >= 0
 	and mapIndex < countof(game.treasureOfs)
 	then
@@ -428,21 +473,7 @@ function App:update()
 		self.rectObj.uniforms.mvProjMat = view.mvProjMat.ptr
 
 		if self.showTreasures then
-			local startOfs = game.treasureOfs[mapIndex]
-			assert.eq(startOfs % ffi.sizeof'treasure_t', 0)
-			local startIndex = startOfs / ffi.sizeof'treasure_t'
-
-			local endIndex
-			if mapIndex == countof(game.treasureOfs)-1 then
-				endIndex = countof(game.treasures)
-			else
-				local endOfs = game.treasureOfs[mapIndex+1]
-				assert.eq(endOfs % ffi.sizeof'treasure_t', 0)
-				endIndex = endOfs / ffi.sizeof'treasure_t'
-			end
-			self.numTreasures = endIndex - startIndex
-			for i=startIndex,endIndex-1 do
-				local t = game.treasures + i
+			for _,t in ipairs(self.treasures) do
 				self.rectObj.uniforms.bbox[1] = t.pos.x
 				self.rectObj.uniforms.bbox[2] = t.pos.y
 				self.rectObj.uniforms.bbox[3] = 1
@@ -452,13 +483,7 @@ function App:update()
 			end
 		end
 		if self.showEventTriggers then
-			local ofs = ffi.offsetof('game_t', 'mapEventTriggers') - ffi.offsetof('game_t', 'mapEventTriggerOfs')
-			local startIndex = (game.mapEventTriggerOfs[mapIndex] - ofs) / ffi.sizeof'mapEventTrigger_t'
-			local endIndex = mapIndex == countof(game.mapEventTriggerOfs)-1
-				and startIndex -- countof(game.mapEventTriggers)
-				or (game.mapEventTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof'mapEventTrigger_t'
-			for i=startIndex,endIndex-1 do
-				local e = game.mapEventTriggers + i
+			for _,e in ipairs(self.mapEventTriggers) do
 				self.rectObj.uniforms.bbox[1] = e.pos.x
 				self.rectObj.uniforms.bbox[2] = e.pos.y
 				self.rectObj.uniforms.bbox[3] = 1
@@ -468,13 +493,7 @@ function App:update()
 			end
 		end
 		if self.showEntranceTriggers then
-			local ofs = ffi.offsetof('game_t', 'entranceTriggers') - ffi.offsetof('game_t', 'entranceTriggerOfs')
-			local startIndex = (game.entranceTriggerOfs[mapIndex] - ofs) / ffi.sizeof'entranceTrigger_t'
-			local endIndex = mapIndex == countof(game.entranceTriggerOfs)-1
-				and countof(game.entranceTriggers)
-				or (game.entranceTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof'entranceTrigger_t'
-			for i=startIndex,endIndex-1 do
-				local e = game.entranceTriggers + i
+			for _,e in ipairs(self.entranceTriggers) do
 				self.rectObj.uniforms.bbox[1] = e.pos.x
 				self.rectObj.uniforms.bbox[2] = e.pos.y
 				self.rectObj.uniforms.bbox[3] = 1
@@ -497,11 +516,6 @@ function App:updateGUI()
 
 	if ig.igBeginMainMenuBar() then
 		if ig.igBeginMenu'map' then
-			if ig.luatableInputInt('mapIndex', self, 'mapIndex') then
-				self.mapIndex = math.clamp(math.floor(self.mapIndex), 0, countof(game.maps)-1)
-				self:updateMapIndex()
-			end
-
 			if self.layerTexs then
 				for i=1,#self.layerTexs do
 					if i > 1 then
@@ -534,10 +548,10 @@ function App:updateGUI()
 			end
 
 			if self.layerAnimTexs then
-				local doSaveLayerPNGs = ig.igButton'save layer pngs' 
+				local doSaveLayerPNGs = ig.igButton'save layer pngs'
 				local doSaveGIF = ig.igButton'save animated gif'
 				if doSaveLayerPNGs
-				or doSaveGIF 
+				or doSaveGIF
 				then
 					local animScreenshotPath = path'vis-map-animframes'
 					animScreenshotPath:mkdir(true)
@@ -660,11 +674,6 @@ function App:updateGUI()
 				ig.luatableInputInt('showTileMask', self, 'showTileMask')
 				ig.luatableInputInt('showTileOfs', self, 'showTileOfs')
 			end
-			ig.luatableTooltipCheckbox('showTreasures', self, 'showTreasures')
-			ig.igSameLine()
-			ig.luatableTooltipCheckbox('showEventTriggers', self, 'showEventTriggers')
-			ig.igSameLine()
-			ig.luatableTooltipCheckbox('showEntranceTriggers', self, 'showEntranceTriggers')
 			--]]
 
 			ig.luatableInputFloat('animSpeed', self, 'animSpeed')
@@ -695,24 +704,70 @@ function App:updateGUI()
 	end
 
 	if mapInfo then
-		local map = mapInfo.map
-		if map then
-			ig.igText('maps[0x'..number.hex(self.mapIndex)..']:')
-			ig.igText('addr 0x'..number.hex(ffi.cast('uint8_t*', map) - rom))
-			for name in map[0]:fielditer() do
-				ig.igText(name..' = '..tostring(map[0][name]))
+		if ig.igBegin('map', nil, 0) then
+
+			if ig.luatableInputInt('mapIndex', self, 'mapIndex') then
+				self.mapIndex = math.clamp(math.floor(self.mapIndex), 0, countof(game.maps)-1)
+				self:updateMapIndex()
 			end
+
+			local map = mapInfo.map
+			if map then
+				ig.igText('maps[0x'..number.hex(self.mapIndex)..']:')
+				ig.igText('addr 0x'..number.hex(ffi.cast('uint8_t*', map) - rom))
+				for name in map[0]:fielditer() do
+					ig.igText(name..' = '..tostring(map[0][name]))
+				end
+			end
+			ig.igEnd()
+		end
+
+		if ig.igBegin('objects', nil, 0) then
+			ig.luatableCheckbox('showTreasures', self, 'showTreasures')
+			ig.igText('# treasures = '..tostring(#self.treasures))
+			for i,t in ipairs(self.treasures) do
+				ig.igText('treasure #'..i)
+				ig.igText(' pos = '..t.pos)
+				ig.igText(' switch = '..t.switch)
+				ig.igText(' unknown_2_3 = '..t.unknown_2_3)
+				ig.igText(' type = '..t.type)	-- combo: empty, monster, item, gp
+				if t.type == 0 then	-- empty
+					ig.igText(' empty = '..t.battleOrItemOrGP)
+				elseif t.type == 1 then	-- monster
+					ig.igText(' monster = '..game.monsterNames[t.battleOrItemOrGP])
+				elseif t.type == 2 then	-- item
+					ig.igText(' item = '..game.itemNames[t.battleOrItemOrGP])
+				elseif t.type == 3 then	-- GP
+					ig.igText(' GP = '..t.battleOrItemOrGP)
+				else
+					ig.igText(' ??? = '..t.battleOrItemOrGP)
+				end
+			end
+
+			ig.luatableCheckbox('showEventTriggers', self, 'showEventTriggers')
+			ig.igText('# event triggers = '..tostring(#self.mapEventTriggers))
+
+			ig.luatableCheckbox('showEntranceTriggers', self, 'showEntranceTriggers')
+			ig.igText('# entrance triggers = '..tostring(#self.entranceTriggers))
+
+			ig.igEnd()
 		end
 	end
+end
 
-	if self.numTreasures then
-		ig.igText('# treasures = '..tostring(self.numTreasures))
-	end
-	if self.numEventTriggers then
-		ig.igText('# event triggers = '..tostring(self.numEventTriggers))
-	end
-	if self.numEntranceTriggers then
-		ig.igText('# entrance triggers = '..tostring(self.numEntranceTriggers))
+function App:event(e)
+	App.super.event(self, e)
+	--local canHandleMouse = not ig.igGetIO()[0].WantCaptureMouse
+	local canHandleKeyboard = not ig.igGetIO()[0].WantCaptureKeyboard
+
+	if canHandleKeyboard then
+		if e.type == sdl.SDL_EVENT_KEY_UP then
+			if e.key.key == sdl.SDLK_LEFT then
+				self.mapIndex = math.clamp(math.floor(self.mapIndex - 1), 0, countof(game.maps)-1)
+			elseif e.key.key == sdl.SDLK_RIGHT then
+				self.mapIndex = math.clamp(math.floor(self.mapIndex + 1), 0, countof(game.maps)-1)
+			end
+		end
 	end
 end
 

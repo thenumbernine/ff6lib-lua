@@ -14,6 +14,7 @@ local readTile = require 'ff6.graphics'.readTile
 local readTileLinear = require 'ff6.graphics'.readTileLinear
 
 return function(game)
+	local game_t = game.game_t
 	local rom = ffi.cast('uint8_t*', game.s)
 	local countof = game.countof
 	local decompress = game.decompress
@@ -34,7 +35,7 @@ return function(game)
 		assert.ge(offset, 0)
 		assert.lt(offset, ffi.sizeof(game.mapLayoutsCompressed))
 
-		local addr = offset + ffi.offsetof('game_t', 'mapLayoutsCompressed')
+		local addr = offset + ffi.offsetof(game_t, 'mapLayoutsCompressed')
 		local data = decompress(rom + addr, ffi.sizeof(game.mapLayoutsCompressed))
 		mapLayoutCache[i] = {
 			index = i,
@@ -58,7 +59,7 @@ return function(game)
 		assert.ge(offset, 0, 'mapTilePropsOffsets['..i..']')
 		assert.lt(offset, ffi.sizeof(game.mapTilePropsCompressed), 'mapTilePropsOffsets['..i..']')
 
-		local addr = offset + ffi.offsetof('game_t', 'mapTilePropsCompressed')
+		local addr = offset + ffi.offsetof(game_t, 'mapTilePropsCompressed')
 		local data = decompress(rom + addr, ffi.sizeof(game.mapTilePropsCompressed))
 		mapTilePropsCache[i] = {
 			index = i,
@@ -82,7 +83,7 @@ return function(game)
 		assert.ge(offset, 0)
 		assert.le(offset, ffi.sizeof(game.mapTilesetsCompressed))
 
-		local addr = offset + ffi.offsetof('game_t', 'mapTilesetsCompressed')
+		local addr = offset + ffi.offsetof(game_t, 'mapTilesetsCompressed')
 		local data = decompress(rom + addr, ffi.sizeof(game.mapTilesetOffsets))
 		mapTilesetCache[i] = {
 			index = i,
@@ -105,7 +106,7 @@ return function(game)
 		assert.ge(offset, 0, 'mapTileGraphicsOffset['..i..']')
 		assert.lt(offset, ffi.sizeof(game.mapTileGraphics), 'mapTileGraphicsOffset['..i..']')
 
-		local addr = offset + ffi.offsetof('game_t', 'mapTileGraphics')
+		local addr = offset + ffi.offsetof(game_t, 'mapTileGraphics')
 		mapTileGraphicsCache[i] = {
 			index = i,
 			offset = offset,
@@ -137,7 +138,7 @@ return function(game)
 		local offset = game.mapTileGraphicsLayer3Offsets[i]:value()
 		assert.ge(offset, 0, 'mapTileGraphicsLayer3Offsets['..i..']')
 		assert.lt(offset, ffi.sizeof(game.mapTileGraphicsLayer3), 'mapTileGraphicsLayer3Offsets['..i..']')
-		local addr = offset + ffi.offsetof('game_t', 'mapTileGraphicsLayer3')
+		local addr = offset + ffi.offsetof(game_t, 'mapTileGraphicsLayer3')
 		local size = ffi.sizeof(game.mapTileGraphicsLayer3)
 		return game.getMapTileGraphicsLayer3ForAddr(addr, size, i, offset)
 	end
@@ -530,7 +531,7 @@ return function(game)
 					local index = map.animatedLayer3-1
 					local offset = game.mapAnimGraphicsLayer3Ofs[index]:value()
 					local nextOffset = game.mapAnimGraphicsLayer3Ofs[index+1]:value()
-					local addr = offset + ffi.offsetof('game_t', 'mapAnimGraphicsLayer3')
+					local addr = offset + ffi.offsetof(game_t, 'mapAnimGraphicsLayer3')
 					local size = nextOffset - offset
 					gfxLayer3AnimData = game.getMapTileGraphicsLayer3ForAddr(addr, size, index, offset).data
 

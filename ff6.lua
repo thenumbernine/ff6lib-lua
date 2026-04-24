@@ -1920,16 +1920,22 @@ local mapTilesetOfsAddr = 0x1fba00
 
 local treasure_t = ff6struct{
 	name = 'treasure_t',
+	-- can't be anonymous because game_t is inserting its serialized name into its C code definition...
+	--anonymous = true,
+
 	fields = {
 		{pos = 'xy8b_t'},
 		{switch = 'uint16_t:9'},
-		{unused = 'uint16_t:3'},
-		{type = 'uint16_t:4'},	-- 0=empty, 2=monster, 4=item, 8=gp
+		{unused_2_1 = 'uint16_t:1'},
+		{unused_2_2 = 'uint16_t:1'},
+		{empty = 'uint16_t:1'},		-- set iff type == 0 i.e. empty
+		{unused_2_4 = 'uint16_t:1'},
+		{type = 'uint16_t:3'},	-- 0=empty, 1=monster, 2=item, 3=gp
 		-- depends on 'type'
 		{battleOrItemOrGP = 'uint8_t'},	-- GP is x100
 	},
 }
-assert.eq(ffi.sizeof'treasure_t', 5)
+assert.eq(ffi.sizeof(treasure_t), 5)
 
 
 local npc_t = struct{
@@ -2154,7 +2160,9 @@ assert.eq(ffi.sizeof(battleBgProps_t), 6)
 -- TODO this is clever but ... rigid and with lots of redundancies
 -- the memorymap system of the super metroid randomizer is better.
 local game_t = ff6struct{
-	name = 'game_t',
+	--name = 'game_t',
+	anonymous = true,
+
 	notostring = true,	-- too big to serialize
 	fields = {
 		{unknown_000000 = 'uint8_t['..(-(0x000000 - 0x0051ba))..']'},							-- 0x000000 - 0x0051ba
@@ -2460,7 +2468,7 @@ local game_t = ff6struct{
 		{characters = 'character_t['..numCharacters..']'},										-- 0x2d7ca0 - 0x2d8220
 		{expForLevelUp = 'uint16_t['..numExpLevelUps..']'},										-- 0x2d8220 - 0x2d82f4
 		{treasureOfs = 'uint16_t[0x1a0]'},														-- 0x2d82f4 - 0x2d8634 	-- offset +0x2d8634 into treasures
-		{treasures = 'treasure_t[0x11e]'},														-- 0x2d8634 - 0x2d8bca
+		{treasures = ffi.typeof('$[0x11e]', treasure_t)},														-- 0x2d8634 - 0x2d8bca
 		{padding_2d8bca  = 'uint8_t['..(-(0x2d8bca - 0x2d8e5b))..']'},							-- 0x2d8bca - 0x2d8e5b = 'ff's
 		{battleBgDance = 'uint8_t[0x40]'},														-- 0x2d8e5b - 0x2d8e9b
 		{padding_2d8e9b  = 'uint8_t['..(-(0x2d8e9b - 0x2d8f00))..']'},							-- 0x2d8e9b - 0x2d8f00 = 'ff's
@@ -2498,7 +2506,7 @@ local game_t = ff6struct{
 	},
 }
 local function assertOffset(name, addr)
-	assert.eq(ffi.offsetof('game_t', name), addr, name)
+	assert.eq(ffi.offsetof(game_t, name), addr, name)
 end
 
 assertOffset('characterFrameTileOffsets', 0x00ce3a)
@@ -2589,7 +2597,7 @@ assertOffset('characters', charactersAddr)
 assertOffset('longEsperBonusDescBase', longEsperBonusDescBaseAddr)
 assertOffset('longEsperBonusDescOffsets', longEsperBonusDescOffsetsAddr)
 
-gameC = ffi.cast('game_t*', rom)
+gameC = ffi.cast(ffi.typeof('$*', game_t), rom)
 
 game = setmetatable({}, {
 	__index = gameC,
@@ -2714,6 +2722,10 @@ game.positionedText = StringList{
 	addrBase = rom + 0x030000,
 }
 
+game.game_t = game_t
+game.treasure_t = treasure_t
+
+
 require 'ff6.maps'(game)
 
 
@@ -2744,7 +2756,6 @@ print()
 --]=]
 os.exit()
 --]]
-
 
 return game
 

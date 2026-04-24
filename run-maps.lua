@@ -24,6 +24,7 @@ local tileHeight = require 'ff6.graphics'.tileHeight
 local readTile = require 'ff6.graphics'.readTile
 
 return function(rom, game, romsize)
+local game_t = game.game_t
 
 local countof = game.countof
 local decompress = game.decompress
@@ -156,7 +157,7 @@ do
 	local im = Image(16*tileWidth, 16*n*tileHeight, 1, 'uint8_t'):clear()
 	for i=0,n-1 do
 		local offset = game.mapTileGraphicsLayer3Offsets[i]:value()
-		local addr = offset + ffi.offsetof('game_t', 'mapTileGraphicsLayer3')
+		local addr = offset + ffi.offsetof(game_t, 'mapTileGraphicsLayer3')
 		local gfxLayer3 = game.mapTileGraphicsLayer3Cache[addr]
 		for x=0,15 do
 			for y=0,15 do
@@ -650,7 +651,7 @@ for i=0,countof(game.mapEventTriggerOfs)-1 do
 	-- offsets are relative to 0x40000
 	-- but the data starts at 0x40342
 	-- and it is a reference into a list of structs 5 bytes wide ...
-	local ofs = ffi.offsetof('game_t', 'mapEventTriggers') - ffi.offsetof('game_t', 'mapEventTriggerOfs')
+	local ofs = ffi.offsetof(game_t, 'mapEventTriggers') - ffi.offsetof(game_t, 'mapEventTriggerOfs')
 	local startIndex = (game.mapEventTriggerOfs[i] - ofs) / ffi.sizeof'mapEventTrigger_t'
 	local endIndex = i == countof(game.mapEventTriggerOfs)-1
 		and startIndex -- countof(game.mapEventTriggers)
@@ -664,7 +665,7 @@ print()
 
 for i=0,countof(game.entranceTriggerOfs)-1 do
 	-- TODO use ref_t or whateever
-	local ofs = ffi.offsetof('game_t', 'entranceTriggers') - ffi.offsetof('game_t', 'entranceTriggerOfs')
+	local ofs = ffi.offsetof(game_t, 'entranceTriggers') - ffi.offsetof(game_t, 'entranceTriggerOfs')
 	assert.eq((game.entranceTriggerOfs[i] - ofs) % ffi.sizeof'entranceTrigger_t', 0)
 	local startIndex = (game.entranceTriggerOfs[i] - ofs) / ffi.sizeof'entranceTrigger_t'
 	local endIndex = i == countof(game.entranceTriggerOfs)-1
@@ -698,8 +699,8 @@ print()
 
 -- there are more entrance area trigger offsets than entrance area triggers
 for i=0,game.numEntranceTriggerOfs-1 do
-	local addr = game.entranceAreaTriggerOfs[i] + ffi.offsetof('game_t', 'entranceAreaTriggerOfs')
-	--assert.eq((addr - ffi.offsetof('game_t', 'entranceAreaTriggers')) % ffi.sizeof'entranceAreaTrigger_t', 0)
+	local addr = game.entranceAreaTriggerOfs[i] + ffi.offsetof(game_t, 'entranceAreaTriggerOfs')
+	--assert.eq((addr - ffi.offsetof(game_t, 'entranceAreaTriggers')) % ffi.sizeof'entranceAreaTrigger_t', 0)
 	print('entranceAreaTrigger[0x'..i:hex()..']')
 	print(' addr: $'..('%06x'):format(addr))
 	local entranceAreaTrigger = ffi.cast('entranceAreaTrigger_t*', rom + addr)
@@ -707,7 +708,7 @@ for i=0,game.numEntranceTriggerOfs-1 do
 end
 
 for i=0,countof(game.treasureOfs)-1 do
-	local addr = game.treasureOfs[i] + ffi.offsetof('game_t', 'treasures')
+	local addr = game.treasureOfs[i] + ffi.offsetof(game_t, 'treasures')
 	print('treasureOfs[0x'..i:hex()..']'
 		..' addr=$'..('%06x'):format(addr))
 end
@@ -722,7 +723,7 @@ end
 print()
 
 for i=0,countof(game.npcOfs)-1 do
-	local addr = game.npcOfs[i] + ffi.offsetof('game_t', 'npcOfs')
+	local addr = game.npcOfs[i] + ffi.offsetof(game_t, 'npcOfs')
 	print('npcOfs[0x'..i:hex()..']'
 		..' addr=$'..('%06x'):format(addr))
 end
