@@ -750,7 +750,7 @@ function App:updateGUI()
 			ig.luatableCheckbox('showEventTriggers', self, 'showEventTriggers')
 			ig.luatableCheckbox('showEntranceTriggers', self, 'showEntranceTriggers')
 			ig.luatableCheckbox('showNPCs', self, 'showNPCs')
-			
+
 			ig.igText('# treasures = '..tostring(#self.treasures))
 			for i,t in ipairs(self.treasures) do
 				ig.igText('treasure #'..(i-1))
@@ -790,8 +790,37 @@ function App:updateGUI()
 				ig.igText(' unknown_3_6 = '..e.unknown_3_6)
 				ig.igText(' dest = '..e.dest)
 			end
-			
+
 			ig.igText('# NPCs = '..tostring(#self.npcs))
+			for i,n in ipairs(self.npcs) do
+				ig.igText('npc #'..(i-1))
+				ig.igText(' pos = '..n.x..', '..n.y)
+
+				ig.igText(' script '..n.script)
+				ig.igText(' movement = '..n.movement)
+				ig.igText(' speed = '..n.speed)
+
+				ig.igText(' graphics = '..n.graphics)
+				ig.igText(' palette = '..n.palette)
+
+				-- "speed" when vehicle == 0
+				-- "vehicle" otherwise
+				ig.igText(' vehicle_or_speed = '..n.vehicle_or_speed)	-- what's this speed vs the other speed?
+
+				ig.igText(' spritePriority = '..n.spritePriority)
+
+				-- "direction" when animation == 0
+				-- "type" otherwise
+				ig.igText(' direction_or_type = '..n.direction_or_type)
+
+				-- "size" when vehicle == 0 && special npc != 0
+				-- otherwise "talkDoesntTurn"
+				ig.igText(' size_or_talkDoesntTurn = '..n.size_or_talkDoesntTurn)
+
+				ig.igText(' layerPriority = '..n.layerPriority)
+
+				ig.igText(' animation = '..n.animation)
+			end
 
 			ig.igEnd()
 		end

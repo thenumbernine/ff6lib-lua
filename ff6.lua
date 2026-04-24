@@ -2007,7 +2007,7 @@ tostringOmitEmpty = true,
 
 		-- "speed" when vehicle == 0
 		-- "vehicle" otherwise
-		{name='vehicle_or_speed', type='uint8_t:2'},							-- 7.6-7.7 = 0=none 1=chocobo 2=magitek 3=raft
+		{name='vehicle_or_speed', type='uint8_t:2'},				-- 7.6-7.7 = 0=none 1=chocobo 2=magitek 3=raft
 
 		-- "direction" when animation == 0
 		-- "type" otherwise
