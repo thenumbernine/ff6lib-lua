@@ -1,6 +1,8 @@
 local ffi = require 'ffi'
 local table = require 'ext.table'
 local class = require 'ext.class'
+local string = require 'ext.string'
+local number = require 'ext.number'
 local assert = require 'ext.assert'
 local struct = require 'struct'
 local createVec = require 'vec-ffi.create_vec'
@@ -195,7 +197,7 @@ typedef struct ]]..name..[[ {
 	assert.eq(ffi.sizeof(name), size)
 	local metatype = ffi.metatype(name, {
 		__tostring = function(self)
-			return gamestr(self.ptr, size):trim()
+			return string.trim(gamestr(self.ptr, size))
 		end,
 		__concat = function(a,b) return tostring(a) .. tostring(b) end,
 	})
@@ -404,7 +406,7 @@ function StringList:__tostring()
 	for i=0,self.numOffsets-1 do
 		if self[i] ~= nil then
 			result:insert(
-				self.name..'[0x'..i:hex()..'] = '
+				self.name..'[0x'..number.hex(i)..'] = '
 				..('0x%04x'):format(self.offsets[i])
 				..' "'..self[i]..'"\n')
 		end
@@ -543,13 +545,13 @@ local numSpells = 0x100
 local function getSpellName(i)
 	i = bit.band(i, 0xff)
 	-- black, grey, white
-	if i >= 0 and i < 54 then return tostring(gameC.spellNames_0to53[i]):trim() end
+	if i >= 0 and i < 54 then return string.trim(tostring(gameC.spellNames_0to53[i])) end
 	i = i - 54
 	-- esper
-	if i >= 0 and i < 27 then return tostring(gameC.spellNames_54to80[i]):trim() end
+	if i >= 0 and i < 27 then return string.trim(tostring(gameC.spellNames_54to80[i])) end
 	i = i - 27
 	-- rest:
-	if i >= 0 and i < 175 then return tostring(gameC.spellNames_81to255[i]):trim() end
+	if i >= 0 and i < 175 then return string.trim(tostring(gameC.spellNames_81to255[i])) end
 	error'here'
 end
 
@@ -2736,7 +2738,7 @@ test = table{0x2a, 0x24, 0x25, 0x2a, 0x20, 0x61, 0x7f, 0x20, 0x85, 0x46, 0x67, 0
 }:mapi(function(ch) return string.char(ch) end):concat()
 print(#test)
 for i=0,#test-1 do
-	print(i:hex(), ('%q'):format(compstr(ffi.cast('uint8_t*', test)+i, 1)))
+	print(number.hex(i), ('%q'):format(compstr(ffi.cast('uint8_t*', test)+i, 1)))
 end
 print()
 --]=]

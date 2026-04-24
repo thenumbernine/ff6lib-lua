@@ -1,5 +1,13 @@
-#!/usr/bin/env rua
-require 'vec-ffi'
+#!/usr/bin/env luajit
+local cmdline = require 'ext.cmdline'(...)
+local ffi = require 'ffi'
+local table = require 'ext.table'
+local math = require 'ext.math'
+local assert = require 'ext.assert'
+local timer = require 'ext.timer'
+local number = require 'ext.number'
+local path = require 'ext.path'
+local vec2d = require 'vec-ffi.vec2d'
 local gl = require 'gl.setup'(cmdline.gl)
 local Image = require 'image'
 local GLTex2D = require 'gl.tex2d'
@@ -8,7 +16,7 @@ local GLSceneObject = require 'gl.sceneobject'
 local ig = require 'imgui'
 local makePalette = require 'ff6.graphics'.makePalette
 
-local infn = cmdline[2]
+local infn = cmdline[1]
 assert(infn, "missing filename")
 local game = require 'ff6'((assert(path(infn):read())))
 local rom = game.rom
@@ -41,7 +49,7 @@ local zAndLayersWithLayer3Priority = {
 local App = require 'imgui.appwithorbit'()
 App.title = 'FF6 Data Visualizer'
 
-App.initGL = |:, ...|do
+function App:initGL(...)
 	App.super.initGL(self, ...)
 
 	self.view.ortho = true
@@ -154,7 +162,7 @@ void main() {
 	self:updateMapIndex()
 end
 
-App.updateMapIndex = |:|do
+function App:updateMapIndex()
 	local mapIndex = self.mapIndex
 print('updateMapIndex', mapIndex)
 
@@ -187,8 +195,8 @@ print('updateMapIndex', mapIndex)
 	local palette = mapInfo.palette
 	local tilePropsData = mapInfo.tilePropsData
 
-	print('maps[0x'..mapIndex:hex()..'] addr '
-		..'0x'..(ffi.cast('uint8_t*', map) - rom):hex()
+	print('maps[0x'..number.hex(mapIndex)..'] addr '
+		..'0x'..number.hex(ffi.cast('uint8_t*', map) - rom)
 		..' = '..map[0])
 
 	local gfxstr = mapInfo.gfxIndexes:mapi(tostring):concat'/'
@@ -216,7 +224,7 @@ print('updateMapIndex', mapIndex)
 	ffi.fill(palData, ffi.sizeof(palData))
 	for i=0,127 do
 		for j=0,3 do
-			palData[j|(i<<2)] = palette[i+1][j+1]
+			palData[bit.bor(j,bit.lshift(i, 2))] = palette[i+1][j+1]
 		end
 	end
 	if self.palTex then
@@ -235,7 +243,7 @@ print('updateMapIndex', mapIndex)
 assert.eq(self.palTex.data, palData)
 
 	-- layer images already have 16x16 tiles baked into them...
-	local imgToTex = |img|do
+	local imgToTex = function(img)
 		local tex = GLTex2D{
 			width = img.width,
 			height = img.height,
@@ -305,21 +313,21 @@ end
 
 
 -- called by update and called by save ...
-App.draw = |:, animFrameIndex|do
+function App:draw(animFrameIndex)
 	self.layerDrawObj.uniforms.mvProjMat = self.view.mvProjMat.ptr
 
-	local drawTex = |tex|do
+	local drawTex = function(tex)
 		self.layerDrawObj.texs[2] = self.palTex
 		local blend = tex.image.blend
 		if blend then
 			gl.glEnable(gl.GL_BLEND)
-			if (blend & 2) ~= 0 then -- sub
+			if bit.band(blend, 2) ~= 0 then -- sub
 				--gl.glBlendEquation(gl.GL_FUNC_SUBTRACT)		-- sprite minus framebuffer
 				gl.glBlendEquation(gl.GL_FUNC_REVERSE_SUBTRACT)	-- framebuffer minus sprite
 			else
 				gl.glBlendEquation(gl.GL_FUNC_ADD)
 			end
-			local half = (blend & 1) ~= 0
+			local half = bit.band(blend, 1) ~= 0
 			gl.glBlendColor(1, 1, 1, half and .5 or 1)
 			if half then
 				gl.glBlendFunc(gl.GL_CONSTANT_ALPHA, gl.GL_CONSTANT_ALPHA)
@@ -377,7 +385,7 @@ App.draw = |:, animFrameIndex|do
 	end
 end
 
-App.update = |:|do
+function App:update()
 	gl.glClear(gl.GL_COLOR_BUFFER_BIT)
 
 	local view = self.view
@@ -483,14 +491,14 @@ App.update = |:|do
 	App.super.update(self)
 end
 
-App.updateGUI = |:|do
+function App:updateGUI()
 	local mapInfo = game.getMap(self.mapIndex)
 	local map = mapInfo and mapInfo.map
 
 	if ig.igBeginMainMenuBar() then
 		if ig.igBeginMenu'map' then
 			if ig.luatableInputInt('mapIndex', self, 'mapIndex') then
-				self.mapIndex = self.mapIndex:floor():clamp(0, countof(game.maps)-1)
+				self.mapIndex = math.clamp(math.floor(self.mapIndex), 0, countof(game.maps)-1)
 				self:updateMapIndex()
 			end
 
@@ -689,8 +697,8 @@ App.updateGUI = |:|do
 	if mapInfo then
 		local map = mapInfo.map
 		if map then
-			ig.igText('maps[0x'..self.mapIndex:hex()..']:')
-			ig.igText('addr 0x'..(ffi.cast('uint8_t*', map) - rom):hex())
+			ig.igText('maps[0x'..number.hex(self.mapIndex)..']:')
+			ig.igText('addr 0x'..number.hex(ffi.cast('uint8_t*', map) - rom))
 			for name in map[0]:fielditer() do
 				ig.igText(name..' = '..tostring(map[0][name]))
 			end
