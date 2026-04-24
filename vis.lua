@@ -158,7 +158,7 @@ void main() {
 
 	self.mapSize = vec2d()
 
-	self.mapIndex = cmdline[3] and assert(tonumber(cmdline[3])) or 0
+	self.mapIndex = cmdline[2] and assert(tonumber(cmdline[2])) or 0
 	self:updateMapIndex()
 end
 
