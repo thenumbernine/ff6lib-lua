@@ -15,7 +15,7 @@ local readTileLinear = require 'ff6.graphics'.readTileLinear
 
 return function(game)
 	local game_t = game.game_t
-	local rom = ffi.cast('uint8_t*', game.s)
+	local rom = game.rom
 	local countof = game.countof
 	local decompress = game.decompress
 	local romsize = game.romsize
