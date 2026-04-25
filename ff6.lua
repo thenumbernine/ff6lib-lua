@@ -519,6 +519,18 @@ assert.eq(ffi.sizeof'palette16_8_t', 2*16*8)
 
 local numMenuChars = 19
 
+local mapColorMathProps_t = ff6struct{
+	name = 'mapColorMathProps_t',
+	fields = {
+		{colorMath = 'uint8_t:6'},	-- 0=layer1, 1=layer2, 2=layer3, 3=layer4, 4=sprites, 5=back area
+		{half = 'uint8_t:1'},
+		{subtract = 'uint8_t:1'},
+		{mainScreen = 'uint8_t'},	-- only uses 6 bits? same blending as .colorMath?
+		{subScreen = 'uint8_t'},	-- only uses 6 bits?
+	},
+}
+assert.eq(ffi.sizeof'mapColorMathProps_t', 3)
+
 ---------------- AUDIO ----------------
 
 local uint24_t = ff6struct{

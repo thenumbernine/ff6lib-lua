@@ -505,9 +505,13 @@ return function(game)
 			-- layer 3 avg
 			if map.colorMath == 1 and layer == 3 then
 				blend = 1
-			-- layer 2 avg
-			elseif map.colorMath == 4 and layer == 2 then
+
+			-- layer 3 avg
+			-- TODO what's the difference between colorMath 1 and 4?
+			-- aha, lookup table ...
+			elseif map.colorMath == 4 and layer == 3 then
 				blend = 1
+
 			-- layer 3 add
 			elseif map.colorMath == 5 and layer == 3 then
 				blend = 0

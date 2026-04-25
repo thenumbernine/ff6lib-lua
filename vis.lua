@@ -57,6 +57,7 @@ function App:initGL(...)
 	self.view.ortho = true
 	self.view.orthoSize = 256
 	self.animSpeed = 15
+	self.useBlend = true
 	self.showTileProps = false
 	self.showTileMask = 0xff
 	self.showTileOfs = 0
@@ -381,7 +382,7 @@ function App:draw(animFrameIndex)
 	local drawTex = function(tex)
 		self.layerDrawObj.texs[2] = self.palTex
 		local blend = tex.image.blend
-		if blend then
+		if self.useBlend and blend then
 			gl.glEnable(gl.GL_BLEND)
 			if bit.band(blend, 2) ~= 0 then -- sub
 				--gl.glBlendEquation(gl.GL_FUNC_SUBTRACT)		-- sprite minus framebuffer
@@ -540,6 +541,7 @@ function App:updateGUI()
 
 	if ig.igBeginMainMenuBar() then
 		if ig.igBeginMenu'map' then
+			ig.luatableTooltipCheckbox('useBlend', self, 'useBlend')
 			if self.layerTexs then
 				for i=1,#self.layerTexs do
 					if i > 1 then
