@@ -808,6 +808,9 @@ print('mapInfo', mapIndex, 'palette', palette)
 		end
 
 
+		-- lookup into game.monsterRandomBattles
+		maps.monsterRandomBattleOptionIndex = game.mapRandomBattleOptions[i]
+
 
 		game.mapInfoCache[mapIndex] = mapInfo
 		return mapInfo

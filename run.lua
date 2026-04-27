@@ -539,26 +539,17 @@ for i=0,0x7f do
 	for i,terrain in ipairs(terrains) do
 		local battleIndex = randomBattlesPerTerrain[terrain]
 		local encounter = bit.band(3, bit.rshift(encounterRateBits, bit.lshift(i-1, 1)))
-		local encounterName = encounterNames[encounter+1]
-		print('', terrain, 'monster random battle options 0x'..battleIndex:hex(), 'rate='..encounterName)
+		local encounterRateName = encounterNames[encounter+1]
+		print('', terrain, 'monster random battle options 0x'..battleIndex:hex(), 'rate='..encounterRateName)
 	end
 end
 print()
 
--- wait if this is small map info rather than world map info
--- then why does it still have 4 entries? how does it pick them?  still by field/forest/desert/dirt?
---[[
-for i=0,0x7f do
-	print('map battle group #0x'..i:hex())
-	for j=0,3 do
-		print('\t'..terrains[j+1]..' = monster random battle 0x'..game.mapBattleGroups[i][j]:hex())
-	end
-	-- is it probability bits per group?
-	print('\tprobability '..game.mapBattleProbability[i]:bin()..'b')
+-- one per map?
+for i=0,0x1ff do
+	print('map #0x'..i:hex()..' monster random battle options = 0x'..game.mapRandomBattleOptions[i]:hex())
 end
 print()
---]]
-
 
 -- [[ get some statistics on our structure fields
 local mins = {}
