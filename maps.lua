@@ -745,6 +745,70 @@ print('mapInfo', mapIndex, 'palette', palette)
 			palette = palette,
 			tilePropsData = tilePropsData,
 		}
+		
+
+
+		mapInfo.treasures = table()
+		do
+			local startOfs = game.treasureOfs[mapIndex]
+			assert.eq(startOfs % ffi.sizeof(game.treasure_t), 0)
+			local startIndex = startOfs / ffi.sizeof(game.treasure_t)
+
+			local endIndex
+			if mapIndex == countof(game.treasureOfs)-1 then
+				endIndex = countof(game.treasures)
+			else
+				local endOfs = game.treasureOfs[mapIndex+1]
+				assert.eq(endOfs % ffi.sizeof(game.treasure_t), 0)
+				endIndex = endOfs / ffi.sizeof(game.treasure_t)
+			end
+			for i=startIndex,endIndex-1 do
+				local t = game.treasures + i
+				mapInfo.treasures:insert(game.treasure_t(t[0]))
+			end
+		end
+
+		mapInfo.mapEventTriggers = table()
+		do
+			local ofs = ffi.offsetof(game_t, 'mapEventTriggers') - ffi.offsetof(game_t, 'mapEventTriggerOfs')
+			local startIndex = (game.mapEventTriggerOfs[mapIndex] - ofs) / ffi.sizeof'mapEventTrigger_t'
+			local endIndex = mapIndex >= countof(game.mapEventTriggerOfs)-1
+				and startIndex -- countof(game.mapEventTriggers)
+				or (game.mapEventTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof'mapEventTrigger_t'
+			for i=startIndex,endIndex-1 do
+				local e = game.mapEventTriggers + i
+				mapInfo.mapEventTriggers:insert(ffi.new('mapEventTrigger_t', e[0]))
+			end
+		end
+
+		mapInfo.entranceTriggers = table()
+		do
+			local ofs = ffi.offsetof(game_t, 'entranceTriggers') - ffi.offsetof(game_t, 'entranceTriggerOfs')
+			local startIndex = (game.entranceTriggerOfs[mapIndex] - ofs) / ffi.sizeof'entranceTrigger_t'
+			local endIndex = mapIndex >= countof(game.entranceTriggerOfs)-1
+				and countof(game.entranceTriggers)
+				or (game.entranceTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof'entranceTrigger_t'
+			for i=startIndex,endIndex-1 do
+				local e = game.entranceTriggers + i
+				mapInfo.entranceTriggers:insert(ffi.new('entranceTrigger_t', e[0]))
+			end
+		end
+
+		mapInfo.npcs = table()
+		do
+			local ofs = ffi.offsetof(game_t, 'npcs') - ffi.offsetof(game_t, 'npcOfs')
+			local startIndex = (game.npcOfs[mapIndex] - ofs) / ffi.sizeof'npc_t'
+			local endIndex = mapIndex >= countof(game.npcOfs)-1
+				and startIndex
+				or (game.npcOfs[mapIndex+1] - ofs) / ffi.sizeof'npc_t'
+			for i=startIndex,endIndex-1 do
+				local n = game.npcs + i
+				mapInfo.npcs:insert(ffi.new('npc_t', n[0]))
+			end
+		end
+
+
+
 		game.mapInfoCache[mapIndex] = mapInfo
 		return mapInfo
 	end
