@@ -1,4 +1,5 @@
 local ffi = require 'ffi'
+local assert = require 'ext.assert'
 local table = require 'ext.table'
 local number = require 'ext.number'
 local class = require 'ext.class'
@@ -626,7 +627,7 @@ return function(game)
 	ScriptCmds.JumpBasedOnBattleSwitch = Cmd:subclass{
 		cmd = 0xb7,
 		argtypes = {'uint8_t', 'uint24_t'},
-		desc = 'jump based on battle switch # to script 0x0a0000+ ... ',
+		desc = 'jump based on battleFlag # to script 0x0a0000+ ... ',
 	}
 
 	ScriptCmds.ShowEndingCharacterCutscene = Cmd:subclass{
@@ -656,7 +657,7 @@ return function(game)
 			end
 		end,
 		__tostring = function(self)
-			return "jump based on character switch, count="..#self.addrs
+			return "jump based on characterFlag, count="..#self.addrs
 				.." ??? = "..self.addrs:mapi(function(addr)
 					return (' $%06x'):format(addr)
 				end):concat' '
@@ -676,7 +677,7 @@ return function(game)
 			for i=1,count do
 				local arg = read'uint16_t'
 				self.conds:insert{
-					switchIndex = bit.band(0x3fff, arg),
+					gameFlagIndex = bit.band(0x3fff, arg),
 					value = bit.rshift(arg, 15),
 				}
 			end
@@ -685,7 +686,7 @@ return function(game)
 		__tostring = function(self)
 			return "if "
 				..self.conds:mapi(function(cond)
-					return 'switch[#'..cond.switchIndex..'] == '..cond.value
+					return 'gameFlag[#'..cond.gameFlagIndex..'] == '..cond.value
 				end):concat(self._and and ' and ' or ' or ')
 				..' then goto '..('$%06x'):format(self.destAddr)
 		end,

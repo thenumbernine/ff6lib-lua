@@ -683,6 +683,49 @@ function App:updateGUI()
 					ig.igText(' '..name..' = '..tostring(map[0][name]))
 				end
 			end
+		
+			-- TODO hyperlink to popup the formation-list window
+			ig.igText'battles:'
+			local formationCounts = {}
+			if mapInfo.monsterRandomBattleOptionIndex >= 0
+			and mapInfo.monsterRandomBattleOptionIndex < countof(game.monsterRandomBattles)
+			then
+				local mapMonsterRandomBattles = game.monsterRandomBattles + mapInfo.monsterRandomBattleOptionIndex
+				for j=0,3 do
+					local formationEntry = mapMonsterRandomBattles.s[j]
+					local formationIndex = formationEntry.formation
+					local formationDesc = 'formation=0x'..number.hex(formationIndex)..':'
+					if formationIndex < game.numFormations then
+						local formation = game.formations + formationIndex
+						local monsterCounts = {}
+						for k=1,6 do
+							if formation:getMonsterActive(k) then
+								local monsterIndex = formation:getMonsterIndex(k)
+								local key = '#'..monsterIndex
+								if monsterIndex < game.numMonsters then
+									key = key ..':'..tostring(game.monsterNames[monsterIndex])
+								end
+								monsterCounts[key] = (monsterCounts[key] or 0) + 1
+							end
+						end
+						formationDesc = formationDesc .. ' '
+						..table.keys(monsterCounts):sort():mapi(function(key)
+							local count = monsterCounts[key]
+							if count == 1 then return key end
+							return key..' x'..count
+						end):concat', '
+					end
+					if formationEntry.chooseFromNextFour ~= 0 then
+						formationDesc = formationDesc .. ' (chooseFromNextFour)'
+					end
+					formationCounts[formationDesc] = (formationCounts[formationDesc] or 0) + (j == 3 and 1 or 5)
+					--local formation2 = game.formation2s + mapInfo.monsterRandomBattleOptionIndex
+				end
+				for _,formationDesc in ipairs(table.keys(formationCounts):sort()) do
+					local formationCount = formationCounts[formationDesc]
+					ig.igText(' '..formationCount..'/16 '..formationDesc)
+				end
+			end	
 			ig.igEnd()
 		end
 
