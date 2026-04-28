@@ -330,13 +330,13 @@ return function(game)
 			return "change to map #"..self.destmap
 				..(0 ~= bit.band(0x0200, self.arg) and "set parent map" or "")
 				..(self.destmap >= 3 and 0 ~= bit.band(0x0400, self.arg) and "z-level=1" or "")
-				..(self.destmap >= 3 and 0 ~= bit.band(0x0800, self.arg) and "show map title")
+				..(self.destmap >= 3 and 0 ~= bit.band(0x0800, self.arg) and "show map title" or '')
 				..("facing direction="..bit.band(3, bit.rshift(self.arg, 12)))
 				..("{x="..('0x%02x'):format(self.x)..", y="..('0x%02x'):format(self.y).."}")
 				..("vehicle="..bit.band(3, self.flags))
 				..(self.destmap >= 3 and 0 ~= bit.band(0x20, self.flags) and "no size update" or '')
 				..(self.destmap >= 3 and 0 ~= bit.band(0x40, self.flags) and "manual fade-in" or '')
-				..(self.destmap >= 3 and 0 ~= bit.band(0x80, self.flags) and "enable map event")
+				..(self.destmap >= 3 and 0 ~= bit.band(0x80, self.flags) and "enable map event" or '')
 		end,
 	}
 
@@ -595,7 +595,7 @@ return function(game)
 		end,
 		desc = 'call ',
 		__tostring = function(self)
-			return ('call $06x'):format(self.destAddr)
+			return ('call $%06x'):format(self.destAddr)
 		end,
 	}
 
@@ -738,10 +738,12 @@ return function(game)
 	game.eventScriptCmds = table()
 	game.eventScriptCmdIndexForAddr = {}
 
+game.oobEventScriptAddrs = table()	-- TODO handle these too
 	local addrsInOrder = table.keys(game.eventScriptAddrs):sort()
 		:filteri(function(addr)
 			if addr >= startaddr and addr < endaddr then return true end
-			print('TODO addr', number.hex(addr), 'oob!')
+			game.oobEventScriptAddrs:insert(addr)
+			--print('TODO addr', number.hex(addr), 'oob!')
 		end)
 
 	for i,addr in ipairs(addrsInOrder) do

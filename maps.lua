@@ -731,7 +731,7 @@ return function(game)
 
 --TODO just adding this print line makes a lot of maps work that otherwise didn't
 -- hmmmmmm
-print('mapInfo', mapIndex, 'palette', palette)
+--print('mapInfo', mapIndex, 'palette', palette)
 		local mapInfo = MapInfo{
 			index = mapIndex,
 			map = map,
