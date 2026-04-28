@@ -10,7 +10,7 @@ return function(game)
 	local rom = game.rom
 	local romsize = game.romsize
 	local countof = game.countof
-	
+
 	-- event code, pointed into by NPCs and maybe other things
 
 	game.eventScriptAddrs = {}
@@ -55,14 +55,18 @@ return function(game)
 		self.args = table{...}
 	end
 	function Cmd:__tostring()
-		return self.desc..self.args:mapi(tostring):concat' '
+		return self.desc..self.args:mapi(function(x)
+			-- 'cdata' since I used an explicit constructor instead of a cast
+			-- so how about converting to Lua numbers here if possible?
+			return tostring(x)
+		end):concat' '
 	end
 	ScriptCmds.Cmd = Cmd
-	
+
 	local ObjectCmd = Cmd:subclass{
 		argtypes = {'uint8_t'},
 		getargs = function(self, objectIndex)
-			self.objectIndex = tonumber(objectIndex)
+			self.objectIndex = objectIndex
 		end,
 		__tostring = function(self)
 			return self.desc..self.objectIndex
@@ -73,8 +77,6 @@ return function(game)
 	ScriptCmds.RunObject = Cmd:subclass{
 		argtypes = {'uint8_t', 'uint8_t'},
 		getargs = function(self, arg, arg2)
-			arg = tonumber(arg)
-			arg2 = tonumber(arg2)
 			self.objectIndex = bit.band(0x3f, arg)
 			self.length = bit.band(0x7f, arg2)
 			self.waitUntilComplete = 0 ~= bit.band(0x80, arg2)
@@ -102,8 +104,8 @@ return function(game)
 		cmd = 0x37,
 		argtypes = {'uint8_t', 'uint8_t'},
 		getargs = function(self, objectIndex, spriteIndex)
-			self.objectIndex = tonumber(objectIndex)
-			self.spriteIndex = tonumber(spriteIndex)
+			self.objectIndex = objectIndex
+			self.spriteIndex = spriteIndex
 		end,
 		__tostring = function(self)
 			return 'change object #'..self.objectIndex..' sprite to #'..self.spriteIndex
@@ -133,15 +135,15 @@ return function(game)
 		cmd = 0x3f,
 		argtypes = {'uint8_t', 'uint8_t'},
 		getargs = function(self, charIndex, partyIndex)
-			self.charIndex = tonumber(charIndex)
-			self.partyIndex = tonumber(partyIndex)
+			self.charIndex = charIndex
+			self.partyIndex = partyIndex
 		end,
 		__tostring = function(self)
 			if self.charIndex == 0 then
 				return "remove character #"..self.charIndex.." from party"
 			else
 				return "change character #"..self.charIndex.."'s party to #"..self.partyIndex
-			end	
+			end
 		end,
 	}
 
@@ -149,8 +151,8 @@ return function(game)
 		cmd = 0x40,
 		argtypes = {'uint8_t', 'uint8_t'},
 		getargs = function(self, charIndex, propIndex)
-			self.charIndex = tonumber(charIndex)
-			self.propIndex = tonumber(propIndex)
+			self.charIndex = charIndex
+			self.propIndex = propIndex
 		end,
 		__tostring = function(self)
 			return "change character #"..self.charIndex.."'s property #"..self.propIndex
@@ -171,8 +173,8 @@ return function(game)
 		cmd = 0x43,
 		argtypes = {'uint8_t', 'uint8_t'},
 		getargs = function(self, objectIndex, paletteIndex)
-			self.objectIndex = tonumber(objectIndex)
-			self.paletteIndex = tonumber(paletteIndex)
+			self.objectIndex = objectIndex
+			self.paletteIndex = paletteIndex
 		end,
 		__tostring = function(self)
 			return 'change object #'..self.objectIndex..' palette to #'..self.paletteIndex
@@ -183,8 +185,7 @@ return function(game)
 		cmd = 0x44,
 		argtypes = {'uint8_t', 'uint8_t'},
 		getargs = function(self, objectIndex, arg)
-			self.objectIndex = tonumber(objectIndex)
-			arg = tonumber(arg)
+			self.objectIndex = objectIndex
 			-- TODO why to use struct bitfields......
 			self.vehicleIndex = bit.band(3, bit.rshift(arg, 5))
 			self.showRider = 0 ~= bit.band(0x80, arg)
@@ -210,18 +211,25 @@ return function(game)
 		cmd = 0x4b,
 		argtypes = {'uint16_t'},
 		getargs = function(self, arg)
-			arg = tonumber(arg)
 			self.dialogIndex = bit.band(arg, 0x3fff)
 			self.showTextOnly = 0 ~= bit.band(0x4000, arg)
 			self.bottomOfScreen = 0 ~= bit.band(0x8000, arg)
 		end,
 		__tostring = function(self)
 			-- wait if it's +1 then how do you index dialog 0?
-			return 'show dialog[0x'..number.hex(self.dialogIndex+1)..']:'
-				..('%q'):format(game.dialog[self.dialogIndex+1])
-				..', '..(self.dontWait and "don't " or '')..' wait for button press'
-				..(self.showTextOnly and ", show text only" or "")
-				..(self.bottomOfScreen and ", bottom of screen")
+			local str = ('%q'):format(game.dialog[self.dialogIndex+1])
+			if self.dontWait
+			or self.showTextOnly
+			or self.bottomOfScreen then
+				return --'show dialog[0x'..number.hex(self.dialogIndex+1)..']:'
+					'dialog{text='..str
+					..(self.dontWait and ', dontWait=true' or '')
+					..(self.showTextOnly and ', showTextOnly=true' or '')
+					..(self.bottomOfScreen and ', bottomOfScreen=true')
+				..'}'
+			else
+				return 'dialog'..('%q'):format(game.dialog[self.dialogIndex+1])
+			end
 		end,
 	}
 
@@ -244,8 +252,7 @@ return function(game)
 		cmd = 0x4d,
 		argtypes = {'uint8_t', 'uint8_t'},
 		getargs = function(self, group, arg)
-			self.group = tonumber(group)
-			arg = tonumber(arg)
+			self.group = group
 			self.bg = bit.band(0x3f, arg)
 			self.noSound = 0 ~= bit.band(0x40, arg)
 			self.noBlur = 0 ~= bit.band(0x80, arg)
@@ -312,10 +319,9 @@ return function(game)
 		cmd = 0x6a,
 		argtypes = {'uint16_t', 'uint8_t', 'uint8_t', 'uint8_t'},
 		getargs = function(self, arg, x, y, flags)
-			self.x = tonumber(x)
-			self.y = tonumber(y)
-			self.flags = tonumber(flags)
-			arg = tonumber(arg)
+			self.x = x
+			self.y = y
+			self.flags = flags
 			self.arg = arg
 			self.destmap = bit.band(arg, 0x1ff)
 		end,
@@ -359,7 +365,7 @@ return function(game)
 		argtypes = {'uint8_t'},
 		desc = 'restore character # to full hp/mp ',
 	}
-	
+
 	ScriptCmds.DisablePassabilityOfObject = ObjectCmd:subclass{
 		cmd = 0x78,
 		desc = 'disable passability of object #',
@@ -369,7 +375,7 @@ return function(game)
 		cmd = 0x7a,
 		argtypes = {'uint8_t', 'uint24_t'},
 		getargs = function(self, objectIndex, newScriptAddr)
-			self.objectIndex = tonumber(objectIndex)
+			self.objectIndex = objectIndex
 			self.newScriptAddr = newScriptAddr:value()
 		end,
 		__tostring = function(self)
@@ -401,13 +407,13 @@ return function(game)
 		argtypes = {'uint8_t'},
 		desc = 'give item #',
 	}
-	
+
 	ScriptCmds.TakeItem = Cmd:subclass{
 		cmd = 0x81,
 		argtypes = {'uint8_t'},
 		desc = 'take item #',
 	}
-	
+
 	ScriptCmds.GiveGP = Cmd:subclass{
 		cmd = 0x84,
 		argtypes = {'uint16_t'},
@@ -425,7 +431,7 @@ return function(game)
 		argtypes = {'uint8_t'},
 		desc = 'give esper #',
 	}
-	
+
 	ScriptCmds.TakeEsper = Cmd:subclass{
 		cmd = 0x87,
 		argtypes = {'uint8_t'},
@@ -443,7 +449,7 @@ return function(game)
 		argtypes = {'uint8_t', 'uint16_t'},
 		desc = "toggle character #'s status: ",
 	}
-	
+
 	ScriptCmds.SetCharacterStatus = Cmd:subclass{
 		cmd = 0x8a,
 		argtypes = {'uint8_t', 'uint16_t'},
@@ -454,8 +460,7 @@ return function(game)
 		cmd = 0x8b,
 		argtypes = {'uint8_t', 'uint8_t'},
 		getargs = function(self, charIndex, signedAmount)
-			self.charIndex = tonumber(charIndex)
-			signedAmount = tonumber(signedAmount)
+			self.charIndex = charIndex
 			self.amount = bit.lshift(1, bit.band(0x7f, signedAmount))
 			self.take = 0 ~= bit.band(0x80, signedAmount)
 		end,
@@ -463,12 +468,12 @@ return function(game)
 			return
 				"character #"..self.charIndex.."'s "
 				..(self.mp and 'MP' or 'HP')
-				..(self.amount == bit.lshift(1,0x7f) and 'max' or 
+				..(self.amount == bit.lshift(1,0x7f) and 'max' or
 					((self.take and '-' or '+')..self.amount)
 				)
 		end,
 	}
-	
+
 	ScriptCmds.GiveCharacterMP = ScriptCmds.GiveCharacterHP:subclass{
 		cmd = 0x8c,
 		mp = true,
@@ -479,7 +484,7 @@ return function(game)
 		argtypes = {'uint8_t'},
 		desc = 'remove equipment of character #',
 	}
-	
+
 	ScriptCmds.MonsterInABox = Cmd:subclass{
 		cmd = 0x8e,
 		desc = 'monster-in-a-box battle',
@@ -511,7 +516,7 @@ return function(game)
 		cmd = 0x9a,
 		desc = 'open colosseum menu',
 	}
-	
+
 	ScriptCmds.OpenShopMenu  = Cmd:subclass{
 		cmd = 0x9b,
 		argtypes = {'uint8_t'},
@@ -523,22 +528,22 @@ return function(game)
 		argtypes = {'uint8_t'},
 		desc = 'optimize equipment of character #',
 	}
-	
+
 	ScriptCmds.OpenFinalBattleMenu  = Cmd:subclass{
 		cmd = 0x9d,
 		desc = 'open final battle menu',
-	}	
+	}
 
 	ScriptCmds.ShowPyramidObject = Cmd:subclass{
 		cmd = 0xa7,
 		argtypes = {'uint8_t'},
 		desc = 'show pyramid object #',
-	}	
+	}
 
 	ScriptCmds.ShowFloatingIslandCutscene = Cmd:subclass{
 		cmd = 0xa8,
 		desc = 'show floating island cutscene',
-	}	
+	}
 
 	ScriptCmds.ShowTitleScreen = Cmd:subclass{
 		cmd = 0xa9,
@@ -584,7 +589,13 @@ return function(game)
 	ScriptCmds.Call = Cmd:subclass{
 		cmd = 0xb2,
 		argtypes = {'uint24_t'},
+		getargs = function(self, destAddr)
+			self.destAddr = startaddr + destAddr:value()
+		end,
 		desc = 'call ',
+		__tostring = function(self)
+			return ('call $06x'):format(self.destAddr)
+		end,
 	}
 
 	ScriptCmds.CallRepeat = Cmd:subclass{
@@ -638,14 +649,14 @@ return function(game)
 	ScriptCmds.JumpBasedOnCharacterSwitch = Cmd:subclass{
 		cmd = 0xbe,
 		digest = function(self, read)
-			local count = tonumber(bit.band(0xf, read'uint8_t'))
+			local count = bit.band(0xf, read'uint8_t')
 			self.addrs = table()
 			for i=1,count do
 				self.addrs:insert(read'uint24_t':value())
 			end
 		end,
 		__tostring = function(self)
-			return "jump based on character switch, count="..#self.addrs 
+			return "jump based on character switch, count="..#self.addrs
 				.." ??? = "..self.addrs:mapi(function(addr)
 					return (' $%06x'):format(addr)
 				end):concat' '
@@ -663,26 +674,26 @@ return function(game)
 			self._and = 0 ~= bit.band(self.cmd, 8)
 			self.conds = table()
 			for i=1,count do
-				local arg = tonumber(read'uint16_t')
+				local arg = read'uint16_t'
 				self.conds:insert{
-					switchIndex = tonumber(bit.band(0x3fff, arg)),
-					value = tonumber(bit.rshift(arg, 15)),
+					switchIndex = bit.band(0x3fff, arg),
+					value = bit.rshift(arg, 15),
 				}
 			end
-			self.addr = startaddr + read'uint24_t':value()
+			self.destAddr = startaddr + read'uint24_t':value()
 		end,
 		__tostring = function(self)
 			return "if "
 				..self.conds:mapi(function(cond)
 					return 'switch[#'..cond.switchIndex..'] == '..cond.value
 				end):concat(self._and and ' and ' or ' or ')
-				..' then goto '..('$%06x'):format(self.addr)
+				..' then goto '..('$%06x'):format(self.destAddr)
 		end,
 	}
 	for cmd=0xc0,0xcf do
 		ScriptCmds['Switch '..cmd] = Switch:subclass{cmd = cmd}
 	end
-	
+
 	ScriptCmds.ShowCharacterPortrait = Cmd:subclass{
 		cmd = 0xe7,
 		argtypes = {'uint8_t', 'uint8_t'},
@@ -692,19 +703,19 @@ return function(game)
 	ScriptCmds.PlaySound = Cmd:subclass{
 		cmd = 0xf4,
 		argtypes = {'uint8_t'},
-		desc = "play sound #",
+		desc = "playSound #",
 	}
 
 	ScriptCmds.Return = Cmd:subclass{
 		cmd = 0xfe,
-		desc = 'return',
+		desc = 'do return end',
 	}
-	
+
 	ScriptCmds.EndScript = Cmd:subclass{
 		cmd = 0xff,
 		desc = 'end script',
 	}
-	
+
 	-- ScriptCmds key by cmd (number) or by name (string)
 	for _,k in ipairs(table.keys(ScriptCmds)) do
 		local cl = ScriptCmds[k]
@@ -734,7 +745,7 @@ return function(game)
 
 	for i,addr in ipairs(addrsInOrder) do
 		local nextaddr = addrsInOrder[i+1] or endaddr
-		while addr < nextaddr do	
+		while addr < nextaddr do
 			local cmdaddr = addr
 			local cmd = rom[addr]
 			addr = addr + 1
@@ -742,15 +753,30 @@ return function(game)
 			local function read(ctype)
 				ctype = ffi.typeof(ctype)
 				local ptrtype = ffi.typeof('$*', ctype)
-				local o = ctype( ffi.cast(ptrtype, rom + addr)[0] )
+				local o = ffi.cast(ptrtype, rom + addr)[0]
 				addr = addr + ffi.sizeof(ctype)
+
+				-- if it's a primitive and bitness <= 32
+				if ctype == ffi.typeof'uint8_t'
+				or ctype == ffi.typeof'int8_t'
+				or ctype == ffi.typeof'uint16_t'
+				or ctype == ffi.typeof'int16_t'
+				or ctype == ffi.typeof'uint32_t'
+				or ctype == ffi.typeof'int32_t'
+				or ctype == ffi.typeof'float'
+				or ctype == ffi.typeof'double'
+				then
+					o = tonumber(o)
+				else
+					o = ctype(o)
+				end
 				return o
 			end
 
-assert.index(ScriptCmds, cmd, "failed to find class for script command")
+--DEBUG:assert.index(ScriptCmds, cmd, "failed to find class for script command")
 			local cl = ScriptCmds[cmd]
-assert.eq(cl.class, cl, "class is not a class for command 0x"..number.hex(cmd))
-assert.is(cl, Cmd, "somehow class of command 0x"..number.hex(cmd).." is not of Cmd")
+--DEBUG:assert.eq(cl.class, cl, "class is not a class for command 0x"..number.hex(cmd))
+--DEBUG:assert.is(cl, Cmd, "somehow class of command 0x"..number.hex(cmd).." is not of Cmd")
 			local cmdobj = cl()
 			cmdobj:digest(read)
 
