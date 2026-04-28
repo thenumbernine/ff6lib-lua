@@ -807,10 +807,8 @@ print('mapInfo', mapIndex, 'palette', palette)
 			end
 		end
 
-
-		-- lookup into game.monsterRandomBattles
-		maps.monsterRandomBattleOptionIndex = game.mapRandomBattleOptions[i]
-
+		-- lookup into game.monsterRandomBattles to determine the random-battle-options for this stage
+		mapInfo.monsterRandomBattleOptionIndex = game.mapRandomBattleOptions[mapIndex]
 
 		game.mapInfoCache[mapIndex] = mapInfo
 		return mapInfo
