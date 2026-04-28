@@ -730,10 +730,15 @@ end
 print()
 
 for i=0,countof(game.npcs) do
-	local addr = ffi.cast('uint8_t*', game.npcs + i) - rom
-	print('npcs[0x'..i:hex()..']'
+	local npc = game.npcs + i
+	local addr = ffi.cast('uint8_t*', npc) - rom
+	local scriptAddr = npc:getScriptAddr()
+	print(
+		'npcs[0x'..i:hex()..']'
 		..' addr=$'..('%06x'):format(addr)
-		..' '..game.npcs[i])
+		..(scriptAddr and ' script=$'..('%06x'):format(scriptAddr) or '')
+		..' '..npc[0]
+	)
 end
 print()
 

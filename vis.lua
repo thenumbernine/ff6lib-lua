@@ -437,7 +437,7 @@ function App:update()
 			end
 		end
 		if self.showEventTriggers then
-			for _,e in ipairs(mapInfo.mapEventTriggers) do
+			for _,e in ipairs(mapInfo.eventTriggers) do
 				self.rectObj.uniforms.bbox[1] = e.pos.x
 				self.rectObj.uniforms.bbox[2] = e.pos.y
 				self.rectObj.uniforms.bbox[3] = 1
@@ -702,7 +702,13 @@ function App:updateGUI()
 				if t.type == 0 then	-- empty
 					ig.igText(' empty = '..t.battleOrItemOrGP)
 				elseif t.type == 1 then	-- monster
-					ig.igText(' monster = '..game.monsterNames[t.battleOrItemOrGP])
+					ig.igText(' monster formation = #'..t.battleOrItemOrGP)
+					local formation = game.formations + t.battleOrItemOrGP
+					for j=1,6 do
+						if formation:getMonsterActive(j) then
+							ig.igText('  monster = '..game.monsterNames[formation:getMonsterIndex(j)])
+						end
+					end
 				elseif t.type == 2 then	-- item
 					ig.igText(' item = '..game.itemNames[t.battleOrItemOrGP])
 				elseif t.type == 3 then	-- GP
@@ -712,8 +718,8 @@ function App:updateGUI()
 				end
 			end
 
-			ig.igText('# event triggers = '..tostring(#mapInfo.mapEventTriggers))
-			for i,e in ipairs(mapInfo.mapEventTriggers) do
+			ig.igText('# event triggers = '..tostring(#mapInfo.eventTriggers))
+			for i,e in ipairs(mapInfo.eventTriggers) do
 				ig.igText('event trigger #'..(i-1))
 				ig.igText(' pos = '..e.pos)
 				ig.igText(' event code = $'..number.hex(e.eventCode:value()))

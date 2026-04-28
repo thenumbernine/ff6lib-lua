@@ -9,6 +9,8 @@ local createVec = require 'vec-ffi.create_vec'
 local ff6struct = require 'ff6.ff6struct'
 local reftype = require 'ff6.reftype'
 
+local game_t
+
 -- default output to hex
 local fieldsToHex = {
 	uint8_t = function(value)
@@ -1957,6 +1959,14 @@ tostringFields = true,
 tostringOmitFalse = true,
 tostringOmitNil = true,
 tostringOmitEmpty = true,
+	metatable = function(mt)
+		mt.typeToString = fieldsToHex
+	
+		mt.getScriptAddr = function(self)
+			--if self.vehicle == 0 and and self.showRider_or_specialGraphics ~= 0 then return end
+			return self.script + ffi.offsetof(game_t, 'eventCode')
+		end
+	end,
 	fields = {
 		{type=struct{
 			union = true,
@@ -1966,6 +1976,9 @@ tostringFields = true,
 tostringOmitFalse = true,
 tostringOmitNil = true,
 tostringOmitEmpty = true,
+metatable = function(mt)
+	mt.typeToString = fieldsToHex
+end,
 			fields = {
 				{type=struct{
 					anonymous = true,
@@ -1974,8 +1987,12 @@ tostringFields = true,
 tostringOmitFalse = true,
 tostringOmitNil = true,
 tostringOmitEmpty = true,
+metatable = function(mt)
+	mt.typeToString = fieldsToHex
+end,
 					fields = {
-						-- invalid when vehicle == 0 && special npc != 0
+						-- invalid when vehicle == 0 && specialGraphics != 0
+						-- offset 0xa0000 (game.eventCode)
 						{name='script', type='uint32_t:18'},				-- 0.0-2.1
 
 						{name='unknown_2_2', type='uint32_t:3'},			-- 2.2-2.4
@@ -1984,7 +2001,7 @@ tostringOmitEmpty = true,
 					},
 				}},
 
-				-- invalid when vehicle value != 0 && special npc == 0
+				-- invalid when vehicle value != 0 && specialGraphics == 0
 				{type=struct{
 					anonymous = true,
 					packed = true,
@@ -1992,6 +2009,9 @@ tostringFields = true,
 tostringOmitFalse = true,
 tostringOmitNil = true,
 tostringOmitEmpty = true,
+metatable = function(mt)
+	mt.typeToString = fieldsToHex
+end,
 					fields = {
 						{name='vramAddr', type='uint8_t:7'},				-- 0.0-0.6
 						{name='hflip', type='uint8_t:1'},					-- 0.7
@@ -2005,10 +2025,12 @@ tostringOmitEmpty = true,
 				}},
 			},
 		}},
+
 		{name='x', type='uint8_t:7'},								-- 4.0-4.6
 
-		-- "specialGraphics" if vehicle == 0 and special npc != 0 then ...
-		-- otherwise "showRider "
+		-- "specialGraphics" if vehicle == 0 and specialGraphics != 0 then ...
+		-- wait, isn't that a circular condition?
+		-- otherwise "showRider"
 		{name='showRider_or_specialGraphics', type='uint8_t:1'},	-- 4.7
 
 		{name='y', type='uint8_t:6'},								-- 5.0-5.5
@@ -2019,13 +2041,16 @@ tostringOmitEmpty = true,
 
 		-- "speed" when vehicle == 0
 		-- "vehicle" otherwise
+		-- wait, isn't that circular?
+		-- having a hard time telling what fields determine what
+		-- there is clearly about 2-4-8 different structs at play here
 		{name='vehicle_or_speed', type='uint8_t:2'},				-- 7.6-7.7 = 0=none 1=chocobo 2=magitek 3=raft
 
 		-- "direction" when animation == 0
 		-- "type" otherwise
 		{name='direction_or_type', type='uint8_t:2'},				-- 8.0-8.1 direction = {up, right, down, left}, type = {one frame, flip horz, two frames, four frames}
 
-		-- "size" when vehicle == 0 && special npc != 0
+		-- "size" when vehicle == 0 && specialGraphics != 0
 		-- otherwise "talkDoesntTurn"
 		{name='size_or_talkDoesntTurn', type='uint8_t:1'},			-- 8.2.  size: 0=16x16, 1=32x32
 
@@ -2095,7 +2120,7 @@ local mapEventTrigger_t = ff6struct{
 	name = 'mapEventTrigger_t',
 	fields = {
 		{pos = 'xy8b_t'},
-		{eventCode = 'uint24_t'},
+		{eventCode = 'uint24_t'},	-- absolute address
 	},
 }
 assert.eq(ffi.sizeof'mapEventTrigger_t', 5)
@@ -2171,7 +2196,7 @@ assert.eq(ffi.sizeof(battleBgProps_t), 6)
 
 -- TODO this is clever but ... rigid and with lots of redundancies
 -- the memorymap system of the super metroid randomizer is better.
-local game_t = struct{
+game_t = struct{
 	anonymous = true,
 	packed = true,
 	notostring = true,	-- too big to serialize
@@ -2300,7 +2325,7 @@ local game_t = struct{
 		{name = 'theEndPalette', type = 'palette16_8_t'},														-- 0x09ff00 - 0x0a0000
 		{name = 'eventCode', type = 'uint8_t['..(-(0x0a0000 - 0x0ce600))..']'},									-- 0x0a0000 - 0x0ce600
 		{name = 'dialogOffsets', type = 'uint16_t['..numDialogs..']'},											-- 0x0ce600 - 0x0d0000.  the first dialog offset points to the dialog which needs the bank byte to increment
-		{name = 'dialogBase', type = 'uint8_t['..(-(0x0d0000 - 0x0ef100))..']'},								-- 0x0d0000 - 0x0ef100
+		{name = 'dialogBase', type = 'uint8_t['..(-(0x0d0000 - 0x0ef100))..']'},								-- 0x0d0000 - 0x0ef100 ... hmm, there are dangling npc-event-scripts from 0x0d200 to 0x0de302 ... in the middle of dialogBase
 		{name = 'mapNameBase', type = 'uint8_t['..(-(0x0ef100 - 0x0ef600))..']'},								-- 0x0ef100 - 0x0ef600
 
 		-- 0x0ef600 - 0x0ef648 looks like offsets into something
@@ -2758,6 +2783,8 @@ game.treasure_t = treasure_t
 
 
 require 'ff6.maps'(game)
+
+require 'ff6.script'(game)
 
 
 --[[ 0xd1600

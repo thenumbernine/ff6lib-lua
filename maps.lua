@@ -768,7 +768,7 @@ print('mapInfo', mapIndex, 'palette', palette)
 			end
 		end
 
-		mapInfo.mapEventTriggers = table()
+		mapInfo.eventTriggers = table()
 		do
 			local ofs = ffi.offsetof(game_t, 'mapEventTriggers') - ffi.offsetof(game_t, 'mapEventTriggerOfs')
 			local startIndex = (game.mapEventTriggerOfs[mapIndex] - ofs) / ffi.sizeof'mapEventTrigger_t'
@@ -777,7 +777,7 @@ print('mapInfo', mapIndex, 'palette', palette)
 				or (game.mapEventTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof'mapEventTrigger_t'
 			for i=startIndex,endIndex-1 do
 				local e = game.mapEventTriggers + i
-				mapInfo.mapEventTriggers:insert(ffi.new('mapEventTrigger_t', e[0]))
+				mapInfo.eventTriggers:insert(ffi.new('mapEventTrigger_t', e[0]))
 			end
 		end
 

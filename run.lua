@@ -806,6 +806,19 @@ print(game.battleMessages)
 print(game.positionedText)
 
 
+print'BEGIN EVENT SCRIPT'
+for _,cmd in ipairs(game.eventScriptCmds) do
+	if game.eventScriptAddrs[cmd.addr] then
+		print()
+		print(('$%06x:'):format(cmd.addr))
+	end
+	print(('$%06x'):format(cmd.addr), cmd)
+end
+print()
+print'END EVENT SCRIPT'
+print()
+
+
 print('setzer airship palette = '..game.setzerAirshipPalette)
 print('daryl airship palette = '..game.darylAirshipPalette)
 print('menuWindowPalettes = '..game.menuWindowPalettes)
@@ -913,6 +926,14 @@ print('spcMainCode = '..
 require 'ff6.sounds'(rom, game, romsize)
 
 print'end of rom output'
+
+
+
+-- TODO 
+-- the rest was the start of a randomizer
+-- move it into its own file 
+
+
 
 --print('0x047aa0: ', game.padding_047aa0)
 
