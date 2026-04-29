@@ -223,11 +223,14 @@ return function(game)
 			or self.showTextOnly
 			or self.bottomOfScreen then
 				return --'show dialog[0x'..number.hex(self.dialogIndex+1)..']:'
-					'dialog{text='..str
-					..(self.dontWait and ', dontWait=true' or '')
-					..(self.showTextOnly and ', showTextOnly=true' or '')
-					..(self.bottomOfScreen and ', bottomOfScreen=true')
-				..'}'
+					'dialog('..('%q'):format(str)
+					..', {'
+					..table()
+					:append{self.dontWait and 'dontWait=true' or nil}
+					:append{self.showTextOnly and 'showTextOnly=true' or nil}
+					:append{self.bottomOfScreen and 'bottomOfScreen=true' or nil}
+					:concat','
+				..'})'
 			else
 				return 'dialog'..('%q'):format(game.dialog[self.dialogIndex+1])
 			end
@@ -501,6 +504,31 @@ return function(game)
 		desc = 'unlock bum rush',
 	}
 
+	ScriptCmds.Sleep15 = Cmd:subclass{
+		cmd = 0x91,
+		desc = 'sleep(.25)',
+	}
+
+	ScriptCmds.Sleep30 = Cmd:subclass{
+		cmd = 0x92,
+		desc = 'sleep(.5)',
+	}
+
+	ScriptCmds.Sleep45 = Cmd:subclass{
+		cmd = 0x93,
+		desc = 'sleep(.75)',
+	}
+
+	ScriptCmds.Sleep60 = Cmd:subclass{
+		cmd = 0x94,
+		desc = 'sleep(1)',
+	}
+
+	ScriptCmds.Sleep120 = Cmd:subclass{
+		cmd = 0x95,
+		desc = 'sleep(2)',
+	}
+
 	ScriptCmds.OpenCharacterNameChangeMenu = Cmd:subclass{
 		cmd = 0x98,
 		argtypes = {'uint8_t'},
@@ -605,6 +633,28 @@ return function(game)
 		desc = 'call x ',
 	}
 
+	ScriptCmds.Sleep = Cmd:subclass{
+		cmd = 0xb4,
+		argtypes = {'uint8_t'},
+		getargs = function(self, dt)
+			self.dt = dt / 60
+		end,
+		__tostring = function(self)
+			return 'sleep('..self.dt..')'
+		end,
+	}
+
+	ScriptCmds.SleepSeconds = Cmd:subclass{
+		cmd = 0xb5,
+		argtypes = {'uint8_t'},
+		getargs = function(self, dt)
+			self.dt = dt
+		end,
+		__tostring = function(self)
+			return 'sleep('..self.dt..')'
+		end,
+	}
+
 	ScriptCmds.CallBasedOnDialogChoice = Cmd:subclass{
 		cmd = 0xb6,
 		digest = function(self, read)
@@ -686,7 +736,7 @@ return function(game)
 		__tostring = function(self)
 			return "if "
 				..self.conds:mapi(function(cond)
-					return 'gameFlag[#'..cond.gameFlagIndex..'] == '..cond.value
+					return 'gameState.flag'..cond.gameFlagIndex..' == '..cond.value
 				end):concat(self._and and ' and ' or ' or ')
 				..' then goto '..('$%06x'):format(self.destAddr)
 		end,
@@ -694,6 +744,29 @@ return function(game)
 	for cmd=0xc0,0xcf do
 		ScriptCmds['Switch '..cmd] = Switch:subclass{cmd = cmd}
 	end
+
+	ScriptCmds.OnButtonGoto = Cmd:subclass{
+		cmd = 0xd4,
+		argtypes = {'uint24_t'},
+		getargs = function(self, destAddr)
+			self.destAddr = startaddr + destAddr:value()
+		end,
+		__tostring = function(self)
+			return "on button goto "..('$%06x'):format(self.destAddr)
+		end,
+	}
+
+	ScriptCmds.IfDirThenGoto = Cmd:subclass{
+		cmd = 0xdd,
+		argtypes = {'uint8_t', 'uint24_t'},
+		getargs = function(self, dir, destAddr)
+			self.dir = dir
+			self.destAddr = startaddr + destAddr:value()
+		end,
+		__tostring = function(self)
+			return "if dir == "..self.dir.." then goto "..('$%06x'):format(self.destAddr)
+		end,
+	}
 
 	ScriptCmds.ShowCharacterPortrait = Cmd:subclass{
 		cmd = 0xe7,

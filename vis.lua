@@ -755,7 +755,7 @@ function App:updateGUI()
 				elseif t.type == 2 then	-- item
 					ig.igText(' item = '..game.itemNames[t.battleOrItemOrGP])
 				elseif t.type == 3 then	-- GP
-					ig.igText(' GP = '..t.battleOrItemOrGP)
+					ig.igText(' GP = '..(t.battleOrItemOrGP * 100))
 				else
 					ig.igText(' ??? = '..t.battleOrItemOrGP)
 				end
