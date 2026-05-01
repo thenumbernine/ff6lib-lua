@@ -502,6 +502,8 @@ return function(game)
 			local z, layer = table.unpack(zAndLayer)
 			local blend = nil
 
+			-- hmm I think there's another table I have to look this up in to get the blend state...
+
 			-- layer 3 avg
 			if map.colorMath == 1 and layer == 3 then
 				blend = 1
@@ -515,6 +517,7 @@ return function(game)
 			-- layer 3 add
 			elseif map.colorMath == 5 and layer == 3 then
 				blend = 0
+
 			-- layer 1 avg
 			elseif map.colorMath == 8 and layer == 1 then
 				blend = 1
