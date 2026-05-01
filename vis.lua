@@ -614,8 +614,65 @@ function ItemWindow:getArray()
 end
 function ItemWindow:showIndexUI(ar)
 	local item = game.items + self.index
+	ig.igText(' name = '..game.itemNames[self.index])
+	ig.igText(' desc = "'..game.gamezstr(game.itemDescBase + game.itemDescOffsets[self.index])..'"')
 	for name in item:fielditer() do
 		ig.igText(' '..name..' = '..tostring(item[name]))
+	end
+
+	ig.igText' colosseum info:'
+	local colinfo = game.itemColosseumInfos[self.index]
+	
+	ig.igText('  monster fought =')
+	ig.igSameLine()
+	self.app.monsterWindow:popupButton(colinfo.monster.i)
+
+	ig.igText('  item won =')
+	ig.igSameLine()
+	self.app.itemWindow:popupButton(colinfo.itemWon.i)
+
+	ig.igText('  unknown = '..colinfo.unknown)
+	ig.igText('  hideName = '..colinfo.hideName)
+end
+
+
+local MonsterWindow = ArrayWindow:subclass()
+MonsterWindow.name = 'monster' 
+function MonsterWindow:init(...)
+	MonsterWindow.super.init(self, ...)
+	self.array = range((countof(game.formations)))
+end
+function MonsterWindow:getArray()
+	return self.array
+end
+function MonsterWindow:showIndexUI(ar)
+	ig.igText(' name = "'..game.monsterNames[self.index]..'"')
+	ig.igText(' attack name = "'..game.monsterAttackNames[self.index]..'"')
+	local monster = game.monsters[self.index]
+	for name in monster:fielditer() do
+		ig.igText(' '..name..' = '..tostring(monster[name]))
+	end
+	local monsterSpells = game.monsterSpells[self.index]
+	for i=0,monsterSpells.dim-1 do
+		ig.igText('  spell #'..(i+1)..' = '..monsterSpells.s[i])
+	end
+	local monsterItem = game.monsterItems[self.index]
+	for name in monsterItem:fielditer() do
+		ig.igPushID_Str(name)
+		ig.igText('  '..name..' = ')
+		ig.igSameLine()
+		self.app.itemWindow:popupButton(monsterItem[name].i)
+		ig.igPopID()
+	end
+	local monsterSketch = game.monsterSketches[self.index]
+	for i=0,monsterSketch.dim-1 do
+		ig.igText('  sketch #'..(i+1)..' = '..monsterSketch.s[i])
+	end
+	if self.index < countof(game.monsterRages)then 
+		local monsterRages = game.monsterRages[self.index]
+		for i=0,monsterRages.dim-1 do
+			ig.igText('  rage #'..(i+1)..' = '..monsterRages.s[i]) 
+		end
 	end
 end
 
@@ -630,24 +687,23 @@ function BattleFormationWindow:getArray()
 	return self.array
 end
 function BattleFormationWindow:showIndexUI(ar)
-	local formation = game.formations + self.index
-	local monsterCounts = {}
-	for k=1,6 do
-		if formation:getMonsterActive(k) then
-			local monsterIndex = formation:getMonsterIndex(k)
-			local key = '#'..monsterIndex
-			if monsterIndex < game.numMonsters then
-				key = key ..':'..tostring(game.monsterNames[monsterIndex])
-			end
-			monsterCounts[key] = (monsterCounts[key] or 0) + 1
-		end
+	if self.index < countof(game.formationMPs) then
+		ig.igText(' mp gained = '..tostring(game.formationMPs[self.index]))
 	end
-	local formationDesc = table.keys(monsterCounts):sort():mapi(function(key)
-		local count = monsterCounts[key]
-		if count == 1 then return key end
-		return key..' x'..count
-	end):concat', '
-	ig.igText(formationDesc)
+	local formation = game.formations + self.index
+	for i=1,6 do
+		ig.igPushID_Int(i)
+		ig.igText(' #'..i)
+		local active = formation:getMonsterActive(i)
+		ig.igText('  active = '..tostring(active))
+		if active then
+			self.app.monsterWindow:popupButton(formation:getMonsterIndex(i))
+			-- pointer into another table I think?
+			ig.igText('  pos = '..tostring(formation:getMonsterPos(i)))
+			ig.igText('  size = '..tostring(formation:getFormationSize(i)))
+		end
+		ig.igPopID()
+	end
 end
 
 
@@ -823,6 +879,8 @@ void main() {
 
 	self.scriptWindow = ScriptWindow{app=self}
 
+	self.monsterWindow = MonsterWindow{app=self}
+
 	self.battleFormationWindow = BattleFormationWindow{app=self}
 	
 	self.randomBattleOptionsWindow = RandomBattleOptionsWindow{app=self}
@@ -832,6 +890,7 @@ void main() {
 		self.mapWindow,
 		self.itemWindow,
 		self.scriptWindow,
+		self.monsterWindow,
 		self.battleFormationWindow,
 		self.randomBattleOptionsWindow,
 	}
