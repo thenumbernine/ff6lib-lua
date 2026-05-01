@@ -67,11 +67,9 @@ function ArrayWindow:init(args)
 	self:setIndex(args.index or 0)
 end
 function ArrayWindow:setIndex(index)
-	if index == self.index then return end
+	if index == self.index then return false end
 	self.index = index
-	self:onIndexChange()
 end
-function ArrayWindow:onIndexChange() end
 function ArrayWindow:popupButton(targetIndex)
 	local result
 	ig.igPushID_Str(self.name)
@@ -120,10 +118,13 @@ end
 
 
 local MapWindow = ArrayWindow:subclass()
--- 'game.getMap' doensn't work so well since it has cache stuff like the texture layers ...
 function MapWindow:init(...)
 	MapWindow.super.init(self, ...)
+
+	-- 'game.getMap' doensn't work so well since it has cache stuff like the texture layers ...
 	self.array = range(countof(game.maps))
+
+	self.mapIndexStack = table()
 end
 MapWindow.name = 'map'
 function MapWindow:getMapInfo()
@@ -166,7 +167,21 @@ function MapWindow:showIndexUI(ar)
 		end
 	end
 end
-function MapWindow:onIndexChange()
+function MapWindow:setIndex(newIndex, pushStack)
+	local oldIndex = self.index
+
+	-- special case for map 0x511 = parent map
+	if newIndex == 0x1ff then
+		newIndex = self.mapIndexStack:remove() or 0
+		pushStack = false	-- can't push and pop at the same time
+	end
+
+	if MapWindow.super.setIndex(self, newIndex) == false then return end
+
+	if pushStack then
+		self.mapIndexStack:insert(oldIndex)
+	end
+
 	local mapIndex = self.index
 	local app = self.app
 	app.npcIndex = 0
@@ -380,7 +395,7 @@ function EntranceTriggerWindow:showIndexUI(ar)
 	if not e then return end
 	ig.igText(' pos = '..e.pos)
 	if ig.igButton(' map = '..e.mapIndex) then
-		self.app.mapWindow:setIndex(e.mapIndex)
+		self.app.mapWindow:setIndex(e.mapIndex, 0 ~= e.setParentMap)
 		self.app:centerView(e.dest.x, e.dest.y)
 	end
 	ig.igText(' setParentMap = '..e.setParentMap)
@@ -403,7 +418,7 @@ function EntranceAreaTriggerWindow:showIndexUI(ar)
 	if not e then return end
 	ig.igText(' pos = '..e.pos)
 	if ig.igButton(' map = '..e.mapIndex) then
-		self.app.mapWindow:setIndex(e.mapIndex)
+		self.app.mapWindow:setIndex(e.mapIndex, 0 ~= e.setParentMap)
 		self.app:centerView(e.dest.x, e.dest.y)
 	end
 	ig.igText(' length = '..e.length)
