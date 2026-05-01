@@ -2,6 +2,7 @@
 local cmdline = require 'ext.cmdline'(...)
 local ffi = require 'ffi'
 local table = require 'ext.table'
+local range = require 'ext.range'
 local class = require 'ext.class'
 local math = require 'ext.math'
 local assert = require 'ext.assert'
@@ -66,16 +67,23 @@ function ArrayWindow:init(args)
 	self.getArray = args.getArray
 end
 
-function ArrayWindow:popupButton()
+function ArrayWindow:popupButton(targetIndex)
 	local ar = self:getArray()
 	local has = ar and #ar > 0
-	local k = (has and #ar or 'no')..' '..self.name
+	local k = self.name..': '
+		..(targetIndex and '#'..targetIndex..'/' or '')
+		..(has and #ar or 'none')
 	if not has then
 		ig.igText(k)
 		self.show[0] = false
 	else
 		if ig.igButton(k) then
 			self.show[0] = not self.show[0]
+			if targetIndex then 
+				self.index = targetIndex 
+				self:onChangeIndex()
+			end
+			return true
 		end
 	end
 end
@@ -84,22 +92,222 @@ function ArrayWindow:update()
 	if not self.show[0] then return end
 	local ar = self:getArray()
 	if not (ar and #ar > 0) then return end
+	ig.igPushID_Str(self.name)
 	if ig.igBegin(self.name, self.show, 0) then
 		ig.igText(self.name..' #'..self.index..'/'..#ar)
 		if ig.luatableInputInt('index', self, 'index') then
 			self.index = self.index % #ar
+			self:onIndexChange()
 		end
 		self:showIndexUI(ar)
 	end
 	ig.igEnd()
+	ig.igPopID()
 end
+function ArrayWindow:onIndexChange() end
 
+
+local MapWindow = ArrayWindow:subclass()
+-- 'game.getMap' doensn't work so well since it has cache stuff like the texture layers ... 
+function MapWindow:init(...)
+	MapWindow.super.init(self, ...)
+	self.array = range(countof(game.maps))
+end
+MapWindow.name = 'map'
+function MapWindow:getMapInfo()
+	return game.getMap(self.index)
+end
+function MapWindow:getArray()
+	return self.array
+end
+function MapWindow:showIndexUI(ar)
+	local app = self.app
+	local mapInfo = self:getMapInfo()
+	if not mapInfo then return end
+
+	ig.luatableTooltipCheckbox('showTreasures', app, 'showTreasures')
+	ig.igSameLine()
+	app.treasureWindow:popupButton()
+
+	ig.luatableTooltipCheckbox('showEventTriggers', app, 'showEventTriggers')
+	ig.igSameLine()
+	app.eventTriggerWindow:popupButton()
+
+	ig.luatableTooltipCheckbox('showEntranceTriggers', app, 'showEntranceTriggers')
+	ig.igSameLine()
+	app.entranceTriggerWindow:popupButton()
+
+	ig.luatableTooltipCheckbox('showNPCs', app, 'showNPCs')
+	ig.igSameLine()
+	app.npcWindow:popupButton()
+
+	app.monsterRandomBattleOptionsWindow:popupButton(mapInfo.monsterRandomBattleOptionIndex)
+
+	local map = mapInfo.map
+	if map then
+		for name in map[0]:fielditer() do
+			ig.igText(' '..name..' = '..tostring(map[0][name]))
+		end
+	end
+end
+function MapWindow:onIndexChange()
+	self:setIndex(self.index)
+end
+function MapWindow:setIndex(mapIndex)
+	self.index = mapIndex
+	local app = self.app
+	app.npcIndex = 0
+
+	if app.palTex then
+		app.palTex:delete()
+		app.palTex = nil
+	end
+	if app.layerTexs then
+		for _,tex in ipairs(app.layerTexs) do
+			tex:delete()
+		end
+		app.layerTexs = nil
+	end
+
+	collectgarbage()
+
+	local mapInfo = game.getMap(mapIndex)
+	if not mapInfo then
+		print("map "..mapIndex.." missing")
+		return
+	end
+
+	local map = mapInfo.map
+	local paletteIndex = tonumber(map.palette)
+	local gfxLayer3 = mapInfo.gfxLayer3
+	local tilesetDatas = mapInfo.tilesetDatas
+	local layerPos = mapInfo.layerPos
+	local layerSizes = mapInfo.layerSizes
+	local layouts = mapInfo.layouts
+	local palette = mapInfo.palette
+	local tilePropsData = mapInfo.tilePropsData
+
+	print('maps[0x'..number.hex(mapIndex)..'] addr '
+		..'0x'..number.hex(ffi.cast('uint8_t*', map) - rom)
+		..' = '..map[0])
+
+	local gfxstr = mapInfo.gfxIndexes:mapi(tostring):concat'/'
+	for i=1,2 do
+		local tilesetData = tilesetDatas[i]
+		print('map tileset'..i..' data size', tilesetData and #tilesetData)
+	end
+
+	for i=1,3 do
+		print('map layer '..i..' size', layerSizes[i], 'volume', layerSizes[i]:volume())
+		print('map layout'..i..' data size', layouts[i] and #layouts[i].data)
+		if i > 1 then
+			print('map layer'..i..' pos', layerPos[i])
+		end
+	end
+
+	local palette = mapInfo.palette
+
+	if not palette then
+		print("map "..mapIndex.." has no palette")
+		return
+	end
+
+	local palData = ffi.new'uint8_t[128*4]'
+	ffi.fill(palData, ffi.sizeof(palData))
+	for i=0,127 do
+		for j=0,3 do
+			palData[bit.bor(j,bit.lshift(i, 2))] = palette[i+1][j+1]
+		end
+	end
+	if app.palTex then
+		app.palTex:delete()
+	end
+	app.palTex = GLTex2D{
+		width = 16*8,
+		height = 1,
+		internalFormat = gl.GL_RGBA,
+		format = gl.GL_RGBA,
+		type = gl.GL_UNSIGNED_BYTE,
+		minFilter = gl.GL_NEAREST,
+		magFilter = gl.GL_NEAREST,
+		data = palData,
+	}:unbind()
+assert.eq(app.palTex.data, palData)
+
+	-- layer images already have 16x16 tiles baked into them...
+	local imgToTex = function(img)
+		local tex = GLTex2D{
+			width = img.width,
+			height = img.height,
+			internalFormat = gl.GL_R8UI,
+			format = gl.GL_RED_INTEGER,
+			type = gl.GL_UNSIGNED_BYTE,
+			minFilter = gl.GL_NEAREST,
+			magFilter = gl.GL_NEAREST,
+			data = img.buffer,
+		}:unbind()
+		tex.image = img
+		return tex
+	end
+	local layerImgs, layerAnimImgs = mapInfo:getLayerImages()
+
+	if app.layerTexs then
+		for _,tex in ipairs(app.layerTexs) do
+			tex:delete()
+		end
+	end
+	app.layerTexs = layerImgs:mapi(imgToTex)
+
+	if app.layerAnimTexs then
+		for z, layerAnimImgs_z in pairs(app.layerAnimTexs) do
+			for layer, layerAnimImgs_z_layer in pairs(layerAnimImgs_z) do
+				for _,tex in ipairs(layerAnimImgs_z_layer) do
+					tex:delete()
+				end
+			end
+		end
+	end
+	app.layerAnimTexs = table()
+	for z, layerAnimImgs_z in pairs(layerAnimImgs) do
+		app.layerAnimTexs[z] = table()
+		for layer, layerAnimImgs_z_layer in pairs(layerAnimImgs_z) do
+			app.layerAnimTexs[z][layer] = layerAnimImgs_z_layer:mapi(imgToTex)
+		end
+	end
+
+	if #app.layerTexs > 0 then
+		app.mapSize:set(app.layerTexs[1].width, app.layerTexs[1].height)
+	end
+
+	if app.tilePropsTex then
+		app.tilePropsTex:delete()
+	end
+	app.tilePropsTex = nil
+	local layout1Data = layouts[1] and layouts[1].data
+	if layout1Data then
+		-- uint8_t into the tilePropsPtr table, which is a table of 2-byte-sized either WorldTileProps_t or mapTileProps_t
+		local layoutptr = ffi.cast('uint8_t*', layout1Data)
+		--if tilePropsData then
+		--local tilePropsPtr = ffi.cast('WorldTileProps_t*', tilePropsData)
+
+		app.tilePropsTex = GLTex2D{
+			width = layerSizes[1].x,
+			height = layerSizes[1].y,
+			internalFormat = gl.GL_R8UI,
+			format = gl.GL_RED_INTEGER,
+			type = gl.GL_UNSIGNED_BYTE,
+			minFilter = gl.GL_NEAREST,
+			magFilter = gl.GL_NEAREST,
+			data = layout1Data,
+		}:unbind()
+	end
+end
 
 
 local TreasureWindow = ArrayWindow:subclass()
 TreasureWindow.name = 'treasure' 
 function TreasureWindow:getArray()
-	local mapInfo = self.app:getMapInfo()
+	local mapInfo = self.app.mapWindow:getMapInfo()
 	return mapInfo and mapInfo.treasures
 end
 function TreasureWindow:showIndexUI(ar)
@@ -132,7 +340,7 @@ end
 local EventTriggerWindow = ArrayWindow:subclass()
 EventTriggerWindow.name = 'event trigger' 
 function EventTriggerWindow:getArray()
-	local mapInfo = self.app:getMapInfo()
+	local mapInfo = self.app.mapWindow:getMapInfo()
 	return mapInfo and mapInfo.eventTriggers
 end
 
@@ -151,7 +359,7 @@ end
 local EntranceTriggerWindow = ArrayWindow:subclass()
 EntranceTriggerWindow.name = 'entrance trigger'
 function EntranceTriggerWindow:getArray()
-	local mapInfo = self.app:getMapInfo()
+	local mapInfo = self.app.mapWindow:getMapInfo()
 	return mapInfo and mapInfo.entranceTriggers
 end
 function EntranceTriggerWindow:showIndexUI(ar)
@@ -159,7 +367,7 @@ function EntranceTriggerWindow:showIndexUI(ar)
 	if not e then return end
 	ig.igText(' pos = '..e.pos)
 	if ig.igButton(' map = '..e.mapIndex) then
-		self.app:setMapIndex(e.mapIndex)
+		self.app.mapWindow:setIndex(e.mapIndex)
 		self.app:centerView(e.dest.x, e.dest.y)
 	end
 	ig.igText(' setParentMap = '..e.setParentMap)
@@ -174,7 +382,7 @@ end
 local NPCWindow = ArrayWindow:subclass()
 NPCWindow.name = 'npc'
 function NPCWindow:getArray()
-	local mapInfo = self.app:getMapInfo()
+	local mapInfo = self.app.mapWindow:getMapInfo()
 	return mapInfo and mapInfo.npcs
 end
 function NPCWindow:showIndexUI(ar)
@@ -264,6 +472,55 @@ function ScriptWindow:__gc()
 	end
 end
 --]]
+
+
+local MonsterRandomBattleOptionsWindow = ArrayWindow:subclass()
+function MonsterRandomBattleOptionsWindow:init(...)
+	MonsterRandomBattleOptionsWindow.super.init(self, ...)
+	self.array = range((countof(game.monsterRandomBattles)))
+end
+MonsterRandomBattleOptionsWindow.name = 'monster random battle options' 
+function MonsterRandomBattleOptionsWindow:getArray()
+	return self.array
+end
+function MonsterRandomBattleOptionsWindow:showIndexUI(ar)
+	local mapMonsterRandomBattles = game.monsterRandomBattles + self.index
+	local formationCounts = {}
+	for j=0,3 do
+		local formationEntry = mapMonsterRandomBattles.s[j]
+		local formationIndex = formationEntry.formation
+		local formationDesc = 'formation=0x'..number.hex(formationIndex)..':'
+		if formationIndex < game.numFormations then
+			local formation = game.formations + formationIndex
+			local monsterCounts = {}
+			for k=1,6 do
+				if formation:getMonsterActive(k) then
+					local monsterIndex = formation:getMonsterIndex(k)
+					local key = '#'..monsterIndex
+					if monsterIndex < game.numMonsters then
+						key = key ..':'..tostring(game.monsterNames[monsterIndex])
+					end
+					monsterCounts[key] = (monsterCounts[key] or 0) + 1
+				end
+			end
+			formationDesc = formationDesc .. ' '
+			..table.keys(monsterCounts):sort():mapi(function(key)
+				local count = monsterCounts[key]
+				if count == 1 then return key end
+				return key..' x'..count
+			end):concat', '
+		end
+		if formationEntry.chooseFromNextFour ~= 0 then
+			formationDesc = formationDesc .. ' (chooseFromNextFour)'
+		end
+		formationCounts[formationDesc] = (formationCounts[formationDesc] or 0) + (j == 3 and 1 or 5)
+		--local formation2 = game.formation2s + self.index
+	end
+	for _,formationDesc in ipairs(table.keys(formationCounts):sort()) do
+		local formationCount = formationCounts[formationDesc]
+		ig.igText(' '..formationCount..'/16 '..formationDesc)
+	end
+end
 
 
 local App = require 'imgui.appwithorbit'()
@@ -373,10 +630,14 @@ void main() {
 			color = {1,1,1,1},
 		},
 	}
+	
+	self.mapSize = vec2d()
+
+
+	self.mapWindow = MapWindow{app=self}
 
 	self.showTreasures = true
-	self.treasureWindow = TreasureWindow{app=self}
-	
+	self.treasureWindow = TreasureWindow{app=self}	
 
 	self.showEventTriggers = true
 	self.eventTriggerWindow = EventTriggerWindow{app=self}
@@ -389,10 +650,12 @@ void main() {
 
 	self.scriptWindow = ScriptWindow{app=self}
 
-	self.mapSize = vec2d()
+	self.monsterRandomBattleOptionsWindow = MonsterRandomBattleOptionsWindow{app=self}
 
-	self:setMapIndex(cmdline[2] and assert(tonumber(cmdline[2])) or 0)
+
+	self.mapWindow:setIndex(cmdline[2] and assert(tonumber(cmdline[2])) or 0)
 end
+
 
 local function mat4x4mul(m, x, y, z, w)
 	x = tonumber(x)
@@ -433,159 +696,6 @@ function App:centerView(x, y)
 	self.view.pos.y = -tonumber(y)-.5
 end
 
-function App:getMapInfo()
-	return game.getMap(self.mapIndex)
-end
-
-function App:setMapIndex(mapIndex)
-	self.mapIndex = mapIndex
-	self.npcIndex = 0
-
-	if self.palTex then
-		self.palTex:delete()
-		self.palTex = nil
-	end
-	if self.layerTexs then
-		for _,tex in ipairs(self.layerTexs) do
-			tex:delete()
-		end
-		self.layerTexs = nil
-	end
-
-	collectgarbage()
-
-	local mapInfo = game.getMap(mapIndex)
-	if not mapInfo then
-		print("map "..mapIndex.." missing")
-		return
-	end
-
-	local map = mapInfo.map
-	local paletteIndex = tonumber(map.palette)
-	local gfxLayer3 = mapInfo.gfxLayer3
-	local tilesetDatas = mapInfo.tilesetDatas
-	local layerPos = mapInfo.layerPos
-	local layerSizes = mapInfo.layerSizes
-	local layouts = mapInfo.layouts
-	local palette = mapInfo.palette
-	local tilePropsData = mapInfo.tilePropsData
-
-	print('maps[0x'..number.hex(mapIndex)..'] addr '
-		..'0x'..number.hex(ffi.cast('uint8_t*', map) - rom)
-		..' = '..map[0])
-
-	local gfxstr = mapInfo.gfxIndexes:mapi(tostring):concat'/'
-	for i=1,2 do
-		local tilesetData = tilesetDatas[i]
-		print('map tileset'..i..' data size', tilesetData and #tilesetData)
-	end
-
-	for i=1,3 do
-		print('map layer '..i..' size', layerSizes[i], 'volume', layerSizes[i]:volume())
-		print('map layout'..i..' data size', layouts[i] and #layouts[i].data)
-		if i > 1 then
-			print('map layer'..i..' pos', layerPos[i])
-		end
-	end
-
-	local palette = mapInfo.palette
-
-	if not palette then
-		print("map "..mapIndex.." has no palette")
-		return
-	end
-
-	local palData = ffi.new'uint8_t[128*4]'
-	ffi.fill(palData, ffi.sizeof(palData))
-	for i=0,127 do
-		for j=0,3 do
-			palData[bit.bor(j,bit.lshift(i, 2))] = palette[i+1][j+1]
-		end
-	end
-	if self.palTex then
-		self.palTex:delete()
-	end
-	self.palTex = GLTex2D{
-		width = 16*8,
-		height = 1,
-		internalFormat = gl.GL_RGBA,
-		format = gl.GL_RGBA,
-		type = gl.GL_UNSIGNED_BYTE,
-		minFilter = gl.GL_NEAREST,
-		magFilter = gl.GL_NEAREST,
-		data = palData,
-	}:unbind()
-assert.eq(self.palTex.data, palData)
-
-	-- layer images already have 16x16 tiles baked into them...
-	local imgToTex = function(img)
-		local tex = GLTex2D{
-			width = img.width,
-			height = img.height,
-			internalFormat = gl.GL_R8UI,
-			format = gl.GL_RED_INTEGER,
-			type = gl.GL_UNSIGNED_BYTE,
-			minFilter = gl.GL_NEAREST,
-			magFilter = gl.GL_NEAREST,
-			data = img.buffer,
-		}:unbind()
-		tex.image = img
-		return tex
-	end
-	local layerImgs, layerAnimImgs = mapInfo:getLayerImages()
-
-	if self.layerTexs then
-		for _,tex in ipairs(self.layerTexs) do
-			tex:delete()
-		end
-	end
-	self.layerTexs = layerImgs:mapi(imgToTex)
-
-	if self.layerAnimTexs then
-		for z, layerAnimImgs_z in pairs(self.layerAnimTexs) do
-			for layer, layerAnimImgs_z_layer in pairs(layerAnimImgs_z) do
-				for _,tex in ipairs(layerAnimImgs_z_layer) do
-					tex:delete()
-				end
-			end
-		end
-	end
-	self.layerAnimTexs = table()
-	for z, layerAnimImgs_z in pairs(layerAnimImgs) do
-		self.layerAnimTexs[z] = table()
-		for layer, layerAnimImgs_z_layer in pairs(layerAnimImgs_z) do
-			self.layerAnimTexs[z][layer] = layerAnimImgs_z_layer:mapi(imgToTex)
-		end
-	end
-
-	if #self.layerTexs > 0 then
-		self.mapSize:set(self.layerTexs[1].width, self.layerTexs[1].height)
-	end
-
-	if self.tilePropsTex then
-		self.tilePropsTex:delete()
-	end
-	self.tilePropsTex = nil
-	local layout1Data = layouts[1] and layouts[1].data
-	if layout1Data then
-		-- uint8_t into the tilePropsPtr table, which is a table of 2-byte-sized either WorldTileProps_t or mapTileProps_t
-		local layoutptr = ffi.cast('uint8_t*', layout1Data)
-		--if tilePropsData then
-		--local tilePropsPtr = ffi.cast('WorldTileProps_t*', tilePropsData)
-
-		self.tilePropsTex = GLTex2D{
-			width = layerSizes[1].x,
-			height = layerSizes[1].y,
-			internalFormat = gl.GL_R8UI,
-			format = gl.GL_RED_INTEGER,
-			type = gl.GL_UNSIGNED_BYTE,
-			minFilter = gl.GL_NEAREST,
-			magFilter = gl.GL_NEAREST,
-			data = layout1Data,
-		}:unbind()
-	end
-end
-
 
 -- called by update and called by save ...
 function App:draw(animFrameIndex)
@@ -623,7 +733,7 @@ function App:draw(animFrameIndex)
 		gl.glDisable(gl.GL_ALPHA_TEST)
 	end
 
-	local mapInfo = game.getMap(self.mapIndex)
+	local mapInfo = self.mapWindow:getMapInfo()
 	local map = mapInfo and mapInfo.map
 	if self.showAnimTexs then
 		if map
@@ -690,8 +800,7 @@ function App:update()
 		self.layerDrawObj:draw()
 	end
 
-
-	local mapInfo = game.getMap(self.mapIndex)
+	local mapInfo = self.mapWindow:getMapInfo()
 	if mapInfo then
 		view:setupModelView()
 		view.mvMat:applyScale(1, -1)
@@ -803,7 +912,7 @@ my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
 end
 
 function App:updateGUI()
-	local mapInfo = game.getMap(self.mapIndex)
+	local mapInfo = self.mapWindow:getMapInfo()
 	local map = mapInfo and mapInfo.map
 
 	if ig.igBeginMainMenuBar() then
@@ -862,7 +971,7 @@ function App:updateGUI()
 							if doSaveLayerPNGs then
 								for frameIndex,frameTex in ipairs(self.layerAnimTexs[z][layer]) do
 									frameTex.image:save((animScreenshotPath/(
-										'map'..self.mapIndex
+										'map'..self.mapWindow.index
 										..'_z='..z
 										..'_layer='..layer
 										..'_frame='..frameIndex
@@ -928,7 +1037,7 @@ function App:updateGUI()
 						compositeImgs:insert(image)
 						if doSaveLayerPNGs then
 							image:save((animScreenshotPath/(
-								'map'..self.mapIndex
+								'map'..self.mapWindow.index
 								..'_composite'
 								..'_frame='..frameIndex
 								..'.png'
@@ -941,7 +1050,7 @@ function App:updateGUI()
 					-- save the whole as an animation
 					if doSaveGIF then
 						compositeImgs[1]:save(
-							(animScreenshotPath/('map'..self.mapIndex..'_animated.gif')).path,
+							(animScreenshotPath/('map'..self.mapWindow.index..'_animated.gif')).path,
 							compositeImgs:unpack(2)
 						)
 					end
@@ -974,13 +1083,6 @@ function App:updateGUI()
 			ig.igEndMenu()
 		end
 
-		--[[
-		local label = 'viewing map #'..self.mapIndex
-		if ig.igBeginMenu(label) then
-			ig.igEndMenu()
-		end
-		--]]
-
 		if ig.igBeginMenu'view' then
 			if ig.igButton'reset view' then
 				self.view.ortho = true
@@ -996,87 +1098,15 @@ function App:updateGUI()
 		ig.igEndMainMenuBar()
 	end
 
-	if mapInfo then
-		if ig.igBegin('map', nil, 0) then
-			if ig.luatableInputInt('mapIndex', self, 'mapIndex') then
-				self:setMapIndex(math.clamp(math.floor(self.mapIndex), 0, countof(game.maps)-1))
-			end
-
-			ig.luatableTooltipCheckbox('showTreasures', self, 'showTreasures')
-			ig.igSameLine()
-			self.treasureWindow:popupButton()
-
-			ig.luatableTooltipCheckbox('showEventTriggers', self, 'showEventTriggers')
-			ig.igSameLine()
-			self.eventTriggerWindow:popupButton()
-
-			ig.luatableTooltipCheckbox('showEntranceTriggers', self, 'showEntranceTriggers')
-			ig.igSameLine()
-			self.entranceTriggerWindow:popupButton()
-
-			ig.luatableTooltipCheckbox('showNPCs', self, 'showNPCs')
-			ig.igSameLine()
-			self.npcWindow:popupButton()
-
-			local map = mapInfo.map
-			if map then
-				ig.igText('map #'..self.mapIndex)
-				for name in map[0]:fielditer() do
-					ig.igText(' '..name..' = '..tostring(map[0][name]))
-				end
-			end
-
-			-- TODO hyperlink to popup the formation-list window
-			ig.igText'battles:'
-			local formationCounts = {}
-			if mapInfo.monsterRandomBattleOptionIndex >= 0
-			and mapInfo.monsterRandomBattleOptionIndex < countof(game.monsterRandomBattles)
-			then
-				local mapMonsterRandomBattles = game.monsterRandomBattles + mapInfo.monsterRandomBattleOptionIndex
-				for j=0,3 do
-					local formationEntry = mapMonsterRandomBattles.s[j]
-					local formationIndex = formationEntry.formation
-					local formationDesc = 'formation=0x'..number.hex(formationIndex)..':'
-					if formationIndex < game.numFormations then
-						local formation = game.formations + formationIndex
-						local monsterCounts = {}
-						for k=1,6 do
-							if formation:getMonsterActive(k) then
-								local monsterIndex = formation:getMonsterIndex(k)
-								local key = '#'..monsterIndex
-								if monsterIndex < game.numMonsters then
-									key = key ..':'..tostring(game.monsterNames[monsterIndex])
-								end
-								monsterCounts[key] = (monsterCounts[key] or 0) + 1
-							end
-						end
-						formationDesc = formationDesc .. ' '
-						..table.keys(monsterCounts):sort():mapi(function(key)
-							local count = monsterCounts[key]
-							if count == 1 then return key end
-							return key..' x'..count
-						end):concat', '
-					end
-					if formationEntry.chooseFromNextFour ~= 0 then
-						formationDesc = formationDesc .. ' (chooseFromNextFour)'
-					end
-					formationCounts[formationDesc] = (formationCounts[formationDesc] or 0) + (j == 3 and 1 or 5)
-					--local formation2 = game.formation2s + mapInfo.monsterRandomBattleOptionIndex
-				end
-				for _,formationDesc in ipairs(table.keys(formationCounts):sort()) do
-					local formationCount = formationCounts[formationDesc]
-					ig.igText(' '..formationCount..'/16 '..formationDesc)
-				end
-			end	
-		end
-		ig.igEnd()
-	end
+	self.mapWindow.show[0] = true
+	self.mapWindow:update()
 
 	self.treasureWindow:update()
 	self.eventTriggerWindow:update()
 	self.entranceTriggerWindow:update()
 	self.npcWindow:update()
 	self.scriptWindow:update()
+	self.monsterRandomBattleOptionsWindow:update()
 end
 
 function App:event(e)
@@ -1087,9 +1117,9 @@ function App:event(e)
 	if canHandleKeyboard then
 		if e.type == sdl.SDL_EVENT_KEY_UP then
 			if e.key.key == sdl.SDLK_LEFT then
-				self:setMapIndex(math.clamp(math.floor(self.mapIndex - 1), 0, countof(game.maps)-1))
+				self.mapWindow:setIndex(math.clamp(math.floor(self.mapWindow.index - 1), 0, countof(game.maps)-1))
 			elseif e.key.key == sdl.SDLK_RIGHT then
-				self:setMapIndex(math.clamp(math.floor(self.mapIndex + 1), 0, countof(game.maps)-1))
+				self.mapWindow:setIndex(math.clamp(math.floor(self.mapWindow.index + 1), 0, countof(game.maps)-1))
 			end
 		end
 	end
