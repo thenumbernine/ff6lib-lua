@@ -71,15 +71,21 @@ function ArrayWindow:setIndex(index)
 	if index == self.index then return false end
 	self.index = index
 end
+function ArrayWindow:getIndexName() end
 function ArrayWindow:popupButton(targetIndex)
+	if targetIndex ~= nil then
+		assert.type(targetIndex, 'number')
+	end
 	local result
 	ig.igPushID_Str(self.name)
 	ig.igPushID_Str'popup button'
 	local ar = self:getArray()
 	local has = ar and #ar > 0
+	local indexName = has and targetIndex and self:getIndexName(targetIndex)
 	local k = self.name..': '
 		..(targetIndex and '#'..targetIndex..'/' or '')
 		..(has and #ar or 'none')
+		..(indexName and ' '..indexName or '') 
 	if not has then
 		ig.igText(k)
 		self.show[0] = false
@@ -87,6 +93,7 @@ function ArrayWindow:popupButton(targetIndex)
 		if ig.igButton(k) then
 			self.show[0] = true
 			if targetIndex then
+				print('setting', self.name, 'to', targetIndex)
 				self:setIndex(targetIndex)
 			end
 			result = true
@@ -420,7 +427,6 @@ function EventTriggerWindow:getArray()
 	local mapInfo = self.app.mapWindow:getMapInfo()
 	return mapInfo and mapInfo.eventTriggers
 end
-
 function EventTriggerWindow:showIndexUI(ar)
 	local e = ar[1+self.index]
 	if not e then return end
@@ -603,18 +609,47 @@ function ScriptWindow:openScriptAddr(scriptAddr)
 end
 
 
+local SpellWindow = ArrayWindow:subclass()
+SpellWindow.name = 'spell'
+function SpellWindow:init(...)
+	SpellWindow.super.init(self, ...)
+	self.array = range((countof(game.spells)))
+end
+function SpellWindow:getArray()
+	return self.array
+end
+function SpellWindow:getIndexName(i)
+	return game.getSpellName(i)
+end
+function SpellWindow:showIndexUI(ar)
+	ig.igText(' name = '..self:getIndexName(self.index))
+	if self.index < 54 then
+		ig.igText(' desc = "'..game.gamezstr(game.spellDescBase + game.spellDescOffsets[self.index])..'"')
+	elseif self.index >= 54 and self.index < 64 then
+		-- should I put esper descs here, or in the esper output, or both?
+	end
+	local spell = game.spells[self.index]
+	for name in spell:fielditer() do
+		ig.igText(' '..name..' = '..tostring(spell[name]))
+	end
+end
+
+
 local ItemWindow = ArrayWindow:subclass()
 ItemWindow.name = 'item'
 function ItemWindow:init(...)
 	ItemWindow.super.init(self, ...)
-	self.array = range((countof(game.formations)))
+	self.array = range((countof(game.items)))
 end
 function ItemWindow:getArray()
 	return self.array
 end
+function ItemWindow:getIndexName(i)
+	return game.itemNames[i]
+end
 function ItemWindow:showIndexUI(ar)
 	local item = game.items + self.index
-	ig.igText(' name = '..game.itemNames[self.index])
+	ig.igText(' name = '..self:getIndexName(self.index))
 	ig.igText(' desc = "'..game.gamezstr(game.itemDescBase + game.itemDescOffsets[self.index])..'"')
 	for name in item:fielditer() do
 		ig.igText(' '..name..' = '..tostring(item[name]))
@@ -640,13 +675,16 @@ local MonsterWindow = ArrayWindow:subclass()
 MonsterWindow.name = 'monster' 
 function MonsterWindow:init(...)
 	MonsterWindow.super.init(self, ...)
-	self.array = range((countof(game.formations)))
+	self.array = range((countof(game.monsters)))
 end
 function MonsterWindow:getArray()
 	return self.array
 end
+function MonsterWindow:getIndexName(i)
+	return game.monsterNames[i]
+end
 function MonsterWindow:showIndexUI(ar)
-	ig.igText(' name = "'..game.monsterNames[self.index]..'"')
+	ig.igText(' name = "'..self:getIndexName(self.index)..'"')
 	ig.igText(' attack name = "'..game.monsterAttackNames[self.index]..'"')
 	local monster = game.monsters[self.index]
 	for name in monster:fielditer() do
@@ -654,7 +692,11 @@ function MonsterWindow:showIndexUI(ar)
 	end
 	local monsterSpells = game.monsterSpells[self.index]
 	for i=0,monsterSpells.dim-1 do
-		ig.igText('  spell #'..(i+1)..' = '..monsterSpells.s[i])
+		ig.igPushID_Str'monsterSpells'
+		ig.igPushID_Int(i)
+		self.app.spellWindow:popupButton(monsterSpells.s[i].i)
+		ig.igPopID()
+		ig.igPopID()
 	end
 	local monsterItem = game.monsterItems[self.index]
 	for name in monsterItem:fielditer() do
@@ -664,14 +706,22 @@ function MonsterWindow:showIndexUI(ar)
 		self.app.itemWindow:popupButton(monsterItem[name].i)
 		ig.igPopID()
 	end
-	local monsterSketch = game.monsterSketches[self.index]
-	for i=0,monsterSketch.dim-1 do
-		ig.igText('  sketch #'..(i+1)..' = '..monsterSketch.s[i])
+	local monsterSketches = game.monsterSketches[self.index]
+	for i=0,monsterSketches.dim-1 do
+		ig.igPushID_Str'monsterSketches'
+		ig.igPushID_Int(i)
+		self.app.spellWindow:popupButton(monsterSketches.s[i].i)
+		ig.igPopID()
+		ig.igPopID()
 	end
 	if self.index < countof(game.monsterRages)then 
 		local monsterRages = game.monsterRages[self.index]
 		for i=0,monsterRages.dim-1 do
-			ig.igText('  rage #'..(i+1)..' = '..monsterRages.s[i]) 
+			ig.igPushID_Str'monsterRages'
+			ig.igPushID_Int(i)
+			self.app.spellWindow:popupButton(monsterRages.s[i].i)
+			ig.igPopID()
+			ig.igPopID()
 		end
 	end
 end
@@ -876,6 +926,8 @@ void main() {
 	}
 
 	self.itemWindow = ItemWindow{app=self}
+	
+	self.spellWindow = SpellWindow{app=self}
 
 	self.scriptWindow = ScriptWindow{app=self}
 
@@ -889,6 +941,7 @@ void main() {
 	self.baseWindows = table{
 		self.mapWindow,
 		self.itemWindow,
+		self.spellWindow,
 		self.scriptWindow,
 		self.monsterWindow,
 		self.battleFormationWindow,
