@@ -138,6 +138,42 @@ function MapWindow:showIndexUI(ar)
 	local mapInfo = self:getMapInfo()
 	if not mapInfo then return end
 
+	local map = mapInfo and mapInfo.map
+	if map then		
+		ig.luatableTooltipCheckbox('useBlend', app, 'useBlend')
+		if app.layerTexs then
+			for i=1,#app.layerTexs do
+				if i > 1 then
+					ig.igSameLine()
+				end
+				local k = 'drawLayer'..i
+				if app[k] == nil then app[k] = true end
+				ig.luatableTooltipCheckbox('tex '..i, app, k)
+			end
+		end
+		if app.layerAnimTexs then
+			ig.luatableTooltipCheckbox('showAnimTexs', app, 'showAnimTexs')
+
+			if app.layerAnimTexs then
+				local zAndLayers = map.layer3Priority == 0
+					and zAndLayersWithoutLayer3Priority
+					or zAndLayersWithLayer3Priority
+				for _,zAndLayer in ipairs(zAndLayers) do
+					local z, layer = table.unpack(zAndLayer)
+					if app.layerAnimTexs[z]
+					and app.layerAnimTexs[z][layer]
+					then
+						local k = 'showAnimTex_'..z..'_'..layer
+						if app[k] == nil then app[k] = true end
+						ig.igSameLine()
+						ig.luatableTooltipCheckbox(k, app, k)
+					end
+				end
+			end
+		end
+	end
+
+
 	ig.luatableTooltipCheckbox('showTreasures', app, 'showTreasures')
 	ig.igSameLine()
 	app.treasureWindow:popupButton()
@@ -184,7 +220,13 @@ function MapWindow:setIndex(newIndex, pushStack)
 
 	local mapIndex = self.index
 	local app = self.app
-	app.npcIndex = 0
+
+	-- reset windows that are dependent on the map
+	app.treasureWindow:setIndex(0)
+	app.eventTriggerWindow:setIndex(0)
+	app.entranceTriggerWindow:setIndex(0)
+	app.entranceAreaTriggerWindow:setIndex(0)
+	app.npcWindow:setIndex(0)
 
 	if app.palTex then
 		app.palTex:delete()
@@ -480,6 +522,8 @@ local ScriptWindow = ArrayWindow:subclass()
 function ScriptWindow:init(...)
 	ScriptWindow.super.init(self, ...)
 	self.clipper = ig.ImGuiListClipper_ImGuiListClipper()
+	self.availableSpace = ig.ImVec2()
+	-- on gc, but only before app shutdown:
 	--ig.ImGuiListClipper_destroy(self.clipper)
 end
 ScriptWindow.name = 'script'
@@ -491,7 +535,15 @@ function ScriptWindow:showIndexUI(ar)
 	-- tho better TODO is to fix the scroll area of the clipper and make it jump correctly
 	--if ig.igBeginChild('ScriptWindowEvents', ig.ImVec2(0, #ar), true) then
 	-- this is even worse, now single wheel or scrollbar scrolls up and down jump over an entire page, and i can't find the item i'm looking for, and the clipper seek funciton doesn't work.
-	if ig.igBeginChild('ScriptWindowEvents', ig.ImVec2(0, 500), true) then
+	ig.igGetContentRegionAvail(self.availableSpace)
+	self.availableSpace.x = 0
+	if ig.igBeginChild('ScriptWindowEvents', self.availableSpace, true) then
+		
+		if self.jumpRequested then
+			ig.igSetScrollY_Float(self.jumpRequested)
+			self.jumpRequested = nil
+		end
+
 		ig.ImGuiListClipper_Begin(self.clipper, #ar, 1)
 		while ig.ImGuiListClipper_Step(self.clipper) do
 			for i=self.clipper.DisplayStart,self.clipper.DisplayEnd-1 do
@@ -518,16 +570,14 @@ function ScriptWindow:openScriptAddr(scriptAddr)
 	else
 		self.index = self.index - 1
 	end
-	ig.ImGuiListClipper_SeekCursorForItem(self.clipper, self.index)
 	self.show[0] = true
+	--[[
+	ig.ImGuiListClipper_SeekCursorForItem(self.clipper, self.index)
+	--]]
+	-- [[
+	self.jumpRequested = self.index
+	--]]
 end
---[[ it'll just dtor out of order anwyays, so meh
-function ScriptWindow:__gc()
-	if self.clipper ~= nil then
-		ig.ImGuiListClipper_destroy(self.clipper)
-	end
-end
---]]
 
 
 local BattleFormationWindow = ArrayWindow:subclass()
@@ -699,11 +749,7 @@ void main() {
 	self.mapSize = vec2d()
 
 
-	self.mapWindow = MapWindow{
-		app = self,
-		index = cmdline[2] and assert(tonumber(cmdline[2])) or 0,
-	}
-
+	-- make mapWindow's windows first:
 	self.showTreasures = true
 	self.treasureWindow = TreasureWindow{app=self}
 
@@ -723,6 +769,12 @@ void main() {
 
 	self.battleFormationWindow = BattleFormationWindow{app=self}
 	self.randomBattleOptionsWindow = RandomBattleOptionsWindow{app=self}
+
+	-- then make mapWindow:
+	self.mapWindow = MapWindow{
+		app = self,
+		index = cmdline[2] and assert(tonumber(cmdline[2])) or 0,
+	}
 
 end
 
@@ -1011,37 +1063,6 @@ function App:updateGUI()
 
 	if ig.igBeginMainMenuBar() then
 		if ig.igBeginMenu'map' then
-			ig.luatableTooltipCheckbox('useBlend', self, 'useBlend')
-			if self.layerTexs then
-				for i=1,#self.layerTexs do
-					if i > 1 then
-						ig.igSameLine()
-					end
-					local k = 'drawLayer'..i
-					if self[k] == nil then self[k] = true end
-					ig.luatableTooltipCheckbox('tex '..i, self, k)
-				end
-			end
-			if self.layerAnimTexs then
-				ig.luatableTooltipCheckbox('showAnimTexs', self, 'showAnimTexs')
-
-				if self.layerAnimTexs then
-					local zAndLayers = map.layer3Priority == 0
-						and zAndLayersWithoutLayer3Priority
-						or zAndLayersWithLayer3Priority
-					for _,zAndLayer in ipairs(zAndLayers) do
-						local z, layer = table.unpack(zAndLayer)
-						if self.layerAnimTexs[z]
-						and self.layerAnimTexs[z][layer]
-						then
-							local k = 'showAnimTex_'..z..'_'..layer
-							if self[k] == nil then self[k] = true end
-							ig.igSameLine()
-							ig.luatableTooltipCheckbox(k, self, k)
-						end
-					end
-				end
-			end
 
 			if self.layerAnimTexs then
 				local doSaveLayerPNGs = ig.igButton'save layer pngs'
