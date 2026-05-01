@@ -202,7 +202,15 @@ function MapWindow:showIndexUI(ar)
 	ig.igSameLine()
 	app.npcWindow:popupButton()
 
-	app.randomBattleOptionsWindow:popupButton(mapInfo.monsterRandomBattleOptionIndex)
+
+
+	if self.index < 2 then
+		ig.luatableTooltipCheckbox('showWorldEncounterSectors', app, 'showWorldEncounterSectors')
+		ig.igSameLine()
+		app.worldEncounterSectorWindow:popupButton()
+	else
+		app.randomBattleOptionsWindow:popupButton(mapInfo.monsterRandomBattleOptionIndex)
+	end
 
 	local map = mapInfo.map
 	if map then
@@ -398,7 +406,10 @@ function TreasureWindow:showIndexUI(ar)
 	if t.type == 0 then	-- empty
 		ig.igText(' empty = '..t.battleOrItemOrGP)
 	elseif t.type == 1 then	-- monster
+		-- FIXME
 		app.randomBattleOptionsWindow:popupButton(t.battleOrItemOrGP)
+		--app.battleFormationWindow:popupButton(t.battleOrItemOrGP)
+		
 		--[[ TODO
 		ig.igText(' monster formation = #'..t.battleOrItemOrGP)
 		local formation = game.formations + t.battleOrItemOrGP
@@ -528,6 +539,37 @@ function NPCWindow:showIndexUI(ar)
 	ig.igText(' layerPriority = '..n.layerPriority)
 
 	ig.igText(' animation = '..n.animation)
+end
+
+
+local WorldEncounterSectorWindow = ArrayWindow:subclass()
+WorldEncounterSectorWindow.name = 'world encounter sectors' 
+function WorldEncounterSectorWindow:init(...)
+	WorldEncounterSectorWindow.super.init(self, ...)
+	self.array = range(0, bit.lshift(1, 7)-1)
+end
+function WorldEncounterSectorWindow:getArray()
+	return self.array
+end
+WorldEncounterSectorWindow.terrains = {'grass', 'forest', 'desert', 'dirt'}	-- also fields of WorldSectorBattles_t
+WorldEncounterSectorWindow.encounterNames = {'normal', 'low', 'high', 'none'}
+function WorldEncounterSectorWindow:showIndexUI(ar)
+	ig.igText('world='..bit.rshift(self.index, 6))
+	ig.igText('x='..bit.lshift(bit.band(self.index, 7), 5))
+	ig.igText('y='..bit.lshift(bit.band(bit.rshift(self.index, 3), 7), 5))
+	local randomBattlesPerTerrain = game.worldSectorRandomBattlesPerTerrain + self.index
+	local encounterRateBits = game.worldSectorRandomBattleEncounterRatesPerTerrain[self.index]
+	for i,terrain in ipairs(self.terrains) do
+		ig.igText('terrain = '..tostring(terrain))
+		local encounter = bit.band(3, bit.rshift(encounterRateBits, bit.lshift(i-1, 1)))
+		local encounterRateName = self.encounterNames[encounter+1]
+		ig.igText('rate = '..tostring(encounterRateName))
+		
+		ig.igText('battle options = ')
+		ig.igSameLine()
+		local battleIndex = randomBattlesPerTerrain[terrain]
+		self.app.randomBattleOptionsWindow:popupButton(battleIndex)
+	end
 end
 
 
@@ -736,12 +778,32 @@ end
 function BattleFormationWindow:getArray()
 	return self.array
 end
+function BattleFormationWindow:getIndexName(i)
+	local formation = game.formations + i
+	local monsterCounts = {}
+	for k=1,6 do
+		if formation:getMonsterActive(k) then
+			local monsterIndex = formation:getMonsterIndex(k)
+			local key = '#'..monsterIndex
+			if monsterIndex < game.numMonsters then
+				key = key ..':'..tostring(game.monsterNames[monsterIndex])
+			end
+			monsterCounts[key] = (monsterCounts[key] or 0) + 1
+		end
+	end
+	return table.keys(monsterCounts):sort():mapi(function(key)
+		local count = monsterCounts[key]
+		if count == 1 then return key end
+		return key..' x'..count
+	end):concat', '
+end
 function BattleFormationWindow:showIndexUI(ar)
 	if self.index < countof(game.formationMPs) then
 		ig.igText(' mp gained = '..tostring(game.formationMPs[self.index]))
 	end
 	local formation = game.formations + self.index
 	for i=1,6 do
+		ig.igPushID_Str('BattleFormationWindow')
 		ig.igPushID_Int(i)
 		ig.igText(' #'..i)
 		local active = formation:getMonsterActive(i)
@@ -753,6 +815,11 @@ function BattleFormationWindow:showIndexUI(ar)
 			ig.igText('  size = '..tostring(formation:getFormationSize(i)))
 		end
 		ig.igPopID()
+		ig.igPopID()
+	end
+	local formation2 = game.formation2s[self.index]
+	for name in formation2:fielditer() do
+		ig.igText(' '..name..' = '..formation2[name])
 	end
 end
 
@@ -766,10 +833,31 @@ RandomBattleOptionsWindow.name = 'monster random battle options'
 function RandomBattleOptionsWindow:getArray()
 	return self.array
 end
+function RandomBattleOptionsWindow:getIndexName(i)
+	local mapMonsterRandomBattles = game.monsterRandomBattles + i
+	local monsters = {}
+	for j=0,3 do
+		local formationEntry = mapMonsterRandomBattles.s[j]
+		local formationIndex = formationEntry.formation
+		if formationIndex < game.numFormations then
+			local formation = game.formations + formationIndex
+			for k=1,6 do
+				if formation:getMonsterActive(k) then
+					local monsterIndex = formation:getMonsterIndex(k)
+					monsters[monsterIndex] = (monsters[monsterIndex] or 0) + 1
+				end
+			end
+		end
+	end
+	return table.keys(monsters):sort():mapi(function(monsterIndex)
+		return tostring(game.monsterNames[monsterIndex])
+	end):concat', '
+end
 function RandomBattleOptionsWindow:showIndexUI(ar)
 	local mapMonsterRandomBattles = game.monsterRandomBattles + self.index
 	local formationCounts = {}
 	for j=0,3 do
+		ig.igPushID_Str('mapMonsterRandomBattles')
 		ig.igPushID_Int(j)
 		local formationEntry = mapMonsterRandomBattles.s[j]
 		ig.igText(j == 3 and '1/16:' or '5/16:')
@@ -779,6 +867,7 @@ function RandomBattleOptionsWindow:showIndexUI(ar)
 			ig.igSameLine()
 			ig.igText'... choose from next four'
 		end
+		ig.igPopID()
 		ig.igPopID()
 	end
 end
@@ -910,6 +999,9 @@ void main() {
 
 	self.showNPCs = true
 	self.npcWindow = NPCWindow{app=self}
+	
+	self.showWorldEncounterSectors = true
+	self.worldEncounterSectorWindow = WorldEncounterSectorWindow{app=self}
 
 	-- then make mapWindow:
 	self.mapWindow = MapWindow{
@@ -922,6 +1014,7 @@ void main() {
 			self.entranceTriggerWindow,
 			self.entranceAreaTriggerWindow,
 			self.npcWindow,
+			self.worldEncounterSectorWindow,
 		},
 	}
 
@@ -1123,6 +1216,31 @@ my = my + self.view.pos.y	-- why isn't htis in the matrix and therefore in invTr
 my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
 
 		local leftPress = self.mouse.leftPress
+
+		if (self.mapWindow.index == 0 or self.mapWindow.index == 1)
+		and self.showWorldEncounterSectors
+		then
+			for sectorIndex=0,0x3f do
+				local x = bit.lshift(bit.band(sectorIndex, 7), 5)
+				local y = bit.lshift(bit.band(bit.rshift(sectorIndex, 3), 7), 5)
+				local w, h = 32, 32
+
+				local i = bit.bor(sectorIndex, bit.lshift(self.mapWindow.index, 6))
+				if leftPress
+				and x <= mx and mx <= x+w
+				and y <= my and my <= y+h
+				then
+					self.worldEncounterSectorWindow:setIndex(i)
+					self.worldEncounterSectorWindow.show[0] = true
+				end
+				settable(uniforms.color, .7, .7, .7, 1)
+				settable(uniforms.bbox, x, y, w, h)
+				--rectObj:draw()
+				if i == self.worldEncounterSectorWindow.index then
+					showHL()
+				end
+			end
+		end
 
 		if self.showTreasures then
 			for i,t in ipairs(mapInfo.treasures) do
