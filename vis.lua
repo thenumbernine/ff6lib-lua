@@ -60,7 +60,7 @@ local zAndLayersWithLayer3Priority = {
 local ArrayWindow = class()
 
 function ArrayWindow:init(args)
-	self.show = false
+	self.show = ffi.new'bool[1]'
 	self.index = 0
 	self.app = assert.index(args, 'app')
 	self.getArray = args.getArray
@@ -72,19 +72,19 @@ function ArrayWindow:popupButton()
 	local k = (has and #ar or 'no')..' '..self.name
 	if not has then
 		ig.igText(k)
-		self.show = false
+		self.show[0] = false
 	else
 		if ig.igButton(k) then
-			self.show = not self.show
+			self.show[0] = not self.show[0]
 		end
 	end
 end
 
 function ArrayWindow:update()
-	if not self.show then return end
+	if not self.show[0] then return end
 	local ar = self:getArray()
 	if not (ar and #ar > 0) then return end
-	if ig.igBegin(self.name, nil, 0) then
+	if ig.igBegin(self.name, self.show, 0) then
 		ig.igText(self.name..' #'..self.index..'/'..#ar)
 		if ig.luatableInputInt('index', self, 'index') then
 			self.index = self.index % #ar
@@ -215,6 +215,8 @@ end
 local ScriptWindow = ArrayWindow:subclass()
 function ScriptWindow:init(...)
 	ScriptWindow.super.init(self, ...)
+	self.clipper = ig.ImGuiListClipper_ImGuiListClipper()
+	--ig.ImGuiListClipper_destroy(self.clipper)
 end
 ScriptWindow.name = 'script'
 function ScriptWindow:getArray()
@@ -223,11 +225,12 @@ end
 function ScriptWindow:showIndexUI(ar)
 	-- TODO index isn't necessary for this window
 	-- tho better TODO is to fix the scroll area of the clipper and make it jump correctly
-	if ig.igBeginChild('ScriptWindowEvents', ig.ImVec2(0, #ar), true) then
-		local clipper = ig.ImGuiListClipper_ImGuiListClipper()
-		ig.ImGuiListClipper_Begin(clipper, #ar, 1)
-		while ig.ImGuiListClipper_Step(clipper) do
-			for i=clipper.DisplayStart,clipper.DisplayEnd-1 do
+	--if ig.igBeginChild('ScriptWindowEvents', ig.ImVec2(0, #ar), true) then
+	-- this is even worse, now single wheel or scrollbar scrolls up and down jump over an entire page, and i can't find the item i'm looking for, and the clipper seek funciton doesn't work.
+	if ig.igBeginChild('ScriptWindowEvents', ig.ImVec2(0, 500), true) then
+		ig.ImGuiListClipper_Begin(self.clipper, #ar, 1)
+		while ig.ImGuiListClipper_Step(self.clipper) do
+			for i=self.clipper.DisplayStart,self.clipper.DisplayEnd-1 do
 				local cmd = ar[1+i]
 				if cmd then
 					ig.igText(
@@ -239,8 +242,7 @@ function ScriptWindow:showIndexUI(ar)
 				end
 			end
 		end
-		ig.ImGuiListClipper_End(clipper)
-		ig.ImGuiListClipper_destroy(clipper)
+		ig.ImGuiListClipper_End(self.clipper)
 	end
 	ig.igEndChild()
 end
@@ -252,7 +254,8 @@ function ScriptWindow:openScriptAddr(scriptAddr)
 	else
 		self.index = self.index - 1
 	end
-	self.show = true
+	ig.ImGuiListClipper_SeekCursorForItem(self.clipper, self.index)
+	self.show[0] = true
 end
 --[[ it'll just dtor out of order anwyays, so meh
 function ScriptWindow:__gc()
@@ -727,7 +730,7 @@ my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
 				and y <= my and my <= y+1
 				then
 					self.treasureWindow.index = i-1
-					self.treasureWindow.show = true
+					self.treasureWindow.show[0] = true
 				end
 				settable(uniforms.bbox, x, y, 1, 1)
 				settable(uniforms.color, 0,0,1,1)
@@ -745,7 +748,7 @@ my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
 				and y <= my and my <= y+1
 				then
 					self.eventTriggerWindow.index = i-1
-					self.eventTriggerWindow.show = true
+					self.eventTriggerWindow.show[0] = true
 				end
 				settable(uniforms.bbox, x, y, 1, 1)
 				settable(uniforms.color, 0,0,1,1)
@@ -763,7 +766,7 @@ my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
 				and y <= my and my <= y+1
 				then
 					self.entranceTriggerWindow.index = i-1
-					self.entranceTriggerWindow.show = true
+					self.entranceTriggerWindow.show[0] = true
 				end
 				settable(uniforms.bbox, x, y, 1, 1)
 				settable(uniforms.color, 1,0,0,1)
@@ -781,7 +784,7 @@ my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
 				and y <= my and my <= y+1
 				then
 					self.npcWindow.index = i-1
-					self.npcWindow.show = true
+					self.npcWindow.show[0] = true
 				end			
 				settable(uniforms.bbox, x, y, 1, 1)
 				settable(uniforms.color, 0,1,0,1)
