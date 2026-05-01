@@ -658,7 +658,11 @@ for i=0,countof(game.mapEventTriggerOfs)-1 do
 		or (game.mapEventTriggerOfs[i+1] - ofs) / ffi.sizeof'mapEventTrigger_t'
 	print('mapEventTrigger[0x'..i:hex()..']:')
 	for index=startIndex,endIndex-1 do
-		print('\t0x'..index:hex()..' = '..game.mapEventTriggers[index])
+		local e = game.mapEventTriggers[index]
+		local scriptAddr = e:getScriptAddr()
+		print('\t0x'..index:hex()
+			..(scriptAddr and (' script=$%06x'):format(scriptAddr) or '')
+			..' = '..e)
 	end
 end
 print()

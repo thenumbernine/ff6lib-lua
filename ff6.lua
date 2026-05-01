@@ -1964,7 +1964,7 @@ tostringOmitEmpty = true,
 	
 		mt.getScriptAddr = function(self)
 			--if self.vehicle == 0 and and self.showRider_or_specialGraphics ~= 0 then return end
-			return self.script + ffi.offsetof(game_t, 'eventCode')
+			return self.script + ffi.offsetof(game_t, 'eventScript')
 		end
 	end,
 	fields = {
@@ -1992,7 +1992,7 @@ metatable = function(mt)
 end,
 					fields = {
 						-- invalid when vehicle == 0 && specialGraphics != 0
-						-- offset 0xa0000 (game.eventCode)
+						-- offset 0xa0000 (game.eventScript)
 						{name='script', type='uint32_t:18'},				-- 0.0-2.1
 
 						{name='unknown_2_2', type='uint32_t:3'},			-- 2.2-2.4
@@ -2120,8 +2120,13 @@ local mapEventTrigger_t = ff6struct{
 	name = 'mapEventTrigger_t',
 	fields = {
 		{pos = 'xy8b_t'},
-		{eventCode = 'uint24_t'},	-- absolute address
+		{script = 'uint24_t'},
 	},
+	metatable = function(mt)
+		mt.getScriptAddr = function(self)
+			return self.script:value() + ffi.offsetof(game_t, 'eventScript')
+		end
+	end,
 }
 assert.eq(ffi.sizeof'mapEventTrigger_t', 5)
 
@@ -2323,7 +2328,7 @@ game_t = struct{
 
 		{name = 'theEndGraphics2', type = 'uint8_t['..(-(0x09fe00 - 0x09ff00))..']'},							-- 0x09fe00 - 0x09ff00 = 4bpp
 		{name = 'theEndPalette', type = 'palette16_8_t'},														-- 0x09ff00 - 0x0a0000
-		{name = 'eventCode', type = 'uint8_t['..(-(0x0a0000 - 0x0ce600))..']'},									-- 0x0a0000 - 0x0ce600
+		{name = 'eventScript', type = 'uint8_t['..(-(0x0a0000 - 0x0ce600))..']'},									-- 0x0a0000 - 0x0ce600
 		{name = 'dialogOffsets', type = 'uint16_t['..numDialogs..']'},											-- 0x0ce600 - 0x0d0000.  the first dialog offset points to the dialog which needs the bank byte to increment
 		{name = 'dialogBase', type = 'uint8_t['..(-(0x0d0000 - 0x0ef100))..']'},								-- 0x0d0000 - 0x0ef100 ... hmm, there are dangling npc-event-scripts from 0x0d200 to 0x0de302 ... in the middle of dialogBase
 		{name = 'mapNameBase', type = 'uint8_t['..(-(0x0ef100 - 0x0ef600))..']'},								-- 0x0ef100 - 0x0ef600

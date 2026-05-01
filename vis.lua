@@ -84,14 +84,13 @@ function ArrayWindow:update()
 	if not self.show then return end
 	local ar = self:getArray()
 	if not (ar and #ar > 0) then return end
-	if not ig.igBegin(self.name, nil, 0) then return end
-
-	ig.igText(self.name..' #'..self.index..'/'..#ar)
-	if ig.luatableInputInt('index', self, 'index') then
-		self.index = self.index % #ar
+	if ig.igBegin(self.name, nil, 0) then
+		ig.igText(self.name..' #'..self.index..'/'..#ar)
+		if ig.luatableInputInt('index', self, 'index') then
+			self.index = self.index % #ar
+		end
+		self:showIndexUI(ar)
 	end
-	self:showIndexUI(ar)
-
 	ig.igEnd()
 end
 
@@ -136,11 +135,16 @@ function EventTriggerWindow:getArray()
 	local mapInfo = self.app:getMapInfo()
 	return mapInfo and mapInfo.eventTriggers
 end
+
 function EventTriggerWindow:showIndexUI(ar)
 	local e = ar[1+self.index]
 	if not e then return end
 	ig.igText(' pos = '..e.pos)
-	ig.igText(' event code = $'..number.hex(e.eventCode:value()))
+	-- absolute?
+	local scriptAddr = e:getScriptAddr()
+	if ig.igButton((' event script = $%06x'):format(scriptAddr)) then
+		self.app.scriptWindow:openScriptAddr(scriptAddr)
+	end
 end
 
 
@@ -154,7 +158,10 @@ function EntranceTriggerWindow:showIndexUI(ar)
 	local e = ar[1+self.index]
 	if not e then return end
 	ig.igText(' pos = '..e.pos)
-	ig.igText(' map = '..e.mapIndex)
+	if ig.igButton(' map = '..e.mapIndex) then
+		self.app:setMapIndex(e.mapIndex)
+		self.app:centerView(e.dest.x, e.dest.y)
+	end
 	ig.igText(' setParentMap = '..e.setParentMap)
 	ig.igText(' zLevel = '..e.zLevel)
 	ig.igText(' showDestName = '..e.showDestName)
@@ -175,7 +182,10 @@ function NPCWindow:showIndexUI(ar)
 	if not n then return end
 	ig.igText(' pos = '..n.x..', '..n.y)
 
-	ig.igText(' script '..n.script)
+	local scriptAddr = n:getScriptAddr()
+	if ig.igButton((' script $%06x'):format(scriptAddr)) then
+		self.app.scriptWindow:openScriptAddr(scriptAddr)
+	end
 	ig.igText(' movement = '..n.movement)
 	ig.igText(' speed = '..n.speed)
 
@@ -199,6 +209,34 @@ function NPCWindow:showIndexUI(ar)
 	ig.igText(' layerPriority = '..n.layerPriority)
 
 	ig.igText(' animation = '..n.animation)
+end
+
+
+local ScriptWindow = ArrayWindow:subclass()
+ScriptWindow.name = 'script'
+function ScriptWindow:getArray()
+	return game.eventScriptCmds
+end
+function ScriptWindow:showIndexUI(ar)
+	for j=self.index-5,self.index+5 do
+		local cmd = ar[1+j]
+		if cmd then
+			ig.igText(
+				(j == self.index and '>' or ' ')
+				..('%06x: '):format(cmd.addr)
+				..tostring(cmd))
+		end
+	end
+end
+function ScriptWindow:openScriptAddr(scriptAddr)
+	self.index = game.eventScriptCmdIndexForAddr[scriptAddr]
+	if not self.index then
+		print(("couldn't find event script command at address $%06x"):format(scriptAddr))
+		self.index = 0
+	else
+		self.index = self.index - 1
+	end
+	self.show = true
 end
 
 
@@ -323,21 +361,59 @@ void main() {
 	self.showNPCs = true
 	self.npcWindow = NPCWindow{app=self}
 
+	self.scriptWindow = ScriptWindow{app=self}
+
 	self.mapSize = vec2d()
 
-	self.mapIndex = cmdline[2] and assert(tonumber(cmdline[2])) or 0
-	self:updateMapIndex()
+	self:setMapIndex(cmdline[2] and assert(tonumber(cmdline[2])) or 0)
+end
+
+local function mat4x4mul(m, x, y, z, w)
+	x = tonumber(x)
+	y = tonumber(y)
+	z = tonumber(z) or 0
+	w = tonumber(w) or 1
+	return
+		m[0] * x + m[4] * y + m[ 8] * z + m[12] * w,
+		m[1] * x + m[5] * y + m[ 9] * z + m[13] * w,
+		m[2] * x + m[6] * y + m[10] * z + m[14] * w,
+		m[3] * x + m[7] * y + m[11] * z + m[15] * w
+end
+
+require 'vec-ffi.vec4f'
+local vec4x4fcol = require 'vec-ffi.create_vec4x4'{
+	vectype = 'vec4x4fcol',
+	ctype = 'vec4f',
+	colMajor = true,
+}
+local mvInv = vec4x4fcol():setIdent()
+local projInv = vec4x4fcol():setIdent()
+function App:invTransform(x,y,z)
+	x = tonumber(x)
+	y = tonumber(y)
+	z = tonumber(z) or 0
+	x = -1 + 2 * x / tonumber(self.width)
+	y = 1 - 2 * y / tonumber(self.height)
+	mvInv:inv4x4(self.view.mvMat)
+	projInv:inv4x4(self.view.projMat)
+	local w = 1
+	x,y,z,w = mat4x4mul(projInv.ptr,x,y,z,w)
+	x,y,z,w = mat4x4mul(mvInv.ptr,x,y,z,w)
+	return x,y,z,w
+end
+
+function App:centerView(x, y)
+	self.view.pos.x = tonumber(x)+.5
+	self.view.pos.y = -tonumber(y)-.5
 end
 
 function App:getMapInfo()
 	return game.getMap(self.mapIndex)
 end
 
-function App:updateMapIndex()
+function App:setMapIndex(mapIndex)
+	self.mapIndex = mapIndex
 	self.npcIndex = 0
-
-	local mapIndex = self.mapIndex
-print('updateMapIndex', mapIndex)
 
 	if self.palTex then
 		self.palTex:delete()
@@ -594,7 +670,7 @@ function App:update()
 		view:setupModelView()
 		view.mvMat:applyScale(1, -1)
 		view.mvProjMat:mul4x4(view.projMat, view.mvMat)
-		
+
 		local rectObj = self.rectObj
 		local uniforms = rectObj.uniforms
 		uniforms.mvProjMat = view.mvProjMat.ptr
@@ -613,9 +689,24 @@ function App:update()
 			rectObj:draw()
 		end
 
+		local mx, my, mz, mw = self:invTransform(self.mouse.pos.x * self.width, self.mouse.pos.y * self.height)
+mx = mx + self.view.pos.x
+my = my + self.view.pos.y	-- why isn't htis in the matrix and therefore in invTransform ?
+my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
+
+		local leftPress = self.mouse.leftPress
+
 		if self.showTreasures then
 			for i,t in ipairs(mapInfo.treasures) do
-				settable(uniforms.bbox, t.pos.x, t.pos.y, 1, 1)
+				local x, y = tonumber(t.pos.x), tonumber(t.pos.y)
+				if leftPress
+				and x <= mx and mx <= x+1
+				and y <= my and my <= y+1
+				then
+					self.treasureWindow.index = i-1
+					self.treasureWindow.show = true
+				end
+				settable(uniforms.bbox, x, y, 1, 1)
 				settable(uniforms.color, 0,0,1,1)
 				rectObj:draw()
 				if i-1 == self.treasureWindow.index then
@@ -625,7 +716,15 @@ function App:update()
 		end
 		if self.showEventTriggers then
 			for i,e in ipairs(mapInfo.eventTriggers) do
-				settable(uniforms.bbox, e.pos.x, e.pos.y, 1, 1)
+				local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
+				if leftPress
+				and x <= mx and mx <= x+1
+				and y <= my and my <= y+1
+				then
+					self.eventTriggerWindow.index = i-1
+					self.eventTriggerWindow.show = true
+				end
+				settable(uniforms.bbox, x, y, 1, 1)
 				settable(uniforms.color, 0,0,1,1)
 				rectObj:draw()
 				if i-1 == self.eventTriggerWindow.index then
@@ -635,7 +734,15 @@ function App:update()
 		end
 		if self.showEntranceTriggers then
 			for i,e in ipairs(mapInfo.entranceTriggers) do
-				settable(uniforms.bbox, e.pos.x, e.pos.y, 1, 1)
+				local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
+				if leftPress
+				and x <= mx and mx <= x+1
+				and y <= my and my <= y+1
+				then
+					self.entranceTriggerWindow.index = i-1
+					self.entranceTriggerWindow.show = true
+				end
+				settable(uniforms.bbox, x, y, 1, 1)
 				settable(uniforms.color, 1,0,0,1)
 				rectObj:draw()
 				if i-1 == self.entranceTriggerWindow.index then
@@ -645,7 +752,15 @@ function App:update()
 		end
 		if self.showNPCs then
 			for i,n in ipairs(mapInfo.npcs) do
-				settable(uniforms.bbox, n.x, n.y, 1, 1)
+				local x, y = tonumber(n.x), tonumber(n.y)
+				if leftPress
+				and x <= mx and mx <= x+1
+				and y <= my and my <= y+1
+				then
+					self.npcWindow.index = i-1
+					self.npcWindow.show = true
+				end			
+				settable(uniforms.bbox, x, y, 1, 1)
 				settable(uniforms.color, 0,1,0,1)
 				rectObj:draw()
 				if i-1 == self.npcWindow.index then
@@ -857,32 +972,25 @@ function App:updateGUI()
 
 	if mapInfo then
 		if ig.igBegin('map', nil, 0) then
-
 			if ig.luatableInputInt('mapIndex', self, 'mapIndex') then
-				self.mapIndex = math.clamp(math.floor(self.mapIndex), 0, countof(game.maps)-1)
-				self:updateMapIndex()
+				self:setMapIndex(math.clamp(math.floor(self.mapIndex), 0, countof(game.maps)-1))
 			end
 
 			ig.luatableTooltipCheckbox('showTreasures', self, 'showTreasures')
 			ig.igSameLine()
 			self.treasureWindow:popupButton()
-			self.treasureWindow:update()
 
 			ig.luatableTooltipCheckbox('showEventTriggers', self, 'showEventTriggers')
 			ig.igSameLine()
 			self.eventTriggerWindow:popupButton()
-			self.eventTriggerWindow:update()
-
 
 			ig.luatableTooltipCheckbox('showEntranceTriggers', self, 'showEntranceTriggers')
 			ig.igSameLine()
 			self.entranceTriggerWindow:popupButton()
-			self.entranceTriggerWindow:update()
 
 			ig.luatableTooltipCheckbox('showNPCs', self, 'showNPCs')
 			ig.igSameLine()
 			self.npcWindow:popupButton()
-			self.npcWindow:update()
 
 			local map = mapInfo.map
 			if map then
@@ -934,10 +1042,15 @@ function App:updateGUI()
 					ig.igText(' '..formationCount..'/16 '..formationDesc)
 				end
 			end	
-
-			ig.igEnd()
 		end
+		ig.igEnd()
 	end
+
+	self.treasureWindow:update()
+	self.eventTriggerWindow:update()
+	self.entranceTriggerWindow:update()
+	self.npcWindow:update()
+	self.scriptWindow:update()
 end
 
 function App:event(e)
@@ -948,11 +1061,9 @@ function App:event(e)
 	if canHandleKeyboard then
 		if e.type == sdl.SDL_EVENT_KEY_UP then
 			if e.key.key == sdl.SDLK_LEFT then
-				self.mapIndex = math.clamp(math.floor(self.mapIndex - 1), 0, countof(game.maps)-1)
-				self:updateMapIndex()
+				self:setMapIndex(math.clamp(math.floor(self.mapIndex - 1), 0, countof(game.maps)-1))
 			elseif e.key.key == sdl.SDLK_RIGHT then
-				self.mapIndex = math.clamp(math.floor(self.mapIndex + 1), 0, countof(game.maps)-1)
-				self:updateMapIndex()
+				self:setMapIndex(math.clamp(math.floor(self.mapIndex + 1), 0, countof(game.maps)-1))
 			end
 		end
 	end

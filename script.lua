@@ -29,8 +29,8 @@ return function(game)
 		end
 	end
 
-	local startaddr = ffi.offsetof(game_t, 'eventCode')	-- 0xa0000
-	local endaddr = ffi.offsetof(game_t, 'eventCode') + ffi.sizeof(game.eventCode)
+	local startaddr = ffi.offsetof(game_t, 'eventScript')	-- 0xa0000
+	local endaddr = ffi.offsetof(game_t, 'eventScript') + ffi.sizeof(game.eventScript)
 
 	-- how to generate this in a modular way that both outputs and is reusable later
 	-- for now I will insert in-order and provide an address lookup table to the index in this table
