@@ -606,8 +606,9 @@ local function flushCharSheet()
 	chx, chy = 0, 0
 end
 local function pushSpriteFrame(charIndex, frameIndex, im, palIndex)
-	-- offset into our palette
+	--[[ offset into our palette
 	im = im + bit.lshift(palIndex, 4)
+	--]]
 	-- [==[ hack to fit 4 chars into one sheet
 	if frameIndex == 38 	-- only exists for Terra I think
 	--or frameIndex == 39 	-- tent

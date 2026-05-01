@@ -2,6 +2,7 @@
 local cmdline = require 'ext.cmdline'(...)
 local ffi = require 'ffi'
 local table = require 'ext.table'
+local class = require 'ext.class'
 local math = require 'ext.math'
 local assert = require 'ext.assert'
 local timer = require 'ext.timer'
@@ -24,6 +25,14 @@ local game_t = game.game_t
 local rom = game.rom
 local countof = game.countof
 
+local function settableindex(t, i, ...)
+	if select('#', ...) == 0 then return end
+	t[i] = ...
+	settableindex(t, i+1, select(2, ...))
+end
+local function settable(t, ...)
+	settableindex(t, 1, ...)
+end
 
 
 local zAndLayersWithoutLayer3Priority = {
@@ -48,6 +57,151 @@ local zAndLayersWithLayer3Priority = {
 }
 
 
+local ArrayWindow = class()
+
+function ArrayWindow:init(args)
+	self.show = false
+	self.index = 0
+	self.app = assert.index(args, 'app')
+	self.getArray = args.getArray
+end
+
+function ArrayWindow:popupButton()
+	local ar = self:getArray()
+	local has = ar and #ar > 0
+	local k = (has and #ar or 'no')..' '..self.name
+	if not has then
+		ig.igText(k)
+		self.show = false
+	else
+		if ig.igButton(k) then
+			self.show = not self.show
+		end
+	end
+end
+
+function ArrayWindow:update()
+	if not self.show then return end
+	local ar = self:getArray()
+	if not (ar and #ar > 0) then return end
+	if not ig.igBegin(self.name, nil, 0) then return end
+
+	ig.igText(self.name..' #'..self.index..'/'..#ar)
+	if ig.luatableInputInt('index', self, 'index') then
+		self.index = self.index % #ar
+	end
+	self:showIndexUI(ar)
+
+	ig.igEnd()
+end
+
+
+
+local TreasureWindow = ArrayWindow:subclass()
+TreasureWindow.name = 'treasure' 
+function TreasureWindow:getArray()
+	local mapInfo = self.app:getMapInfo()
+	return mapInfo and mapInfo.treasures
+end
+function TreasureWindow:showIndexUI(ar)
+	local t = ar[1+self.index]
+	if not t then return end
+	ig.igText(' pos = '..t.pos)
+	ig.igText(' switch = '..t.switch)
+	ig.igText(' empty = '..t.empty)
+	ig.igText(' type = '..t.type)	-- combo: empty, monster, item, gp
+	if t.type == 0 then	-- empty
+		ig.igText(' empty = '..t.battleOrItemOrGP)
+	elseif t.type == 1 then	-- monster
+		ig.igText(' monster formation = #'..t.battleOrItemOrGP)
+		local formation = game.formations + t.battleOrItemOrGP
+		for j=1,6 do
+			if formation:getMonsterActive(j) then
+				ig.igText('  monster = '..game.monsterNames[formation:getMonsterIndex(j)])
+			end
+		end
+	elseif t.type == 2 then	-- item
+		ig.igText(' item = '..game.itemNames[t.battleOrItemOrGP])
+	elseif t.type == 3 then	-- GP
+		ig.igText(' GP = '..(t.battleOrItemOrGP * 100))
+	else
+		ig.igText(' ??? = '..t.battleOrItemOrGP)
+	end
+end
+
+
+local EventTriggerWindow = ArrayWindow:subclass()
+EventTriggerWindow.name = 'event trigger' 
+function EventTriggerWindow:getArray()
+	local mapInfo = self.app:getMapInfo()
+	return mapInfo and mapInfo.eventTriggers
+end
+function EventTriggerWindow:showIndexUI(ar)
+	local e = ar[1+self.index]
+	if not e then return end
+	ig.igText(' pos = '..e.pos)
+	ig.igText(' event code = $'..number.hex(e.eventCode:value()))
+end
+
+
+local EntranceTriggerWindow = ArrayWindow:subclass()
+EntranceTriggerWindow.name = 'entrance trigger'
+function EntranceTriggerWindow:getArray()
+	local mapInfo = self.app:getMapInfo()
+	return mapInfo and mapInfo.entranceTriggers
+end
+function EntranceTriggerWindow:showIndexUI(ar)
+	local e = ar[1+self.index]
+	if not e then return end
+	ig.igText(' pos = '..e.pos)
+	ig.igText(' map = '..e.mapIndex)
+	ig.igText(' setParentMap = '..e.setParentMap)
+	ig.igText(' zLevel = '..e.zLevel)
+	ig.igText(' showDestName = '..e.showDestName)
+	ig.igText(' destFacingDir = '..e.destFacingDir)
+	ig.igText(' unknown_3_6 = '..e.unknown_3_6)
+	ig.igText(' dest = '..e.dest)
+end
+
+
+local NPCWindow = ArrayWindow:subclass()
+NPCWindow.name = 'npc'
+function NPCWindow:getArray()
+	local mapInfo = self.app:getMapInfo()
+	return mapInfo and mapInfo.npcs
+end
+function NPCWindow:showIndexUI(ar)
+	local n = ar[1+self.index]
+	if not n then return end
+	ig.igText(' pos = '..n.x..', '..n.y)
+
+	ig.igText(' script '..n.script)
+	ig.igText(' movement = '..n.movement)
+	ig.igText(' speed = '..n.speed)
+
+	ig.igText(' graphics = '..n.graphics)
+	ig.igText(' palette = '..n.palette)
+
+	-- "speed" when vehicle == 0
+	-- "vehicle" otherwise
+	ig.igText(' vehicle_or_speed = '..n.vehicle_or_speed)	-- what's this speed vs the other speed?
+
+	ig.igText(' spritePriority = '..n.spritePriority)
+
+	-- "direction" when animation == 0
+	-- "type" otherwise
+	ig.igText(' direction_or_type = '..n.direction_or_type)
+
+	-- "size" when vehicle == 0 && special npc != 0
+	-- otherwise "talkDoesntTurn"
+	ig.igText(' size_or_talkDoesntTurn = '..n.size_or_talkDoesntTurn)
+
+	ig.igText(' layerPriority = '..n.layerPriority)
+
+	ig.igText(' animation = '..n.animation)
+end
+
+
 local App = require 'imgui.appwithorbit'()
 App.title = 'FF6 Data Visualizer'
 
@@ -61,10 +215,6 @@ function App:initGL(...)
 	self.showTileProps = false
 	self.showTileMask = 0xff
 	self.showTileOfs = 0
-	self.showTreasures = true
-	self.showEventTriggers = true
-	self.showEntranceTriggers = true
-	self.showNPCs = true
 
 	self.showAnimTexs = true
 
@@ -160,13 +310,32 @@ void main() {
 		},
 	}
 
+	self.showTreasures = true
+	self.treasureWindow = TreasureWindow{app=self}
+	
+
+	self.showEventTriggers = true
+	self.eventTriggerWindow = EventTriggerWindow{app=self}
+	
+	self.showEntranceTriggers = true
+	self.entranceTriggerWindow = EntranceTriggerWindow{app=self}
+
+	self.showNPCs = true
+	self.npcWindow = NPCWindow{app=self}
+
 	self.mapSize = vec2d()
 
 	self.mapIndex = cmdline[2] and assert(tonumber(cmdline[2])) or 0
 	self:updateMapIndex()
 end
 
+function App:getMapInfo()
+	return game.getMap(self.mapIndex)
+end
+
 function App:updateMapIndex()
+	self.npcIndex = 0
+
 	local mapIndex = self.mapIndex
 print('updateMapIndex', mapIndex)
 
@@ -419,51 +588,69 @@ function App:update()
 		self.layerDrawObj:draw()
 	end
 
+
 	local mapInfo = game.getMap(self.mapIndex)
 	if mapInfo then
 		view:setupModelView()
 		view.mvMat:applyScale(1, -1)
 		view.mvProjMat:mul4x4(view.projMat, view.mvMat)
-		self.rectObj.uniforms.mvProjMat = view.mvProjMat.ptr
+		
+		local rectObj = self.rectObj
+		local uniforms = rectObj.uniforms
+		uniforms.mvProjMat = view.mvProjMat.ptr
+
+		local function showHL()
+			local x,y,w,h = table.unpack(uniforms.bbox)
+			local eps = .1
+			settable(uniforms.color, 1,1,1,1)
+			settable(uniforms.bbox, x-eps, y-eps, 2*eps, 1+2*eps)
+			rectObj:draw()
+			settable(uniforms.bbox, x-eps, y-eps, 1+2*eps, 2*eps)
+			rectObj:draw()
+			settable(uniforms.bbox, x+1-eps, y-eps, 2*eps, 1+2*eps)
+			rectObj:draw()
+			settable(uniforms.bbox, x-eps, y+1-eps, 1+2*eps, 2*eps)
+			rectObj:draw()
+		end
 
 		if self.showTreasures then
-			for _,t in ipairs(mapInfo.treasures) do
-				self.rectObj.uniforms.bbox[1] = t.pos.x
-				self.rectObj.uniforms.bbox[2] = t.pos.y
-				self.rectObj.uniforms.bbox[3] = 1
-				self.rectObj.uniforms.bbox[4] = 1
-				self.rectObj.uniforms.color = {0,0,1,1}
-				self.rectObj:draw()
+			for i,t in ipairs(mapInfo.treasures) do
+				settable(uniforms.bbox, t.pos.x, t.pos.y, 1, 1)
+				settable(uniforms.color, 0,0,1,1)
+				rectObj:draw()
+				if i-1 == self.treasureWindow.index then
+					showHL()
+				end
 			end
 		end
 		if self.showEventTriggers then
-			for _,e in ipairs(mapInfo.eventTriggers) do
-				self.rectObj.uniforms.bbox[1] = e.pos.x
-				self.rectObj.uniforms.bbox[2] = e.pos.y
-				self.rectObj.uniforms.bbox[3] = 1
-				self.rectObj.uniforms.bbox[4] = 1
-				self.rectObj.uniforms.color = {0,0,1,1}
-				self.rectObj:draw()
+			for i,e in ipairs(mapInfo.eventTriggers) do
+				settable(uniforms.bbox, e.pos.x, e.pos.y, 1, 1)
+				settable(uniforms.color, 0,0,1,1)
+				rectObj:draw()
+				if i-1 == self.eventTriggerWindow.index then
+					showHL()
+				end
 			end
 		end
 		if self.showEntranceTriggers then
-			for _,e in ipairs(mapInfo.entranceTriggers) do
-				self.rectObj.uniforms.bbox[1] = e.pos.x
-				self.rectObj.uniforms.bbox[2] = e.pos.y
-				self.rectObj.uniforms.bbox[3] = 1
-				self.rectObj.uniforms.bbox[4] = 1
-				self.rectObj.uniforms.color = {1,0,0,1}
-				self.rectObj:draw()
+			for i,e in ipairs(mapInfo.entranceTriggers) do
+				settable(uniforms.bbox, e.pos.x, e.pos.y, 1, 1)
+				settable(uniforms.color, 1,0,0,1)
+				rectObj:draw()
+				if i-1 == self.entranceTriggerWindow.index then
+					showHL()
+				end
 			end
 		end
 		if self.showNPCs then
-			for _,n in ipairs(mapInfo.npcs) do
-				self.rectObj.uniforms.bbox[1] = n.x
-				self.rectObj.uniforms.bbox[2] = n.y
-				self.rectObj.uniforms.bbox[3] = 1
-				self.rectObj.uniforms.bbox[4] = 1
-				self.rectObj.uniforms.color = {0,1,0,1}
-				self.rectObj:draw()
+			for i,n in ipairs(mapInfo.npcs) do
+				settable(uniforms.bbox, n.x, n.y, 1, 1)
+				settable(uniforms.color, 0,1,0,1)
+				rectObj:draw()
+				if i-1 == self.npcWindow.index then
+					showHL()
+				end
 			end
 		end
 	end
@@ -676,6 +863,27 @@ function App:updateGUI()
 				self:updateMapIndex()
 			end
 
+			ig.luatableTooltipCheckbox('showTreasures', self, 'showTreasures')
+			ig.igSameLine()
+			self.treasureWindow:popupButton()
+			self.treasureWindow:update()
+
+			ig.luatableTooltipCheckbox('showEventTriggers', self, 'showEventTriggers')
+			ig.igSameLine()
+			self.eventTriggerWindow:popupButton()
+			self.eventTriggerWindow:update()
+
+
+			ig.luatableTooltipCheckbox('showEntranceTriggers', self, 'showEntranceTriggers')
+			ig.igSameLine()
+			self.entranceTriggerWindow:popupButton()
+			self.entranceTriggerWindow:update()
+
+			ig.luatableTooltipCheckbox('showNPCs', self, 'showNPCs')
+			ig.igSameLine()
+			self.npcWindow:popupButton()
+			self.npcWindow:update()
+
 			local map = mapInfo.map
 			if map then
 				ig.igText('map #'..self.mapIndex)
@@ -683,7 +891,7 @@ function App:updateGUI()
 					ig.igText(' '..name..' = '..tostring(map[0][name]))
 				end
 			end
-		
+
 			-- TODO hyperlink to popup the formation-list window
 			ig.igText'battles:'
 			local formationCounts = {}
@@ -726,91 +934,6 @@ function App:updateGUI()
 					ig.igText(' '..formationCount..'/16 '..formationDesc)
 				end
 			end	
-			ig.igEnd()
-		end
-
-		if ig.igBegin('objects', nil, 0) then
-			ig.luatableCheckbox('showTreasures', self, 'showTreasures')
-			ig.luatableCheckbox('showEventTriggers', self, 'showEventTriggers')
-			ig.luatableCheckbox('showEntranceTriggers', self, 'showEntranceTriggers')
-			ig.luatableCheckbox('showNPCs', self, 'showNPCs')
-
-			ig.igText('# treasures = '..tostring(#mapInfo.treasures))
-			for i,t in ipairs(mapInfo.treasures) do
-				ig.igText('treasure #'..(i-1))
-				ig.igText(' pos = '..t.pos)
-				ig.igText(' switch = '..t.switch)
-				ig.igText(' empty = '..t.empty)
-				ig.igText(' type = '..t.type)	-- combo: empty, monster, item, gp
-				if t.type == 0 then	-- empty
-					ig.igText(' empty = '..t.battleOrItemOrGP)
-				elseif t.type == 1 then	-- monster
-					ig.igText(' monster formation = #'..t.battleOrItemOrGP)
-					local formation = game.formations + t.battleOrItemOrGP
-					for j=1,6 do
-						if formation:getMonsterActive(j) then
-							ig.igText('  monster = '..game.monsterNames[formation:getMonsterIndex(j)])
-						end
-					end
-				elseif t.type == 2 then	-- item
-					ig.igText(' item = '..game.itemNames[t.battleOrItemOrGP])
-				elseif t.type == 3 then	-- GP
-					ig.igText(' GP = '..(t.battleOrItemOrGP * 100))
-				else
-					ig.igText(' ??? = '..t.battleOrItemOrGP)
-				end
-			end
-
-			ig.igText('# event triggers = '..tostring(#mapInfo.eventTriggers))
-			for i,e in ipairs(mapInfo.eventTriggers) do
-				ig.igText('event trigger #'..(i-1))
-				ig.igText(' pos = '..e.pos)
-				ig.igText(' event code = $'..number.hex(e.eventCode:value()))
-			end
-
-			ig.igText('# entrance triggers = '..tostring(#mapInfo.entranceTriggers))
-			for i,e in ipairs(mapInfo.entranceTriggers) do
-				ig.igText('entrance trigger #'..(i-1))
-				ig.igText(' pos = '..e.pos)
-				ig.igText(' map = '..e.mapIndex)
-				ig.igText(' setParentMap = '..e.setParentMap)
-				ig.igText(' zLevel = '..e.zLevel)
-				ig.igText(' showDestName = '..e.showDestName)
-				ig.igText(' destFacingDir = '..e.destFacingDir)
-				ig.igText(' unknown_3_6 = '..e.unknown_3_6)
-				ig.igText(' dest = '..e.dest)
-			end
-
-			ig.igText('# NPCs = '..tostring(#mapInfo.npcs))
-			for i,n in ipairs(mapInfo.npcs) do
-				ig.igText('npc #'..(i-1))
-				ig.igText(' pos = '..n.x..', '..n.y)
-
-				ig.igText(' script '..n.script)
-				ig.igText(' movement = '..n.movement)
-				ig.igText(' speed = '..n.speed)
-
-				ig.igText(' graphics = '..n.graphics)
-				ig.igText(' palette = '..n.palette)
-
-				-- "speed" when vehicle == 0
-				-- "vehicle" otherwise
-				ig.igText(' vehicle_or_speed = '..n.vehicle_or_speed)	-- what's this speed vs the other speed?
-
-				ig.igText(' spritePriority = '..n.spritePriority)
-
-				-- "direction" when animation == 0
-				-- "type" otherwise
-				ig.igText(' direction_or_type = '..n.direction_or_type)
-
-				-- "size" when vehicle == 0 && special npc != 0
-				-- otherwise "talkDoesntTurn"
-				ig.igText(' size_or_talkDoesntTurn = '..n.size_or_talkDoesntTurn)
-
-				ig.igText(' layerPriority = '..n.layerPriority)
-
-				ig.igText(' animation = '..n.animation)
-			end
 
 			ig.igEnd()
 		end
