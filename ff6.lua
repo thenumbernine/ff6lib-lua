@@ -2061,11 +2061,36 @@ end,
 }
 assert.eq(ffi.sizeof'npc_t', 9)
 
+
+local mapDest_t = ff6struct{
+	name = 'mapDest_t ',
+	fields = {
+		-- also last 4 bytes of entranceTrigger_t:
+		{mapIndex = 'uint16_t:9'},		-- 0.0-1.0: maps[]
+		{setParentMap = 'uint16_t:1'},	-- 1.1
+		{zLevel = 'uint16_t:1'},		-- 1.2
+		{showDestName = 'uint16_t:1'},	-- 1.3
+		{destFacingDir = 'uint16_t:2'},	-- 1.4-1.5
+		{unknown_3_6 = 'uint16_t:2'},	-- 1.6-1.7
+		{dest = 'xy8b_t'},				-- 2-3
+
+		{vehicle = 'uint8_t:2'},		-- 4.0-4.1
+		{unknown_4_2 = 'uint8_t:3'},	-- 4.2-4.4
+		{noSizeUpdate = 'uint8_t:1'},	-- 4.5
+		{manualFadeIn = 'uint8_t:1'},	-- 4.6
+		{enableMapEvent = 'uint8_t:1'},	-- 4.7
+	},
+}
+assert.eq(ffi.sizeof'mapDest_t', 5)
+
 local numEntranceTriggerOfs = 513
 local entranceTrigger_t = ff6struct{
 	name = 'entranceTrigger_t',
+
 	fields = {
 		{pos = 'xy8b_t'},				-- 0-1
+
+		-- TODO also first 4 bytes of mapDest_t
 		{mapIndex = 'uint16_t:9'},		-- 2.0-3.0: maps[]
 		{setParentMap = 'uint16_t:1'},	-- 3.1
 		{zLevel = 'uint16_t:1'},		-- 3.2

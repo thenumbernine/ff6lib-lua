@@ -751,6 +751,30 @@ return function(game)
 		ScriptCmds['Switch '..cmd] = Switch:subclass{cmd = cmd}
 	end
 
+--[[ oops ... dif script  section
+	ScriptCmds.SetMap = Cmd:subclass{
+		cmd = 0xd2,
+		argtypes = {'mapDest_t'},
+		getargs = function(self, mapDest)
+			self.mapDest = mapDest
+		end,
+		__tostring = function(self)
+			return "setMap"..self.mapDest
+		end,
+	}
+
+	-- what's the difference?
+	ScriptCmds.SetMap2 = Cmd:subclass{
+		cmd = 0xd3,
+		argtypes = {'mapDest_t'},
+		getargs = function(self, mapDest)
+			self.mapDest = mapDest
+		end,
+		__tostring = function(self)
+			return "setMap"..self.mapDest
+		end,
+	}
+
 	ScriptCmds.OnButtonGoto = Cmd:subclass{
 		cmd = 0xd4,
 		argtypes = {'uint24_t'},
@@ -773,6 +797,7 @@ return function(game)
 			return "if dir == "..self.dir.." then goto "..('$%06x'):format(self.destAddr)
 		end,
 	}
+--]]
 
 	ScriptCmds.ShowCharacterPortrait = Cmd:subclass{
 		cmd = 0xe7,

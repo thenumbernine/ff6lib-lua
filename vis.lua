@@ -406,24 +406,9 @@ function TreasureWindow:showIndexUI(ar)
 	if t.type == 0 then	-- empty
 		ig.igText(' empty = '..t.battleOrItemOrGP)
 	elseif t.type == 1 then	-- monster
-		-- FIXME
-		app.randomBattleOptionsWindow:popupButton(t.battleOrItemOrGP)
-		--app.battleFormationWindow:popupButton(t.battleOrItemOrGP)
-		
-		--[[ TODO
-		ig.igText(' monster formation = #'..t.battleOrItemOrGP)
-		local formation = game.formations + t.battleOrItemOrGP
-		for j=1,6 do
-			if formation:getMonsterActive(j) then
-				ig.igText('  monster = '..game.monsterNames[formation:getMonsterIndex(j)])
-			end
-		end
-		--]]
+		app.eventBattleOptionsWindow:popupButton(t.battleOrItemOrGP)
 	elseif t.type == 2 then	-- item
 		app.itemWindow:popupButton(t.battleOrItemOrGP)
-		--[[ TODO
-		ig.igText(' item = '..game.itemNames[t.battleOrItemOrGP])
-		--]]
 	elseif t.type == 3 then	-- GP
 		ig.igText(' GP = '..(t.battleOrItemOrGP * 100))
 	else
@@ -824,20 +809,19 @@ function BattleFormationWindow:showIndexUI(ar)
 end
 
 
-local RandomBattleOptionsWindow = ArrayWindow:subclass()
-function RandomBattleOptionsWindow:init(...)
-	RandomBattleOptionsWindow.super.init(self, ...)
-	self.array = range((countof(game.monsterRandomBattles)))
+local BattleOptionsWindow = ArrayWindow:subclass()
+function BattleOptionsWindow:init(...)
+	BattleOptionsWindow.super.init(self, ...)
+	self.array = range((countof((assert.index(game, self.gameField)))))
 end
-RandomBattleOptionsWindow.name = 'monster random battle options'
-function RandomBattleOptionsWindow:getArray()
+function BattleOptionsWindow:getArray()
 	return self.array
 end
-function RandomBattleOptionsWindow:getIndexName(i)
-	local mapMonsterRandomBattles = game.monsterRandomBattles + i
+function BattleOptionsWindow:getIndexName(i)
+	local battleEntries = game[self.gameField] + i
 	local monsters = {}
-	for j=0,3 do
-		local formationEntry = mapMonsterRandomBattles.s[j]
+	for j=0,battleEntries.dim-1 do
+		local formationEntry = battleEntries.s[j]
 		local formationIndex = formationEntry.formation
 		if formationIndex < game.numFormations then
 			local formation = game.formations + formationIndex
@@ -853,15 +837,22 @@ function RandomBattleOptionsWindow:getIndexName(i)
 		return tostring(game.monsterNames[monsterIndex])
 	end):concat', '
 end
-function RandomBattleOptionsWindow:showIndexUI(ar)
-	local mapMonsterRandomBattles = game.monsterRandomBattles + self.index
+function BattleOptionsWindow:showIndexUI(ar)
+	local battleEntries = game[self.gameField] + self.index
 	local formationCounts = {}
-	for j=0,3 do
-		ig.igPushID_Str('mapMonsterRandomBattles')
+	for j=0,battleEntries.dim-1 do
+		ig.igPushID_Str('battleEntries '..self.name)
 		ig.igPushID_Int(j)
-		local formationEntry = mapMonsterRandomBattles.s[j]
-		ig.igText(j == 3 and '1/16:' or '5/16:')
-		ig.igSameLine()
+		local formationEntry = battleEntries.s[j]
+		
+		if self.gameField == 'monsterRandomBattles' then
+			ig.igText(j == 3 and '1/16:' or '5/16:')
+			ig.igSameLine()
+		elseif self.gameField == 'monsterEventBattles' then
+			ig.igText'1/2:'
+			ig.igSameLine()
+		end
+
 		self.app.battleFormationWindow:popupButton(formationEntry.formation)
 		if formationEntry.chooseFromNextFour ~= 0 then
 			ig.igSameLine()
@@ -871,6 +862,14 @@ function RandomBattleOptionsWindow:showIndexUI(ar)
 		ig.igPopID()
 	end
 end
+
+local RandomBattleOptionsWindow = BattleOptionsWindow:subclass()
+RandomBattleOptionsWindow.name = 'random battle options'
+RandomBattleOptionsWindow.gameField = 'monsterRandomBattles'	-- monsterRandomBattleEntry4_t
+
+local EventBattleOptionsWindow = BattleOptionsWindow:subclass()
+EventBattleOptionsWindow .name = 'event battle options'
+EventBattleOptionsWindow.gameField = 'monsterEventBattles'		-- monsterRandomBattleEntry2_t
 
 
 local App = require 'imgui.appwithorbit'()
@@ -1029,6 +1028,7 @@ void main() {
 	self.battleFormationWindow = BattleFormationWindow{app=self}
 	
 	self.randomBattleOptionsWindow = RandomBattleOptionsWindow{app=self}
+	self.eventBattleOptionsWindow = EventBattleOptionsWindow{app=self}
 	
 	-- base-level not dependent on another window:
 	self.baseWindows = table{
@@ -1039,7 +1039,10 @@ void main() {
 		self.monsterWindow,
 		self.battleFormationWindow,
 		self.randomBattleOptionsWindow,
+		self.eventBattleOptionsWindow,
 	}
+
+	self.scriptWindow.show[0] = false	-- who keeps opening this?
 end
 
 
