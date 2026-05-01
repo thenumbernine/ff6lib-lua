@@ -61,7 +61,8 @@ local zAndLayersWithLayer3Priority = {
 local ArrayWindow = class()
 
 function ArrayWindow:init(args)
-	self.show = ffi.new'bool[1]'
+	self.children = table(args.children)
+	self.show = ffi.new('bool[1]', not not args.show)
 	self.app = assert.index(args, 'app')
 	self.getArray = args.getArray
 	self:setIndex(args.index or 0)
@@ -212,7 +213,7 @@ function MapWindow:setIndex(newIndex, pushStack)
 		pushStack = false	-- can't push and pop at the same time
 	end
 
-	if MapWindow.super.setIndex(self, newIndex) == false then return end
+	if MapWindow.super.setIndex(self, newIndex) == false then return false end
 
 	if pushStack then
 		self.mapIndexStack:insert(oldIndex)
@@ -222,11 +223,9 @@ function MapWindow:setIndex(newIndex, pushStack)
 	local app = self.app
 
 	-- reset windows that are dependent on the map
-	app.treasureWindow:setIndex(0)
-	app.eventTriggerWindow:setIndex(0)
-	app.entranceTriggerWindow:setIndex(0)
-	app.entranceAreaTriggerWindow:setIndex(0)
-	app.npcWindow:setIndex(0)
+	for _,ch in ipairs(self.children) do
+		ch:setIndex(0)
+	end
 
 	if app.palTex then
 		app.palTex:delete()
@@ -387,9 +386,13 @@ function TreasureWindow:showIndexUI(ar)
 	ig.igText(' switch = '..t.switch)
 	ig.igText(' empty = '..t.empty)
 	ig.igText(' type = '..t.type)	-- combo: empty, monster, item, gp
+	
+	local app = self.app
 	if t.type == 0 then	-- empty
 		ig.igText(' empty = '..t.battleOrItemOrGP)
 	elseif t.type == 1 then	-- monster
+		app.randomBattleOptionsWindow:popupButton(t.battleOrItemOrGP)
+		--[[ TODO
 		ig.igText(' monster formation = #'..t.battleOrItemOrGP)
 		local formation = game.formations + t.battleOrItemOrGP
 		for j=1,6 do
@@ -397,8 +400,12 @@ function TreasureWindow:showIndexUI(ar)
 				ig.igText('  monster = '..game.monsterNames[formation:getMonsterIndex(j)])
 			end
 		end
+		--]]
 	elseif t.type == 2 then	-- item
+		app.itemWindow:popupButton(t.battleOrItemOrGP)
+		--[[ TODO
 		ig.igText(' item = '..game.itemNames[t.battleOrItemOrGP])
+		--]]
 	elseif t.type == 3 then	-- GP
 		ig.igText(' GP = '..(t.battleOrItemOrGP * 100))
 	else
@@ -544,6 +551,15 @@ function ScriptWindow:showIndexUI(ar)
 			self.jumpRequested = nil
 		end
 
+		--[[ not working, very arbitrary
+		if ig.igIsWindowHovered(0) then
+			local wheel = ig.igGetIO().MouseWheel
+			if wheel ~= 0 then
+				ig.igSetScrollY_Float(ig.igGetScrollY() - wheel * 10)
+			end
+		end
+		--]]
+
 		ig.ImGuiListClipper_Begin(self.clipper, #ar, 1)
 		while ig.ImGuiListClipper_Step(self.clipper) do
 			for i=self.clipper.DisplayStart,self.clipper.DisplayEnd-1 do
@@ -562,6 +578,13 @@ function ScriptWindow:showIndexUI(ar)
 	end
 	ig.igEndChild()
 end
+function ScriptWindow:setIndex(newIndex)
+	if ScriptWindow.super.setIndex(self, newIndex) == false then return false end
+	local cmd = self:getArray()[1+self.index]
+	if cmd then
+		self:openScriptAddr(cmd.addr)
+	end
+end
 function ScriptWindow:openScriptAddr(scriptAddr)
 	self.index = game.eventScriptCmdIndexForAddr[scriptAddr]
 	if not self.index then
@@ -577,6 +600,23 @@ function ScriptWindow:openScriptAddr(scriptAddr)
 	-- [[
 	self.jumpRequested = self.index
 	--]]
+end
+
+
+local ItemWindow = ArrayWindow:subclass()
+ItemWindow.name = 'item'
+function ItemWindow:init(...)
+	ItemWindow.super.init(self, ...)
+	self.array = range((countof(game.formations)))
+end
+function ItemWindow:getArray()
+	return self.array
+end
+function ItemWindow:showIndexUI(ar)
+	local item = game.items + self.index
+	for name in item:fielditer() do
+		ig.igText(' '..name..' = '..tostring(item[name]))
+	end
 end
 
 
@@ -765,17 +805,36 @@ void main() {
 	self.showNPCs = true
 	self.npcWindow = NPCWindow{app=self}
 
-	self.scriptWindow = ScriptWindow{app=self}
-
-	self.battleFormationWindow = BattleFormationWindow{app=self}
-	self.randomBattleOptionsWindow = RandomBattleOptionsWindow{app=self}
-
 	-- then make mapWindow:
 	self.mapWindow = MapWindow{
 		app = self,
 		index = cmdline[2] and assert(tonumber(cmdline[2])) or 0,
+		show = true,
+		children = {
+			self.treasureWindow,
+			self.eventTriggerWindow,
+			self.entranceTriggerWindow,
+			self.entranceAreaTriggerWindow,
+			self.npcWindow,
+		},
 	}
 
+	self.itemWindow = ItemWindow{app=self}
+
+	self.scriptWindow = ScriptWindow{app=self}
+
+	self.battleFormationWindow = BattleFormationWindow{app=self}
+	
+	self.randomBattleOptionsWindow = RandomBattleOptionsWindow{app=self}
+	
+	-- base-level not dependent on another window:
+	self.baseWindows = table{
+		self.mapWindow,
+		self.itemWindow,
+		self.scriptWindow,
+		self.battleFormationWindow,
+		self.randomBattleOptionsWindow,
+	}
 end
 
 
@@ -960,7 +1019,7 @@ my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
 				and x <= mx and mx <= x+1
 				and y <= my and my <= y+1
 				then
-					self.treasureWindow.index = i-1
+					self.treasureWindow:setIndex(i-1)
 					self.treasureWindow.show[0] = true
 				end
 				settable(uniforms.bbox, x, y, 1, 1)
@@ -978,7 +1037,7 @@ my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
 				and x <= mx and mx <= x+1
 				and y <= my and my <= y+1
 				then
-					self.eventTriggerWindow.index = i-1
+					self.eventTriggerWindow:setIndex(i-1)
 					self.eventTriggerWindow.show[0] = true
 				end
 				settable(uniforms.bbox, x, y, 1, 1)
@@ -996,7 +1055,7 @@ my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
 				and x <= mx and mx <= x+1
 				and y <= my and my <= y+1
 				then
-					self.entranceTriggerWindow.index = i-1
+					self.entranceTriggerWindow:setIndex(i-1)
 					self.entranceTriggerWindow.show[0] = true
 				end
 				settable(uniforms.bbox, x, y, 1, 1)
@@ -1020,7 +1079,7 @@ my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
 				and x <= mx and mx <= x+w
 				and y <= my and my <= y+h
 				then
-					self.entranceAreaTriggerWindow.index = i-1
+					self.entranceAreaTriggerWindow:setIndex(i-1)
 					self.entranceAreaTriggerWindow.show[0] = true
 				end
 				settable(uniforms.bbox, x, y, w, h)
@@ -1038,7 +1097,7 @@ my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
 				and x <= mx and mx <= x+1
 				and y <= my and my <= y+1
 				then
-					self.npcWindow.index = i-1
+					self.npcWindow:setIndex(i-1)
 					self.npcWindow.show[0] = true
 				end
 				settable(uniforms.bbox, x, y, 1, 1)
@@ -1062,6 +1121,17 @@ function App:updateGUI()
 	local map = mapInfo and mapInfo.map
 
 	if ig.igBeginMainMenuBar() then
+
+		if ig.igBeginMenu'view' then
+			for _,w in ipairs(self.baseWindows) do
+				if ig.igButton(w.name) then
+					w.show[0] = true
+				end
+			end
+
+			ig.igEndMenu()
+		end
+
 		if ig.igBeginMenu'map' then
 
 			if self.layerAnimTexs then
@@ -1213,17 +1283,17 @@ function App:updateGUI()
 		ig.igEndMainMenuBar()
 	end
 
-	self.mapWindow.show[0] = true
-	self.mapWindow:update()
-
-	self.treasureWindow:update()
-	self.eventTriggerWindow:update()
-	self.entranceTriggerWindow:update()
-	self.entranceAreaTriggerWindow:update()
-	self.npcWindow:update()
-	self.scriptWindow:update()
-	self.battleFormationWindow:update()
-	self.randomBattleOptionsWindow:update()
+	local function updateRecursive(chs)
+		for _,ch in ipairs(chs) do
+			ch:update()
+			if ch.children 
+			and #ch.children > 0
+			then 
+				updateRecursive(ch.children)
+			end
+		end
+	end
+	updateRecursive(self.baseWindows)
 end
 
 function App:event(e)
