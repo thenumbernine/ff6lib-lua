@@ -794,6 +794,19 @@ return function(game)
 			end
 		end
 
+		mapInfo.entranceAreaTriggers = table()
+		do
+			local ofs = ffi.offsetof(game_t, 'entranceAreaTriggers') - ffi.offsetof(game_t, 'entranceAreaTriggerOfs')
+			local startIndex = (game.entranceAreaTriggerOfs[mapIndex] - ofs) / ffi.sizeof'entranceAreaTrigger_t'
+			local endIndex = mapIndex >= countof(game.entranceAreaTriggerOfs)-1
+				and countof(game.entranceAreaTriggers)
+				or (game.entranceAreaTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof'entranceAreaTrigger_t'
+			for i=startIndex,endIndex-1 do
+				local e = game.entranceAreaTriggers + i
+				mapInfo.entranceAreaTriggers:insert(ffi.new('entranceAreaTrigger_t', e[0]))
+			end
+		end
+
 		mapInfo.npcs = table()
 		do
 			local ofs = ffi.offsetof(game_t, 'npcs') - ffi.offsetof(game_t, 'npcOfs')

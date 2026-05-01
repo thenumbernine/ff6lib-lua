@@ -62,12 +62,20 @@ local ArrayWindow = class()
 
 function ArrayWindow:init(args)
 	self.show = ffi.new'bool[1]'
-	self.index = 0
 	self.app = assert.index(args, 'app')
 	self.getArray = args.getArray
+	self:setIndex(args.index or 0)
 end
-
+function ArrayWindow:setIndex(index)
+	if index == self.index then return end
+	self.index = index
+	self:onIndexChange()
+end
+function ArrayWindow:onIndexChange() end
 function ArrayWindow:popupButton(targetIndex)
+	local result
+	ig.igPushID_Str(self.name)
+	ig.igPushID_Str'popup button'
 	local ar = self:getArray()
 	local has = ar and #ar > 0
 	local k = self.name..': '
@@ -78,14 +86,16 @@ function ArrayWindow:popupButton(targetIndex)
 		self.show[0] = false
 	else
 		if ig.igButton(k) then
-			self.show[0] = not self.show[0]
-			if targetIndex then 
-				self.index = targetIndex 
-				self:onChangeIndex()
+			self.show[0] = true
+			if targetIndex then
+				self:setIndex(targetIndex)
 			end
-			return true
+			result = true
 		end
 	end
+	ig.igPopID()
+	ig.igPopID()
+	return result
 end
 
 function ArrayWindow:update()
@@ -95,20 +105,22 @@ function ArrayWindow:update()
 	ig.igPushID_Str(self.name)
 	if ig.igBegin(self.name, self.show, 0) then
 		ig.igText(self.name..' #'..self.index..'/'..#ar)
+
+		local pushIndex = self.index
 		if ig.luatableInputInt('index', self, 'index') then
-			self.index = self.index % #ar
-			self:onIndexChange()
+			local newIndex = self.index % #ar
+			self.index = pushIndex	-- so setIndex registers a change
+			self:setIndex(newIndex)
 		end
 		self:showIndexUI(ar)
 	end
 	ig.igEnd()
 	ig.igPopID()
 end
-function ArrayWindow:onIndexChange() end
 
 
 local MapWindow = ArrayWindow:subclass()
--- 'game.getMap' doensn't work so well since it has cache stuff like the texture layers ... 
+-- 'game.getMap' doensn't work so well since it has cache stuff like the texture layers ...
 function MapWindow:init(...)
 	MapWindow.super.init(self, ...)
 	self.array = range(countof(game.maps))
@@ -137,11 +149,15 @@ function MapWindow:showIndexUI(ar)
 	ig.igSameLine()
 	app.entranceTriggerWindow:popupButton()
 
+	ig.luatableTooltipCheckbox('showEntranceAreaTriggers', app, 'showEntranceAreaTriggers')
+	ig.igSameLine()
+	app.entranceAreaTriggerWindow:popupButton()
+
 	ig.luatableTooltipCheckbox('showNPCs', app, 'showNPCs')
 	ig.igSameLine()
 	app.npcWindow:popupButton()
 
-	app.monsterRandomBattleOptionsWindow:popupButton(mapInfo.monsterRandomBattleOptionIndex)
+	app.randomBattleOptionsWindow:popupButton(mapInfo.monsterRandomBattleOptionIndex)
 
 	local map = mapInfo.map
 	if map then
@@ -151,10 +167,7 @@ function MapWindow:showIndexUI(ar)
 	end
 end
 function MapWindow:onIndexChange()
-	self:setIndex(self.index)
-end
-function MapWindow:setIndex(mapIndex)
-	self.index = mapIndex
+	local mapIndex = self.index
 	local app = self.app
 	app.npcIndex = 0
 
@@ -305,7 +318,7 @@ end
 
 
 local TreasureWindow = ArrayWindow:subclass()
-TreasureWindow.name = 'treasure' 
+TreasureWindow.name = 'treasure'
 function TreasureWindow:getArray()
 	local mapInfo = self.app.mapWindow:getMapInfo()
 	return mapInfo and mapInfo.treasures
@@ -338,7 +351,7 @@ end
 
 
 local EventTriggerWindow = ArrayWindow:subclass()
-EventTriggerWindow.name = 'event trigger' 
+EventTriggerWindow.name = 'event trigger'
 function EventTriggerWindow:getArray()
 	local mapInfo = self.app.mapWindow:getMapInfo()
 	return mapInfo and mapInfo.eventTriggers
@@ -370,6 +383,34 @@ function EntranceTriggerWindow:showIndexUI(ar)
 		self.app.mapWindow:setIndex(e.mapIndex)
 		self.app:centerView(e.dest.x, e.dest.y)
 	end
+	ig.igText(' setParentMap = '..e.setParentMap)
+	ig.igText(' zLevel = '..e.zLevel)
+	ig.igText(' showDestName = '..e.showDestName)
+	ig.igText(' destFacingDir = '..e.destFacingDir)
+	ig.igText(' unknown_3_6 = '..e.unknown_3_6)
+	ig.igText(' dest = '..e.dest)
+end
+
+
+local EntranceAreaTriggerWindow = ArrayWindow:subclass()
+EntranceAreaTriggerWindow.name = 'entrance area trigger'
+function EntranceAreaTriggerWindow:getArray()
+	local mapInfo = self.app.mapWindow:getMapInfo()
+	return mapInfo and mapInfo.entranceAreaTriggers
+end
+function EntranceAreaTriggerWindow:showIndexUI(ar)
+	local e = ar[1+self.index]
+	if not e then return end
+	ig.igText(' pos = '..e.pos)
+	if ig.igButton(' map = '..e.mapIndex) then
+		self.app.mapWindow:setIndex(e.mapIndex)
+		self.app:centerView(e.dest.x, e.dest.y)
+	end
+	ig.igText(' length = '..e.length)
+	ig.igText(e.vertical==0 and ' horz' or ' vert')
+
+	-- notice the rest is in common with typical entranceTrigger_t:
+	-- how about a common parent struct?
 	ig.igText(' setParentMap = '..e.setParentMap)
 	ig.igText(' zLevel = '..e.zLevel)
 	ig.igText(' showDestName = '..e.showDestName)
@@ -474,51 +515,60 @@ end
 --]]
 
 
-local MonsterRandomBattleOptionsWindow = ArrayWindow:subclass()
-function MonsterRandomBattleOptionsWindow:init(...)
-	MonsterRandomBattleOptionsWindow.super.init(self, ...)
-	self.array = range((countof(game.monsterRandomBattles)))
+local BattleFormationWindow = ArrayWindow:subclass()
+BattleFormationWindow.name = 'battle formation'
+function BattleFormationWindow:init(...)
+	BattleFormationWindow.super.init(self, ...)
+	self.array = range((countof(game.formations)))
 end
-MonsterRandomBattleOptionsWindow.name = 'monster random battle options' 
-function MonsterRandomBattleOptionsWindow:getArray()
+function BattleFormationWindow:getArray()
 	return self.array
 end
-function MonsterRandomBattleOptionsWindow:showIndexUI(ar)
+function BattleFormationWindow:showIndexUI(ar)
+	local formation = game.formations + self.index
+	local monsterCounts = {}
+	for k=1,6 do
+		if formation:getMonsterActive(k) then
+			local monsterIndex = formation:getMonsterIndex(k)
+			local key = '#'..monsterIndex
+			if monsterIndex < game.numMonsters then
+				key = key ..':'..tostring(game.monsterNames[monsterIndex])
+			end
+			monsterCounts[key] = (monsterCounts[key] or 0) + 1
+		end
+	end
+	local formationDesc = table.keys(monsterCounts):sort():mapi(function(key)
+		local count = monsterCounts[key]
+		if count == 1 then return key end
+		return key..' x'..count
+	end):concat', '
+	ig.igText(formationDesc)
+end
+
+
+local RandomBattleOptionsWindow = ArrayWindow:subclass()
+function RandomBattleOptionsWindow:init(...)
+	RandomBattleOptionsWindow.super.init(self, ...)
+	self.array = range((countof(game.monsterRandomBattles)))
+end
+RandomBattleOptionsWindow.name = 'monster random battle options'
+function RandomBattleOptionsWindow:getArray()
+	return self.array
+end
+function RandomBattleOptionsWindow:showIndexUI(ar)
 	local mapMonsterRandomBattles = game.monsterRandomBattles + self.index
 	local formationCounts = {}
 	for j=0,3 do
+		ig.igPushID_Int(j)
 		local formationEntry = mapMonsterRandomBattles.s[j]
-		local formationIndex = formationEntry.formation
-		local formationDesc = 'formation=0x'..number.hex(formationIndex)..':'
-		if formationIndex < game.numFormations then
-			local formation = game.formations + formationIndex
-			local monsterCounts = {}
-			for k=1,6 do
-				if formation:getMonsterActive(k) then
-					local monsterIndex = formation:getMonsterIndex(k)
-					local key = '#'..monsterIndex
-					if monsterIndex < game.numMonsters then
-						key = key ..':'..tostring(game.monsterNames[monsterIndex])
-					end
-					monsterCounts[key] = (monsterCounts[key] or 0) + 1
-				end
-			end
-			formationDesc = formationDesc .. ' '
-			..table.keys(monsterCounts):sort():mapi(function(key)
-				local count = monsterCounts[key]
-				if count == 1 then return key end
-				return key..' x'..count
-			end):concat', '
-		end
+		ig.igText(j == 3 and '1/16:' or '5/16:')
+		ig.igSameLine()
+		self.app.battleFormationWindow:popupButton(formationEntry.formation)
 		if formationEntry.chooseFromNextFour ~= 0 then
-			formationDesc = formationDesc .. ' (chooseFromNextFour)'
+			ig.igSameLine()
+			ig.igText'... choose from next four'
 		end
-		formationCounts[formationDesc] = (formationCounts[formationDesc] or 0) + (j == 3 and 1 or 5)
-		--local formation2 = game.formation2s + self.index
-	end
-	for _,formationDesc in ipairs(table.keys(formationCounts):sort()) do
-		local formationCount = formationCounts[formationDesc]
-		ig.igText(' '..formationCount..'/16 '..formationDesc)
+		ig.igPopID()
 	end
 end
 
@@ -630,30 +680,35 @@ void main() {
 			color = {1,1,1,1},
 		},
 	}
-	
+
 	self.mapSize = vec2d()
 
 
-	self.mapWindow = MapWindow{app=self}
+	self.mapWindow = MapWindow{
+		app = self,
+		index = cmdline[2] and assert(tonumber(cmdline[2])) or 0,
+	}
 
 	self.showTreasures = true
-	self.treasureWindow = TreasureWindow{app=self}	
+	self.treasureWindow = TreasureWindow{app=self}
 
 	self.showEventTriggers = true
 	self.eventTriggerWindow = EventTriggerWindow{app=self}
-	
+
 	self.showEntranceTriggers = true
 	self.entranceTriggerWindow = EntranceTriggerWindow{app=self}
+
+	self.showEntranceAreaTriggers = true
+	self.entranceAreaTriggerWindow = EntranceAreaTriggerWindow{app=self}
 
 	self.showNPCs = true
 	self.npcWindow = NPCWindow{app=self}
 
 	self.scriptWindow = ScriptWindow{app=self}
 
-	self.monsterRandomBattleOptionsWindow = MonsterRandomBattleOptionsWindow{app=self}
+	self.battleFormationWindow = BattleFormationWindow{app=self}
+	self.randomBattleOptionsWindow = RandomBattleOptionsWindow{app=self}
 
-
-	self.mapWindow:setIndex(cmdline[2] and assert(tonumber(cmdline[2])) or 0)
 end
 
 
@@ -814,13 +869,13 @@ function App:update()
 			local x,y,w,h = table.unpack(uniforms.bbox)
 			local eps = .1
 			settable(uniforms.color, 1,1,1,1)
-			settable(uniforms.bbox, x-eps, y-eps, 2*eps, 1+2*eps)
+			settable(uniforms.bbox, x-eps, y-eps, 2*eps, h+2*eps)
 			rectObj:draw()
-			settable(uniforms.bbox, x-eps, y-eps, 1+2*eps, 2*eps)
+			settable(uniforms.bbox, x-eps, y-eps, w+2*eps, 2*eps)
 			rectObj:draw()
-			settable(uniforms.bbox, x+1-eps, y-eps, 2*eps, 1+2*eps)
+			settable(uniforms.bbox, x+w-eps, y-eps, 2*eps, h+2*eps)
 			rectObj:draw()
-			settable(uniforms.bbox, x-eps, y+1-eps, 1+2*eps, 2*eps)
+			settable(uniforms.bbox, x-eps, y+h-eps, w+2*eps, 2*eps)
 			rectObj:draw()
 		end
 
@@ -885,6 +940,30 @@ my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
 				end
 			end
 		end
+		if self.showEntranceAreaTriggers then
+			for i,e in ipairs(mapInfo.entranceAreaTriggers) do
+				local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
+				local w, h
+				if e.vertical == 0 then
+					w, h = e.length, 1
+				else
+					w, h = 1, e.length
+				end
+				if leftPress
+				and x <= mx and mx <= x+w
+				and y <= my and my <= y+h
+				then
+					self.entranceAreaTriggerWindow.index = i-1
+					self.entranceAreaTriggerWindow.show[0] = true
+				end
+				settable(uniforms.bbox, x, y, w, h)
+				settable(uniforms.color, 1,0,0,1)
+				rectObj:draw()
+				if i-1 == self.entranceAreaTriggerWindow.index then
+					showHL()
+				end
+			end
+		end
 		if self.showNPCs then
 			for i,n in ipairs(mapInfo.npcs) do
 				local x, y = tonumber(n.x), tonumber(n.y)
@@ -894,7 +973,7 @@ my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
 				then
 					self.npcWindow.index = i-1
 					self.npcWindow.show[0] = true
-				end			
+				end
 				settable(uniforms.bbox, x, y, 1, 1)
 				settable(uniforms.color, 0,1,0,1)
 				rectObj:draw()
@@ -1104,9 +1183,11 @@ function App:updateGUI()
 	self.treasureWindow:update()
 	self.eventTriggerWindow:update()
 	self.entranceTriggerWindow:update()
+	self.entranceAreaTriggerWindow:update()
 	self.npcWindow:update()
 	self.scriptWindow:update()
-	self.monsterRandomBattleOptionsWindow:update()
+	self.battleFormationWindow:update()
+	self.randomBattleOptionsWindow:update()
 end
 
 function App:event(e)
