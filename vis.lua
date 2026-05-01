@@ -213,20 +213,36 @@ end
 
 
 local ScriptWindow = ArrayWindow:subclass()
+function ScriptWindow:init(...)
+	ScriptWindow.super.init(self, ...)
+end
 ScriptWindow.name = 'script'
 function ScriptWindow:getArray()
 	return game.eventScriptCmds
 end
 function ScriptWindow:showIndexUI(ar)
-	for j=self.index-5,self.index+5 do
-		local cmd = ar[1+j]
-		if cmd then
-			ig.igText(
-				(j == self.index and '>' or ' ')
-				..('%06x: '):format(cmd.addr)
-				..tostring(cmd))
+	-- TODO index isn't necessary for this window
+	-- tho better TODO is to fix the scroll area of the clipper and make it jump correctly
+	if ig.igBeginChild('ScriptWindowEvents', ig.ImVec2(0, #ar), true) then
+		local clipper = ig.ImGuiListClipper_ImGuiListClipper()
+		ig.ImGuiListClipper_Begin(clipper, #ar, 1)
+		while ig.ImGuiListClipper_Step(clipper) do
+			for i=clipper.DisplayStart,clipper.DisplayEnd-1 do
+				local cmd = ar[1+i]
+				if cmd then
+					ig.igText(
+						(i == self.index and '>' or ' ')
+						..('%06x: '):format(cmd.addr)
+						..tostring(cmd)
+							:gsub('\n', '\\n')
+					)
+				end
+			end
 		end
+		ig.ImGuiListClipper_End(clipper)
+		ig.ImGuiListClipper_destroy(clipper)
 	end
+	ig.igEndChild()
 end
 function ScriptWindow:openScriptAddr(scriptAddr)
 	self.index = game.eventScriptCmdIndexForAddr[scriptAddr]
@@ -238,6 +254,13 @@ function ScriptWindow:openScriptAddr(scriptAddr)
 	end
 	self.show = true
 end
+--[[ it'll just dtor out of order anwyays, so meh
+function ScriptWindow:__gc()
+	if self.clipper ~= nil then
+		ig.ImGuiListClipper_destroy(self.clipper)
+	end
+end
+--]]
 
 
 local App = require 'imgui.appwithorbit'()

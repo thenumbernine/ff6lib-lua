@@ -782,12 +782,12 @@ return function(game)
 
 	ScriptCmds.Return = Cmd:subclass{
 		cmd = 0xfe,
-		desc = 'do return end',
+		desc = 'return',
 	}
 
 	ScriptCmds.EndScript = Cmd:subclass{
 		cmd = 0xff,
-		desc = 'end script',
+		desc = 'endScript()',
 	}
 
 	-- ScriptCmds key by cmd (number) or by name (string)
