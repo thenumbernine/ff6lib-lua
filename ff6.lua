@@ -2171,7 +2171,7 @@ local WorldTileProps_t = ff6struct{
 		-- https://www.spriters-resource.com/snes/ff6/asset/54685/
 		-- so ... 6 bits?
 		{battleBG = 'uint16_t:4'},			-- 1.0-1.3 aka 0.8-0.11
-		{unknown0_12 = 'uint16_t:1'},		-- 1.4 aka 0.12
+		{unknown_0_12 = 'uint16_t:1'},		-- 1.4 aka 0.12
 		{veldt = 'uint16_t:1'},				-- 1.5 aka 0.13
 		{phoenixCave = 'uint16_t:1'},		-- 1.6 aka 0.14
 		{kefkasTower = 'uint16_t:1'},		-- 1.7 aka 0.15

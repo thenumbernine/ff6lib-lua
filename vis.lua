@@ -86,7 +86,7 @@ function ArrayWindow:popupButton(targetIndex)
 	local k = self.name..': '
 		..(targetIndex and '#'..targetIndex..'/' or '')
 		..(has and #ar or 'none')
-		..(indexName and ' '..indexName or '') 
+		..(indexName and ' '..indexName or '')
 	if not has then
 		ig.igText(k)
 		self.show[0] = false
@@ -148,7 +148,7 @@ function MapWindow:showIndexUI(ar)
 	if not mapInfo then return end
 
 	local map = mapInfo and mapInfo.map
-	if map then		
+	if map then
 		ig.luatableTooltipCheckbox('useBlend', app, 'useBlend')
 
 		ig.luatableTooltipCheckbox('showAnimTexs', app, 'showAnimTexs')
@@ -180,17 +180,32 @@ function MapWindow:showIndexUI(ar)
 		end
 	end
 
-	--[[ TODO flgs for both WorldTileProps_t and mapTileProps_t
-	for name in WorldTileProps_t:fielditer() do
-		ig.luatableTooltipCheckbox('traversible '..name, self.traverseFlags, name)
-	end
-	--]]
-	-- [[ until then
 	local layouts = mapInfo and mapInfo.layouts
 	local layout1Data = layouts and layouts[1] and layouts[1].data
 	if layout1Data then
 		-- based on mapTileProps_t:
-		local tilePropsNames = {
+		local tilePropsNames = self.index < 3
+		-- WorldTileProps_t:
+		and {
+			'blocksChocobo',
+			'airshipCantLand',
+			'airshipShadow_0',
+			'airshipShadow_1',
+			'blocksWalking',
+			'forest',
+			'enemyEncounters',
+			'unknown_0_7',
+			'battleBG_0',
+			'battleBG_1',
+			'battleBG_2',
+			'battleBG_3',
+			'unknown_0_12',
+			'veldt',
+			'phoenixCave',
+			'kefkasTower',
+		}
+		-- mapTileProps_t:
+		or {
 			'zLevel_0',
 			'zLevel_1',
 			'zLevel_2',
@@ -218,7 +233,6 @@ function MapWindow:showIndexUI(ar)
 			end
 		end
 	end
-	--]]
 
 
 	ig.luatableTooltipCheckbox('showTreasures', app, 'showTreasures')
@@ -253,7 +267,7 @@ function MapWindow:showIndexUI(ar)
 
 	app.show16x16mapTiles = not not app.show16x16mapTiles
 	ig.luatableTooltipCheckbox('show 16x16 tiles', app, 'show16x16mapTiles')
-	
+
 	local map = mapInfo.map
 	if map then
 		for name in map[0]:fielditer() do
@@ -401,39 +415,27 @@ function MapWindow:setIndex(newIndex, pushStack)
 	end
 	app.tilePropsTex = nil
 	local layout1Data = layouts[1] and layouts[1].data
-	if layout1Data 
+	if layout1Data
 	and tilePropsData
 	then
--- [=[	
 		-- uint8_t into the tilePropsPtr table, which is a table of 2-byte-sized either WorldTileProps_t or mapTileProps_t
-		assert.type(tilePropsData, 'string')
-		assert.type(layout1Data, 'string')
 		local volume = layerSizes[1].x * layerSizes[1].y
-assert.ge(#layout1Data, volume)
-assert.len(tilePropsData, 256 * ffi.sizeof'uint16_t')
 		local layout1ptr = ffi.cast('uint8_t*', layout1Data)
 		local tilePropsPtr = ffi.cast('uint16_t*', tilePropsData)
 
 		local data = ffi.new('uint16_t[?]', volume)
 		for i=0,volume-1 do
-			local j = layout1ptr[i]
-j = tonumber(j)
-assert.le(0, j)
-assert.lt(j, 256)
-			data[i] = tilePropsPtr[j]
+			data[i] = tilePropsPtr[layout1ptr[i]]
 		end
 
 		app.tilePropsTex = GLTex2D{
 			width = layerSizes[1].x,
 			height = layerSizes[1].y,
 			internalFormat = gl.GL_R16UI,
---format = gl.GL_RED,
---type = gl.GL_UNSIGNED_SHORT,
 			minFilter = gl.GL_NEAREST,
 			magFilter = gl.GL_NEAREST,
 			data = data,
 		}:unbind()
---]=]
 	end
 
 	-- [[ also load/show the 16x16 tiles?
@@ -447,7 +449,7 @@ assert.lt(j, 256)
 	end
 	if map then
 		app.map16x16tileTexs = table()
-		
+
 		local gfxDatas = mapInfo.gfxIndexes:mapi(function(i)
 			local gfx = game.getMapTileGraphics(i)
 			if not gfx then return end
@@ -537,7 +539,7 @@ function TreasureWindow:showIndexUI(ar)
 	ig.igText(' switch = '..t.switch)
 	ig.igText(' empty = '..t.empty)
 	ig.igText(' type = '..t.type)	-- combo: empty, monster, item, gp
-	
+
 	local app = self.app
 	if t.type == 0 then	-- empty
 		ig.igText(' empty = '..t.battleOrItemOrGP)
@@ -664,7 +666,7 @@ end
 
 
 local WorldEncounterSectorWindow = ArrayWindow:subclass()
-WorldEncounterSectorWindow.name = 'world encounter sectors' 
+WorldEncounterSectorWindow.name = 'world encounter sectors'
 function WorldEncounterSectorWindow:init(...)
 	WorldEncounterSectorWindow.super.init(self, ...)
 	self.array = range(0, bit.lshift(1, 7)-1)
@@ -685,7 +687,7 @@ function WorldEncounterSectorWindow:showIndexUI(ar)
 		local encounter = bit.band(3, bit.rshift(encounterRateBits, bit.lshift(i-1, 1)))
 		local encounterRateName = self.encounterNames[encounter+1]
 		ig.igText('rate = '..tostring(encounterRateName))
-		
+
 		ig.igText('battle options = ')
 		ig.igSameLine()
 		local battleIndex = randomBattlesPerTerrain[terrain]
@@ -714,7 +716,7 @@ function ScriptWindow:showIndexUI(ar)
 	ig.igGetContentRegionAvail(self.availableSpace)
 	self.availableSpace.x = 0
 	if ig.igBeginChild('ScriptWindowEvents', self.availableSpace, true) then
-		
+
 		if self.jumpRequested then
 			ig.igSetScrollY_Float(self.jumpRequested)
 			self.jumpRequested = nil
@@ -820,7 +822,7 @@ function ItemWindow:showIndexUI(ar)
 
 	ig.igText' colosseum info:'
 	local colinfo = game.itemColosseumInfos[self.index]
-	
+
 	ig.igText('  monster fought =')
 	ig.igSameLine()
 	self.app.monsterWindow:popupButton(colinfo.monster.i)
@@ -835,7 +837,7 @@ end
 
 
 local MonsterWindow = ArrayWindow:subclass()
-MonsterWindow.name = 'monster' 
+MonsterWindow.name = 'monster'
 function MonsterWindow:init(...)
 	MonsterWindow.super.init(self, ...)
 	self.array = range((countof(game.monsters)))
@@ -877,7 +879,7 @@ function MonsterWindow:showIndexUI(ar)
 		ig.igPopID()
 		ig.igPopID()
 	end
-	if self.index < countof(game.monsterRages)then 
+	if self.index < countof(game.monsterRages)then
 		local monsterRages = game.monsterRages[self.index]
 		for i=0,monsterRages.dim-1 do
 			ig.igPushID_Str'monsterRages'
@@ -980,7 +982,7 @@ function BattleOptionsWindow:showIndexUI(ar)
 		ig.igPushID_Str('battleEntries '..self.name)
 		ig.igPushID_Int(j)
 		local formationEntry = battleEntries.s[j]
-		
+
 		if self.gameField == 'monsterRandomBattles' then
 			ig.igText(j == 3 and '1/16:' or '5/16:')
 			ig.igSameLine()
@@ -1033,7 +1035,7 @@ function App:initGL(...)
 		vec3d(1,1,0),
 		vec3d(1,1,1),
 		vec3d(.75, .75, .75),
-	
+
 		vec3d(.5,0,0),
 		vec3d(0,.5,0),
 		vec3d(0,0,.5),
@@ -1075,14 +1077,10 @@ void main() {
 			fragmentCode = [[
 uniform usampler2D tex;
 uniform sampler2D palTex;
-uniform int mask;
-uniform int offset;
 in vec2 tcv;
 out vec4 fragColor;
 void main() {
 	int index = int(texture(tex, tcv, 0).r);
-	index &= mask;		// mask = what in input tex to draw
-	index += offset;	// offset = where in palette to draw it
 	fragColor = texelFetch(palTex, ivec2(index, 0), 0);
 }
 ]],
@@ -1104,6 +1102,55 @@ void main() {
 			mode = gl.GL_TRIANGLE_STRIP,
 		},
 	}
+
+	self.flagsDrawObj = GLSceneObject{
+		program = {
+			version = 'latest',
+			precision = 'best',
+			vertexCode = [[
+in vec2 vertex;
+out vec2 tcv;
+uniform mat4 mvProjMat;
+void main() {
+	tcv = vertex;
+	gl_Position = mvProjMat * vec4(vertex, 0., 1.);
+}
+]],
+			fragmentCode = [[
+uniform usampler2D tex;
+uniform sampler2D palTex;
+uniform int palIndex;
+uniform float alpha;
+in vec2 tcv;
+out vec4 fragColor;
+void main() {
+	int flags = int(texture(tex, tcv, 0).r);
+	flags &= 1 << palIndex;
+	if (flags == 0) discard;
+	fragColor = texelFetch(palTex, ivec2(palIndex, 0), 0);
+	fragColor.a = alpha;
+}
+]],
+			uniforms = {
+				tex = 0,
+				palTex = 1,
+				alpha = .3,
+			},
+		},
+		vertexes = {
+			data = {
+				0, 0,
+				1, 0,
+				0, 1,
+				1, 1,
+			},
+			dim = 2,
+		},
+		geometry = {
+			mode = gl.GL_TRIANGLE_STRIP,
+		},
+	}
+
 
 	self.rectObj = GLSceneObject{
 		program = {
@@ -1165,7 +1212,7 @@ void main() {
 
 	self.showNPCs = true
 	self.npcWindow = NPCWindow{app=self}
-	
+
 	self.showWorldEncounterSectors = true
 	self.worldEncounterSectorWindow = WorldEncounterSectorWindow{app=self}
 
@@ -1185,7 +1232,7 @@ void main() {
 	}
 
 	self.itemWindow = ItemWindow{app=self}
-	
+
 	self.spellWindow = SpellWindow{app=self}
 
 	self.scriptWindow = ScriptWindow{app=self}
@@ -1193,10 +1240,10 @@ void main() {
 	self.monsterWindow = MonsterWindow{app=self}
 
 	self.battleFormationWindow = BattleFormationWindow{app=self}
-	
+
 	self.randomBattleOptionsWindow = RandomBattleOptionsWindow{app=self}
 	self.eventBattleOptionsWindow = EventBattleOptionsWindow{app=self}
-	
+
 	-- base-level not dependent on another window:
 	self.baseWindows = table{
 		self.mapWindow,
@@ -1281,8 +1328,6 @@ function App:draw(animFrameIndex)
 
 		self.layerDrawObj.texs[1] = tex
 		self.layerDrawObj.texs[2] = self.mapWindow.mapPalTex
-		self.layerDrawObj.uniforms.mask = 0x7f	-- mapPalData is only 128 in size
-		self.layerDrawObj.uniforms.offset = 0
 		self.layerDrawObj:draw()
 
 		gl.glDisable(gl.GL_BLEND)
@@ -1338,7 +1383,7 @@ function App:update()
 			if self.map16x16tileTexs then
 				local texs = self.map16x16tileTexs[k]
 				local tex = texs[(self.frameIndex % #texs) + 1]
-				
+
 				view:setupModelView()
 				view.mvMat:applyScale(1, -1)
 				view.mvMat:applyTranslate((k-1) * (tex.width/16 + 1), 0, 0)
@@ -1347,8 +1392,6 @@ function App:update()
 
 				self.layerDrawObj.texs[1] = tex
 				self.layerDrawObj.texs[2] = self.mapWindow.mapPalTex
-				self.layerDrawObj.uniforms.mask = 0x7f	-- mapPalData is only 128 in size
-				self.layerDrawObj.uniforms.offset = 0
 				self.layerDrawObj:draw()
 			end
 		end
@@ -1367,21 +1410,30 @@ function App:update()
 		-- draw overlays of things in the map:
 
 		gl.glEnable(gl.GL_BLEND)
-		gl.glBlendEquation(gl.GL_FUNC_ADD)
-		gl.glBlendColor(1, 1, 1, .5)
-		gl.glBlendFunc(gl.GL_CONSTANT_ALPHA, gl.GL_CONSTANT_ALPHA)
+		gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE)
 
-		if self.layerDrawObj then
+		if self.layerDrawObj
+		and self.tilePropsTex
+		then
+			local totalBits = 0
 			for i=0,15 do
 				if 0 ~= bit.band(bit.lshift(1, i), self.showTileMask) then
-					self.layerDrawObj.texs[1] = self.tilePropsTex
-					self.layerDrawObj.texs[2] = self.tilePropsPalTex
-					self.layerDrawObj.uniforms.mask = 1
-					self.layerDrawObj.uniforms.offset = i
-					self.layerDrawObj:draw()
+					totalBits = totalBits + 1
+				end
+			end
+			for i=0,15 do
+				if 0 ~= bit.band(bit.lshift(1, i), self.showTileMask) then
+					self.flagsDrawObj.texs[1] = self.tilePropsTex
+					self.flagsDrawObj.texs[2] = self.tilePropsPalTex
+					self.flagsDrawObj.uniforms.mvProjMat = view.mvProjMat.ptr
+					self.flagsDrawObj.uniforms.palIndex = i
+					self.flagsDrawObj.uniforms.alpha = 1 / math.max(1, totalBits)
+					self.flagsDrawObj:draw()
 				end
 			end
 		end
+
+		gl.glBlendFunc(gl.GL_ONE, gl.GL_ONE)
 
 		local mapInfo = self.mapWindow:getMapInfo()
 		if mapInfo then
@@ -1674,7 +1726,7 @@ function App:updateGUI()
 					self.view.mvProjMat:mul4x4(self.view.projMat, self.view.mvMat)
 				end
 			end
-			
+
 			ig.luatableInputFloat('animSpeed', self, 'animSpeed')
 
 			ig.igEndMenu()
@@ -1698,9 +1750,9 @@ function App:updateGUI()
 	local function updateRecursive(chs)
 		for _,ch in ipairs(chs) do
 			ch:update()
-			if ch.children 
+			if ch.children
 			and #ch.children > 0
-			then 
+			then
 				updateRecursive(ch.children)
 			end
 		end
