@@ -59,6 +59,49 @@ local zAndLayersWithLayer3Priority = {
 }
 
 
+local numTilePropsBits = 18
+local worldTilePropsNames = {
+	'blocksChocobo',
+	'airshipCantLand',
+	'airshipShadow_0',
+	'airshipShadow_1',
+	'blocksWalking',
+	'forest',
+	'enemyEncounters',
+	'unknown_0_7',
+	'battleBG_0',
+	'battleBG_1',
+	'battleBG_2',
+	'battleBG_3',
+	'unknown_0_12',
+	'veldt',
+	'phoenixCave',
+	'kefkasTower',
+	'unused1',
+	'unused2',
+}
+local mapTilePropsNames = {
+	'zLevel_0',
+	'zLevel_1',
+	'zLevel_2',
+	'topSpritePriority',
+	'bottomSpritePriority',
+	'door',
+	'stairsUpRight',
+	'stairsUpLeft',
+	'passableRight',
+	'passableLeft',
+	'passableDown',
+	'passableUp',
+	'unknown_1_4',
+	'unknown_1_5',
+	'ladder',
+	'passableNPC',
+	'throughTile',
+	'impassible',
+}
+
+
 local ArrayWindow = class()
 
 function ArrayWindow:init(args)
@@ -186,43 +229,10 @@ function MapWindow:showIndexUI(ar)
 		-- based on mapTileProps_t:
 		local tilePropsNames = self.index < 3
 		-- WorldTileProps_t:
-		and {
-			'blocksChocobo',
-			'airshipCantLand',
-			'airshipShadow_0',
-			'airshipShadow_1',
-			'blocksWalking',
-			'forest',
-			'enemyEncounters',
-			'unknown_0_7',
-			'battleBG_0',
-			'battleBG_1',
-			'battleBG_2',
-			'battleBG_3',
-			'unknown_0_12',
-			'veldt',
-			'phoenixCave',
-			'kefkasTower',
-		}
+		and worldTilePropsNames 
 		-- mapTileProps_t:
-		or {
-			'zLevel_0',
-			'zLevel_1',
-			'zLevel_2',
-			'topSpritePriority',
-			'bottomSpritePriority',
-			'door',
-			'stairsUpRight',
-			'stairsUpLeft',
-			'passableRight',
-			'passableLeft',
-			'passableDown',
-			'passableUp',
-			'unknown_1_4',
-			'unknown_1_5',
-			'ladder',
-			'passableNPC',
-		}
+		or mapTilePropsNames
+assert.len(tilePropsNames, numTilePropsBits)
 		for ip1,name in ipairs(tilePropsNames) do
 			local i = ip1-1
 			local mask = bit.lshift(1, i)
@@ -414,24 +424,44 @@ function MapWindow:setIndex(newIndex, pushStack)
 		app.tilePropsTex:delete()
 	end
 	app.tilePropsTex = nil
+	-- maybe another layout other than 1?
 	local layout1Data = layouts[1] and layouts[1].data
 	if layout1Data
 	and tilePropsData
 	then
 		-- uint8_t into the tilePropsPtr table, which is a table of 2-byte-sized either WorldTileProps_t or mapTileProps_t
-		local volume = layerSizes[1].x * layerSizes[1].y
-		local layout1ptr = ffi.cast('uint8_t*', layout1Data)
+		local layoutptr = ffi.cast('uint8_t*', layout1Data)
 		local tilePropsPtr = ffi.cast('uint16_t*', tilePropsData)
+print()
+for i=0,255 do
+	io.write('\ttileProps['..('0x%02x'):format(i)..'] = '..('0x%04x'):format(tilePropsPtr[i]))
+	if i % 4 == 3 then print() end
+end
 
-		local data = ffi.new('uint16_t[?]', volume)
+		local volume = layerSizes[1].x * layerSizes[1].y
+		local data = ffi.new('uint32_t[?]', volume)
+		ffi.fill(data, 0, volume * ffi.sizeof'uint32_t')
 		for i=0,volume-1 do
-			data[i] = tilePropsPtr[layout1ptr[i]]
+			-- for non-world-maps,
+			-- two special values: 
+			-- 0x7 = "through-tile"
+			-- 0xfff7 = "impassible"
+			-- i'll turn them into new flags
+			local flags = tilePropsPtr[layoutptr[i]] 
+			if self.index >= 3 then
+				if flags == 7 then
+					flags = 0x10000	-- 'through-tile'
+				elseif flags == 0xfff7 then
+					flags = 0x20000	-- 'impassible'
+				end
+			end
+			data[i] = flags
 		end
 
 		app.tilePropsTex = GLTex2D{
 			width = layerSizes[1].x,
 			height = layerSizes[1].y,
-			internalFormat = gl.GL_R16UI,
+			internalFormat = gl.GL_R32UI,
 			minFilter = gl.GL_NEAREST,
 			magFilter = gl.GL_NEAREST,
 			data = data,
@@ -1010,6 +1040,7 @@ EventBattleOptionsWindow .name = 'event battle options'
 EventBattleOptionsWindow.gameField = 'monsterEventBattles'		-- monsterRandomBattleEntry2_t
 
 
+
 local App = require 'imgui.appwithorbit'()
 App.title = 'FF6 Data Visualizer'
 
@@ -1024,8 +1055,6 @@ function App:initGL(...)
 	self.showAnimTexs = true
 
 
-	local tilePropPalData = ffi.new'uint8_t[16*4]'
-	ffi.fill(tilePropPalData, ffi.sizeof(tilePropPalData))
 	local colorsForBits = table{
 		vec3d(1,0,0),
 		vec3d(0,1,0),
@@ -1045,15 +1074,19 @@ function App:initGL(...)
 		vec3d(.5,.5,.5),
 		vec3d(.25, .25, .25),
 	}
-	assert.len(colorsForBits, 16)
-	for i,c in ipairs(colorsForBits) do
-		tilePropPalData[bit.bor(0, bit.lshift(i-1, 2))] = 255*c.x
-		tilePropPalData[bit.bor(1, bit.lshift(i-1, 2))] = 255*c.y
-		tilePropPalData[bit.bor(2, bit.lshift(i-1, 2))] = 255*c.z
-		tilePropPalData[bit.bor(3, bit.lshift(i-1, 2))] = 1
+	local tilePropsPalSize = 32
+	assert.ge(tilePropsPalSize, numTilePropsBits)	-- TODO rup2 or something
+	local tilePropPalData = ffi.new('uint8_t[?]', tilePropsPalSize * 4)
+	ffi.fill(tilePropPalData, ffi.sizeof(tilePropPalData))
+	for i=0,tilePropsPalSize-1 do
+		local c = colorsForBits[(i % #colorsForBits) + 1]
+		tilePropPalData[bit.bor(0, bit.lshift(i, 2))] = 255*c.x
+		tilePropPalData[bit.bor(1, bit.lshift(i, 2))] = 255*c.y
+		tilePropPalData[bit.bor(2, bit.lshift(i, 2))] = 255*c.z
+		tilePropPalData[bit.bor(3, bit.lshift(i, 2))] = 1
 	end
 	self.tilePropsPalTex = GLTex2D{
-		width = #colorsForBits,
+		width = tilePropsPalSize,
 		height = 1,
 		internalFormat = gl.GL_RGBA,
 		minFilter = gl.GL_NEAREST,
@@ -1416,12 +1449,12 @@ function App:update()
 		and self.tilePropsTex
 		then
 			local totalBits = 0
-			for i=0,15 do
+			for i=0,numTilePropsBits-1 do
 				if 0 ~= bit.band(bit.lshift(1, i), self.showTileMask) then
 					totalBits = totalBits + 1
 				end
 			end
-			for i=0,15 do
+			for i=0,numTilePropsBits-1 do
 				if 0 ~= bit.band(bit.lshift(1, i), self.showTileMask) then
 					self.flagsDrawObj.texs[1] = self.tilePropsTex
 					self.flagsDrawObj.texs[2] = self.tilePropsPalTex

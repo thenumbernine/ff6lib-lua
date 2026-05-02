@@ -61,6 +61,70 @@ return function(game)
 
 		local addr = offset + ffi.offsetof(game_t, 'mapTilePropsCompressed')
 		local data = decompress(rom + addr, ffi.sizeof(game.mapTilePropsCompressed))
+
+-- [[ then everything's got something about interlacing ...
+--[=[ oops that was 'encode'
+local word=1
+local layers=2
+local stride=256
+local step = word * layers
+local block = step * stride
+local length = math.ceil(#data / block) * block
+--print('#blocks ', math.ceil(#data / block))
+local src = ffi.new('uint8_t[?]', length)
+ffi.fill(dest, 0, length)
+ffi.copy(src, data, #data)
+local s = 0
+local dest = ffi.new('uint8_t[?]', length)
+ffi.fill(dest, 0, length)
+local d = 0
+while s < length do
+	local s1 = s
+	while (s1 - s) < step do
+		local s2 = s1
+		while (s2 - s) < block do
+			ffi.copy(dest + d, src + s2, word)
+			d = d + word
+			s2 = s2 + step
+		end
+		s1 = s1 + word
+	end
+	s = s + block
+end
+data = ffi.string(dest, #data)
+--]=]
+-- [=[
+local word = 1
+local layers = 2
+local stride = 256
+local step = word * stride
+local block = step * layers
+local length = math.ceil(#data / block) * block
+local src = ffi.new('uint8_t[?]', length)
+ffi.fill(src, length)
+ffi.copy(src, data, #data)
+local s = 0
+local dest = ffi.new('uint8_t[?]', length)
+ffi.fill(dest, length)
+local d = 0
+while s < length do
+	local s1 = s
+	while (s1 - s) < step do
+		local s2 = s1
+		while (s2 - s) < block do
+			ffi.copy(dest + d, src + s2, word)
+			d = d + word
+			s2 = s2 + step
+		end
+		s1 = s1 + word
+	end
+	s = s + block
+end
+data = ffi.string(dest, #data)
+--]=]
+--]]
+
+
 		mapTilePropsCache[i] = {
 			index = i,
 			offset = offset,
@@ -482,7 +546,7 @@ return function(game)
 				local p = game.mapAnimProps + startIndex + i
 				animLayers1And2Props:insert(p)
 			end
-			
+
 			-- hmm, some offsets match the next ...
 			-- what else would determine this list's size?
 			-- or is it fixed at 20 records?
@@ -611,10 +675,10 @@ return function(game)
 							if self.index < #game.worldInfos then
 								if z == 0 and layer == 1 then
 									game.layer1worlddrawtile16x16(
-										layerImg, 
-										x, y, 
-										tile16x16, 
-										self.tilesetDatas[layer], 
+										layerImg,
+										x, y,
+										tile16x16,
+										self.tilesetDatas[layer],
 										gfxDatas[layer]
 									)
 								end
@@ -628,12 +692,12 @@ return function(game)
 								)
 							else
 								game.layer1and2drawtile16x16(
-									layerImg, 
-									x, y, 
-									tile16x16, 
-									self.tilesetDatas[layer], 
-									bit.lshift(1, z), 
-									gfxDatas, 
+									layerImg,
+									x, y,
+									tile16x16,
+									self.tilesetDatas[layer],
+									bit.lshift(1, z),
+									gfxDatas,
 									gfxLayer3Data, 	-- should this be the default gfx-layer3-data, or should it be the layer3-animated data?
 									gfxLayer3Ofs
 								)
@@ -748,7 +812,7 @@ return function(game)
 			palette = palette,
 			tilePropsData = tilePropsData,
 		}
-		
+
 
 
 		mapInfo.treasures = table()
