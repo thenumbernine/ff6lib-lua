@@ -149,7 +149,25 @@ function MapWindow:showIndexUI(ar)
 	local map = mapInfo and mapInfo.map
 	if map then		
 		ig.luatableTooltipCheckbox('useBlend', app, 'useBlend')
-		if app.layerTexs then
+
+		ig.luatableTooltipCheckbox('showAnimTexs', app, 'showAnimTexs')
+		-- hmm, i've got dif flags for anim layers and non-anim layers, why?
+		if app.layerAnimTexs then
+			local zAndLayers = map.layer3Priority == 0
+				and zAndLayersWithoutLayer3Priority
+				or zAndLayersWithLayer3Priority
+			for _,zAndLayer in ipairs(zAndLayers) do
+				local z, layer = table.unpack(zAndLayer)
+				if app.layerAnimTexs[z]
+				and app.layerAnimTexs[z][layer]
+				then
+					local k = 'showAnimTex_'..z..'_'..layer
+					if app[k] == nil then app[k] = true end
+					ig.igSameLine()
+					ig.luatableTooltipCheckbox(k, app, k)
+				end
+			end
+		elseif app.layerTexs then
 			for i=1,#app.layerTexs do
 				if i > 1 then
 					ig.igSameLine()
@@ -157,26 +175,6 @@ function MapWindow:showIndexUI(ar)
 				local k = 'drawLayer'..i
 				if app[k] == nil then app[k] = true end
 				ig.luatableTooltipCheckbox('tex '..i, app, k)
-			end
-		end
-		if app.layerAnimTexs then
-			ig.luatableTooltipCheckbox('showAnimTexs', app, 'showAnimTexs')
-
-			if app.layerAnimTexs then
-				local zAndLayers = map.layer3Priority == 0
-					and zAndLayersWithoutLayer3Priority
-					or zAndLayersWithLayer3Priority
-				for _,zAndLayer in ipairs(zAndLayers) do
-					local z, layer = table.unpack(zAndLayer)
-					if app.layerAnimTexs[z]
-					and app.layerAnimTexs[z][layer]
-					then
-						local k = 'showAnimTex_'..z..'_'..layer
-						if app[k] == nil then app[k] = true end
-						ig.igSameLine()
-						ig.luatableTooltipCheckbox(k, app, k)
-					end
-				end
 			end
 		end
 	end
@@ -203,7 +201,6 @@ function MapWindow:showIndexUI(ar)
 	app.npcWindow:popupButton()
 
 
-
 	if self.index < 2 then
 		ig.luatableTooltipCheckbox('showWorldEncounterSectors', app, 'showWorldEncounterSectors')
 		ig.igSameLine()
@@ -212,6 +209,10 @@ function MapWindow:showIndexUI(ar)
 		app.randomBattleOptionsWindow:popupButton(mapInfo.monsterRandomBattleOptionIndex)
 	end
 
+
+	app.show16x16mapTiles = not not app.show16x16mapTiles
+	ig.luatableTooltipCheckbox('show 16x16 tiles', app, 'show16x16mapTiles')
+	
 	local map = mapInfo.map
 	if map then
 		for name in map[0]:fielditer() do
@@ -242,9 +243,9 @@ function MapWindow:setIndex(newIndex, pushStack)
 		ch:setIndex(0)
 	end
 
-	if app.palTex then
-		app.palTex:delete()
-		app.palTex = nil
+	if app.mapPalTex then
+		app.mapPalTex:delete()
+		app.mapPalTex = nil
 	end
 	if app.layerTexs then
 		for _,tex in ipairs(app.layerTexs) do
@@ -303,20 +304,19 @@ function MapWindow:setIndex(newIndex, pushStack)
 			palData[bit.bor(j,bit.lshift(i, 2))] = palette[i+1][j+1]
 		end
 	end
-	if app.palTex then
-		app.palTex:delete()
+	if self.mapPalTex then
+		self.mapPalTex:delete()
 	end
-	app.palTex = GLTex2D{
+	self.mapPalTex = GLTex2D{
 		width = 16*8,
 		height = 1,
 		internalFormat = gl.GL_RGBA,
-		format = gl.GL_RGBA,
-		type = gl.GL_UNSIGNED_BYTE,
+		--format = gl.GL_RGBA,
+		--type = gl.GL_UNSIGNED_BYTE,
 		minFilter = gl.GL_NEAREST,
 		magFilter = gl.GL_NEAREST,
 		data = palData,
 	}:unbind()
-assert.eq(app.palTex.data, palData)
 
 	-- layer images already have 16x16 tiles baked into them...
 	local imgToTex = function(img)
@@ -324,8 +324,8 @@ assert.eq(app.palTex.data, palData)
 			width = img.width,
 			height = img.height,
 			internalFormat = gl.GL_R8UI,
-			format = gl.GL_RED_INTEGER,
-			type = gl.GL_UNSIGNED_BYTE,
+			--format = gl.GL_RED_INTEGER,
+			--type = gl.GL_UNSIGNED_BYTE,
 			minFilter = gl.GL_NEAREST,
 			magFilter = gl.GL_NEAREST,
 			data = img.buffer,
@@ -378,13 +378,99 @@ assert.eq(app.palTex.data, palData)
 			width = layerSizes[1].x,
 			height = layerSizes[1].y,
 			internalFormat = gl.GL_R8UI,
-			format = gl.GL_RED_INTEGER,
-			type = gl.GL_UNSIGNED_BYTE,
+			--format = gl.GL_RED_INTEGER,
+			--type = gl.GL_UNSIGNED_BYTE,
 			minFilter = gl.GL_NEAREST,
 			magFilter = gl.GL_NEAREST,
 			data = layout1Data,
 		}:unbind()
 	end
+
+	-- [[ also load/show the 16x16 tiles?
+	if app.map16x16tileTexs then
+		for _,texs in ipairs(app.map16x16tileTexs) do
+			for _,tex in ipairs(texs) do
+				tex:delete()
+			end
+		end
+		app.map16x16tileTexs = nil
+	end
+	if map then
+		app.map16x16tileTexs = table()
+		
+		local gfxDatas = mapInfo.gfxIndexes:mapi(function(i)
+			local gfx = game.getMapTileGraphics(i)
+			if not gfx then return end
+			return gfx.data
+		end)
+
+		for k=1,2 do
+			app.map16x16tileTexs[k] = table()
+			local tilesetIndex = tonumber(map['tileset'..k])
+			-- TODO how to specify animation # as well?
+			-- might have to just write these out based on mapindex ... and just skip unique ones?
+
+			--for frameIndex=0,3 do
+			-- but we have disableAnimationGeneration set so ...
+			for frameIndex=0,0 do
+				-- trying to load animated map frames...
+				do--if not disableAnimationGeneration then
+					local index = 0 --map.animatedLayers1And2
+					local startOffset = game.mapAnimPropOfs[index]
+					assert.eq(startOffset % ffi.sizeof'mapAnimProps_t', 0)
+					local startIndex = startOffset / ffi.sizeof'mapAnimProps_t'
+					local count = 32
+					local animLayers1And2Props = table()
+					for i=0,count-1 do
+						local p = game.mapAnimProps + startIndex + i
+						animLayers1And2Props:insert(p)
+					end
+
+					gfxDatas[5] = range(0,count-1):mapi(function(i)
+						local p = game.mapAnimProps[startIndex + i]
+						return ffi.string(game.mapAnimGraphics + p.frames.s[frameIndex ], 0x80)
+					end):concat()
+				end
+
+				-- starting to wonder why key is just gfx1/2/3/4 and not /paletteIndex as well....
+				local paletteIndex = tonumber(map.palette)
+
+				local size = vec2d(16, 16)
+				local img = Image(16 * size.x, 16 * size.y, 1, 'uint8_t'):clear()
+				-- what is its format?
+				local tile16x16 = 0
+				for j=0,size.y-1 do
+					local y = bit.lshift(j, 4)
+					for i=0,size.x-1 do
+						local x = bit.lshift(i, 4)
+						game.layer1and2drawtile16x16(
+							img,
+							x,
+							y,
+							tile16x16,
+							--map.tilesetDatas[layer]
+							game.mapTilesetCache[tilesetIndex].data,
+							nil,
+							gfxDatas,
+							nil -- mapInfo.gfxLayer3 and mapInfo.gfxLayer3.data
+						)
+						tile16x16 = tile16x16 + 1
+					end
+				end
+				app.map16x16tileTexs[k]:insert(GLTex2D{
+					--image = img,
+					data = img.buffer,
+					width = img.width,
+					height = img.height,
+					internalFormat = gl.GL_R8UI,
+
+					minFilter = gl.GL_NEAREST,
+					magFilter = gl.GL_NEAREST,
+				})
+			end
+		end
+	end
+--]]
 end
 
 
@@ -903,7 +989,7 @@ void main() {
 ]],
 			fragmentCode = [[
 uniform usampler2D tex;
-uniform sampler2D palTex;
+uniform sampler2D mapPalTex;
 uniform int mask;
 uniform int offset;
 in vec2 tcv;
@@ -913,7 +999,7 @@ void main() {
 	index &= mask;		// mask = what in input tex to draw
 	index += offset;	// offset = where in palette to draw it
 	index &= 0x7f;		// pal size is 128 so...
-	fragColor = texture(palTex, vec2(
+	fragColor = texture(mapPalTex, vec2(
 		(float(index) + .5) / 128.,
 		0.
 	), 0);
@@ -921,7 +1007,7 @@ void main() {
 ]],
 			uniforms = {
 				tex = 0,
-				palTex = 1,
+				mapPalTex = 1,
 			},
 		},
 		vertexes = {
@@ -1091,7 +1177,7 @@ function App:draw(animFrameIndex)
 	self.layerDrawObj.uniforms.mvProjMat = self.view.mvProjMat.ptr
 
 	local drawTex = function(tex)
-		self.layerDrawObj.texs[2] = self.palTex
+		self.layerDrawObj.texs[2] = self.mapWindow.mapPalTex
 		local blend = tex.image.blend
 		if self.useBlend and blend then
 			gl.glEnable(gl.GL_BLEND)
@@ -1162,188 +1248,215 @@ end
 function App:update()
 	gl.glClear(gl.GL_COLOR_BUFFER_BIT)
 
+	self.frameIndex = math.floor(timer.getTime() * self.animSpeed)
 	local view = self.view
-	-- mapSize is in texels
-	-- so now coords are in 16x16 tiles
-	view.mvMat:applyScale(1, -1)
-	view.mvMat:applyScale(self.mapSize.x / 16, self.mapSize.y / 16, 1)
-	view.mvProjMat:mul4x4(view.projMat, view.mvMat)
+	
 
-	-- draw layers blended together
-	self:draw(math.floor(timer.getTime() * self.animSpeed) % 8)	-- mod by max anim frame gcd
+	if self.show16x16mapTiles then
+		for k=1,2 do
+			if self.map16x16tileTexs then
+				local texs = self.map16x16tileTexs[k]
+				local tex = texs[(self.frameIndex % #texs) + 1]
+				
+				view:setupModelView()
+				view.mvMat:applyScale(1, -1)
+				view.mvMat:applyTranslate((k-1) * (tex.width/16 + 1), 0, 0)
+				view.mvMat:applyScale(tex.width/16, tex.height/16)
+				view.mvProjMat:mul4x4(view.projMat, view.mvMat)
 
-	-- draw overlays of things in the map:
+				self.layerDrawObj.texs[1] = tex
+				self.layerDrawObj.uniforms.mask = 0xff
+				self.layerDrawObj.uniforms.offset = 0
+				self.layerDrawObj:draw()
+			end
+		end
+	else
 
-	gl.glEnable(gl.GL_BLEND)
-	gl.glBlendEquation(gl.GL_FUNC_ADD)
-	gl.glBlendColor(1, 1, 1, .5)
-	gl.glBlendFunc(gl.GL_CONSTANT_ALPHA, gl.GL_CONSTANT_ALPHA)
 
-	-- TODO enable/disable flags with this ...
-	if self.showTileProps
-	and self.tilePropsTex
-	then
-		self.layerDrawObj.texs[1] = self.tilePropsTex
-		self.layerDrawObj.uniforms.mask = self.showTileMask
-		self.layerDrawObj.uniforms.offset = self.showTileOfs
-		self.layerDrawObj:draw()
-	end
 
-	local mapInfo = self.mapWindow:getMapInfo()
-	if mapInfo then
-		view:setupModelView()
+		-- mapSize is in texels
+		-- so now coords are in 16x16 tiles
 		view.mvMat:applyScale(1, -1)
+		view.mvMat:applyScale(self.mapSize.x / 16, self.mapSize.y / 16, 1)
 		view.mvProjMat:mul4x4(view.projMat, view.mvMat)
 
-		local rectObj = self.rectObj
-		local uniforms = rectObj.uniforms
-		uniforms.mvProjMat = view.mvProjMat.ptr
+		-- draw layers blended together
+		self:draw(bit.band(self.frameIndex, 7))	-- mod by max anim frame gcd
 
-		local function showHL()
-			local x,y,w,h = table.unpack(uniforms.bbox)
-			local eps = .1
-			settable(uniforms.color, 1,1,1,1)
-			settable(uniforms.bbox, x-eps, y-eps, 2*eps, h+2*eps)
-			rectObj:draw()
-			settable(uniforms.bbox, x-eps, y-eps, w+2*eps, 2*eps)
-			rectObj:draw()
-			settable(uniforms.bbox, x+w-eps, y-eps, 2*eps, h+2*eps)
-			rectObj:draw()
-			settable(uniforms.bbox, x-eps, y+h-eps, w+2*eps, 2*eps)
-			rectObj:draw()
-		end
+		-- draw overlays of things in the map:
 
-		local mx, my, mz, mw = self:invTransform(self.mouse.pos.x * self.width, self.mouse.pos.y * self.height)
-mx = mx + self.view.pos.x
-my = my + self.view.pos.y	-- why isn't htis in the matrix and therefore in invTransform ?
-my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
+		gl.glEnable(gl.GL_BLEND)
+		gl.glBlendEquation(gl.GL_FUNC_ADD)
+		gl.glBlendColor(1, 1, 1, .5)
+		gl.glBlendFunc(gl.GL_CONSTANT_ALPHA, gl.GL_CONSTANT_ALPHA)
 
-		local leftPress = self.mouse.leftPress
-
-		if (self.mapWindow.index == 0 or self.mapWindow.index == 1)
-		and self.showWorldEncounterSectors
+		-- TODO enable/disable flags with this ...
+		if self.showTileProps
+		and self.tilePropsTex
 		then
-			for sectorIndex=0,0x3f do
-				local x = bit.lshift(bit.band(sectorIndex, 7), 5)
-				local y = bit.lshift(bit.band(bit.rshift(sectorIndex, 3), 7), 5)
-				local w, h = 32, 32
-
-				local i = bit.bor(sectorIndex, bit.lshift(self.mapWindow.index, 6))
-				if leftPress
-				and x <= mx and mx <= x+w
-				and y <= my and my <= y+h
-				then
-					self.worldEncounterSectorWindow:setIndex(i)
-					self.worldEncounterSectorWindow.show[0] = true
-				end
-				settable(uniforms.color, .7, .7, .7, 1)
-				settable(uniforms.bbox, x, y, w, h)
-				--rectObj:draw()
-				if i == self.worldEncounterSectorWindow.index then
-					showHL()
-				end
-			end
+			self.layerDrawObj.texs[1] = self.tilePropsTex
+			self.layerDrawObj.uniforms.mask = self.showTileMask
+			self.layerDrawObj.uniforms.offset = self.showTileOfs
+			self.layerDrawObj:draw()
 		end
 
-		if self.showTreasures then
-			for i,t in ipairs(mapInfo.treasures) do
-				local x, y = tonumber(t.pos.x), tonumber(t.pos.y)
-				if leftPress
-				and x <= mx and mx <= x+1
-				and y <= my and my <= y+1
-				then
-					self.treasureWindow:setIndex(i-1)
-					self.treasureWindow.show[0] = true
-				end
-				settable(uniforms.bbox, x, y, 1, 1)
-				settable(uniforms.color, 0,0,1,1)
+		local mapInfo = self.mapWindow:getMapInfo()
+		if mapInfo then
+			view:setupModelView()
+			view.mvMat:applyScale(1, -1)
+			view.mvProjMat:mul4x4(view.projMat, view.mvMat)
+
+			local rectObj = self.rectObj
+			local uniforms = rectObj.uniforms
+			uniforms.mvProjMat = view.mvProjMat.ptr
+
+			local function showHL()
+				local x,y,w,h = table.unpack(uniforms.bbox)
+				local eps = .1
+				settable(uniforms.color, 1,1,1,1)
+				settable(uniforms.bbox, x-eps, y-eps, 2*eps, h+2*eps)
 				rectObj:draw()
-				if i-1 == self.treasureWindow.index then
-					showHL()
+				settable(uniforms.bbox, x-eps, y-eps, w+2*eps, 2*eps)
+				rectObj:draw()
+				settable(uniforms.bbox, x+w-eps, y-eps, 2*eps, h+2*eps)
+				rectObj:draw()
+				settable(uniforms.bbox, x-eps, y+h-eps, w+2*eps, 2*eps)
+				rectObj:draw()
+			end
+
+			local mx, my, mz, mw = self:invTransform(self.mouse.pos.x * self.width, self.mouse.pos.y * self.height)
+	mx = mx + self.view.pos.x
+	my = my + self.view.pos.y	-- why isn't htis in the matrix and therefore in invTransform ?
+	my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
+
+			local leftPress = self.mouse.leftPress
+
+			if (self.mapWindow.index == 0 or self.mapWindow.index == 1)
+			and self.showWorldEncounterSectors
+			then
+				for sectorIndex=0,0x3f do
+					local x = bit.lshift(bit.band(sectorIndex, 7), 5)
+					local y = bit.lshift(bit.band(bit.rshift(sectorIndex, 3), 7), 5)
+					local w, h = 32, 32
+
+					local i = bit.bor(sectorIndex, bit.lshift(self.mapWindow.index, 6))
+					if leftPress
+					and x <= mx and mx <= x+w
+					and y <= my and my <= y+h
+					then
+						self.worldEncounterSectorWindow:setIndex(i)
+						self.worldEncounterSectorWindow.show[0] = true
+					end
+					settable(uniforms.color, .7, .7, .7, 1)
+					settable(uniforms.bbox, x, y, w, h)
+					--rectObj:draw()
+					if i == self.worldEncounterSectorWindow.index then
+						showHL()
+					end
+				end
+			end
+
+			if self.showTreasures then
+				for i,t in ipairs(mapInfo.treasures) do
+					local x, y = tonumber(t.pos.x), tonumber(t.pos.y)
+					if leftPress
+					and x <= mx and mx <= x+1
+					and y <= my and my <= y+1
+					then
+						self.treasureWindow:setIndex(i-1)
+						self.treasureWindow.show[0] = true
+					end
+					settable(uniforms.bbox, x, y, 1, 1)
+					settable(uniforms.color, 0,0,1,1)
+					rectObj:draw()
+					if i-1 == self.treasureWindow.index then
+						showHL()
+					end
+				end
+			end
+			if self.showEventTriggers then
+				for i,e in ipairs(mapInfo.eventTriggers) do
+					local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
+					if leftPress
+					and x <= mx and mx <= x+1
+					and y <= my and my <= y+1
+					then
+						self.eventTriggerWindow:setIndex(i-1)
+						self.eventTriggerWindow.show[0] = true
+					end
+					settable(uniforms.bbox, x, y, 1, 1)
+					settable(uniforms.color, 0,0,1,1)
+					rectObj:draw()
+					if i-1 == self.eventTriggerWindow.index then
+						showHL()
+					end
+				end
+			end
+			if self.showEntranceTriggers then
+				for i,e in ipairs(mapInfo.entranceTriggers) do
+					local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
+					if leftPress
+					and x <= mx and mx <= x+1
+					and y <= my and my <= y+1
+					then
+						self.entranceTriggerWindow:setIndex(i-1)
+						self.entranceTriggerWindow.show[0] = true
+					end
+					settable(uniforms.bbox, x, y, 1, 1)
+					settable(uniforms.color, 1,0,0,1)
+					rectObj:draw()
+					if i-1 == self.entranceTriggerWindow.index then
+						showHL()
+					end
+				end
+			end
+			if self.showEntranceAreaTriggers then
+				for i,e in ipairs(mapInfo.entranceAreaTriggers) do
+					local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
+					local w, h
+					if e.vertical == 0 then
+						w, h = e.length, 1
+					else
+						w, h = 1, e.length
+					end
+					if leftPress
+					and x <= mx and mx <= x+w
+					and y <= my and my <= y+h
+					then
+						self.entranceAreaTriggerWindow:setIndex(i-1)
+						self.entranceAreaTriggerWindow.show[0] = true
+					end
+					settable(uniforms.bbox, x, y, w, h)
+					settable(uniforms.color, 0,1,0,1)
+					rectObj:draw()
+					if i-1 == self.entranceAreaTriggerWindow.index then
+						showHL()
+					end
+				end
+			end
+			if self.showNPCs then
+				for i,n in ipairs(mapInfo.npcs) do
+					local x, y = tonumber(n.x), tonumber(n.y)
+					if leftPress
+					and x <= mx and mx <= x+1
+					and y <= my and my <= y+1
+					then
+						self.npcWindow:setIndex(i-1)
+						self.npcWindow.show[0] = true
+					end
+					settable(uniforms.bbox, x, y, 1, 1)
+					settable(uniforms.color, 0,1,0,1)
+					rectObj:draw()
+					if i-1 == self.npcWindow.index then
+						showHL()
+					end
 				end
 			end
 		end
-		if self.showEventTriggers then
-			for i,e in ipairs(mapInfo.eventTriggers) do
-				local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
-				if leftPress
-				and x <= mx and mx <= x+1
-				and y <= my and my <= y+1
-				then
-					self.eventTriggerWindow:setIndex(i-1)
-					self.eventTriggerWindow.show[0] = true
-				end
-				settable(uniforms.bbox, x, y, 1, 1)
-				settable(uniforms.color, 0,0,1,1)
-				rectObj:draw()
-				if i-1 == self.eventTriggerWindow.index then
-					showHL()
-				end
-			end
-		end
-		if self.showEntranceTriggers then
-			for i,e in ipairs(mapInfo.entranceTriggers) do
-				local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
-				if leftPress
-				and x <= mx and mx <= x+1
-				and y <= my and my <= y+1
-				then
-					self.entranceTriggerWindow:setIndex(i-1)
-					self.entranceTriggerWindow.show[0] = true
-				end
-				settable(uniforms.bbox, x, y, 1, 1)
-				settable(uniforms.color, 1,0,0,1)
-				rectObj:draw()
-				if i-1 == self.entranceTriggerWindow.index then
-					showHL()
-				end
-			end
-		end
-		if self.showEntranceAreaTriggers then
-			for i,e in ipairs(mapInfo.entranceAreaTriggers) do
-				local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
-				local w, h
-				if e.vertical == 0 then
-					w, h = e.length, 1
-				else
-					w, h = 1, e.length
-				end
-				if leftPress
-				and x <= mx and mx <= x+w
-				and y <= my and my <= y+h
-				then
-					self.entranceAreaTriggerWindow:setIndex(i-1)
-					self.entranceAreaTriggerWindow.show[0] = true
-				end
-				settable(uniforms.bbox, x, y, w, h)
-				settable(uniforms.color, 1,0,0,1)
-				rectObj:draw()
-				if i-1 == self.entranceAreaTriggerWindow.index then
-					showHL()
-				end
-			end
-		end
-		if self.showNPCs then
-			for i,n in ipairs(mapInfo.npcs) do
-				local x, y = tonumber(n.x), tonumber(n.y)
-				if leftPress
-				and x <= mx and mx <= x+1
-				and y <= my and my <= y+1
-				then
-					self.npcWindow:setIndex(i-1)
-					self.npcWindow.show[0] = true
-				end
-				settable(uniforms.bbox, x, y, 1, 1)
-				settable(uniforms.color, 0,1,0,1)
-				rectObj:draw()
-				if i-1 == self.npcWindow.index then
-					showHL()
-				end
-			end
-		end
+
+		gl.glDisable(gl.GL_BLEND)
 	end
 
-	gl.glDisable(gl.GL_BLEND)
 
 	-- draw gui
 	App.super.update(self)
@@ -1407,8 +1520,8 @@ function App:updateGUI()
 						width = tonumber(self.mapSize.x),
 						height = tonumber(self.mapSize.y),
 						internalFormat = gl.GL_RGBA,
-						format = gl.GL_RGBA,
-						type = gl.GL_UNSIGNED_BYTE,
+						--format = gl.GL_RGBA,
+						--type = gl.GL_UNSIGNED_BYTE,
 						minFilter = gl.GL_NEAREST,
 						magFilter = gl.GL_NEAREST,
 					}
