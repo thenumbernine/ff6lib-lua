@@ -229,7 +229,7 @@ function MapWindow:showIndexUI(ar)
 		-- based on mapTileProps_t:
 		local tilePropsNames = self.index < 3
 		-- WorldTileProps_t:
-		and worldTilePropsNames 
+		and worldTilePropsNames
 		-- mapTileProps_t:
 		or mapTilePropsNames
 assert.len(tilePropsNames, numTilePropsBits)
@@ -432,22 +432,16 @@ function MapWindow:setIndex(newIndex, pushStack)
 		-- uint8_t into the tilePropsPtr table, which is a table of 2-byte-sized either WorldTileProps_t or mapTileProps_t
 		local layoutptr = ffi.cast('uint8_t*', layout1Data)
 		local tilePropsPtr = ffi.cast('uint16_t*', tilePropsData)
-print()
-for i=0,255 do
-	io.write('\ttileProps['..('0x%02x'):format(i)..'] = '..('0x%04x'):format(tilePropsPtr[i]))
-	if i % 4 == 3 then print() end
-end
-
 		local volume = layerSizes[1].x * layerSizes[1].y
 		local data = ffi.new('uint32_t[?]', volume)
 		ffi.fill(data, 0, volume * ffi.sizeof'uint32_t')
 		for i=0,volume-1 do
 			-- for non-world-maps,
-			-- two special values: 
+			-- two special values:
 			-- 0x7 = "through-tile"
 			-- 0xfff7 = "impassible"
 			-- i'll turn them into new flags
-			local flags = tilePropsPtr[layoutptr[i]] 
+			local flags = tilePropsPtr[layoutptr[i]]
 			if self.index >= 3 then
 				if flags == 7 then
 					flags = 0x10000	-- 'through-tile'
@@ -640,7 +634,7 @@ function EntranceAreaTriggerWindow:showIndexUI(ar)
 		self.app.mapWindow:setIndex(e.mapIndex, 0 ~= e.setParentMap)
 		self.app:centerView(e.dest.x, e.dest.y)
 	end
-	ig.igText(' length = '..e.length)
+	ig.igText(' length = '..(e.length+1))
 	ig.igText(e.vertical==0 and ' horz' or ' vert')
 
 	-- notice the rest is in common with typical entranceTrigger_t:
@@ -1042,6 +1036,8 @@ EventBattleOptionsWindow.gameField = 'monsterEventBattles'		-- monsterRandomBatt
 
 
 local App = require 'imgui.appwithorbit'()
+
+App.hasFocus = true
 App.title = 'FF6 Data Visualizer'
 
 function App:initGL(...)
@@ -1065,14 +1061,17 @@ function App:initGL(...)
 		vec3d(1,1,1),
 		vec3d(.75, .75, .75),
 
-		vec3d(.5,0,0),
-		vec3d(0,.5,0),
+		vec3d(1, .5, .5),
+		vec3d(.5, 1, .5),
 		vec3d(0,0,.5),
 		vec3d(0,.5,.5),
 		vec3d(.5,0,.5),
 		vec3d(.5,.5,0),
 		vec3d(.5,.5,.5),
 		vec3d(.25, .25, .25),
+
+		vec3d(.5,0,0),
+		vec3d(0,.5,0),
 	}
 	local tilePropsPalSize = 32
 	assert.ge(tilePropsPalSize, numTilePropsBits)	-- TODO rup2 or something
@@ -1405,11 +1404,18 @@ function App:draw(animFrameIndex)
 end
 
 function App:update()
+	if not self.hasFocus then
+		sdl.SDL_Delay(100)
+		return
+	end
+
 	gl.glClear(gl.GL_COLOR_BUFFER_BIT)
 
 	self.frameIndex = math.floor(timer.getTime() * self.animSpeed)
 	local view = self.view
 	self.layerDrawObj.uniforms.mvProjMat = self.view.mvProjMat.ptr
+
+	self.tooltipText = nil
 
 	if self.show16x16mapTiles then
 		for k=1,2 do
@@ -1496,6 +1502,7 @@ function App:update()
 	mx = mx + self.view.pos.x
 	my = my + self.view.pos.y	-- why isn't htis in the matrix and therefore in invTransform ?
 	my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
+self.tooltipText = math.floor(mx)..', '..math.floor(my)
 
 			local leftPress = self.mouse.leftPress
 
@@ -1583,9 +1590,9 @@ function App:update()
 					local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
 					local w, h
 					if e.vertical == 0 then
-						w, h = e.length, 1
+						w, h = e.length+1, 1
 					else
-						w, h = 1, e.length
+						w, h = 1, e.length+1
 					end
 					if leftPress
 					and x <= mx and mx <= x+w
@@ -1791,9 +1798,23 @@ function App:updateGUI()
 		end
 	end
 	updateRecursive(self.baseWindows)
+
+	if self.tooltipText then
+		ig.igBeginTooltip()
+		ig.igText(self.tooltipText)
+		ig.igEndTooltip()
+	end
 end
 
 function App:event(e)
+	if e[0].type == sdl.SDL_EVENT_WINDOW_FOCUS_GAINED then
+		self.hasFocus = true
+		return
+	elseif e[0].type == sdl.SDL_EVENT_WINDOW_FOCUS_LOST then
+		self.hasFocus = false
+		return
+	end
+
 	App.super.event(self, e)
 	--local canHandleMouse = not ig.igGetIO()[0].WantCaptureMouse
 	local canHandleKeyboard = not ig.igGetIO()[0].WantCaptureKeyboard
