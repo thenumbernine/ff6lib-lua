@@ -1933,10 +1933,7 @@ the 10 are:
 local mapTilesetOfsAddr = 0x1fba00
 
 local treasure_t = ff6struct{
-	name = 'treasure_t',
-	-- can't be anonymous because game_t is inserting its serialized name into its C code definition...
-	--anonymous = true,
-
+	ctypeOnly = true,
 	fields = {
 		{pos = 'xy8b_t'},
 		{switch = 'uint16_t:9'},	-- global index / bitflag? into game state data?
@@ -2156,7 +2153,7 @@ local mapEventTrigger_t = ff6struct{
 assert.eq(ffi.sizeof'mapEventTrigger_t', 5)
 
 local WorldTileProps_t = ff6struct{
-	name = 'WorldTileProps_t',
+	ctypeOnly = true,
 	fields = {
 		{blocksChocobo = 'uint16_t:1'},		-- 0.0
 		{airshipCantLand = 'uint16_t:1'},	-- 0.1
@@ -2177,15 +2174,18 @@ local WorldTileProps_t = ff6struct{
 		{kefkasTower = 'uint16_t:1'},		-- 1.7 aka 0.15
 	},
 }
-assert.eq(ffi.sizeof'WorldTileProps_t', 2)
+assert.eq(ffi.sizeof(WorldTileProps_t), 2)
 
 local battleBgProps_t = struct{
-	name = 'battleBgProps_t',
+	ctypeOnly = true,
 	packed = true,
 	tostringFields = true,
 	tostringOmitFalse = true,
 	tostringOmitNil = true,
 	tostringOmitEmpty = true,
+	metatable = function(mt)
+		mt.typeToString = fieldsToHex
+	end,
 	fields = {
 		{
 			type = struct{
@@ -2215,19 +2215,18 @@ local battleBgProps_t = struct{
 		{name='palette', type='uint8_t:7'},					-- 5.0-5.6
 		{name='wavy', type='uint8_t:1'},					-- 5.7
 	},
-	metatable = function(mt)
-		mt.typeToString = fieldsToHex
-	end,
 }
 assert.eq(ffi.sizeof(battleBgProps_t), 6)
 
 
 ---------------- GAME ----------------
 
--- TODO this is clever but ... rigid and with lots of redundancies
--- the memorymap system of the super metroid randomizer is better.
+-- TODO while putting the entire ROM into a single C struct seems clever,
+-- ... doing so is very rigid and with lots of redundancies.
+-- the MemoryMap system of super-metroid-randomizer is better:
+--  https://github.com/thenumbernine/super-metroid-randomizer-lua
 game_t = struct{
-	anonymous = true,
+	ctypeOnly = true,
 	packed = true,
 	notostring = true,	-- too big to serialize
 	tostringFields = true,
@@ -2520,7 +2519,7 @@ game_t = struct{
 		{name = 'esperAttackNames', type = 'str10_t['..numEspers..']'},											-- 0x26fe8f - 0x26ff9d
 		{name = 'mogDanceNames', type = 'str12_t['..numMogDances..']'},											-- 0x26ff9d - 0x26fffd
 		{name = 'padding_26fffd', type = 'uint8_t[3]'},															-- 0x26fffd - 0x270000
-		{name = 'battleBgProperties', type = 'battleBgProps_t[56]'},											-- 0x270000 - 0x270150 = 56*6
+		{name = 'battleBgProperties', type = ffi.typeof('$[56]', battleBgProps_t)},											-- 0x270000 - 0x270150 = 56*6
 		{name = 'battleBgPalettes', type = 'color_t[0xa80]'},													-- 0x270150 - 0x271650 ... everything's says 56 or 96? max index is 0x34 = 52
 		{name = 'battleBgGfxAddrs', type = 'uint24_t[0xa8]'},													-- 0x271650 - 0x271848 = 75 used, the rest are 0's, most points into battleBgGfxCompressed
 		{name = 'battleBgLayoutOffsets', type = 'uint16_t[0x70]'},												-- 0x271848 - 0x271928 = +0x270000 .  49 are valid. invalid contain 0x1928.  points into battleBgLayoutCompressed
@@ -2570,8 +2569,8 @@ game_t = struct{
 		-- 0x2e4842 - 0x2e4851     Sprites used for various positions of map character
 		{name = 'unknown_2dfff2', type = 'uint8_t['..(-(0x2dfff2 - 0x2e9b14))..']'},
 
-		{name = 'WoBTileProps', type = 'WorldTileProps_t[0x100]'},												-- 0x2e9b14 - 0x2e9d14
-		{name = 'WoRTileProps', type = 'WorldTileProps_t[0x100]'},												-- 0x2e9d14 - 0x2e9f14
+		{name = 'WoBTileProps', type = ffi.typeof('$[0x100]', WorldTileProps_t)},												-- 0x2e9b14 - 0x2e9d14
+		{name = 'WoRTileProps', type = ffi.typeof('$[0x100]', WorldTileProps_t)},												-- 0x2e9d14 - 0x2e9f14
 
 		{name = 'unknown_2e9f14', type = 'uint8_t['..(-(0x2e9f14 - 0x2ed434))..']'},							-- 0x2e9f14 - 0x2ed434 = looks like more world tile props.
 
@@ -2810,7 +2809,8 @@ game.positionedText = StringList{
 
 game.game_t = game_t
 game.treasure_t = treasure_t
-
+game.battleBgProps_t = battleBgProps_t
+game.WorldTileProps_t = WorldTileProps_t
 
 require 'ff6.maps'(game)
 

@@ -10,6 +10,7 @@ return function(args)
 		tostringOmitEmpty = true,
 		name = args.name,
 		anonymous = args.anonymous,
+		ctypeOnly = args.ctypeOnly,
 		packed = true,
 		union = true,
 		fields = {

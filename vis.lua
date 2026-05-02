@@ -547,6 +547,14 @@ function MapWindow:setIndex(newIndex, pushStack)
 		end
 	end
 --]]
+
+	-- start us off centered at the first entrance trigger we find
+	if mapInfo.entranceTriggers then	
+		local e = mapInfo.entranceTriggers[1]
+		if e then
+			app:centerView(e.pos.x, e.pos.y)
+		end
+	end
 end
 
 
@@ -1044,7 +1052,7 @@ function App:initGL(...)
 	App.super.initGL(self, ...)
 
 	self.view.ortho = true
-	self.view.orthoSize = 256
+	self.view.orthoSize = 16
 	self.animSpeed = 15
 	self.useBlend = true
 	self.showTileMask = 0	--0xffff

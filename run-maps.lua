@@ -351,7 +351,7 @@ print('setting gfxstr', gfxstr, 'paletteIndex', paletteIndex)
 	--assert.eq(ffi.sizeof'mapTileProps_t', 2)	-- make sure writing uint16_t's works
 	--local tilePropsMap = ffi.new('uint16_t[?]', layer1Size.x * layer1Size.y)
 				local layoutptr = ffi.cast('uint8_t*', layout1Data)
-				local tilePropsPtr = ffi.cast('WorldTileProps_t*', tilePropsData)
+				local tilePropsPtr = ffi.cast(ffi.typeof('$*', game.WorldTileProps_t), tilePropsData)
 				for dstY=0,layer1Size.y-1 do
 					for dstX=0,layer1Size.x-1 do
 						local props = tilePropsPtr + layoutptr[0]
