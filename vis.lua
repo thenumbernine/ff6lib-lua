@@ -1602,7 +1602,7 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 						self.entranceAreaTriggerWindow.show[0] = true
 					end
 					settable(uniforms.bbox, x, y, w, h)
-					settable(uniforms.color, 0,1,0,1)
+					settable(uniforms.color, 1,0,0,1)
 					rectObj:draw()
 					if i-1 == self.entranceAreaTriggerWindow.index then
 						showHL()
