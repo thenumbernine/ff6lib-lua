@@ -838,39 +838,39 @@ data = ffi.string(dest, #data)
 		mapInfo.eventTriggers = table()
 		do
 			local ofs = ffi.offsetof(game_t, 'mapEventTriggers') - ffi.offsetof(game_t, 'mapEventTriggerOfs')
-			local startIndex = (game.mapEventTriggerOfs[mapIndex] - ofs) / ffi.sizeof'mapEventTrigger_t'
+			local startIndex = (game.mapEventTriggerOfs[mapIndex] - ofs) / ffi.sizeof(game.mapEventTrigger_t)
 			local endIndex = mapIndex >= countof(game.mapEventTriggerOfs)-1
 				and startIndex -- countof(game.mapEventTriggers)
-				or (game.mapEventTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof'mapEventTrigger_t'
+				or (game.mapEventTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof(game.mapEventTrigger_t)
 			for i=startIndex,endIndex-1 do
 				local e = game.mapEventTriggers + i
-				mapInfo.eventTriggers:insert(ffi.new('mapEventTrigger_t', e[0]))
+				mapInfo.eventTriggers:insert(game.mapEventTrigger_t(e[0]))
 			end
 		end
 
-		mapInfo.entranceTriggers = table()
+		mapInfo.doors = table()
 		do
-			local ofs = ffi.offsetof(game_t, 'entranceTriggers') - ffi.offsetof(game_t, 'entranceTriggerOfs')
-			local startIndex = (game.entranceTriggerOfs[mapIndex] - ofs) / ffi.sizeof'entranceTrigger_t'
-			local endIndex = mapIndex >= countof(game.entranceTriggerOfs)-1
-				and countof(game.entranceTriggers)
-				or (game.entranceTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof'entranceTrigger_t'
+			local ofs = ffi.offsetof(game_t, 'doors') - ffi.offsetof(game_t, 'doorsOfs')
+			local startIndex = (game.doorsOfs[mapIndex] - ofs) / ffi.sizeof(game.Door)
+			local endIndex = mapIndex >= countof(game.doorsOfs)-1
+				and countof(game.doors)
+				or (game.doorsOfs[mapIndex+1] - ofs) / ffi.sizeof(game.Door)
 			for i=startIndex,endIndex-1 do
-				local e = game.entranceTriggers + i
-				mapInfo.entranceTriggers:insert(ffi.new('entranceTrigger_t', e[0]))
+				local e = game.doors + i
+				mapInfo.doors:insert(game.Door(e[0]))
 			end
 		end
 
-		mapInfo.entranceAreaTriggers = table()
+		mapInfo.bigDoors = table()
 		do
-			local ofs = ffi.offsetof(game_t, 'entranceAreaTriggers') - ffi.offsetof(game_t, 'entranceAreaTriggerOfs')
-			local startIndex = (game.entranceAreaTriggerOfs[mapIndex] - ofs) / ffi.sizeof'entranceAreaTrigger_t'
-			local endIndex = mapIndex >= countof(game.entranceAreaTriggerOfs)-1
-				and countof(game.entranceAreaTriggers)
-				or (game.entranceAreaTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof'entranceAreaTrigger_t'
+			local ofs = ffi.offsetof(game_t, 'bigDoors') - ffi.offsetof(game_t, 'bigDoorsOfs')
+			local startIndex = (game.bigDoorsOfs[mapIndex] - ofs) / ffi.sizeof(game.BigDoor)
+			local endIndex = mapIndex >= countof(game.bigDoorsOfs)-1
+				and countof(game.bigDoors)
+				or (game.bigDoorsOfs[mapIndex+1] - ofs) / ffi.sizeof(game.BigDoor)
 			for i=startIndex,endIndex-1 do
-				local e = game.entranceAreaTriggers + i
-				mapInfo.entranceAreaTriggers:insert(ffi.new('entranceAreaTrigger_t', e[0]))
+				local e = game.bigDoors + i
+				mapInfo.bigDoors:insert(game.BigDoor(e[0]))
 			end
 		end
 

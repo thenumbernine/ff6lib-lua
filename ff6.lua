@@ -2062,7 +2062,7 @@ assert.eq(ffi.sizeof'npc_t', 9)
 local mapDest_t = ff6struct{
 	name = 'mapDest_t ',
 	fields = {
-		-- also last 4 bytes of entranceTrigger_t:
+		-- also last 4 bytes of Door:
 		{mapIndex = 'uint16_t:9'},		-- 0.0-1.0: maps[]
 		{setParentMap = 'uint16_t:1'},	-- 1.1
 		{zLevel = 'uint16_t:1'},		-- 1.2
@@ -2080,10 +2080,8 @@ local mapDest_t = ff6struct{
 }
 assert.eq(ffi.sizeof'mapDest_t', 5)
 
-local numEntranceTriggerOfs = 513
-local entranceTrigger_t = ff6struct{
-	name = 'entranceTrigger_t',
-
+local Door = ff6struct{
+	ctypeOnly = true,
 	fields = {
 		{pos = 'xy8b_t'},				-- 0-1
 
@@ -2097,10 +2095,10 @@ local entranceTrigger_t = ff6struct{
 		{dest = 'xy8b_t'},				-- 4-5
 	},
 }
-assert.eq(ffi.sizeof'entranceTrigger_t', 6)
+assert.eq(ffi.sizeof(Door), 6)
 
-local entranceAreaTrigger_t = struct{
-	name = 'entranceAreaTrigger_t',
+local BigDoor = struct{
+	ctypeOnly = true,
 	tostringFields = true,
 	tostringOmitFalse = true,
 	tostringOmitNil = true,
@@ -2136,10 +2134,10 @@ local entranceAreaTrigger_t = struct{
 		mt.typeToString = fieldsToHex
 	end,
 }
-assert.eq(ffi.sizeof'entranceAreaTrigger_t', 7)
+assert.eq(ffi.sizeof(BigDoor), 7)
 
 local mapEventTrigger_t = ff6struct{
-	name = 'mapEventTrigger_t',
+	ctypeOnly = true,
 	fields = {
 		{pos = 'xy8b_t'},
 		{script = 'uint24_t'},
@@ -2150,7 +2148,7 @@ local mapEventTrigger_t = ff6struct{
 		end
 	end,
 }
-assert.eq(ffi.sizeof'mapEventTrigger_t', 5)
+assert.eq(ffi.sizeof(mapEventTrigger_t), 5)
 
 local WorldTileProps_t = ff6struct{
 	ctypeOnly = true,
@@ -2304,7 +2302,7 @@ game_t = struct{
 		{name = 'unknown_03c406', type = 'uint8_t['..(-(0x03c406 - 0x040000))..']'},							-- 0x03c406 - 0x040000
 
 		{name = 'mapEventTriggerOfs', type = 'uint16_t['..((0x040342 - 0x040000)/2)..']'},						-- 0x040000 - 0x040342 = offset by +0x040000
-		{name = 'mapEventTriggers', type = 'mapEventTrigger_t[0x48f]'},											-- 0x040342 - 0x041a0d = map event triggers (5 bytes each)
+		{name = 'mapEventTriggers', type = ffi.typeof('$[0x48f]', mapEventTrigger_t)},											-- 0x040342 - 0x041a0d = map event triggers (5 bytes each)
 
 		{name = 'padding_041a0d', type = 'uint8_t['..(-(0x041a0d - 0x041a10))..']'},							-- 0x041a0d - 0x041a10
 
@@ -2490,8 +2488,8 @@ game_t = struct{
 		{name = 'itemColosseumInfos', type = 'itemColosseumInfo_t['..numItems..']'},							-- 0x1fb600 - 0x1fba00
 		{name = 'mapTilesetOffsets', type = 'uint24_t[0x4b]'},													-- 0x1fba00 - 0x1fbaff -- 24bit, offset by +0x1e0000, points into mapTilesetsCompressed ... last points to invalid data so I cut it off.
 		{name = 'padding_1fbaff', type = 'uint8_t[31]'},														-- 0x1fbaff - 0x1fbb00
-		{name = 'entranceTriggerOfs', type = 'uint16_t['..numEntranceTriggerOfs..']'},							-- 0x1fbb00 - 0x1fbf02 -- offset by +0x1fbb00
-		{name = 'entranceTriggers', type = 'entranceTrigger_t[0x469]'},											-- 0x1fbf02 - 0x1fd978 = entranceTrigger_t[] (only 415 used?)
+		{name = 'doorsOfs', type = 'uint16_t[0x201]'},															-- 0x1fbb00 - 0x1fbf02 -- offset by +0x1fbb00
+		{name = 'doors', type = ffi.typeof('$[0x469]', Door)},													-- 0x1fbf02 - 0x1fd978 = Door[] (only 415 used?)
 		{name = 'padding_1fd978', type = 'uint8_t[136]'},														-- 0x1fd978 - 0x1fda00 = 'ff's
 		{name = 'mapTileGraphicsOffsets', type = 'uint24_t[0x52]'},												-- 0x1fda00 - 0x1fdaf6 = town tile graphics pointers (+0x1fdb00), points into mapTileGraphics
 		{name = 'padding_1fdaf6', type = 'uint8_t[10]'},														-- 0x1fdaf6 - 0x1fdb00
@@ -2553,15 +2551,15 @@ game_t = struct{
 		{name = 'characters', type = 'character_t['..numCharacters..']'},										-- 0x2d7ca0 - 0x2d8220
 		{name = 'expForLevelUp', type = 'uint16_t['..numExpLevelUps..']'},										-- 0x2d8220 - 0x2d82f4
 		{name = 'treasureOfs', type = 'uint16_t[0x1a0]'},														-- 0x2d82f4 - 0x2d8634 	-- offset +0x2d8634 into treasures
-		{name = 'treasures', type = ffi.typeof('$[0x11e]', treasure_t)},														-- 0x2d8634 - 0x2d8bca
+		{name = 'treasures', type = ffi.typeof('$[0x11e]', treasure_t)},										-- 0x2d8634 - 0x2d8bca
 		{name = 'padding_2d8bca', type = 'uint8_t['..(-(0x2d8bca - 0x2d8e5b))..']'},							-- 0x2d8bca - 0x2d8e5b = 'ff's
 		{name = 'battleBgDance', type = 'uint8_t[0x40]'},														-- 0x2d8e5b - 0x2d8e9b
 		{name = 'padding_2d8e9b', type = 'uint8_t['..(-(0x2d8e9b - 0x2d8f00))..']'},							-- 0x2d8e9b - 0x2d8f00 = 'ff's
 		{name = 'maps', type = 'map_t[0x19f]'},																	-- 0x2d8f00 - 0x2dc47f
 		{name = 'padding_2dc47f', type = 'uint8_t[1]'},															-- 0x2dc47f - 0x2df480
 		{name = 'mapPalettes', type = 'palette16_8_t[48]'},														-- 0x2dc480 - 0x2df480 = map palettes (48 elements, 16x8 colors each)
-		{name = 'entranceAreaTriggerOfs', type = 'uint16_t['..numEntranceTriggerOfs..']'},						-- 0x2df480 - 0x2df882
-		{name = 'entranceAreaTriggers', type = 'entranceAreaTrigger_t[0x98]'},									-- 0x2df882 - 0x2dfcaa
+		{name = 'bigDoorsOfs', type = 'uint16_t[0x201]'},											-- 0x2df480 - 0x2df882
+		{name = 'bigDoors', type = ffi.typeof('$[0x98]', BigDoor)},					-- 0x2df882 - 0x2dfcaa
 		{name = 'padding_2dfcaa', type = 'uint8_t['..(-(0x2dfcaa - 0x2dfe00))..']'},							-- 0x2dfcaa - 0x2dfe00 = 'ff's
 		{name = 'longEsperBonusDescBase', type = 'uint8_t['..(-(0x2dfe00 - 0x2dffd0))..']'},					-- 0x2dfe00 - 0x2dffd0
 		{name = 'longEsperBonusDescOffsets', type = 'uint16_t['..numEsperBonuses..']'},							-- 0x2dffd0 - 0x2dfff2
@@ -2569,8 +2567,8 @@ game_t = struct{
 		-- 0x2e4842 - 0x2e4851     Sprites used for various positions of map character
 		{name = 'unknown_2dfff2', type = 'uint8_t['..(-(0x2dfff2 - 0x2e9b14))..']'},
 
-		{name = 'WoBTileProps', type = ffi.typeof('$[0x100]', WorldTileProps_t)},												-- 0x2e9b14 - 0x2e9d14
-		{name = 'WoRTileProps', type = ffi.typeof('$[0x100]', WorldTileProps_t)},												-- 0x2e9d14 - 0x2e9f14
+		{name = 'WoBTileProps', type = ffi.typeof('$[0x100]', WorldTileProps_t)},								-- 0x2e9b14 - 0x2e9d14
+		{name = 'WoRTileProps', type = ffi.typeof('$[0x100]', WorldTileProps_t)},								-- 0x2e9d14 - 0x2e9f14
 
 		{name = 'unknown_2e9f14', type = 'uint8_t['..(-(0x2e9f14 - 0x2ed434))..']'},							-- 0x2e9f14 - 0x2ed434 = looks like more world tile props.
 
@@ -2719,7 +2717,6 @@ game.numBlitzes = numBlitzes
 game.numLores = numLores
 game.numShops = numShops
 game.numMapNames = numMapNames
-game.numEntranceTriggerOfs = numEntranceTriggerOfs
 game.numDialogs = numDialogs
 game.numBattleDialogs = numBattleDialogs
 game.numBattleDialog2s = numBattleDialog2s
@@ -2807,10 +2804,13 @@ game.positionedText = StringList{
 	addrBase = rom + 0x030000,
 }
 
-game.game_t = game_t
-game.treasure_t = treasure_t
-game.battleBgProps_t = battleBgProps_t
+game.Door = Door 
+game.BigDoor = BigDoor
+game.mapEventTrigger_t = mapEventTrigger_t
 game.WorldTileProps_t = WorldTileProps_t
+game.battleBgProps_t = battleBgProps_t
+game.treasure_t = treasure_t
+game.game_t = game_t
 
 require 'ff6.maps'(game)
 

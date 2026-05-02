@@ -652,10 +652,10 @@ for i=0,countof(game.mapEventTriggerOfs)-1 do
 	-- but the data starts at 0x40342
 	-- and it is a reference into a list of structs 5 bytes wide ...
 	local ofs = ffi.offsetof(game_t, 'mapEventTriggers') - ffi.offsetof(game_t, 'mapEventTriggerOfs')
-	local startIndex = (game.mapEventTriggerOfs[i] - ofs) / ffi.sizeof'mapEventTrigger_t'
+	local startIndex = (game.mapEventTriggerOfs[i] - ofs) / ffi.sizeof(game.mapEventTrigger_t)
 	local endIndex = i == countof(game.mapEventTriggerOfs)-1
 		and startIndex -- countof(game.mapEventTriggers)
-		or (game.mapEventTriggerOfs[i+1] - ofs) / ffi.sizeof'mapEventTrigger_t'
+		or (game.mapEventTriggerOfs[i+1] - ofs) / ffi.sizeof(game.mapEventTrigger_t)
 	print('mapEventTrigger[0x'..i:hex()..']:')
 	for index=startIndex,endIndex-1 do
 		local e = game.mapEventTriggers[index]
@@ -667,48 +667,48 @@ for i=0,countof(game.mapEventTriggerOfs)-1 do
 end
 print()
 
-for i=0,countof(game.entranceTriggerOfs)-1 do
+for i=0,countof(game.doorsOfs)-1 do
 	-- TODO use ref_t or whateever
-	local ofs = ffi.offsetof(game_t, 'entranceTriggers') - ffi.offsetof(game_t, 'entranceTriggerOfs')
-	assert.eq((game.entranceTriggerOfs[i] - ofs) % ffi.sizeof'entranceTrigger_t', 0)
-	local startIndex = (game.entranceTriggerOfs[i] - ofs) / ffi.sizeof'entranceTrigger_t'
-	local endIndex = i == countof(game.entranceTriggerOfs)-1
-		and countof(game.entranceTriggers)
-		or (game.entranceTriggerOfs[i+1] - ofs) / ffi.sizeof'entranceTrigger_t'
-	print('entranceTrigger[0x'..i:hex()..']:')
+	local ofs = ffi.offsetof(game_t, 'doors') - ffi.offsetof(game_t, 'doorsOfs')
+	assert.eq((game.doorsOfs[i] - ofs) % ffi.sizeof(game.Door), 0)
+	local startIndex = (game.doorsOfs[i] - ofs) / ffi.sizeof(game.Door)
+	local endIndex = i == countof(game.doorsOfs)-1
+		and countof(game.doors)
+		or (game.doorsOfs[i+1] - ofs) / ffi.sizeof(game.Door)
+	print('doors[0x'..i:hex()..']:')
 	for index=startIndex,endIndex-1 do
-		print('\t0x'..index:hex()..' = '..game.entranceTriggers[index])
+		print('\t0x'..index:hex()..' = '..game.doors[index])
 	end
 end
 print()
 
 --[[
 ok so
-entrance trigger #4 is Narshe on the WoB map
-but it's not in the entranceTriggerOfs[] list
-so I'm betting the entranceTriggerOfs[] list is the start of each map.
-its size is 513 while the map size is 415 (and everything's ff6tool says the entranceTriggerOfs[] is just 415 so...)
-so if entranceTriggerOfs is the start per map then what is the length per map?
-Sure enough this matches with everything's tool, which says 44 <-> 0x2c entrances on world map, and I show Ofs[1] points to 0x2d ...
+door #4 is Narshe on the WoB map
+but it's not in the doorsOfs[] list
+so I'm betting the doorsOfs[] list is the start of each map.
+its size is 513 while the map size is 415 (and everything's ff6tool says the doorsOfs[] is just 415 so...)
+so if doorsOfs is the start per map then what is the length per map?
+Sure enough this matches with everything's tool, which says 44 <-> 0x2c doors on world map, and I show Ofs[1] points to 0x2d ...
 --]]
-for i=0,countof(game.entranceTriggers)-1 do
+for i=0,countof(game.doors)-1 do
 	-- TODO use ref_t or whateever
-	local entranceTrigger = game.entranceTriggers + i
-	local addr = ffi.cast('uint8_t*', entranceTrigger) - rom
-	print('entranceTriggers[0x'..i:hex()..'] ='
+	local door = game.doors + i
+	local addr = ffi.cast('uint8_t*', door) - rom
+	print('doors[0x'..i:hex()..'] ='
 		..' addr: $'..('%06x'):format(addr)
-		..' '..entranceTrigger)
+		..' '..door)
 end
 print()
 
--- there are more entrance area trigger offsets than entrance area triggers
-for i=0,game.numEntranceTriggerOfs-1 do
-	local addr = game.entranceAreaTriggerOfs[i] + ffi.offsetof(game_t, 'entranceAreaTriggerOfs')
-	--assert.eq((addr - ffi.offsetof(game_t, 'entranceAreaTriggers')) % ffi.sizeof'entranceAreaTrigger_t', 0)
-	print('entranceAreaTrigger[0x'..i:hex()..']')
+-- there are more big door offsets than big doors 
+for i=0,countof(game.bigDoorsOfs)-1 do
+	local addr = game.bigDoorsOfs[i] + ffi.offsetof(game_t, 'bigDoorsOfs')
+	--assert.eq((addr - ffi.offsetof(game_t, 'bigDoors')) % ffi.sizeof(game.BigDoor), 0)
+	print('bigDoors[0x'..i:hex()..']')
 	print(' addr: $'..('%06x'):format(addr))
-	local entranceAreaTrigger = ffi.cast('entranceAreaTrigger_t*', rom + addr)
-	print(' '..entranceAreaTrigger)
+	local bigDoor = ffi.cast(ffi.typeof('$*', game.BigDoor), rom + addr)
+	print(' '..bigDoor)
 end
 
 for i=0,countof(game.treasureOfs)-1 do

@@ -253,13 +253,13 @@ assert.len(tilePropsNames, numTilePropsBits)
 	ig.igSameLine()
 	app.eventTriggerWindow:popupButton()
 
-	ig.luatableTooltipCheckbox('showEntranceTriggers', app, 'showEntranceTriggers')
+	ig.luatableTooltipCheckbox('showDoors', app, 'showDoors')
 	ig.igSameLine()
-	app.entranceTriggerWindow:popupButton()
+	app.doorWindow:popupButton()
 
-	ig.luatableTooltipCheckbox('showEntranceAreaTriggers', app, 'showEntranceAreaTriggers')
+	ig.luatableTooltipCheckbox('showBigDoors', app, 'showBigDoors')
 	ig.igSameLine()
-	app.entranceAreaTriggerWindow:popupButton()
+	app.bigDoorWindow:popupButton()
 
 	ig.luatableTooltipCheckbox('showNPCs', app, 'showNPCs')
 	ig.igSameLine()
@@ -548,9 +548,9 @@ function MapWindow:setIndex(newIndex, pushStack)
 	end
 --]]
 
-	-- start us off centered at the first entrance trigger we find
-	if mapInfo.entranceTriggers then	
-		local e = mapInfo.entranceTriggers[1]
+	-- start us off centered at the first door we find
+	if mapInfo.doors then	
+		local e = mapInfo.doors[1]
 		if e then
 			app:centerView(e.pos.x, e.pos.y)
 		end
@@ -605,13 +605,13 @@ function EventTriggerWindow:showIndexUI(ar)
 end
 
 
-local EntranceTriggerWindow = ArrayWindow:subclass()
-EntranceTriggerWindow.name = 'entrance trigger'
-function EntranceTriggerWindow:getArray()
+local DoorWindow = ArrayWindow:subclass()
+DoorWindow.name = 'door'
+function DoorWindow:getArray()
 	local mapInfo = self.app.mapWindow:getMapInfo()
-	return mapInfo and mapInfo.entranceTriggers
+	return mapInfo and mapInfo.doors
 end
-function EntranceTriggerWindow:showIndexUI(ar)
+function DoorWindow:showIndexUI(ar)
 	local e = ar[1+self.index]
 	if not e then return end
 	ig.igText(' pos = '..e.pos)
@@ -628,13 +628,13 @@ function EntranceTriggerWindow:showIndexUI(ar)
 end
 
 
-local EntranceAreaTriggerWindow = ArrayWindow:subclass()
-EntranceAreaTriggerWindow.name = 'entrance area trigger'
-function EntranceAreaTriggerWindow:getArray()
+local BigDoorWindow = ArrayWindow:subclass()
+BigDoorWindow.name = 'big door'
+function BigDoorWindow:getArray()
 	local mapInfo = self.app.mapWindow:getMapInfo()
-	return mapInfo and mapInfo.entranceAreaTriggers
+	return mapInfo and mapInfo.bigDoors
 end
-function EntranceAreaTriggerWindow:showIndexUI(ar)
+function BigDoorWindow:showIndexUI(ar)
 	local e = ar[1+self.index]
 	if not e then return end
 	ig.igText(' pos = '..e.pos)
@@ -645,7 +645,7 @@ function EntranceAreaTriggerWindow:showIndexUI(ar)
 	ig.igText(' length = '..(e.length+1))
 	ig.igText(e.vertical==0 and ' horz' or ' vert')
 
-	-- notice the rest is in common with typical entranceTrigger_t:
+	-- notice the rest is in common with typical Door:
 	-- how about a common parent struct?
 	ig.igText(' setParentMap = '..e.setParentMap)
 	ig.igText(' zLevel = '..e.zLevel)
@@ -1244,11 +1244,11 @@ void main() {
 	self.showEventTriggers = true
 	self.eventTriggerWindow = EventTriggerWindow{app=self}
 
-	self.showEntranceTriggers = true
-	self.entranceTriggerWindow = EntranceTriggerWindow{app=self}
+	self.showDoors = true
+	self.doorWindow = DoorWindow{app=self}
 
-	self.showEntranceAreaTriggers = true
-	self.entranceAreaTriggerWindow = EntranceAreaTriggerWindow{app=self}
+	self.showBigDoors = true
+	self.bigDoorWindow = BigDoorWindow{app=self}
 
 	self.showNPCs = true
 	self.npcWindow = NPCWindow{app=self}
@@ -1264,8 +1264,8 @@ void main() {
 		children = {
 			self.treasureWindow,
 			self.eventTriggerWindow,
-			self.entranceTriggerWindow,
-			self.entranceAreaTriggerWindow,
+			self.doorWindow,
+			self.bigDoorWindow,
 			self.npcWindow,
 			self.worldEncounterSectorWindow,
 		},
@@ -1575,26 +1575,26 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 					end
 				end
 			end
-			if self.showEntranceTriggers then
-				for i,e in ipairs(mapInfo.entranceTriggers) do
+			if self.showDoors then
+				for i,e in ipairs(mapInfo.doors) do
 					local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
 					if leftPress
 					and x <= mx and mx <= x+1
 					and y <= my and my <= y+1
 					then
-						self.entranceTriggerWindow:setIndex(i-1)
-						self.entranceTriggerWindow.show[0] = true
+						self.doorWindow:setIndex(i-1)
+						self.doorWindow.show[0] = true
 					end
 					settable(uniforms.bbox, x, y, 1, 1)
 					settable(uniforms.color, 1,0,0,1)
 					rectObj:draw()
-					if i-1 == self.entranceTriggerWindow.index then
+					if i-1 == self.doorWindow.index then
 						showHL()
 					end
 				end
 			end
-			if self.showEntranceAreaTriggers then
-				for i,e in ipairs(mapInfo.entranceAreaTriggers) do
+			if self.showBigDoors then
+				for i,e in ipairs(mapInfo.bigDoors) do
 					local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
 					local w, h
 					if e.vertical == 0 then
@@ -1606,13 +1606,13 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 					and x <= mx and mx <= x+w
 					and y <= my and my <= y+h
 					then
-						self.entranceAreaTriggerWindow:setIndex(i-1)
-						self.entranceAreaTriggerWindow.show[0] = true
+						self.bigDoorWindow:setIndex(i-1)
+						self.bigDoorWindow.show[0] = true
 					end
 					settable(uniforms.bbox, x, y, w, h)
 					settable(uniforms.color, 1,0,0,1)
 					rectObj:draw()
-					if i-1 == self.entranceAreaTriggerWindow.index then
+					if i-1 == self.bigDoorWindow.index then
 						showHL()
 					end
 				end
