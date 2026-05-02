@@ -10,6 +10,7 @@ local timer = require 'ext.timer'
 local number = require 'ext.number'
 local path = require 'ext.path'
 local vec2d = require 'vec-ffi.vec2d'
+local vec3d = require 'vec-ffi.vec3d'
 local sdl = require 'sdl'
 local gl = require 'gl.setup'(cmdline.gl)
 local Image = require 'image'
@@ -179,6 +180,46 @@ function MapWindow:showIndexUI(ar)
 		end
 	end
 
+	--[[ TODO flgs for both WorldTileProps_t and mapTileProps_t
+	for name in WorldTileProps_t:fielditer() do
+		ig.luatableTooltipCheckbox('traversible '..name, self.traverseFlags, name)
+	end
+	--]]
+	-- [[ until then
+	local layouts = mapInfo and mapInfo.layouts
+	local layout1Data = layouts and layouts[1] and layouts[1].data
+	if layout1Data then
+		-- based on mapTileProps_t:
+		local tilePropsNames = {
+			'zLevel_0',
+			'zLevel_1',
+			'zLevel_2',
+			'topSpritePriority',
+			'bottomSpritePriority',
+			'door',
+			'stairsUpRight',
+			'stairsUpLeft',
+			'passableRight',
+			'passableLeft',
+			'passableDown',
+			'passableUp',
+			'unknown_1_4',
+			'unknown_1_5',
+			'ladder',
+			'passableNPC',
+		}
+		for ip1,name in ipairs(tilePropsNames) do
+			local i = ip1-1
+			local mask = bit.lshift(1, i)
+			self.__tmp = 0 ~= bit.band(app.showTileMask, mask)
+			if bit.band(i, 7) ~= 0 then ig.igSameLine() end
+			if ig.luatableTooltipCheckbox('tileProp '..i..': '..name, self, '__tmp') then
+				app.showTileMask = bit.bxor(mask, app.showTileMask)
+			end
+		end
+	end
+	--]]
+
 
 	ig.luatableTooltipCheckbox('showTreasures', app, 'showTreasures')
 	ig.igSameLine()
@@ -243,10 +284,6 @@ function MapWindow:setIndex(newIndex, pushStack)
 		ch:setIndex(0)
 	end
 
-	if app.mapPalTex then
-		app.mapPalTex:delete()
-		app.mapPalTex = nil
-	end
 	if app.layerTexs then
 		for _,tex in ipairs(app.layerTexs) do
 			tex:delete()
@@ -311,8 +348,6 @@ function MapWindow:setIndex(newIndex, pushStack)
 		width = 16*8,
 		height = 1,
 		internalFormat = gl.GL_RGBA,
-		--format = gl.GL_RGBA,
-		--type = gl.GL_UNSIGNED_BYTE,
 		minFilter = gl.GL_NEAREST,
 		magFilter = gl.GL_NEAREST,
 		data = palData,
@@ -324,8 +359,6 @@ function MapWindow:setIndex(newIndex, pushStack)
 			width = img.width,
 			height = img.height,
 			internalFormat = gl.GL_R8UI,
-			--format = gl.GL_RED_INTEGER,
-			--type = gl.GL_UNSIGNED_BYTE,
 			minFilter = gl.GL_NEAREST,
 			magFilter = gl.GL_NEAREST,
 			data = img.buffer,
@@ -368,22 +401,39 @@ function MapWindow:setIndex(newIndex, pushStack)
 	end
 	app.tilePropsTex = nil
 	local layout1Data = layouts[1] and layouts[1].data
-	if layout1Data then
+	if layout1Data 
+	and tilePropsData
+	then
+-- [=[	
 		-- uint8_t into the tilePropsPtr table, which is a table of 2-byte-sized either WorldTileProps_t or mapTileProps_t
-		local layoutptr = ffi.cast('uint8_t*', layout1Data)
-		--if tilePropsData then
-		--local tilePropsPtr = ffi.cast('WorldTileProps_t*', tilePropsData)
+		assert.type(tilePropsData, 'string')
+		assert.type(layout1Data, 'string')
+		local volume = layerSizes[1].x * layerSizes[1].y
+assert.ge(#layout1Data, volume)
+assert.len(tilePropsData, 256 * ffi.sizeof'uint16_t')
+		local layout1ptr = ffi.cast('uint8_t*', layout1Data)
+		local tilePropsPtr = ffi.cast('uint16_t*', tilePropsData)
+
+		local data = ffi.new('uint16_t[?]', volume)
+		for i=0,volume-1 do
+			local j = layout1ptr[i]
+j = tonumber(j)
+assert.le(0, j)
+assert.lt(j, 256)
+			data[i] = tilePropsPtr[j]
+		end
 
 		app.tilePropsTex = GLTex2D{
 			width = layerSizes[1].x,
 			height = layerSizes[1].y,
-			internalFormat = gl.GL_R8UI,
-			--format = gl.GL_RED_INTEGER,
-			--type = gl.GL_UNSIGNED_BYTE,
+			internalFormat = gl.GL_R16UI,
+--format = gl.GL_RED,
+--type = gl.GL_UNSIGNED_SHORT,
 			minFilter = gl.GL_NEAREST,
 			magFilter = gl.GL_NEAREST,
-			data = layout1Data,
+			data = data,
 		}:unbind()
+--]=]
 	end
 
 	-- [[ also load/show the 16x16 tiles?
@@ -968,11 +1018,46 @@ function App:initGL(...)
 	self.view.orthoSize = 256
 	self.animSpeed = 15
 	self.useBlend = true
-	self.showTileProps = false
-	self.showTileMask = 0xff
-	self.showTileOfs = 0
-
+	self.showTileMask = 0	--0xffff
 	self.showAnimTexs = true
+
+
+	local tilePropPalData = ffi.new'uint8_t[16*4]'
+	ffi.fill(tilePropPalData, ffi.sizeof(tilePropPalData))
+	local colorsForBits = table{
+		vec3d(1,0,0),
+		vec3d(0,1,0),
+		vec3d(0,0,1),
+		vec3d(0,1,1),
+		vec3d(1,0,1),
+		vec3d(1,1,0),
+		vec3d(1,1,1),
+		vec3d(.75, .75, .75),
+	
+		vec3d(.5,0,0),
+		vec3d(0,.5,0),
+		vec3d(0,0,.5),
+		vec3d(0,.5,.5),
+		vec3d(.5,0,.5),
+		vec3d(.5,.5,0),
+		vec3d(.5,.5,.5),
+		vec3d(.25, .25, .25),
+	}
+	assert.len(colorsForBits, 16)
+	for i,c in ipairs(colorsForBits) do
+		tilePropPalData[bit.bor(0, bit.lshift(i-1, 2))] = 255*c.x
+		tilePropPalData[bit.bor(1, bit.lshift(i-1, 2))] = 255*c.y
+		tilePropPalData[bit.bor(2, bit.lshift(i-1, 2))] = 255*c.z
+		tilePropPalData[bit.bor(3, bit.lshift(i-1, 2))] = 1
+	end
+	self.tilePropsPalTex = GLTex2D{
+		width = #colorsForBits,
+		height = 1,
+		internalFormat = gl.GL_RGBA,
+		minFilter = gl.GL_NEAREST,
+		magFilter = gl.GL_NEAREST,
+		data = tilePropPalData,
+	}:unbind()
 
 	self.layerDrawObj = GLSceneObject{
 		program = {
@@ -989,7 +1074,7 @@ void main() {
 ]],
 			fragmentCode = [[
 uniform usampler2D tex;
-uniform sampler2D mapPalTex;
+uniform sampler2D palTex;
 uniform int mask;
 uniform int offset;
 in vec2 tcv;
@@ -998,16 +1083,12 @@ void main() {
 	int index = int(texture(tex, tcv, 0).r);
 	index &= mask;		// mask = what in input tex to draw
 	index += offset;	// offset = where in palette to draw it
-	index &= 0x7f;		// pal size is 128 so...
-	fragColor = texture(mapPalTex, vec2(
-		(float(index) + .5) / 128.,
-		0.
-	), 0);
+	fragColor = texelFetch(palTex, ivec2(index, 0), 0);
 }
 ]],
 			uniforms = {
 				tex = 0,
-				mapPalTex = 1,
+				palTex = 1,
 			},
 		},
 		vertexes = {
@@ -1177,7 +1258,6 @@ function App:draw(animFrameIndex)
 	self.layerDrawObj.uniforms.mvProjMat = self.view.mvProjMat.ptr
 
 	local drawTex = function(tex)
-		self.layerDrawObj.texs[2] = self.mapWindow.mapPalTex
 		local blend = tex.image.blend
 		if self.useBlend and blend then
 			gl.glEnable(gl.GL_BLEND)
@@ -1200,7 +1280,8 @@ function App:draw(animFrameIndex)
 		gl.glAlphaFunc(gl.GL_GREATER, .5)
 
 		self.layerDrawObj.texs[1] = tex
-		self.layerDrawObj.uniforms.mask = 0xff
+		self.layerDrawObj.texs[2] = self.mapWindow.mapPalTex
+		self.layerDrawObj.uniforms.mask = 0x7f	-- mapPalData is only 128 in size
 		self.layerDrawObj.uniforms.offset = 0
 		self.layerDrawObj:draw()
 
@@ -1250,7 +1331,7 @@ function App:update()
 
 	self.frameIndex = math.floor(timer.getTime() * self.animSpeed)
 	local view = self.view
-	
+	self.layerDrawObj.uniforms.mvProjMat = self.view.mvProjMat.ptr
 
 	if self.show16x16mapTiles then
 		for k=1,2 do
@@ -1265,13 +1346,13 @@ function App:update()
 				view.mvProjMat:mul4x4(view.projMat, view.mvMat)
 
 				self.layerDrawObj.texs[1] = tex
-				self.layerDrawObj.uniforms.mask = 0xff
+				self.layerDrawObj.texs[2] = self.mapWindow.mapPalTex
+				self.layerDrawObj.uniforms.mask = 0x7f	-- mapPalData is only 128 in size
 				self.layerDrawObj.uniforms.offset = 0
 				self.layerDrawObj:draw()
 			end
 		end
 	else
-
 
 
 		-- mapSize is in texels
@@ -1290,14 +1371,16 @@ function App:update()
 		gl.glBlendColor(1, 1, 1, .5)
 		gl.glBlendFunc(gl.GL_CONSTANT_ALPHA, gl.GL_CONSTANT_ALPHA)
 
-		-- TODO enable/disable flags with this ...
-		if self.showTileProps
-		and self.tilePropsTex
-		then
-			self.layerDrawObj.texs[1] = self.tilePropsTex
-			self.layerDrawObj.uniforms.mask = self.showTileMask
-			self.layerDrawObj.uniforms.offset = self.showTileOfs
-			self.layerDrawObj:draw()
+		if self.layerDrawObj then
+			for i=0,15 do
+				if 0 ~= bit.band(bit.lshift(1, i), self.showTileMask) then
+					self.layerDrawObj.texs[1] = self.tilePropsTex
+					self.layerDrawObj.texs[2] = self.tilePropsPalTex
+					self.layerDrawObj.uniforms.mask = 1
+					self.layerDrawObj.uniforms.offset = i
+					self.layerDrawObj:draw()
+				end
+			end
 		end
 
 		local mapInfo = self.mapWindow:getMapInfo()
@@ -1520,8 +1603,6 @@ function App:updateGUI()
 						width = tonumber(self.mapSize.x),
 						height = tonumber(self.mapSize.y),
 						internalFormat = gl.GL_RGBA,
-						--format = gl.GL_RGBA,
-						--type = gl.GL_UNSIGNED_BYTE,
 						minFilter = gl.GL_NEAREST,
 						magFilter = gl.GL_NEAREST,
 					}
@@ -1593,22 +1674,7 @@ function App:updateGUI()
 					self.view.mvProjMat:mul4x4(self.view.projMat, self.view.mvMat)
 				end
 			end
-
-			--[[ TODO flgs for both WorldTileProps_t and mapTileProps_t
-			for name in WorldTileProps_t:fielditer() do
-				ig.luatableTooltipCheckbox('traversible '..name, self.traverseFlags, name)
-			end
-			--]]
-			-- [[ until then
-			local layouts = mapInfo and mapInfo.layouts
-			local layout1Data = layouts and layouts[1] and layouts[1].data
-			if layout1Data then
-				ig.luatableTooltipCheckbox('showTileProps', self, 'showTileProps')
-				ig.luatableInputInt('showTileMask', self, 'showTileMask')
-				ig.luatableInputInt('showTileOfs', self, 'showTileOfs')
-			end
-			--]]
-
+			
 			ig.luatableInputFloat('animSpeed', self, 'animSpeed')
 
 			ig.igEndMenu()
