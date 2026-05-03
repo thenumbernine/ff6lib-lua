@@ -1431,7 +1431,6 @@ function App:draw(animFrameIndex)
 		if self.useBlend and blend then
 			gl.glEnable(gl.GL_BLEND)
 			if bit.band(blend, 2) ~= 0 then -- sub
-				--gl.glBlendEquation(gl.GL_FUNC_SUBTRACT)		-- sprite minus framebuffer
 				gl.glBlendEquation(gl.GL_FUNC_REVERSE_SUBTRACT)	-- framebuffer minus sprite
 			else
 				gl.glBlendEquation(gl.GL_FUNC_ADD)
