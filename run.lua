@@ -558,12 +558,13 @@ local sums = {}
 for i=0,game.numCharacters-1 do
 	print('character #'..i)
 	print('Name="'..game.characterNames[i]..'"')
-	print(game.characters[i])
+	local ch = game.characters[i]
+	print(ch)
 	print()
-	for name,ctype,field in game.character_t:fielditer() do
+	for name,ctype,field in ch:fielditer() do
 		local value
 		if ctype == 'uint8_t' then
-			value = game.characters[i][name]
+			value = ch[name]
 		elseif ctype == 'menuref4_t'
 		or ctype == 'itemref_t'
 		or ctype == 'itemref2_t'
@@ -793,7 +794,7 @@ gnuplot{
 
 
 
-for i=0,game.numShops-1 do
+for i=0,countof(game.shops)-1 do
 	print('shop #'..i..': '..game.shops[i])
 end
 print()
@@ -1169,46 +1170,47 @@ Quick	99
 
 -- [[ equipping items in the wrong spot has adverse effects
 	for i=0,game.numCharacters-1 do
+		local ch = game.characters[i]
 		--[=[
-		for j=0,ffi.sizeof'character_t'-1 do
-			game.characters[i].s[j] = math.random(0,255)
+		for j=0,ffi.sizeof(game.Character)-1 do
+			ch.s[j] = math.random(0,255)
 		end
 		--]=]
 		-- [=[
-		game.characters[i].hp = math.random(0,255)
-		game.characters[i].mp = math.random(0,255)
-		--game.characters[i].menu.s[0].i = math.random(0,game.numMenuNames-1)		-- fight
-		--game.characters[i].menu.s[1].i = math.random(0,game.numMenuNames-1)
-		--game.characters[i].menu.s[0].i = goodMenus:pickRandom()
-		game.characters[i].menu.s[1].i = goodMenus:pickRandom()
-		--game.characters[i].menu.s[2].i = math.random(0,game.numMenuNames-1)		-- magic
-		--game.characters[i].menu.s[3].i = math.random(0,game.numMenuNames-1)		-- item
+		ch.hp = math.random(0,255)
+		ch.mp = math.random(0,255)
+		--ch.menu.s[0].i = math.random(0,game.numMenuNames-1)		-- fight
+		--ch.menu.s[1].i = math.random(0,game.numMenuNames-1)
+		--ch.menu.s[0].i = goodMenus:pickRandom()
+		ch.menu.s[1].i = goodMenus:pickRandom()
+		--ch.menu.s[2].i = math.random(0,game.numMenuNames-1)		-- magic
+		--ch.menu.s[3].i = math.random(0,game.numMenuNames-1)		-- item
 		-- [==[
-		game.characters[i].vigor = math.random(0,255)
-		game.characters[i].speed = math.random(0,255)
-        game.characters[i].stamina = math.random(0,255)
-        game.characters[i].magicPower = math.random(0,255)
-        game.characters[i].battlePower = math.random(0,255)
-        game.characters[i].defense = math.random(0,255)
-        game.characters[i].magicDefense = math.random(0,255)
-        game.characters[i].evade = math.random(0,255)
-        game.characters[i].magicBlock = math.random(0,255)
+		ch.vigor = math.random(0,255)
+		ch.speed = math.random(0,255)
+        ch.stamina = math.random(0,255)
+        ch.magicPower = math.random(0,255)
+        ch.battlePower = math.random(0,255)
+        ch.defense = math.random(0,255)
+        ch.magicDefense = math.random(0,255)
+        ch.evade = math.random(0,255)
+        ch.magicBlock = math.random(0,255)
 		--]==]
         -- [==[
 		-- TODO verify that the item is equippable
-		game.characters[i].lhand.i = math.random(0,255)
-		game.characters[i].rhand.i = math.random(0,255)
-		game.characters[i].head.i = math.random(0,255)
-		game.characters[i].body.i = math.random(0,255)
-		game.characters[i].relic.s[0].i = math.random(0,255)
-		game.characters[i].relic.s[1].i = math.random(0,255)
+		ch.lhand.i = math.random(0,255)
+		ch.rhand.i = math.random(0,255)
+		ch.head.i = math.random(0,255)
+		ch.body.i = math.random(0,255)
+		ch.relic.s[0].i = math.random(0,255)
+		ch.relic.s[1].i = math.random(0,255)
 		--]==]
-		--game.characters[i].level = math.random(1,99)
+		--ch.level = math.random(1,99)
 		--]=]
 	end
 --]]
 
-	for i=0,game.numShops-1 do
+	for i=0,countof(game.shops)-1 do
 		for j=0,ffi.sizeof'shopinfo_t' do
 			game.shops[i].s[j] = math.random(0,255)
 		end

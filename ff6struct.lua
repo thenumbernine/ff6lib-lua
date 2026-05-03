@@ -24,8 +24,10 @@ return function(args)
 				tostringOmitNil = true,
 				tostringOmitEmpty = true,
 
-				ctypeOnly = args.ctypeOnly,
-				anonymous = not args.ctypeOnly,
+				-- fields with ctypes need names
+				-- that means anonymous-inner classes must not be ctypeOnly
+				anonymous = true,
+				-- but ctypeOnly i.e. using ffi.typeof is contagious as well (right? wrong?)
 
 				packed = true,
 				fields = table.mapi(args.fields, function(kv)
