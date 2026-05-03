@@ -235,8 +235,7 @@ local function bitflagtype(args)
 	}
 end
 
-local element_t = bitflagtype{
-	name = 'element_t',
+local Element = bitflagtype{
 	options = {
 		'fire',
 		'ice',
@@ -569,7 +568,7 @@ local Spell = ff6struct{
 		-- 00:
 		{targetting = 'targetting_t'},
 		-- 01:
-		{elementDamage = 'element_t'},
+		{elementDamage = Element},
 		-- 02:
 		{physical = 'uint8_t:1'},
 		{isAMortalAttack = 'uint8_t:1'},	-- miss if protected from death
@@ -1037,25 +1036,25 @@ local formation2_t = ff6struct{
 }
 assert.eq(ffi.sizeof'formation2_t', 4)
 
-ff6struct{
-	name = 'monsterRandomBattleEntry_t',
+local MonsterRandomBattleEntry = ff6struct{
+	ctypeOnly = true,
 	fields = {
 		{formation = 'uint16_t:15'},			-- only 10 bits are used, since thats all you need to index numFormations = 0x240
 		{chooseFromNextFour = 'uint16_t:1'},	-- only set for random battle #0x70: Behemoth, Ninja x2, {Brainpain x2, Misfit, Apokrypohs}, Dragon
 	},
 }
-assert.eq(ffi.sizeof'monsterRandomBattleEntry_t', 2)
+assert.eq(ffi.sizeof(MonsterRandomBattleEntry), 2)
 
-local monsterRandomBattleEntry2_t = createVec{
+local MonsterRandomBattleEntry2 = createVec{
+	ctypeOnly = true,
+	ctype = MonsterRandomBattleEntry,
 	dim = 2,
-	ctype = 'monsterRandomBattleEntry_t',
-	vectype = 'monsterRandomBattleEntry2_t',
 }
 
-local monsterRandomBattleEntry4_t = createVec{
+local MonsterRandomBattleEntry4 = createVec{
+	ctypeOnly = true,
+	ctype = MonsterRandomBattleEntry,
 	dim = 4,
-	ctype = 'monsterRandomBattleEntry_t',
-	vectype = 'monsterRandomBattleEntry4_t',
 }
 
 local WorldSectorRandomBattlesPerTerrain = ff6struct{
@@ -1101,10 +1100,7 @@ assert.eq(ffi.sizeof(MonsterSprite), 5)
 local numItems = 0x100
 
 local ItemRef = reftype{
-	-- TODO can't use ctypeOnly=true
-	-- because this is used in ItemRef4 which uses createVec
-	-- which doesn't support ctypeOnly yet
-	name = 'ItemRef',
+	ctypeOnly = true,
 	getter = function(i)
 		if i == 0xff then return nil end
 		return gameC.itemNames[i]
@@ -1267,11 +1263,11 @@ local Item = ff6struct{
 		-- 0x15:
 		{hitChance_magicDefense = 'uint8_t'},
 		-- 0x16:
-		{elementAbsorb = 'element_t'},
+		{elementAbsorb = Element},
 		-- 0x17:
-		{elementNoEffect = 'element_t'},
+		{elementNoEffect = Element},
 		-- 0x18:
-		{elementWeak = 'element_t'},
+		{elementWeak = Element},
 		-- 0x19:
 		{givesEffect2 = 'effect2_t'},
 		-- 0x1a:
@@ -1403,13 +1399,13 @@ local Monster = ff6struct{
 		-- 0x15:
 		{immuneToEffect2 = 'effect2_t'},
 		-- 0x16:
-		{elementHalfDamage = 'element_t'},
+		{elementHalfDamage = Element},
 		-- 0x17:
-		{elementAbsorb = 'element_t'},
+		{elementAbsorb = Element},
 		-- 0x18:
-		{elementNoEffect = 'element_t'},
+		{elementNoEffect = Element},
 		-- 0x19:
-		{elementWeak = 'element_t'},
+		{elementWeak = Element},
 		-- 0x1a:
 		{fightAnimation = 'uint8_t'},
 		-- 0x1b:
@@ -1470,9 +1466,9 @@ local SpellRef4 = createVec{
 assert.eq(ffi.sizeof(SpellRef4), 4)
 
 local ItemRef4 = createVec{
+	ctypeOnly = true,
+	ctype = ItemRef,
 	dim = 4,
-	ctype = 'ItemRef',
-	vectype = 'ItemRef4',
 }
 assert.eq(ffi.sizeof(ItemRef4), 4)
 
@@ -1498,9 +1494,9 @@ local MenuNameRef4 = createVec{
 }
 
 local ItemRef2 = createVec{
+	ctypeOnly = true,
+	ctype = ItemRef,
 	dim = 2,
-	ctype = 'ItemRef',
-	vectype = 'ItemRef2',
 }
 
 local Character = ff6struct{
@@ -1611,9 +1607,9 @@ local ShopInfo = ff6struct{
 	end,
 }
 
-local itemref8_t = createVec{
-	vectype = 'itemref8_t',
-	ctype = 'ItemRef',
+local ItemRef8 = createVec{
+	ctypeOnly = true,
+	ctype = ItemRef,
 	dim = 8,
 }
 
@@ -1621,7 +1617,7 @@ local Shop = ff6struct{
 	ctypeOnly = true,
 	fields = {
 		{shopinfo = ShopInfo},
-		{items = itemref8_t},
+		{items = ItemRef8},
 	}
 }
 assert.eq(ffi.sizeof(Shop), 9)
@@ -2315,8 +2311,8 @@ game_t = struct{
 		{name = 'monsterSpells', type = ffi.typeof('$['..numMonsters..']', SpellRef4)},							-- 0x0f3d00 - 0x0f4300
 		{name = 'monsterSketches', type = ffi.typeof('$['..numMonsters..']', SpellRef2)},						-- 0x0f4300 - 0x0f4600
 		{name = 'monsterRages', type = ffi.typeof('$[0x100]', SpellRef2)},										-- 0x0f4600 - 0x0f4800
-		{name = 'monsterRandomBattles', type = 'monsterRandomBattleEntry4_t[0x100]'},							-- 0x0f4800 - 0x0f5000
-		{name = 'monsterEventBattles', type = 'monsterRandomBattleEntry2_t[0x100]'},							-- 0x0f5000 - 0x0f5400
+		{name = 'monsterRandomBattles', type = ffi.typeof('$[0x100]', MonsterRandomBattleEntry4)},				-- 0x0f4800 - 0x0f5000
+		{name = 'monsterEventBattles', type = ffi.typeof('$[0x100]', MonsterRandomBattleEntry2)},				-- 0x0f5000 - 0x0f5400
 		{name = 'worldSectorRandomBattlesPerTerrain', type = ffi.typeof('$[0x80]', WorldSectorRandomBattlesPerTerrain)},-- 0x0f5400 - 0x0f5600 = [world][sectorx][sectory]  ... 64 sectors (32x32 chunks of 256x256 world map) per WoB, 64 for WoR
 		{name = 'mapRandomBattleOptions', type = 'uint8_t[0x200]'},												-- 0x0f5600 - 0x0f5800 = one per map, index into monsterRandomBattles
 		{name = 'worldSectorRandomBattleEncounterRatesPerTerrain', type = 'uint8_t[0x80]'},						-- 0x0f5800 - 0x0f5880 = 2 bits used ... 64 sectors per WoB, 64 per WoR ... 8 items per sector, 2bpp each ( https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:rom_map )
