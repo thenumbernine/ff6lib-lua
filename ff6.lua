@@ -449,8 +449,7 @@ end
 ---------------- GRAPHICS ----------------
 
 local RGBA5551 = ff6struct{
-	--ctypeOnly = true,
-	name = 'RGBA5551',
+	ctypeOnly = true,
 	fields = {
 		{r = 'uint16_t:5'},
 		{g = 'uint16_t:5'},
