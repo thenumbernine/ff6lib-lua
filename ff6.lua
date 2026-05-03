@@ -1741,8 +1741,8 @@ local mapNameRef_t = reftype{
 	end,
 }
 
-local map_t = struct{
-	name = 'map_t',
+local Map = struct{
+	ctypeOnly = true,
 	tostringFields = true,
 	tostringOmitFalse = true,
 	tostringOmitNil = true,
@@ -1848,10 +1848,10 @@ local map_t = struct{
 		mt.typeToString = fieldsToHex
 	end,
 }
-assert.eq(ffi.sizeof'map_t', 0x21)
+assert.eq(ffi.sizeof(Map), 0x21)
 
-local mapTileProps_t = ff6struct{
-	name = 'mapTileProps_t',
+local MapTileProps = ff6struct{
+	ctypeOnly = true,
 	fields = {
 		{zLevel = 'uint16_t:3'},				-- 0.0-0.2 = 0=none 1=upstairs 2=downstairs 3=upstairs & downstairs 4=bridge
 		{topSpritePriority = 'uint16_t:1'},		-- 0.3
@@ -1869,7 +1869,7 @@ local mapTileProps_t = ff6struct{
 		{passableNPC = 'uint16_t:1'},			-- 1.7
 	},
 }
-assert.eq(ffi.sizeof'mapTileProps_t', 2)
+assert.eq(ffi.sizeof(MapTileProps), 2)
 
 local uint16_4_t = createVec{
 	dim = 4,
@@ -1877,33 +1877,33 @@ local uint16_4_t = createVec{
 	vectype = 'uint16_4_t',
 }
 
-local mapAnimProps_t = ff6struct{
-	name = 'mapAnimProps_t',
+local MapAnimProps = ff6struct{
+	ctypeOnly = true,
 	fields = {
 		{speed = 'uint16_t'},		-- 0-1
 		{frames = 'uint16_4_t'},	-- 2-9
 	},
 }
-assert.eq(ffi.sizeof'mapAnimProps_t', 0xa)
+assert.eq(ffi.sizeof(MapAnimProps), 0xa)
 
 local uint16_8_t = createVec{
-	dim = 8,
+	vectype = 'uint16_8_t',	-- 'vectype' is 'name' for vec-ffi.create_vec ...
 	ctype = 'uint16_t',
-	vectype = 'uint16_8_t',
+	dim = 8,
 }
 
-local mapAnimPropsLayer3_t = ff6struct{
-	name = 'mapAnimPropsLayer3_t',
+local MapAnimPropsLayer3 = ff6struct{
+	ctypeOnly = true,
 	fields = {
 		{speed = 'uint16_t'},		-- 0-1
 		{size = 'uint16_t'},		-- 2-3
 		{frames = 'uint16_8_t'},	-- 4-0x13
 	},
 }
-assert.eq(ffi.sizeof'mapAnimPropsLayer3_t', 0x14)
+assert.eq(ffi.sizeof(MapAnimPropsLayer3), 0x14)
 
-local mapPalAnim_t = ff6struct{
-	name = 'mapPalAnim_t',
+local MapPalAnim = ff6struct{
+	ctypeOnly = true,
 	fields = {
 		{colorCounter = 'uint8_t:4'},
 		{type = 'uint8_t:4'},
@@ -1913,7 +1913,7 @@ local mapPalAnim_t = ff6struct{
 		{romColorOffset = 'uint16_t'},
 	},
 }
-assert.eq(ffi.sizeof'mapPalAnim_t', 6)
+assert.eq(ffi.sizeof(MapPalAnim), 6)
 --[[
 there's 20 of these in a row. 2 per 10
 the 10 are:
@@ -1932,12 +1932,12 @@ the 10 are:
 
 local mapTilesetOfsAddr = 0x1fba00
 
-local treasure_t = ff6struct{
+local Treasure = ff6struct{
 	ctypeOnly = true,
 	fields = {
 		{pos = 'xy8b_t'},
 		{switch = 'uint16_t:9'},	-- global index / bitflag? into game state data?
-		{unused_2_1 = 'uint16_t:1'},	-- does this bit go in 'switch' too? like in npc_t switch is 10 bits...
+		{unused_2_1 = 'uint16_t:1'},	-- does this bit go in 'switch' too? like in NPC switch is 10 bits...
 		{unused_2_2 = 'uint16_t:1'},
 		{empty = 'uint16_t:1'},		-- set iff type == 0 i.e. empty
 		{unused_2_4 = 'uint16_t:1'},
@@ -1946,11 +1946,11 @@ local treasure_t = ff6struct{
 		{battleOrItemOrGP = 'uint8_t'},	-- GP is x100
 	},
 }
-assert.eq(ffi.sizeof(treasure_t), 5)
+assert.eq(ffi.sizeof(Treasure), 5)
 
 
-local npc_t = struct{
-	name = 'npc_t',
+local NPC = struct{
+	ctypeOnly = true,
 	packed = true,
 tostringFields = true,
 tostringOmitFalse = true,
@@ -2056,11 +2056,13 @@ end,
 		{name='animation', type='uint8_t:3'},						-- 8.5-8.7
 	},
 }
-assert.eq(ffi.sizeof'npc_t', 9)
+assert.eq(ffi.sizeof(NPC), 9)
 
 
-local mapDest_t = ff6struct{
-	name = 'mapDest_t ',
+--[=[
+-- this is in Door, maybe in BigDoor, but also in the 
+local MapDest = ff6struct{
+	ctypeOnly = true,
 	fields = {
 		-- also last 4 bytes of Door:
 		{mapIndex = 'uint16_t:9'},		-- 0.0-1.0: maps[]
@@ -2070,6 +2072,15 @@ local mapDest_t = ff6struct{
 		{destFacingDir = 'uint16_t:2'},	-- 1.4-1.5
 		{unknown_3_6 = 'uint16_t:2'},	-- 1.6-1.7
 		{dest = 'xy8b_t'},				-- 2-3
+	}
+}
+assert.eq(ffi.sizeof(MapDest), 4)
+
+-- this is the event script cmd for changing maps
+local ChangeMapEvent = ff6struct{
+	ctypeOnly = true,
+	fields = {
+		{anonymous=true, type=MapDest},	-- 0.0-4.0
 
 		{vehicle = 'uint8_t:2'},		-- 4.0-4.1
 		{unknown_4_2 = 'uint8_t:3'},	-- 4.2-4.4
@@ -2078,14 +2089,15 @@ local mapDest_t = ff6struct{
 		{enableMapEvent = 'uint8_t:1'},	-- 4.7
 	},
 }
-assert.eq(ffi.sizeof'mapDest_t', 5)
+assert.eq(ffi.sizeof(ChangeMapEvent), 5)
+--]=]
 
 local Door = ff6struct{
 	ctypeOnly = true,
 	fields = {
 		{pos = 'xy8b_t'},				-- 0-1
 
-		-- TODO also first 4 bytes of mapDest_t
+		-- TODO also MapDest ... anonymous inline?
 		{mapIndex = 'uint16_t:9'},		-- 2.0-3.0: maps[]
 		{setParentMap = 'uint16_t:1'},	-- 3.1
 		{zLevel = 'uint16_t:1'},		-- 3.2
@@ -2108,6 +2120,8 @@ local BigDoor = struct{
 		{name='pos', type='xy8b_t'},				-- 0-1
 		{name='length', type='uint8_t:7'},			-- 2.0-2.6
 		{name='vertical', type='uint8_t:1'},		-- 2.7
+	
+		-- TODO everything below is also MapDest ... anonymous inline?
 		{
 			type = struct{
 				anonymous = true,
@@ -2136,7 +2150,8 @@ local BigDoor = struct{
 }
 assert.eq(ffi.sizeof(BigDoor), 7)
 
-local mapEventTrigger_t = ff6struct{
+-- 'touchtrigger' i think i call it in ff6t3d...
+local MapEventTrigger = ff6struct{
 	ctypeOnly = true,
 	fields = {
 		{pos = 'xy8b_t'},
@@ -2148,9 +2163,9 @@ local mapEventTrigger_t = ff6struct{
 		end
 	end,
 }
-assert.eq(ffi.sizeof(mapEventTrigger_t), 5)
+assert.eq(ffi.sizeof(MapEventTrigger), 5)
 
-local WorldTileProps_t = ff6struct{
+local WorldTileProps = ff6struct{
 	ctypeOnly = true,
 	fields = {
 		{blocksChocobo = 'uint16_t:1'},		-- 0.0
@@ -2172,9 +2187,9 @@ local WorldTileProps_t = ff6struct{
 		{kefkasTower = 'uint16_t:1'},		-- 1.7 aka 0.15
 	},
 }
-assert.eq(ffi.sizeof(WorldTileProps_t), 2)
+assert.eq(ffi.sizeof(WorldTileProps), 2)
 
-local battleBgProps_t = struct{
+local BattleBgProps = struct{
 	ctypeOnly = true,
 	packed = true,
 	tostringFields = true,
@@ -2214,7 +2229,7 @@ local battleBgProps_t = struct{
 		{name='wavy', type='uint8_t:1'},					-- 5.7
 	},
 }
-assert.eq(ffi.sizeof(battleBgProps_t), 6)
+assert.eq(ffi.sizeof(BattleBgProps), 6)
 
 
 ---------------- GAME ----------------
@@ -2256,10 +2271,10 @@ game_t = struct{
 		{name = 'unknown_0051f3', type = 'uint8_t['..(-(0x0051f3 - 0x0091d5))..']'}, 							-- 0x0051f3 - 0x0091d5
 
 		{name = 'mapAnimPropOfs', type = 'uint16_t[0x15]'},														-- 0x0091d5 - 0x0091ff = map animation properties pointer table (+0x0091ff) (only 10 used)
-		{name = 'mapAnimProps', type = 'mapAnimProps_t[144]'},													-- 0x0091ff - 0x00979f = map animation properties [144] @ 10 bytes each
+		{name = 'mapAnimProps', type = ffi.typeof('$[144]', MapAnimProps)},													-- 0x0091ff - 0x00979f = map animation properties [144] @ 10 bytes each
 		{name = 'mapAnimPropsLayer3Ofs', type = 'uint16_t[7]'},													-- 0x00979f - 0x0097ad = map animation properties layer 3 pointer table (+0x0097ad) (only 6 used)
-		{name = 'mapAnimPropsLayer3', type = 'mapAnimPropsLayer3_t[6]'},										-- 0x0097ad - 0x009825 = map animation properties layer 3 [6]
-		{name = 'mapPalAnim', type = 'mapPalAnim_t[20]'},														-- 0x009825 - 0x00989d = map palette animation
+		{name = 'mapAnimPropsLayer3', type = ffi.typeof('$[6]', MapAnimPropsLayer3)},										-- 0x0097ad - 0x009825 = map animation properties layer 3 [6]
+		{name = 'mapPalAnim', type = ffi.typeof('$[20]', MapPalAnim)},														-- 0x009825 - 0x00989d = map palette animation
 
 		{name = 'unknown_00989d', type = 'uint8_t['..(-(0x00989d - 0x00ce3a))..']'},							-- 0x00989d - 0x00ce3a
 		-- 0x00c27f-0x00c28f = something to do with battle background? -rpglegion
@@ -2302,12 +2317,12 @@ game_t = struct{
 		{name = 'unknown_03c406', type = 'uint8_t['..(-(0x03c406 - 0x040000))..']'},							-- 0x03c406 - 0x040000
 
 		{name = 'mapEventTriggerOfs', type = 'uint16_t['..((0x040342 - 0x040000)/2)..']'},						-- 0x040000 - 0x040342 = offset by +0x040000
-		{name = 'mapEventTriggers', type = ffi.typeof('$[0x48f]', mapEventTrigger_t)},											-- 0x040342 - 0x041a0d = map event triggers (5 bytes each)
+		{name = 'mapEventTriggers', type = ffi.typeof('$[0x48f]', MapEventTrigger)},											-- 0x040342 - 0x041a0d = map event triggers (5 bytes each)
 
 		{name = 'padding_041a0d', type = 'uint8_t['..(-(0x041a0d - 0x041a10))..']'},							-- 0x041a0d - 0x041a10
 
 		{name = 'npcOfs', type = 'uint16_t['..(-(0x041a10 - 0x041d52)/2)..']'},									-- 0x041a10 - 0x041d52 = npc offsets (+0x041a10)
-		{name = 'npcs', type = 'npc_t[0x891]'},																	-- 0x041d52 - 0x046a6b = npc data
+		{name = 'npcs', type = ffi.typeof('$[0x891]', NPC)},																	-- 0x041d52 - 0x046a6b = npc data
 		{name = 'unused_046a6b', type = 'uint8_t['..(-(0x046a6b - 0x046ac0))..']'},								-- 0x046a6b - 0x046ac0 = unused
 		{name = 'spells', type = 'spell_t['..numSpells..']'},													-- 0x046ac0 - 0x0478c0
 		{name = 'characterNames', type = 'characterName_t['..numCharacters..']'},								-- 0x0478c0 - 0x047a40
@@ -2517,7 +2532,7 @@ game_t = struct{
 		{name = 'esperAttackNames', type = 'str10_t['..numEspers..']'},											-- 0x26fe8f - 0x26ff9d
 		{name = 'mogDanceNames', type = 'str12_t['..numMogDances..']'},											-- 0x26ff9d - 0x26fffd
 		{name = 'padding_26fffd', type = 'uint8_t[3]'},															-- 0x26fffd - 0x270000
-		{name = 'battleBgProperties', type = ffi.typeof('$[56]', battleBgProps_t)},											-- 0x270000 - 0x270150 = 56*6
+		{name = 'battleBgProperties', type = ffi.typeof('$[56]', BattleBgProps)},											-- 0x270000 - 0x270150 = 56*6
 		{name = 'battleBgPalettes', type = 'color_t[0xa80]'},													-- 0x270150 - 0x271650 ... everything's says 56 or 96? max index is 0x34 = 52
 		{name = 'battleBgGfxAddrs', type = 'uint24_t[0xa8]'},													-- 0x271650 - 0x271848 = 75 used, the rest are 0's, most points into battleBgGfxCompressed
 		{name = 'battleBgLayoutOffsets', type = 'uint16_t[0x70]'},												-- 0x271848 - 0x271928 = +0x270000 .  49 are valid. invalid contain 0x1928.  points into battleBgLayoutCompressed
@@ -2551,15 +2566,15 @@ game_t = struct{
 		{name = 'characters', type = 'character_t['..numCharacters..']'},										-- 0x2d7ca0 - 0x2d8220
 		{name = 'expForLevelUp', type = 'uint16_t['..numExpLevelUps..']'},										-- 0x2d8220 - 0x2d82f4
 		{name = 'treasureOfs', type = 'uint16_t[0x1a0]'},														-- 0x2d82f4 - 0x2d8634 	-- offset +0x2d8634 into treasures
-		{name = 'treasures', type = ffi.typeof('$[0x11e]', treasure_t)},										-- 0x2d8634 - 0x2d8bca
+		{name = 'treasures', type = ffi.typeof('$[0x11e]', Treasure)},										-- 0x2d8634 - 0x2d8bca
 		{name = 'padding_2d8bca', type = 'uint8_t['..(-(0x2d8bca - 0x2d8e5b))..']'},							-- 0x2d8bca - 0x2d8e5b = 'ff's
 		{name = 'battleBgDance', type = 'uint8_t[0x40]'},														-- 0x2d8e5b - 0x2d8e9b
 		{name = 'padding_2d8e9b', type = 'uint8_t['..(-(0x2d8e9b - 0x2d8f00))..']'},							-- 0x2d8e9b - 0x2d8f00 = 'ff's
-		{name = 'maps', type = 'map_t[0x19f]'},																	-- 0x2d8f00 - 0x2dc47f
+		{name = 'maps', type = ffi.typeof('$[0x19f]', Map)},																	-- 0x2d8f00 - 0x2dc47f
 		{name = 'padding_2dc47f', type = 'uint8_t[1]'},															-- 0x2dc47f - 0x2df480
 		{name = 'mapPalettes', type = 'palette16_8_t[48]'},														-- 0x2dc480 - 0x2df480 = map palettes (48 elements, 16x8 colors each)
-		{name = 'bigDoorsOfs', type = 'uint16_t[0x201]'},											-- 0x2df480 - 0x2df882
-		{name = 'bigDoors', type = ffi.typeof('$[0x98]', BigDoor)},					-- 0x2df882 - 0x2dfcaa
+		{name = 'bigDoorsOfs', type = 'uint16_t[0x201]'},														-- 0x2df480 - 0x2df882
+		{name = 'bigDoors', type = ffi.typeof('$[0x98]', BigDoor)},												-- 0x2df882 - 0x2dfcaa
 		{name = 'padding_2dfcaa', type = 'uint8_t['..(-(0x2dfcaa - 0x2dfe00))..']'},							-- 0x2dfcaa - 0x2dfe00 = 'ff's
 		{name = 'longEsperBonusDescBase', type = 'uint8_t['..(-(0x2dfe00 - 0x2dffd0))..']'},					-- 0x2dfe00 - 0x2dffd0
 		{name = 'longEsperBonusDescOffsets', type = 'uint16_t['..numEsperBonuses..']'},							-- 0x2dffd0 - 0x2dfff2
@@ -2567,8 +2582,8 @@ game_t = struct{
 		-- 0x2e4842 - 0x2e4851     Sprites used for various positions of map character
 		{name = 'unknown_2dfff2', type = 'uint8_t['..(-(0x2dfff2 - 0x2e9b14))..']'},
 
-		{name = 'WoBTileProps', type = ffi.typeof('$[0x100]', WorldTileProps_t)},								-- 0x2e9b14 - 0x2e9d14
-		{name = 'WoRTileProps', type = ffi.typeof('$[0x100]', WorldTileProps_t)},								-- 0x2e9d14 - 0x2e9f14
+		{name = 'WoBTileProps', type = ffi.typeof('$[0x100]', WorldTileProps)},								-- 0x2e9b14 - 0x2e9d14
+		{name = 'WoRTileProps', type = ffi.typeof('$[0x100]', WorldTileProps)},								-- 0x2e9d14 - 0x2e9f14
 
 		{name = 'unknown_2e9f14', type = 'uint8_t['..(-(0x2e9f14 - 0x2ed434))..']'},							-- 0x2e9f14 - 0x2ed434 = looks like more world tile props.
 
@@ -2804,12 +2819,18 @@ game.positionedText = StringList{
 	addrBase = rom + 0x030000,
 }
 
+game.Map = Map
+game.MapTileProps = MapTileProps
+game.MapAnimProps = MapAnimProps
+game.MapAnimPropsLayer3 = MapAnimPropsLayer3
+game.MapPalAnim = MapPalAnim
+game.NPC = NPC
 game.Door = Door 
 game.BigDoor = BigDoor
-game.mapEventTrigger_t = mapEventTrigger_t
-game.WorldTileProps_t = WorldTileProps_t
-game.battleBgProps_t = battleBgProps_t
-game.treasure_t = treasure_t
+game.MapEventTrigger = MapEventTrigger
+game.WorldTileProps = WorldTileProps
+game.BattleBgProps = BattleBgProps
+game.Treasure = Treasure
 game.game_t = game_t
 
 require 'ff6.maps'(game)

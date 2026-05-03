@@ -535,8 +535,8 @@ data = ffi.string(dest, #data)
 		do
 			local index = map.animatedLayers1And2
 			local startOffset = game.mapAnimPropOfs[index]
-			assert.eq(startOffset % ffi.sizeof'mapAnimProps_t', 0)
-			local startIndex = startOffset / ffi.sizeof'mapAnimProps_t'
+			assert.eq(startOffset % ffi.sizeof(game.MapAnimProps), 0)
+			local startIndex = startOffset / ffi.sizeof(game.MapAnimProps)
 			local count = 32
 			-- if there's 0x13 different offsets ...
 			-- and they point into subset of a table of 0x8f different records ...
@@ -818,33 +818,33 @@ data = ffi.string(dest, #data)
 		mapInfo.treasures = table()
 		do
 			local startOfs = game.treasureOfs[mapIndex]
-			assert.eq(startOfs % ffi.sizeof(game.treasure_t), 0)
-			local startIndex = startOfs / ffi.sizeof(game.treasure_t)
+			assert.eq(startOfs % ffi.sizeof(game.Treasure), 0)
+			local startIndex = startOfs / ffi.sizeof(game.Treasure)
 
 			local endIndex
 			if mapIndex == countof(game.treasureOfs)-1 then
 				endIndex = countof(game.treasures)
 			else
 				local endOfs = game.treasureOfs[mapIndex+1]
-				assert.eq(endOfs % ffi.sizeof(game.treasure_t), 0)
-				endIndex = endOfs / ffi.sizeof(game.treasure_t)
+				assert.eq(endOfs % ffi.sizeof(game.Treasure), 0)
+				endIndex = endOfs / ffi.sizeof(game.Treasure)
 			end
 			for i=startIndex,endIndex-1 do
 				local t = game.treasures + i
-				mapInfo.treasures:insert(game.treasure_t(t[0]))
+				mapInfo.treasures:insert(game.Treasure(t[0]))
 			end
 		end
 
 		mapInfo.eventTriggers = table()
 		do
 			local ofs = ffi.offsetof(game_t, 'mapEventTriggers') - ffi.offsetof(game_t, 'mapEventTriggerOfs')
-			local startIndex = (game.mapEventTriggerOfs[mapIndex] - ofs) / ffi.sizeof(game.mapEventTrigger_t)
+			local startIndex = (game.mapEventTriggerOfs[mapIndex] - ofs) / ffi.sizeof(game.MapEventTrigger)
 			local endIndex = mapIndex >= countof(game.mapEventTriggerOfs)-1
 				and startIndex -- countof(game.mapEventTriggers)
-				or (game.mapEventTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof(game.mapEventTrigger_t)
+				or (game.mapEventTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof(game.MapEventTrigger)
 			for i=startIndex,endIndex-1 do
 				local e = game.mapEventTriggers + i
-				mapInfo.eventTriggers:insert(game.mapEventTrigger_t(e[0]))
+				mapInfo.eventTriggers:insert(game.MapEventTrigger(e[0]))
 			end
 		end
 
@@ -877,13 +877,13 @@ data = ffi.string(dest, #data)
 		mapInfo.npcs = table()
 		do
 			local ofs = ffi.offsetof(game_t, 'npcs') - ffi.offsetof(game_t, 'npcOfs')
-			local startIndex = (game.npcOfs[mapIndex] - ofs) / ffi.sizeof'npc_t'
+			local startIndex = (game.npcOfs[mapIndex] - ofs) / ffi.sizeof(game.NPC)
 			local endIndex = mapIndex >= countof(game.npcOfs)-1
 				and startIndex
-				or (game.npcOfs[mapIndex+1] - ofs) / ffi.sizeof'npc_t'
+				or (game.npcOfs[mapIndex+1] - ofs) / ffi.sizeof(game.NPC)
 			for i=startIndex,endIndex-1 do
 				local n = game.npcs + i
-				mapInfo.npcs:insert(ffi.new('npc_t', n[0]))
+				mapInfo.npcs:insert(game.NPC(n[0]))
 			end
 		end
 

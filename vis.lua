@@ -226,11 +226,11 @@ function MapWindow:showIndexUI(ar)
 	local layouts = mapInfo and mapInfo.layouts
 	local layout1Data = layouts and layouts[1] and layouts[1].data
 	if layout1Data then
-		-- based on mapTileProps_t:
+		-- based on MapTileProps:
 		local tilePropsNames = self.index < 3
-		-- WorldTileProps_t:
+		-- WorldTileProps:
 		and worldTilePropsNames
-		-- mapTileProps_t:
+		-- MapTileProps:
 		or mapTilePropsNames
 assert.len(tilePropsNames, numTilePropsBits)
 		for ip1,name in ipairs(tilePropsNames) do
@@ -429,7 +429,7 @@ function MapWindow:setIndex(newIndex, pushStack)
 	if layout1Data
 	and tilePropsData
 	then
-		-- uint8_t into the tilePropsPtr table, which is a table of 2-byte-sized either WorldTileProps_t or mapTileProps_t
+		-- uint8_t into the tilePropsPtr table, which is a table of 2-byte-sized either WorldTileProps or MapTileProps
 		local layoutptr = ffi.cast('uint8_t*', layout1Data)
 		local tilePropsPtr = ffi.cast('uint16_t*', tilePropsData)
 		local volume = layerSizes[1].x * layerSizes[1].y
@@ -493,8 +493,8 @@ function MapWindow:setIndex(newIndex, pushStack)
 				do--if not disableAnimationGeneration then
 					local index = 0 --map.animatedLayers1And2
 					local startOffset = game.mapAnimPropOfs[index]
-					assert.eq(startOffset % ffi.sizeof'mapAnimProps_t', 0)
-					local startIndex = startOffset / ffi.sizeof'mapAnimProps_t'
+					assert.eq(startOffset % ffi.sizeof(game.MapAnimProps), 0)
+					local startIndex = startOffset / ffi.sizeof(game.MapAnimProps)
 					local count = 32
 					local animLayers1And2Props = table()
 					for i=0,count-1 do

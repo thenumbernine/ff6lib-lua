@@ -348,10 +348,10 @@ print('setting gfxstr', gfxstr, 'paletteIndex', paletteIndex)
 				-- TODO you can do this using tileLayoutVisImg somehow ...
 				local traversabilityImg = Image(layer1Size.x, layer1Size.y, 3, 'uint8_t')
 
-	--assert.eq(ffi.sizeof'mapTileProps_t', 2)	-- make sure writing uint16_t's works
+	--assert.eq(ffi.sizeof(game.MapTileProps), 2)	-- make sure writing uint16_t's works
 	--local tilePropsMap = ffi.new('uint16_t[?]', layer1Size.x * layer1Size.y)
 				local layoutptr = ffi.cast('uint8_t*', layout1Data)
-				local tilePropsPtr = ffi.cast(ffi.typeof('$*', game.WorldTileProps_t), tilePropsData)
+				local tilePropsPtr = ffi.cast(ffi.typeof('$*', game.WorldTileProps), tilePropsData)
 				for dstY=0,layer1Size.y-1 do
 					for dstX=0,layer1Size.x-1 do
 						local props = tilePropsPtr + layoutptr[0]
@@ -492,8 +492,8 @@ for _,tilesetIndex in ipairs(game.mapTilesetCache:keys():sort()) do
 			do--if not disableAnimationGeneration then
 				local index = 0 --map.animatedLayers1And2
 				local startOffset = game.mapAnimPropOfs[index]
-				assert.eq(startOffset % ffi.sizeof'mapAnimProps_t', 0)
-				local startIndex = startOffset / ffi.sizeof'mapAnimProps_t'
+				assert.eq(startOffset % ffi.sizeof(game.MapAnimProps), 0)
+				local startIndex = startOffset / ffi.sizeof(game.MapAnimProps)
 				local count = 32
 				local animLayers1And2Props = table()
 				for i=0,count-1 do
@@ -622,7 +622,7 @@ end
 print()
 
 -- these are 7 values of i * 0x14
--- coincidentally, sizeof(mapAnimPropsLayer3_t) == 0x14
+-- coincidentally, sizeof(MapAnimPropsLayer3) == 0x14
 -- and there are only 6 of it
 for i=0,countof(game.mapAnimPropsLayer3Ofs)-1 do
 	local ofs = game.mapAnimPropsLayer3Ofs[i]
@@ -652,11 +652,11 @@ for i=0,countof(game.mapEventTriggerOfs)-1 do
 	-- but the data starts at 0x40342
 	-- and it is a reference into a list of structs 5 bytes wide ...
 	local ofs = ffi.offsetof(game_t, 'mapEventTriggers') - ffi.offsetof(game_t, 'mapEventTriggerOfs')
-	local startIndex = (game.mapEventTriggerOfs[i] - ofs) / ffi.sizeof(game.mapEventTrigger_t)
+	local startIndex = (game.mapEventTriggerOfs[i] - ofs) / ffi.sizeof(game.MapEventTrigger)
 	local endIndex = i == countof(game.mapEventTriggerOfs)-1
 		and startIndex -- countof(game.mapEventTriggers)
-		or (game.mapEventTriggerOfs[i+1] - ofs) / ffi.sizeof(game.mapEventTrigger_t)
-	print('mapEventTrigger[0x'..i:hex()..']:')
+		or (game.mapEventTriggerOfs[i+1] - ofs) / ffi.sizeof(game.MapEventTrigger)
+	print('mapEventTriggers[0x'..i:hex()..']:')
 	for index=startIndex,endIndex-1 do
 		local e = game.mapEventTriggers[index]
 		local scriptAddr = e:getScriptAddr()
