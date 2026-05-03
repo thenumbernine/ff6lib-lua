@@ -1484,9 +1484,7 @@ local numLevels = 98
 local MenuName = Str7
 
 local MenuNameRef = reftype{
-	-- TODO can't use ctypeOnly until createVec supports it as well
-	--ctypeOnly = true,
-	name = 'MenuNameRef',
+	ctypeOnly = true,
 	getter = function(i)
 		return gameC.menuNames[i]
 	end,
@@ -1495,9 +1493,9 @@ local MenuNameRef = reftype{
 local CharacterName = Str6
 
 local MenuNameRef4 = createVec{
+	ctypeOnly = true,
 	dim = 4,
-	ctype = 'MenuNameRef',
-	vectype = 'MenuNameRef4',
+	ctype = MenuNameRef,
 }
 
 local ItemRef2 = createVec{
