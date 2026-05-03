@@ -248,8 +248,7 @@ local Element = bitflagtype{
 	},
 }
 
-local targetting_t = bitflagtype{
-	name = 'targetting_t',
+local Targetting = bitflagtype{
 	options = {
 		'one',			-- can move cursor?
 		'oneSideOnly',
@@ -262,8 +261,7 @@ local targetting_t = bitflagtype{
 	},
 }
 
-local effect1_t = bitflagtype{
-	name = 'effect1_t',
+local Effect1 = bitflagtype{
 	options = {
 		'dark',
 		'zombie',
@@ -276,8 +274,7 @@ local effect1_t = bitflagtype{
 	},
 }
 
-local effect2_t = bitflagtype{
-	name = 'effect2_t',
+local Effect2 = bitflagtype{
 	options = {
 		'countdown',
 		'nearFatal',
@@ -290,8 +287,7 @@ local effect2_t = bitflagtype{
 	},
 }
 
-local effect3_t = bitflagtype{
-	name = 'effect3_t',
+local Effect3 = bitflagtype{
 	options = {
 		'danceFloat',
 		'regen',
@@ -304,8 +300,7 @@ local effect3_t = bitflagtype{
 	},
 }
 
-local effect4_t = bitflagtype{
-	name = 'effect4_t',
+local Effect4 = bitflagtype{
 	options = {
 		'raging',
 		'frozen',
@@ -566,7 +561,7 @@ local Spell = ff6struct{
 	ctypeOnly = true,
 	fields = {
 		-- 00:
-		{targetting = 'targetting_t'},
+		{targetting = Targetting},
 		-- 01:
 		{elementDamage = Element},
 		-- 02:
@@ -609,13 +604,13 @@ local Spell = ff6struct{
 		-- 09:
 		{specialEffect = 'uint8_t'},
 		-- 0x0a:
-		{givesEffect1 = 'effect1_t'},
+		{givesEffect1 = Effect1},
 		-- 0x0b:
-		{givesEffect2 = 'effect2_t'},
+		{givesEffect2 = Effect2},
 		-- 0x0c:
-		{givesEffect3 = 'effect3_t'},
+		{givesEffect3 = Effect3},
 		-- 0x0d:
-		{givesEffect4 = 'effect4_t'},
+		{givesEffect4 = Effect4},
 	},
 	metatable = function(mt)
 		local oldFieldToString = mt.fieldToString
@@ -1118,7 +1113,7 @@ local itemUseAbilityNames = {
 	'dried meat',
 }
 
-local EquipFlags, code = bitflagtype{
+local EquipFlags = bitflagtype{
 	type = 'uint16_t',
 	options = {
 		'terra',
@@ -1183,11 +1178,11 @@ local Item = ff6struct{
 		{unused_5_6 = 'uint8_t:1'},
 		{isTintinabar = 'uint8_t:1'},
 		-- 0x06:
-		{immuneToEffect1 = 'effect1_t'},
+		{immuneToEffect1 = Effect1},
 		-- 0x07:
-		{immuneToEffect2 = 'effect2_t'},
+		{immuneToEffect2 = Effect2},
 		-- 0x08:
-		{hasEffect3 = 'effect3_t'},
+		{hasEffect3 = Effect3},
 		-- 0x09:
 		{raiseFightDamage = 'uint8_t:1'},
 		{raiseMagicDamage = 'uint8_t:1'},
@@ -1234,7 +1229,7 @@ local Item = ff6struct{
 		{unused_d_6 = 'uint8_t:1'},
 		{makeUndead = 'uint8_t:1'},
 		-- 0x0e:
-		{targetting = 'targetting_t'},
+		{targetting = Targetting},
 		-- 0x0f:
 		-- TODO UNION
 		{element_weaponDamage_equipHalfDamage = 'uint8_t'},
@@ -1269,7 +1264,7 @@ local Item = ff6struct{
 		-- 0x18:
 		{elementWeak = Element},
 		-- 0x19:
-		{givesEffect2 = 'effect2_t'},
+		{givesEffect2 = Effect2},
 		-- 0x1a:
 		{evade = 'uint8_t:4'},
 		{magicBlock = 'uint8_t:4'},	-- 0..5 => 0..5, 6..10 => -1..-5
@@ -1395,9 +1390,9 @@ local Monster = ff6struct{
 		{specialEvent = 'uint8_t:1'},
 		{cantControl = 'uint8_t:1'},
 		-- 0x14:
-		{immuneToEffect1 = 'effect1_t'},
+		{immuneToEffect1 = Effect1},
 		-- 0x15:
-		{immuneToEffect2 = 'effect2_t'},
+		{immuneToEffect2 = Effect2},
 		-- 0x16:
 		{elementHalfDamage = Element},
 		-- 0x17:
@@ -1409,13 +1404,13 @@ local Monster = ff6struct{
 		-- 0x1a:
 		{fightAnimation = 'uint8_t'},
 		-- 0x1b:
-		{hasEffect1 = 'effect1_t'},
+		{hasEffect1 = Effect1},
 		-- 0x1c:
-		{hasEffect2 = 'effect2_t'},
+		{hasEffect2 = Effect2},
 		-- 0x1d:
-		{hasEffect3 = 'effect3_t'},
+		{hasEffect3 = Effect3},
 		-- 0x1e:
-		-- for some reason I thought this byte was effect4_t ...
+		-- for some reason I thought this byte was Effect4 ...
 		{unused_1e_0 = 'uint8_t:1'},
 		{Speck = 'uint8_t:1'},
 		{unused_1e_2 = 'uint8_t:1'},
