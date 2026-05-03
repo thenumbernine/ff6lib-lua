@@ -9,8 +9,10 @@ return function(args)
 		tostringOmitNil = true,
 		tostringOmitEmpty = true,
 		name = args.name,
+
 		anonymous = args.anonymous,
 		ctypeOnly = args.ctypeOnly,
+
 		packed = true,
 		union = true,
 		fields = {
@@ -21,7 +23,10 @@ return function(args)
 				tostringOmitFalse = true,
 				tostringOmitNil = true,
 				tostringOmitEmpty = true,
-				anonymous = true,
+
+				ctypeOnly = args.ctypeOnly,
+				anonymous = not args.ctypeOnly,
+
 				packed = true,
 				fields = table.mapi(args.fields, function(kv)
 					local name, ctype = next(kv)

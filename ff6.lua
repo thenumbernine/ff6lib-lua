@@ -1734,8 +1734,8 @@ local xy8b_t = ff6struct{
 }
 assert.eq(ffi.sizeof'xy8b_t', 2)
 
-local mapNameRef_t = reftype{
-	name = 'mapNameRef_t',
+local MapNameRef = reftype{
+	ctypeOnly = true,
 	getter = function(i)
 		return game.mapNames[i]
 	end,
@@ -1749,7 +1749,7 @@ local Map = struct{
 	tostringOmitEmpty = true,
 	packed = true,
 	fields = {
-		{name='name', type='mapNameRef_t'},						-- 0
+		{name='name', type=MapNameRef},						-- 0
 		{name='enableXZone', type='uint8_t:1'},					-- 1.0
 		{name='enableWarp', type='uint8_t:1'},					-- 1.1
 		{name='wavyLayer3', type='uint8_t:1'},					-- 1.2
