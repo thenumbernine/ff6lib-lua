@@ -38,7 +38,7 @@ return function(game)
 					game.eventScriptAddrs[scriptAddr] = true
 				end
 			end
-			for _,e in ipairs(mapInfo.eventTriggers) do
+			for _,e in ipairs(mapInfo.touchTriggers) do
 				local scriptAddr = e:getScriptAddr()
 				if scriptAddr then
 					game.eventScriptAddrs[scriptAddr] = true

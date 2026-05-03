@@ -835,7 +835,7 @@ data = ffi.string(dest, #data)
 			end
 		end
 
-		mapInfo.eventTriggers = table()
+		mapInfo.touchTriggers = table()
 		do
 			local ofs = ffi.offsetof(Game, 'touchTriggers') - ffi.offsetof(Game, 'touchTriggerOfs')
 			local startIndex = (game.touchTriggerOfs[mapIndex] - ofs) / ffi.sizeof(game.TouchTrigger)
@@ -844,7 +844,7 @@ data = ffi.string(dest, #data)
 				or (game.touchTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof(game.TouchTrigger)
 			for i=startIndex,endIndex-1 do
 				local e = game.touchTriggers + i
-				mapInfo.eventTriggers:insert(game.TouchTrigger(e[0]))
+				mapInfo.touchTriggers:insert(game.TouchTrigger(e[0]))
 			end
 		end
 

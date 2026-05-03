@@ -19,6 +19,8 @@ local GLGeometry = require 'gl.geometry'
 local GLSceneObject = require 'gl.sceneobject'
 local ig = require 'imgui'
 
+local startTime = timer.getTime()
+
 local infn = cmdline[1]
 assert(infn, "missing filename")
 local game = require 'ff6'((assert(path(infn):read())))
@@ -243,14 +245,17 @@ assert.len(tilePropsNames, numTilePropsBits)
 		end
 	end
 
+	ig.luatableTooltipCheckbox('showTiles', app, 'showTiles')
+	ig.igSameLine()
+	app.tileWindow:popupButton()
 
 	ig.luatableTooltipCheckbox('showTreasures', app, 'showTreasures')
 	ig.igSameLine()
 	app.treasureWindow:popupButton()
 
-	ig.luatableTooltipCheckbox('showEventTriggers', app, 'showEventTriggers')
+	ig.luatableTooltipCheckbox('showTouchTriggers', app, 'showTouchTriggers')
 	ig.igSameLine()
-	app.eventTriggerWindow:popupButton()
+	app.touchTriggerWindow:popupButton()
 
 	ig.luatableTooltipCheckbox('showDoors', app, 'showDoors')
 	ig.igSameLine()
@@ -557,6 +562,74 @@ function MapWindow:setIndex(newIndex, pushStack)
 end
 
 
+local TileWindow = ArrayWindow:subclass()
+TileWindow.name = 'tile'
+function TileWindow:getMapSize()
+	local mapInfo = game.getMap(self.app.mapWindow.index)
+	if not mapInfo then return end
+	local layerSizes = mapInfo.layerSizes
+	if not layerSizes then return end
+	return layerSizes[1].x, layerSizes[1].y
+end
+function TileWindow:getMapVolume()
+	local w, h = self:getMapSize()
+	if w and h then return w * h end
+end
+function TileWindow:getArray()
+	local vol = self:getMapVolume()
+	return vol and range(vol)
+end
+function TileWindow:showIndexUI(ar)
+	local t = ar[1+self.index]
+	if not t then return end
+
+	local w, h = self:getMapSize()
+	if not w then return end
+
+	local x = self.index % w
+	local y = (self.index - x) / w
+	ig.igText(x..', '..y..' of '..w..', '..h)
+
+	-- if getting x and y fail then mapInfo can't be accessed, so by here mapInfo is guaranteed
+	local mapInfo = game.getMap(self.app.mapWindow.index)
+	local layerPos = mapInfo.layerPos
+	local layerSizes = mapInfo.layerSizes
+	local tilePropsData = mapInfo.tilePropsData
+	local layouts = mapInfo.layouts
+	
+	local layout1Data = layouts[1] and layouts[1].data
+	if layout1Data then
+		local layoutptr = ffi.cast('uint8_t*', layout1Data)
+		if  tilePropsData then
+			local tilePropsPtr = ffi.cast('uint16_t*', tilePropsData)
+			local flags = tilePropsPtr[layoutptr[self.index]]
+			ig.igText(('tile props = 0x%04x'):format(flags))
+		end
+	end
+	for layer=1,3 do
+		local layout = layouts[layer]
+		local layerSize = layerSizes[layer]
+		local layoutData = layout and layout.data
+		if layoutData then
+			
+			local posx, posy = 0, 0
+			if layerPos[layer]
+			-- if we have a position for the layer, but we're using parallax, then the position is going to be relative to the view
+			--and map.parallax == 0
+			then
+				posx, posy = layerPos[layer]:unpack()
+			end
+
+			local layoutptr = ffi.cast('uint8_t*', layoutData)
+			local srcX = (x - posx) % layerSize.x
+			local srcY = (y - posy) % layerSize.y
+			local tile16x16 = layoutptr[((srcX + layerSize.x * srcY) % #layoutData)]
+			ig.igText(('layer %d tile: 0x%02x'):format(layer, tile16x16))
+		end
+	end
+end
+
+
 local TreasureWindow = ArrayWindow:subclass()
 TreasureWindow.name = 'treasure'
 function TreasureWindow:getArray()
@@ -586,13 +659,13 @@ function TreasureWindow:showIndexUI(ar)
 end
 
 
-local EventTriggerWindow = ArrayWindow:subclass()
-EventTriggerWindow.name = 'event trigger'
-function EventTriggerWindow:getArray()
+local TouchTriggerWindow = ArrayWindow:subclass()
+TouchTriggerWindow.name = 'event trigger'
+function TouchTriggerWindow:getArray()
 	local mapInfo = self.app.mapWindow:getMapInfo()
-	return mapInfo and mapInfo.eventTriggers
+	return mapInfo and mapInfo.touchTriggers
 end
-function EventTriggerWindow:showIndexUI(ar)
+function TouchTriggerWindow:showIndexUI(ar)
 	local e = ar[1+self.index]
 	if not e then return end
 	ig.igText(' pos = '..e.pos)
@@ -1058,48 +1131,6 @@ function App:initGL(...)
 	self.showAnimTexs = true
 
 
-	local colorsForBits = table{
-		vec3d(1,0,0),
-		vec3d(0,1,0),
-		vec3d(0,0,1),
-		vec3d(0,1,1),
-		vec3d(1,0,1),
-		vec3d(1,1,0),
-		vec3d(1,1,1),
-		vec3d(.75, .75, .75),
-
-		vec3d(1, .5, .5),
-		vec3d(.5, 1, .5),
-		vec3d(0,0,.5),
-		vec3d(0,.5,.5),
-		vec3d(.5,0,.5),
-		vec3d(.5,.5,0),
-		vec3d(.5,.5,.5),
-		vec3d(.25, .25, .25),
-
-		vec3d(.5,0,0),
-		vec3d(0,.5,0),
-	}
-	local tilePropsPalSize = 32
-	assert.ge(tilePropsPalSize, numTilePropsBits)	-- TODO rup2 or something
-	local tilePropPalData = ffi.new('uint8_t[?]', tilePropsPalSize * 4)
-	ffi.fill(tilePropPalData, ffi.sizeof(tilePropPalData))
-	for i=0,tilePropsPalSize-1 do
-		local c = colorsForBits[(i % #colorsForBits) + 1]
-		tilePropPalData[bit.bor(0, bit.lshift(i, 2))] = 255*c.x
-		tilePropPalData[bit.bor(1, bit.lshift(i, 2))] = 255*c.y
-		tilePropPalData[bit.bor(2, bit.lshift(i, 2))] = 255*c.z
-		tilePropPalData[bit.bor(3, bit.lshift(i, 2))] = 1
-	end
-	self.tilePropsPalTex = GLTex2D{
-		width = tilePropsPalSize,
-		height = 1,
-		internalFormat = gl.GL_RGBA,
-		minFilter = gl.GL_NEAREST,
-		magFilter = gl.GL_NEAREST,
-		data = tilePropPalData,
-	}:unbind()
-
 	self.layerDrawObj = GLSceneObject{
 		program = {
 			version = 'latest',
@@ -1142,6 +1173,49 @@ void main() {
 		},
 	}
 
+
+	local colorsForBits = table{
+		vec3d(1,0,0),
+		vec3d(0,1,0),
+		vec3d(0,0,1),
+		vec3d(0,1,1),
+		vec3d(1,0,1),
+		vec3d(1,1,0),
+		vec3d(1,1,1),
+		vec3d(.75, .75, .75),
+
+		vec3d(1, .5, .5),
+		vec3d(.5, 1, .5),
+		vec3d(0,0,.5),
+		vec3d(0,.5,.5),
+		vec3d(.5,0,.5),
+		vec3d(.5,.5,0),
+		vec3d(.5,.5,.5),
+		vec3d(.25, .25, .25),
+
+		vec3d(0,.25,0),
+		vec3d(.25,0,0),
+	}
+	local tilePropsPalSize = 32
+	assert.ge(tilePropsPalSize, numTilePropsBits)	-- TODO rup2 or something
+	local tilePropPalData = ffi.new('uint8_t[?]', tilePropsPalSize * 4)
+	ffi.fill(tilePropPalData, ffi.sizeof(tilePropPalData))
+	for i=0,tilePropsPalSize-1 do
+		local c = colorsForBits[(i % #colorsForBits) + 1]
+		tilePropPalData[bit.bor(0, bit.lshift(i, 2))] = 255*c.x
+		tilePropPalData[bit.bor(1, bit.lshift(i, 2))] = 255*c.y
+		tilePropPalData[bit.bor(2, bit.lshift(i, 2))] = 255*c.z
+		tilePropPalData[bit.bor(3, bit.lshift(i, 2))] = 1
+	end
+	self.tilePropsPalTex = GLTex2D{
+		width = tilePropsPalSize,
+		height = 1,
+		internalFormat = gl.GL_RGBA,
+		minFilter = gl.GL_NEAREST,
+		magFilter = gl.GL_NEAREST,
+		data = tilePropPalData,
+	}:unbind()
+
 	self.flagsDrawObj = GLSceneObject{
 		program = {
 			version = 'latest',
@@ -1160,9 +1234,14 @@ uniform usampler2D tex;
 uniform sampler2D palTex;
 uniform int palIndex;
 uniform float alpha;
+uniform float t;
 in vec2 tcv;
 out vec4 fragColor;
 void main() {
+	
+	if (((int(gl_FragCoord.x) - int(gl_FragCoord.y) - int(t)) & 15) < 8) discard;
+	//if (mod((gl_FragCoord.x + gl_FragCoord.y) / 10., 1.) < .5) discard;
+
 	int flags = int(texture(tex, tcv, 0).r);
 	flags &= 1 << palIndex;
 	if (flags == 0) discard;
@@ -1237,11 +1316,14 @@ void main() {
 
 
 	-- make mapWindow's windows first:
+	self.showTiles = true
+	self.tileWindow = TileWindow{app=self}
+	
 	self.showTreasures = true
 	self.treasureWindow = TreasureWindow{app=self}
-
-	self.showEventTriggers = true
-	self.eventTriggerWindow = EventTriggerWindow{app=self}
+	
+	self.showTouchTriggers = true
+	self.touchTriggerWindow = TouchTriggerWindow{app=self}
 
 	self.showDoors = true
 	self.doorWindow = DoorWindow{app=self}
@@ -1261,8 +1343,9 @@ void main() {
 		index = cmdline[2] and assert(tonumber(cmdline[2])) or 0,
 		show = true,
 		children = {
+			self.tileWindow,
 			self.treasureWindow,
-			self.eventTriggerWindow,
+			self.touchTriggerWindow,
 			self.doorWindow,
 			self.bigDoorWindow,
 			self.npcWindow,
@@ -1418,7 +1501,8 @@ function App:update()
 
 	gl.glClear(gl.GL_COLOR_BUFFER_BIT)
 
-	self.frameIndex = math.floor(timer.getTime() * self.animSpeed)
+	local t = timer.getTime() - startTime
+	self.frameIndex = math.floor(t * self.animSpeed)
 	local view = self.view
 	self.layerDrawObj.uniforms.mvProjMat = self.view.mvProjMat.ptr
 
@@ -1456,6 +1540,7 @@ function App:update()
 		-- draw overlays of things in the map:
 
 		gl.glEnable(gl.GL_BLEND)
+		gl.glBlendEquation(gl.GL_FUNC_ADD)
 		gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE)
 
 		if self.layerDrawObj
@@ -1471,6 +1556,7 @@ function App:update()
 				if 0 ~= bit.band(bit.lshift(1, i), self.showTileMask) then
 					self.flagsDrawObj.texs[1] = self.tilePropsTex
 					self.flagsDrawObj.texs[2] = self.tilePropsPalTex
+					self.flagsDrawObj.uniforms.t = 20 * t - i
 					self.flagsDrawObj.uniforms.mvProjMat = view.mvProjMat.ptr
 					self.flagsDrawObj.uniforms.palIndex = i
 					self.flagsDrawObj.uniforms.alpha = 1 / math.max(1, totalBits)
@@ -1538,6 +1624,25 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 				end
 			end
 
+			if self.showTiles then
+				for i=0,(self.tileWindow:getMapVolume() or 0)-1 do
+					local mapWidth, mapHeight = self.tileWindow:getMapSize()
+					local x = i % mapWidth
+					local y = (i - x) / mapWidth
+					if leftPress
+					and x <= mx and mx <= x+1
+					and y <= my and my <= y+1
+					then
+						self.tileWindow:setIndex(i)
+						self.tileWindow.show[0] = true
+					end
+					if i == self.treasureWindow.index then
+						settable(uniforms.bbox, x, y, 1, 1)
+						settable(uniforms.color, 1,1,1,1)
+						showHL()
+					end
+				end
+			end
 			if self.showTreasures then
 				for i,t in ipairs(mapInfo.treasures) do
 					local x, y = tonumber(t.pos.x), tonumber(t.pos.y)
@@ -1556,20 +1661,20 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 					end
 				end
 			end
-			if self.showEventTriggers then
-				for i,e in ipairs(mapInfo.eventTriggers) do
+			if self.showTouchTriggers then
+				for i,e in ipairs(mapInfo.touchTriggers) do
 					local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
 					if leftPress
 					and x <= mx and mx <= x+1
 					and y <= my and my <= y+1
 					then
-						self.eventTriggerWindow:setIndex(i-1)
-						self.eventTriggerWindow.show[0] = true
+						self.touchTriggerWindow:setIndex(i-1)
+						self.touchTriggerWindow.show[0] = true
 					end
 					settable(uniforms.bbox, x, y, 1, 1)
 					settable(uniforms.color, 0,0,1,1)
 					rectObj:draw()
-					if i-1 == self.eventTriggerWindow.index then
+					if i-1 == self.touchTriggerWindow.index then
 						showHL()
 					end
 				end
