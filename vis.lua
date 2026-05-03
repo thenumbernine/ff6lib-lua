@@ -22,7 +22,7 @@ local ig = require 'imgui'
 local infn = cmdline[1]
 assert(infn, "missing filename")
 local game = require 'ff6'((assert(path(infn):read())))
-local game_t = game.game_t
+local Game = game.Game
 local rom = game.rom
 local countof = game.countof
 

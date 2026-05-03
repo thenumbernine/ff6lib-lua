@@ -14,7 +14,7 @@ local readTile = require 'ff6.graphics'.readTile
 local readTileLinear = require 'ff6.graphics'.readTileLinear
 
 return function(game)
-	local game_t = game.game_t
+	local Game = game.Game
 	local rom = game.rom
 	local countof = game.countof
 	local decompress = game.decompress
@@ -35,7 +35,7 @@ return function(game)
 		assert.ge(offset, 0)
 		assert.lt(offset, ffi.sizeof(game.mapLayoutsCompressed))
 
-		local addr = offset + ffi.offsetof(game_t, 'mapLayoutsCompressed')
+		local addr = offset + ffi.offsetof(Game, 'mapLayoutsCompressed')
 		local data = decompress(rom + addr, ffi.sizeof(game.mapLayoutsCompressed))
 		mapLayoutCache[i] = {
 			index = i,
@@ -59,7 +59,7 @@ return function(game)
 		assert.ge(offset, 0, 'mapTilePropsOffsets['..i..']')
 		assert.lt(offset, ffi.sizeof(game.mapTilePropsCompressed), 'mapTilePropsOffsets['..i..']')
 
-		local addr = offset + ffi.offsetof(game_t, 'mapTilePropsCompressed')
+		local addr = offset + ffi.offsetof(Game, 'mapTilePropsCompressed')
 		local data = decompress(rom + addr, ffi.sizeof(game.mapTilePropsCompressed))
 
 -- [[ then everything's got something about interlacing ...
@@ -147,7 +147,7 @@ data = ffi.string(dest, #data)
 		assert.ge(offset, 0)
 		assert.le(offset, ffi.sizeof(game.mapTilesetsCompressed))
 
-		local addr = offset + ffi.offsetof(game_t, 'mapTilesetsCompressed')
+		local addr = offset + ffi.offsetof(Game, 'mapTilesetsCompressed')
 		local data = decompress(rom + addr, ffi.sizeof(game.mapTilesetOffsets))
 		mapTilesetCache[i] = {
 			index = i,
@@ -170,7 +170,7 @@ data = ffi.string(dest, #data)
 		assert.ge(offset, 0, 'mapTileGraphicsOffset['..i..']')
 		assert.lt(offset, ffi.sizeof(game.mapTileGraphics), 'mapTileGraphicsOffset['..i..']')
 
-		local addr = offset + ffi.offsetof(game_t, 'mapTileGraphics')
+		local addr = offset + ffi.offsetof(Game, 'mapTileGraphics')
 		mapTileGraphicsCache[i] = {
 			index = i,
 			offset = offset,
@@ -202,7 +202,7 @@ data = ffi.string(dest, #data)
 		local offset = game.mapTileGraphicsLayer3Offsets[i]:value()
 		assert.ge(offset, 0, 'mapTileGraphicsLayer3Offsets['..i..']')
 		assert.lt(offset, ffi.sizeof(game.mapTileGraphicsLayer3), 'mapTileGraphicsLayer3Offsets['..i..']')
-		local addr = offset + ffi.offsetof(game_t, 'mapTileGraphicsLayer3')
+		local addr = offset + ffi.offsetof(Game, 'mapTileGraphicsLayer3')
 		local size = ffi.sizeof(game.mapTileGraphicsLayer3)
 		return game.getMapTileGraphicsLayer3ForAddr(addr, size, i, offset)
 	end
@@ -602,7 +602,7 @@ data = ffi.string(dest, #data)
 					local index = map.animatedLayer3-1
 					local offset = game.mapAnimGraphicsLayer3Ofs[index]:value()
 					local nextOffset = game.mapAnimGraphicsLayer3Ofs[index+1]:value()
-					local addr = offset + ffi.offsetof(game_t, 'mapAnimGraphicsLayer3')
+					local addr = offset + ffi.offsetof(Game, 'mapAnimGraphicsLayer3')
 					local size = nextOffset - offset
 					gfxLayer3AnimData = game.getMapTileGraphicsLayer3ForAddr(addr, size, index, offset).data
 
@@ -837,20 +837,20 @@ data = ffi.string(dest, #data)
 
 		mapInfo.eventTriggers = table()
 		do
-			local ofs = ffi.offsetof(game_t, 'mapEventTriggers') - ffi.offsetof(game_t, 'mapEventTriggerOfs')
-			local startIndex = (game.mapEventTriggerOfs[mapIndex] - ofs) / ffi.sizeof(game.MapEventTrigger)
-			local endIndex = mapIndex >= countof(game.mapEventTriggerOfs)-1
-				and startIndex -- countof(game.mapEventTriggers)
-				or (game.mapEventTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof(game.MapEventTrigger)
+			local ofs = ffi.offsetof(Game, 'touchTriggers') - ffi.offsetof(Game, 'touchTriggerOfs')
+			local startIndex = (game.touchTriggerOfs[mapIndex] - ofs) / ffi.sizeof(game.TouchTrigger)
+			local endIndex = mapIndex >= countof(game.touchTriggerOfs)-1
+				and startIndex -- countof(game.touchTriggers)
+				or (game.touchTriggerOfs[mapIndex+1] - ofs) / ffi.sizeof(game.TouchTrigger)
 			for i=startIndex,endIndex-1 do
-				local e = game.mapEventTriggers + i
-				mapInfo.eventTriggers:insert(game.MapEventTrigger(e[0]))
+				local e = game.touchTriggers + i
+				mapInfo.eventTriggers:insert(game.TouchTrigger(e[0]))
 			end
 		end
 
 		mapInfo.doors = table()
 		do
-			local ofs = ffi.offsetof(game_t, 'doors') - ffi.offsetof(game_t, 'doorsOfs')
+			local ofs = ffi.offsetof(Game, 'doors') - ffi.offsetof(Game, 'doorsOfs')
 			local startIndex = (game.doorsOfs[mapIndex] - ofs) / ffi.sizeof(game.Door)
 			local endIndex = mapIndex >= countof(game.doorsOfs)-1
 				and countof(game.doors)
@@ -863,7 +863,7 @@ data = ffi.string(dest, #data)
 
 		mapInfo.bigDoors = table()
 		do
-			local ofs = ffi.offsetof(game_t, 'bigDoors') - ffi.offsetof(game_t, 'bigDoorsOfs')
+			local ofs = ffi.offsetof(Game, 'bigDoors') - ffi.offsetof(Game, 'bigDoorsOfs')
 			local startIndex = (game.bigDoorsOfs[mapIndex] - ofs) / ffi.sizeof(game.BigDoor)
 			local endIndex = mapIndex >= countof(game.bigDoorsOfs)-1
 				and countof(game.bigDoors)
@@ -876,7 +876,7 @@ data = ffi.string(dest, #data)
 
 		mapInfo.npcs = table()
 		do
-			local ofs = ffi.offsetof(game_t, 'npcs') - ffi.offsetof(game_t, 'npcOfs')
+			local ofs = ffi.offsetof(Game, 'npcs') - ffi.offsetof(Game, 'npcOfs')
 			local startIndex = (game.npcOfs[mapIndex] - ofs) / ffi.sizeof(game.NPC)
 			local endIndex = mapIndex >= countof(game.npcOfs)-1
 				and startIndex

@@ -24,7 +24,7 @@ local tileHeight = require 'ff6.graphics'.tileHeight
 local readTile = require 'ff6.graphics'.readTile
 
 return function(rom, game, romsize)
-local game_t = game.game_t
+local Game = game.Game
 
 local countof = game.countof
 local decompress = game.decompress
@@ -157,7 +157,7 @@ do
 	local im = Image(16*tileWidth, 16*n*tileHeight, 1, 'uint8_t'):clear()
 	for i=0,n-1 do
 		local offset = game.mapTileGraphicsLayer3Offsets[i]:value()
-		local addr = offset + ffi.offsetof(game_t, 'mapTileGraphicsLayer3')
+		local addr = offset + ffi.offsetof(Game, 'mapTileGraphicsLayer3')
 		local gfxLayer3 = game.mapTileGraphicsLayer3Cache[addr]
 		for x=0,15 do
 			for y=0,15 do
@@ -649,18 +649,18 @@ for i=0,countof(game.mapPalAnim)-1 do
 end
 print()
 
-for i=0,countof(game.mapEventTriggerOfs)-1 do
+for i=0,countof(game.touchTriggerOfs)-1 do
 	-- offsets are relative to 0x40000
 	-- but the data starts at 0x40342
 	-- and it is a reference into a list of structs 5 bytes wide ...
-	local ofs = ffi.offsetof(game_t, 'mapEventTriggers') - ffi.offsetof(game_t, 'mapEventTriggerOfs')
-	local startIndex = (game.mapEventTriggerOfs[i] - ofs) / ffi.sizeof(game.MapEventTrigger)
-	local endIndex = i == countof(game.mapEventTriggerOfs)-1
-		and startIndex -- countof(game.mapEventTriggers)
-		or (game.mapEventTriggerOfs[i+1] - ofs) / ffi.sizeof(game.MapEventTrigger)
-	print('mapEventTriggers[0x'..i:hex()..']:')
+	local ofs = ffi.offsetof(Game, 'touchTriggers') - ffi.offsetof(Game, 'touchTriggerOfs')
+	local startIndex = (game.touchTriggerOfs[i] - ofs) / ffi.sizeof(game.TouchTrigger)
+	local endIndex = i == countof(game.touchTriggerOfs)-1
+		and startIndex -- countof(game.touchTriggers)
+		or (game.touchTriggerOfs[i+1] - ofs) / ffi.sizeof(game.TouchTrigger)
+	print('touchTriggers[0x'..i:hex()..']:')
 	for index=startIndex,endIndex-1 do
-		local e = game.mapEventTriggers[index]
+		local e = game.touchTriggers[index]
 		local scriptAddr = e:getScriptAddr()
 		print('\t0x'..index:hex()
 			..(scriptAddr and (' script=$%06x'):format(scriptAddr) or '')
@@ -671,7 +671,7 @@ print()
 
 for i=0,countof(game.doorsOfs)-1 do
 	-- TODO use ref_t or whateever
-	local ofs = ffi.offsetof(game_t, 'doors') - ffi.offsetof(game_t, 'doorsOfs')
+	local ofs = ffi.offsetof(Game, 'doors') - ffi.offsetof(Game, 'doorsOfs')
 	assert.eq((game.doorsOfs[i] - ofs) % ffi.sizeof(game.Door), 0)
 	local startIndex = (game.doorsOfs[i] - ofs) / ffi.sizeof(game.Door)
 	local endIndex = i == countof(game.doorsOfs)-1
@@ -705,8 +705,8 @@ print()
 
 -- there are more big door offsets than big doors 
 for i=0,countof(game.bigDoorsOfs)-1 do
-	local addr = game.bigDoorsOfs[i] + ffi.offsetof(game_t, 'bigDoorsOfs')
-	--assert.eq((addr - ffi.offsetof(game_t, 'bigDoors')) % ffi.sizeof(game.BigDoor), 0)
+	local addr = game.bigDoorsOfs[i] + ffi.offsetof(Game, 'bigDoorsOfs')
+	--assert.eq((addr - ffi.offsetof(Game, 'bigDoors')) % ffi.sizeof(game.BigDoor), 0)
 	print('bigDoors[0x'..i:hex()..']')
 	print(' addr: $'..('%06x'):format(addr))
 	local bigDoor = ffi.cast(ffi.typeof('$*', game.BigDoor), rom + addr)
@@ -714,7 +714,7 @@ for i=0,countof(game.bigDoorsOfs)-1 do
 end
 
 for i=0,countof(game.treasureOfs)-1 do
-	local addr = game.treasureOfs[i] + ffi.offsetof(game_t, 'treasures')
+	local addr = game.treasureOfs[i] + ffi.offsetof(Game, 'treasures')
 	print('treasureOfs[0x'..i:hex()..']'
 		..' addr=$'..('%06x'):format(addr))
 end
@@ -729,7 +729,7 @@ end
 print()
 
 for i=0,countof(game.npcOfs)-1 do
-	local addr = game.npcOfs[i] + ffi.offsetof(game_t, 'npcOfs')
+	local addr = game.npcOfs[i] + ffi.offsetof(Game, 'npcOfs')
 	print('npcOfs[0x'..i:hex()..']'
 		..' addr=$'..('%06x'):format(addr))
 end

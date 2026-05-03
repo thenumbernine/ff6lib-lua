@@ -22,7 +22,7 @@ assert(infn, "missing filename")
 -- I can't change that without associating the C data with the Lua object.
 -- TODO TODO TODO fix this
 local game = require 'ff6'((assert(path(infn):read())))
-local game_t = game.game_t
+local Game = game.Game
 local rom = game.rom
 local romsize = game.romsize
 
@@ -146,8 +146,8 @@ do
 
 			-- some addrs point into battleBgGfxCompressed, and those need to be decompressed
 			-- some point into mapTileGraphics and those don't need to be decompressed
-			local isBattleBgGfxCompressed = addr >= ffi.offsetof(game_t, 'battleBgGfxCompressed')
-				and addr < ffi.offsetof(game_t, 'battleBgGfxCompressed') + ffi.sizeof(game.battleBgGfxCompressed)
+			local isBattleBgGfxCompressed = addr >= ffi.offsetof(Game, 'battleBgGfxCompressed')
+				and addr < ffi.offsetof(Game, 'battleBgGfxCompressed') + ffi.sizeof(game.battleBgGfxCompressed)
 
 			if isBattleBgGfxCompressed then
 				local pstart = rom + addr
@@ -192,8 +192,8 @@ do
 	for i=0,countof(game.battleBgLayoutOffsets)-1 do
 		local offset = game.battleBgLayoutOffsets[i]
 		local addr = offset + 0x270000
-		assert.ge(addr, ffi.offsetof(game_t, 'battleBgLayoutCompressed'))
-		assert.lt(addr, ffi.offsetof(game_t, 'battleBgLayoutCompressed') + ffi.sizeof(game.battleBgLayoutCompressed))
+		assert.ge(addr, ffi.offsetof(Game, 'battleBgLayoutCompressed'))
+		assert.lt(addr, ffi.offsetof(Game, 'battleBgLayoutCompressed') + ffi.sizeof(game.battleBgLayoutCompressed))
 		local data = decompress(rom + addr, ffi.sizeof(game.battleBgLayoutCompressed))
 		print('battleBgLayouts[0x'..i:hex()..'] ='
 			..' offset=0x'..addr:hex()
