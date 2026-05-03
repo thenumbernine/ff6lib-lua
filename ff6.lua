@@ -220,15 +220,13 @@ end
 
 --[[
 args:
-	name
 	options
 	type (optional) default uint8_t
 --]]
 local function bitflagtype(args)
 	local ctype = args.type or 'uint8_t'
 	return ff6struct{
-		name = args.name,
-		ctypeOnly = not args.name,
+		ctypeOnly = true,
 		fields = table.mapi(assert(args.options), function(option)
 			return {[assert(option)] = ctype..':1'}
 		end),
@@ -549,7 +547,7 @@ end
 
 -- needs 'game' to correctly call 'getSpellName' with a parameter
 local SpellRef = reftype{
-	name = 'SpellRef',
+	ctypeOnly = true,
 	getter = function(i)
 		if i == 0xff then return nil end
 		return getSpellName(i)
@@ -643,7 +641,7 @@ local EsperBonus = reftype{
 local function getEsperName(i) return getSpellName(i + 54) end
 
 local SpellLearn = ff6struct{
-	name = 'SpellLearn',
+	ctypeOnly = true,
 	fields = {
 		{rate = 'uint8_t'},
 		{spell = SpellRef},
@@ -787,9 +785,7 @@ local MonsterRef = reftype{
 local numFormations = 0x240
 
 local XY4b = ff6struct{
-	-- TODO
-	--ctypeOnly = true,
-	name = 'XY4b',
+	ctypeOnly = true,
 	fields = {
 		{x = 'uint8_t:4'},
 		{y = 'uint8_t:4'},
@@ -830,8 +826,8 @@ local FormationSize = ff6struct{
 }
 assert.eq(ffi.sizeof(FormationSize), 4)
 
-local formation_t = ff6struct{
-	name = 'formation_t',
+local Formation = ff6struct{
+	ctypeOnly = true,
 	fields = {
 		-- 0x00
 		{unused_0_0 = 'uint8_t:1'},
@@ -865,12 +861,12 @@ local formation_t = ff6struct{
 		-- 0x08 - 0x0d
 		--{positions = XY4b_6},
 		-- can't occlude if x,y are nested
-		{pos1 = 'XY4b'},
-		{pos2 = 'XY4b'},
-		{pos3 = 'XY4b'},
-		{pos4 = 'XY4b'},
-		{pos5 = 'XY4b'},
-		{pos6 = 'XY4b'},
+		{pos1 = XY4b},
+		{pos2 = XY4b},
+		{pos3 = XY4b},
+		{pos4 = XY4b},
+		{pos5 = XY4b},
+		{pos6 = XY4b},
 
 		-- 0x0e
 		{monster1hi = 'uint8_t:1'},
@@ -956,7 +952,7 @@ local formation_t = ff6struct{
 --]=]
 	end,
 }
-assert.eq(ffi.sizeof'formation_t', 0xf)
+assert.eq(ffi.sizeof(Formation), 0xf)
 
 local formationIntroNames = {
 	'none',	-- 0
@@ -988,8 +984,8 @@ local formationMusicNames = {
 	'no change',
 }
 
-local formation2_t = ff6struct{
-	name = 'formation2_t',
+local Formation2 = ff6struct{
+	ctypeOnly = true,
 	fields = {
 		-- 0:
 		{intro = 'uint8_t:4'},
@@ -1029,7 +1025,7 @@ local formation2_t = ff6struct{
 		end
 	end,
 }
-assert.eq(ffi.sizeof'formation2_t', 4)
+assert.eq(ffi.sizeof(Formation2), 4)
 
 local MonsterRandomBattleEntry = ff6struct{
 	ctypeOnly = true,
@@ -1447,16 +1443,16 @@ local MonsterItem = ff6struct{
 }
 
 local SpellRef2 = createVec{
+	ctypeOnly = true,
+	ctype = SpellRef,
 	dim = 2,
-	ctype = 'SpellRef',
-	vectype = 'SpellRef2',
 }
 assert.eq(ffi.sizeof(SpellRef2), 2)
 
 local SpellRef4 = createVec{
+	ctypeOnly = true,
+	ctype = SpellRef,
 	dim = 4,
-	ctype = 'SpellRef',
-	vectype = 'SpellRef4',
 }
 assert.eq(ffi.sizeof(SpellRef4), 4)
 
@@ -1626,25 +1622,23 @@ local numBattleMessages = 0x100
 
 local numPositionedText = 5	-- might actually be lower
 
--- TODO ctypeOnly
-local xy8sb_t = ff6struct{
-	name = 'xy8sb_t',
+local XY8sb = ff6struct{
+	ctypeOnly = true,
 	fields = {
 		{x = 'int8_t'},
 		{y = 'int8_t'},
 	},
 }
-assert.eq(ffi.sizeof'xy8sb_t', 2)
+assert.eq(ffi.sizeof(XY8sb), 2)
 
--- TODO ctypeOnly
-local xy8b_t = ff6struct{
-	name = 'xy8b_t',
+local XY8b = ff6struct{
+	ctypeOnly = true,
 	fields = {
 		{x = 'uint8_t'},
 		{y = 'uint8_t'},
 	},
 }
-assert.eq(ffi.sizeof'xy8b_t', 2)
+assert.eq(ffi.sizeof(XY8b), 2)
 
 local MapNameRef = reftype{
 	ctypeOnly = true,
@@ -1736,8 +1730,8 @@ local Map = struct{
 			},
 		},
 		{name='mapOverlayProperties', type='uint8_t'},			-- 0x11
-		{name='layer2Pos', type='xy8sb_t'},						-- 0x12
-		{name='layer3Pos', type='xy8sb_t'},						-- 0x14
+		{name='layer2Pos', type=XY8sb},						-- 0x12
+		{name='layer3Pos', type=XY8sb},						-- 0x14
 		{name='parallax', type='uint8_t'},					-- 0x16
 		{name='layer2HeightLog2Minus4', type='uint8_t:2'},		-- 0x17.2-3
 		{name='layer2WidthLog2Minus4', type='uint8_t:2'},		-- 0x17.0-1
@@ -1753,7 +1747,7 @@ local Map = struct{
 		{name='music', type='uint8_t'},							-- 0x1c
 		{name='unknown_1d', type='uint8_t'},					-- 0x1d
 		-- map 21, size is {44,52}, tiles are defined up to {46,54} ... why is it 2 less?
-		{name='size', type='xy8b_t'},							-- 0x1e
+		{name='size', type=XY8b},							-- 0x1e
 		{name='colorMath', type='uint8_t'},						-- 0x20
 	},
 	metatable = function(mt)
@@ -1847,7 +1841,7 @@ local mapTilesetOfsAddr = 0x1fba00
 local Treasure = ff6struct{
 	ctypeOnly = true,
 	fields = {
-		{pos = 'xy8b_t'},
+		{pos = XY8b},
 		{switch = 'uint16_t:9'},	-- global index / bitflag? into game state data?
 		{unused_2_1 = 'uint16_t:1'},	-- does this bit go in 'switch' too? like in NPC switch is 10 bits...
 		{unused_2_2 = 'uint16_t:1'},
@@ -1983,7 +1977,7 @@ local MapDest = ff6struct{
 		{showDestName = 'uint16_t:1'},	-- 1.3
 		{destFacingDir = 'uint16_t:2'},	-- 1.4-1.5
 		{unknown_3_6 = 'uint16_t:2'},	-- 1.6-1.7
-		{dest = 'xy8b_t'},				-- 2-3
+		{dest = XY8b},				-- 2-3
 	}
 }
 assert.eq(ffi.sizeof(MapDest), 4)
@@ -2007,7 +2001,7 @@ assert.eq(ffi.sizeof(ChangeMapEvent), 5)
 local Door = ff6struct{
 	ctypeOnly = true,
 	fields = {
-		{pos = 'xy8b_t'},				-- 0-1
+		{pos = XY8b},					-- 0-1
 
 		-- TODO also MapDest ... anonymous inline?
 		{mapIndex = 'uint16_t:9'},		-- 2.0-3.0: maps[]
@@ -2016,7 +2010,7 @@ local Door = ff6struct{
 		{showDestName = 'uint16_t:1'},	-- 3.3
 		{destFacingDir = 'uint16_t:2'},	-- 3.4-3.5
 		{unknown_3_6 = 'uint16_t:2'},	-- 3.6-3.7
-		{dest = 'xy8b_t'},				-- 4-5
+		{dest = XY8b},					-- 4-5
 	},
 }
 assert.eq(ffi.sizeof(Door), 6)
@@ -2029,7 +2023,7 @@ local BigDoor = struct{
 	tostringOmitEmpty = true,
 	packed = true,
 	fields = {
-		{name='pos', type='xy8b_t'},				-- 0-1
+		{name='pos', type=XY8b},					-- 0-1
 		{name='length', type='uint8_t:7'},			-- 2.0-2.6
 		{name='vertical', type='uint8_t:1'},		-- 2.7
 	
@@ -2054,7 +2048,7 @@ local BigDoor = struct{
 				end,
 			},
 		},
-		{name='dest', type='xy8b_t'},				-- 4-5
+		{name='dest', type=XY8b},					-- 4-5
 	},
 	metatable = function(mt)
 		mt.typeToString = fieldsToHex
@@ -2066,7 +2060,7 @@ assert.eq(ffi.sizeof(BigDoor), 7)
 local MapEventTrigger = ff6struct{
 	ctypeOnly = true,
 	fields = {
-		{pos = 'xy8b_t'},
+		{pos = XY8b},
 		{script = uint24_t},
 	},
 	metatable = function(mt)
@@ -2312,8 +2306,8 @@ game_t = struct{
 		{name = 'mapRandomBattleOptions', type = 'uint8_t[0x200]'},												-- 0x0f5600 - 0x0f5800 = one per map, index into monsterRandomBattles
 		{name = 'worldSectorRandomBattleEncounterRatesPerTerrain', type = 'uint8_t[0x80]'},						-- 0x0f5800 - 0x0f5880 = 2 bits used ... 64 sectors per WoB, 64 per WoR ... 8 items per sector, 2bpp each ( https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:rom_map )
 		{name = 'mapBattleProbability', type = 'uint8_t[0x80]'},												-- 0x0f5880 - 0x0f5900 = 2 bits used
-		{name = 'formation2s', type = 'formation2_t['..numFormations..']'},										-- 0x0f5900 - 0x0f6200
-		{name = 'formations', type = 'formation_t['..numFormations..']'},										-- 0x0f6200 - 0x0f83c0
+		{name = 'formation2s', type = ffi.typeof('$['..numFormations..']', Formation2)},						-- 0x0f5900 - 0x0f6200
+		{name = 'formations', type = ffi.typeof('$['..numFormations..']', Formation)},							-- 0x0f6200 - 0x0f83c0
 		{name = 'padding_0f83c0', type = 'uint8_t['..(-(0x0f83c0 - 0x0f8400))..']'},							-- 0x0f83c0 - 0x0f8400 - all 'ff' repeated.  probably 4 last empty formations + padding
 
 		{name = 'unknown_0f8400', type = 'uint8_t['..(-(0x0f8400 - 0x0f8700))..']'},							-- 0x0f8400 - 0x0f8700
@@ -2717,6 +2711,7 @@ game.positionedText = StringList{
 }
 
 
+game.uint24_t = uint24_t
 game.RGBA5551 = RGBA5551
 game.Palette4 = Palette4
 game.Palette8 = Palette8
@@ -2741,6 +2736,8 @@ game.RareItemName = RareItemName
 game.MonsterName = MonsterName
 game.Monster = Monster
 game.MonsterItem = MonsterItem
+game.Formation = Formation
+game.Formation2 = Formation2
 game.MenuName = MenuName
 game.MenuNameRef4 = MenuNameRef4
 game.CharacterName = CharacterName
