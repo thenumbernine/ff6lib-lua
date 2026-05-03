@@ -107,7 +107,7 @@ do
 	local unique = {}
 	for i=0,countof(game.monsterPalettes)-1 do
 		print('monsterPalettes[0x'..i:hex()..'] = '..game.monsterPalettes[i])
-		unique[ffi.string(game.monsterPalettes + i, ffi.sizeof'palette8_t')] = true
+		unique[ffi.string(game.monsterPalettes + i, ffi.sizeof(game.Palette8))] = true
 	end
 	-- 646 of 768 unique values used
 	-- only indexes 0-656 are used, the rest are black

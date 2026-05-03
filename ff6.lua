@@ -478,33 +478,33 @@ local RGBA5551 = ff6struct{
 }
 assert.eq(ffi.sizeof(RGBA5551), 2)
 
-local palette4_t = createVec{
+local Palette4 = createVec{
+	ctypeOnly = true,
+	ctype = RGBA5551,
 	dim = 4,
-	ctype = 'RGBA5551',
-	vectype = 'palette4_t',
 }
-assert.eq(ffi.sizeof'palette4_t', 2*4)
+assert.eq(ffi.sizeof(Palette4), 2*4)
 
-local palette8_t = createVec{
+local Palette8 = createVec{
+	ctypeOnly = true,
+	ctype = RGBA5551,
 	dim = 8,
-	ctype = 'RGBA5551',
-	vectype = 'palette8_t',
 }
-assert.eq(ffi.sizeof'palette8_t', 2*8)
+assert.eq(ffi.sizeof(Palette8), 2*8)
 
-local palette16_t = createVec{
+local Palette16 = createVec{
+	ctypeOnly = true,
+	ctype = RGBA5551,
 	dim = 16,
-	ctype = 'RGBA5551',
-	vectype = 'palette16_t',
 }
-assert.eq(ffi.sizeof'palette16_t', 2*16)
+assert.eq(ffi.sizeof(Palette16), 2*16)
 
-local palette16_8_t = createVec{
+local Palette16_8 = createVec{
+	ctypeOnly = true,
+	ctype = Palette16,
 	dim = 8,
-	ctype = 'palette16_t',
-	vectype = 'palette16_8_t',
 }
-assert.eq(ffi.sizeof'palette16_8_t', 2*16*8)
+assert.eq(ffi.sizeof(Palette16_8), 2*16*8)
 
 local numMenuChars = 19
 
@@ -793,18 +793,22 @@ local MonsterRef = reftype{
 
 local numFormations = 0x240
 
-local xy4b_t = ff6struct{
-	name = 'xy4b_t',
+local XY4b = ff6struct{
+	-- TODO
+	--ctypeOnly = true,
+	name = 'XY4b',
 	fields = {
 		{x = 'uint8_t:4'},
 		{y = 'uint8_t:4'},
 	},
 }
-local xy4b_6_t = createVec{
+--[[
+local XY4b_6 = createVec{
+	ctypeOnly = true,
+	ctype = XY4b,
 	dim = 6,
-	ctype = 'xy4b_t',
-	vectype = 'xy4b_6_t',
 }
+--]]
 
 local numFormationSizeOffsets = 13
 
@@ -866,14 +870,14 @@ local formation_t = ff6struct{
 		{monster6 = 'uint8_t'},
 
 		-- 0x08 - 0x0d
-		--{positions = 'xy4b_6_t'},
+		--{positions = XY4b_6},
 		-- can't occlude if x,y are nested
-		{pos1 = 'xy4b_t'},
-		{pos2 = 'xy4b_t'},
-		{pos3 = 'xy4b_t'},
-		{pos4 = 'xy4b_t'},
-		{pos5 = 'xy4b_t'},
-		{pos6 = 'xy4b_t'},
+		{pos1 = 'XY4b'},
+		{pos2 = 'XY4b'},
+		{pos3 = 'XY4b'},
+		{pos4 = 'XY4b'},
+		{pos5 = 'XY4b'},
+		{pos6 = 'XY4b'},
 
 		-- 0x0e
 		{monster1hi = 'uint8_t:1'},
@@ -2273,7 +2277,7 @@ game_t = struct{
 
 		{name = 'unknown_051ec7', type = 'uint8_t['..(-(0x051ec7 - 0x053c5f))..']'},							-- 0x051ec7 - 0x053c5f
 
-		{name = 'brrSamplePtrs', type = ffi.typeof('$['..numBRRSamples..']', uint24_t)},										-- 0x053c5f - 0x053d1c -- BRR sample pointers (x63, 3 bytes each)
+		{name = 'brrSamplePtrs', type = ffi.typeof('$['..numBRRSamples..']', uint24_t)},						-- 0x053c5f - 0x053d1c -- BRR sample pointers (x63, 3 bytes each)
 		{name = 'loopStartOfs', type = 'uint16_t['..numBRRSamples..']'},										-- 0x053d1c - 0x053d9a -- loop start pointers (x63, 2 bytes each)
 		{name = 'pitchMults', type = 'uint16_t['..numBRRSamples..']'},											-- 0x053d9a - 0x053e18 -- pitch multipliers (x63, 2 bytes each)
 		{name = 'adsrData', type = 'uint16_t['..numBRRSamples..']'},											-- 0x053e18 - 0x053e96 -- ADSR data (x63, 2 bytes each)
@@ -2285,7 +2289,7 @@ game_t = struct{
 		{name = 'unknown_085c7a', type = 'uint8_t['..(-(0x085c7a - 0x09fe00))..']'},							-- 0x085c7a - 0x09fe00
 
 		{name = 'theEndGraphics2', type = 'uint8_t['..(-(0x09fe00 - 0x09ff00))..']'},							-- 0x09fe00 - 0x09ff00 = 4bpp
-		{name = 'theEndPalette', type = 'palette16_8_t'},														-- 0x09ff00 - 0x0a0000
+		{name = 'theEndPalette', type = Palette16_8},															-- 0x09ff00 - 0x0a0000
 		{name = 'eventScript', type = 'uint8_t['..(-(0x0a0000 - 0x0ce600))..']'},								-- 0x0a0000 - 0x0ce600
 		{name = 'dialogOffsets', type = 'uint16_t['..numDialogs..']'},											-- 0x0ce600 - 0x0d0000.  the first dialog offset points to the dialog which needs the bank byte to increment
 		{name = 'dialogBase', type = 'uint8_t['..(-(0x0d0000 - 0x0ef100))..']'},								-- 0x0d0000 - 0x0ef100 ... hmm, there are dangling npc-event-scripts from 0x0d200 to 0x0de302 ... in the middle of dialogBase
@@ -2351,7 +2355,7 @@ game_t = struct{
 		{name = 'blitzDescOffsets', type = 'uint16_t['..numBlitzes..']'},										-- 0x0fff9e - 0x0fffae
 		{name = 'swordTechDescOffsets', type = 'uint16_t['..numSwordTechs..']'},								-- 0x0fffae - 0x0fffbe
 		{name = 'battleAnimScripts', type = 'uint8_t['..(-(0x0fffbe - 0x107fb2))..']'},							-- 0x0fffbe - 0x107fb2 <- indexed into with battleAnimScriptOffsets[i] + 0x100000
-		{name = 'battleAnimSets', type = ffi.typeof('$[444]', BattleAnimSet)},												-- 0x107fb2 - 0x1097fa
+		{name = 'battleAnimSets', type = ffi.typeof('$[444]', BattleAnimSet)},									-- 0x107fb2 - 0x1097fa
 		{name = 'padding_1097fa', type = 'uint8_t['..(-(0x1097fa - 0x109800))..']'},							-- 0x1097fa - 0x109800 = 'ff's, just like the end of battleAnimSets
 
 		{name = 'unknown_109800', type = 'uint8_t['..(-(0x109800 - 0x10d000))..']'},							-- 0x109800 - 0x10d000
@@ -2361,7 +2365,7 @@ game_t = struct{
 
 		{name = 'unknown_10fd00', type = 'uint8_t['..(-(0x10fd00 - 0x110141))..']'},							-- 0x10fd00 - 0x110141
 
-		{name = 'battleAnimFrame16x16Tiles', type = ffi.typeof('$[0x74cb]', BattleAnim16x16Tile)},							-- 0x110141 - 0x11ead7 ... 2 bytes each ... pointers from battleAnimFrame16x16TileOffsets offset by 0x110000 but point into here
+		{name = 'battleAnimFrame16x16Tiles', type = ffi.typeof('$[0x74cb]', BattleAnim16x16Tile)},				-- 0x110141 - 0x11ead7 ... 2 bytes each ... pointers from battleAnimFrame16x16TileOffsets offset by 0x110000 but point into here
 		{name = 'padding_11ead7', type = 'uint8_t'},															-- 0x11ead7 - 0x11ead8 -- 'ff'
 		{name = 'battleAnimScriptOffsets', type = 'uint16_t[660]'},												-- 0x11ead8 - 0x11f000 ... uint16 offsets +0x100000 ... maybe there are only 650 of these to match with `countof(battleAnimEffects)`?
 		{name = 'battleMessageBase', type = 'uint8_t['..(-(0x11f000 - 0x11f7a0))..']'},							-- 0x11f000 - 0x11f7a0
@@ -2370,20 +2374,20 @@ game_t = struct{
 		{name = 'unknown_11f9a0', type = 'uint8_t['..(-(0x11f9a0 - 0x120000))..']'},							-- 0x11f9a0 - 0x120000
 
 		{name = 'battleAnimGraphicsSets3bpp', type = ffi.typeof('$['..(0x20 * 0x180)..']', BattleAnim8x8Tile)},	-- 0x120000 - 0x126000 - holds the 'graphicSet' uint16 offsets from BattleAnimEffect * (0x20 entries == 0x40 bytes)
-		{name = 'battleAnimPalettes', type = 'palette8_t[0xf0]'},												-- 0x126000 - 0x126f00
-		{name = 'itemTypeNames', type = ffi.typeof('$[0x20]', Str7)},														-- 0x126f00 - 0x126fe0
+		{name = 'battleAnimPalettes', type = ffi.typeof('$[0xf0]', Palette8)},									-- 0x126000 - 0x126f00
+		{name = 'itemTypeNames', type = ffi.typeof('$[0x20]', Str7)},											-- 0x126f00 - 0x126fe0
 		{name = 'padding_126fe0', type = 'uint8_t[0x20]'},														-- 0x126fe0 - 0x127000 = 'ff's
 		{name = 'monsterSprites', type = ffi.typeof('$[0x1a0]', MonsterSprite)},								-- 0x127000 - 0x127820
-		{name = 'monsterPalettes', type = 'palette8_t[0x300]'},													-- 0x127820 - 0x12a820
+		{name = 'monsterPalettes', type = ffi.typeof('$[0x300]', Palette8)},									-- 0x127820 - 0x12a820
 		{name = 'monsterSpriteTileMask8Ofs', type = 'uint16_t'},												-- 0x12a820 - 0x12a822
 		{name = 'monsterSpriteTileMask16Ofs', type = 'uint16_t'},												-- 0x12a822 - 0x12a824
 		{name = 'monsterSpriteTileMaskData', type = 'uint8_t['..(0x12b300 - 0x12a824 )..']'},					-- 0x12a824 - 0x12b300
-		{name = 'itemNames', type = ffi.typeof('$['..numItems..']', Str13)},													-- 0x12b300 - 0x12c000
+		{name = 'itemNames', type = ffi.typeof('$['..numItems..']', Str13)},									-- 0x12b300 - 0x12c000
 		{name = 'battleAnimGraphicsSets2bpp', type = ffi.typeof('$['..(0x20 * 0xb0)..']', BattleAnim8x8Tile)},	-- 0x12c000 - 0x12ec00	-- should be 2bpp battle animation 16x16-tile-info referenced by .graphicSet
-		{name = 'WoBPalettes', type = 'palette16_8_t'},															-- 0x12ec00 - 0x12ed00
-		{name = 'WoRPalettes', type = 'palette16_8_t'},															-- 0x12ed00 - 0x12ee00
-		{name = 'setzerAirshipPalette', type = 'palette16_8_t'},												-- 0x12ee00 - 0x12ef00
-		{name = 'darylAirshipPalette', type = 'palette16_8_t'},													-- 0x12ef00 - 0x12f000
+		{name = 'WoBPalettes', type = Palette16_8},																-- 0x12ec00 - 0x12ed00
+		{name = 'WoRPalettes', type = Palette16_8},																-- 0x12ed00 - 0x12ee00
+		{name = 'setzerAirshipPalette', type = Palette16_8},													-- 0x12ee00 - 0x12ef00
+		{name = 'darylAirshipPalette', type = Palette16_8},														-- 0x12ef00 - 0x12f000
 
 		{name = 'unknown_12f000', type = 'uint8_t['..(-(0x12f000 - 0x130000))..']'},							-- 0x12f000 - 0x130000
 
@@ -2417,12 +2421,12 @@ game_t = struct{
 		{name = 'mapTilePropsCompressed', type = 'uint8_t['..(-(0x19a800 - 0x19cd10))..']'},					-- 0x19a800 - 0x19cd10 = map tile properties (compressed)
 		{name = 'mapTilePropsOffsets', type = 'uint16_t[0x2a]'},												-- 0x19cd10 - 0x19cd60 = offsets to map tile properties (+0x19a800) into mapTilePropsCompressed ... 0x40 but only 0x29 point to valid compressed data
 		{name = 'unused_19cd62', type = 'uint16_t[0x16]'},														-- 0x19cd60 - 0x19cd90
-		{name = 'mapLayoutOffsets', type = ffi.typeof('$[0x160]', uint24_t)},													-- 0x19cd90 - 0x19d1b0 = offsets to map data (352 items), (+0x19d1b0)
+		{name = 'mapLayoutOffsets', type = ffi.typeof('$[0x160]', uint24_t)},									-- 0x19cd90 - 0x19d1b0 = offsets to map data (352 items), (+0x19d1b0)
 		{name = 'mapLayoutsCompressed', type = 'uint8_t['..(-(0x19d1b0 - 0x1e0000))..']'},						-- 0x19d1b0 - 0x1e0000 = map data (compressed)
 		{name = 'mapTilesetsCompressed', type = 'uint8_t['..(-(0x1e0000 - 0x1fb400))..']'},						-- 0x1e0000 - 0x1fb400 = map tile formation (compressed)
 		{name = 'formationMPs', type = 'uint8_t[0x200]'},														-- 0x1fb400 - 0x1fb600
 		{name = 'itemColosseumInfos', type = ffi.typeof('$['..numItems..']', ItemColosseumInfo)},				-- 0x1fb600 - 0x1fba00
-		{name = 'mapTilesetOffsets', type = ffi.typeof('$[0x4b]', uint24_t)},													-- 0x1fba00 - 0x1fbaff -- 24bit, offset by +0x1e0000, points into mapTilesetsCompressed ... last points to invalid data so I cut it off.
+		{name = 'mapTilesetOffsets', type = ffi.typeof('$[0x4b]', uint24_t)},									-- 0x1fba00 - 0x1fbaff -- 24bit, offset by +0x1e0000, points into mapTilesetsCompressed ... last points to invalid data so I cut it off.
 		{name = 'padding_1fbaff', type = 'uint8_t[31]'},														-- 0x1fbaff - 0x1fbb00
 		{name = 'doorsOfs', type = 'uint16_t[0x201]'},															-- 0x1fbb00 - 0x1fbf02 -- offset by +0x1fbb00
 		{name = 'doors', type = ffi.typeof('$[0x469]', Door)},													-- 0x1fbf02 - 0x1fd978 = Door[] (only 415 used?)
@@ -2432,7 +2436,7 @@ game_t = struct{
 		{name = 'mapTileGraphics', type = 'uint8_t['..(-(0x1fdb00 - 0x25f400))..']'},							-- 0x1fdb00 - 0x25f400 = map tile graphics for layers 1&2, 4bpp
 		{name = 'unknown_25f400', type = 'uint8_t['..(-(0x25f400 - 0x260000))..']'},							-- 0x25f400 - 0x260000 -- there's one battle bg in here
 		{name = 'mapAnimGraphics', type = 'uint8_t['..(-(0x260000 - 0x268000))..']'},							-- 0x260000 - 0x268000 = 4bpp
-		{name = 'characterPalettes', type = 'palette16_t['..numCharacterPalettes..']'},							-- 0x268000 - 0x268400	-- also town tile palettes?
+		{name = 'characterPalettes', type = ffi.typeof('$['..numCharacterPalettes..']', Palette16)},			-- 0x268000 - 0x268400	-- also town tile palettes?
 		{name = 'mapNameOffsets', type = 'uint16_t['..numMapNames..']'},										-- 0x268400 - 0x268780
 		{name = 'mapTileGraphicsLayer3', type = 'uint8_t['..(-(0x268780 - 0x26cd60))..']'},						-- 0x268780 - 0x26cd60  map tile garphics for layer 3, 2bpp
 		{name = 'mapTileGraphicsLayer3Offsets', type = ffi.typeof('$[18]', uint24_t)},							-- 0x26cd60 - 0x26cd96 = offset, +0x268780 .. there's 19, but only 18 point to valid compressed data ...
@@ -2465,27 +2469,27 @@ game_t = struct{
 
 		{name = 'unknown_2d0e00', type = 'uint8_t['..(-(0x2d0e00 - 0x2d1c00))..']'},							-- 0x2d0e00 - 0x2d1c00
 
-		{name = 'menuWindowPalettes', type = 'palette16_8_t'},													-- 0x2d1c00 - 0x2d1d00 = menu window palettes, x8, 16 colors each, 2 bytes per color
+		{name = 'menuWindowPalettes', type = Palette16_8},														-- 0x2d1c00 - 0x2d1d00 = menu window palettes, x8, 16 colors each, 2 bytes per color
 		-- TODO struct multi dim arrays ...
 		--{name = 'characterMenuImages', type = 'uint8_t['..numMenuChars..'][5][5][8][4]'},						-- 0x2d1d00 - 0x2d5860 = character menu images [char][tx][ty][col][row] @ 4bpp
 		{name = 'characterMenuImages', type = 'uint8_t['..(numMenuChars * 5 * 5 * 8 * 4)..']'},					-- 0x2d1d00 - 0x2d5860 = character menu images [char][tx][ty][col][row] @ 4bpp
-		{name = 'menuPortraitPalette', type = 'palette16_t['..numMenuChars..']'},								-- 0x2d5860 - 0x2d5ac0 = menu portrait palettes (16 colors each)
+		{name = 'menuPortraitPalette', type = ffi.typeof('$['..numMenuChars..']', Palette16)},					-- 0x2d5860 - 0x2d5ac0 = menu portrait palettes (16 colors each)
 		{name = 'handCursorGraphics', type = 'uint8_t['..(-(0x2d5ac0 - 0x2d62c0))..']'},						-- 0x2d5ac0 - 0x2d62c0 ? = hand cursor graphics
-		{name = 'battleWhitePalette', type = 'palette4_t'},														-- 0x2d62c0 - 0x2d62c8 = battle standard (white) text palette, 4 colors
-		{name = 'battleGrayPalette', type = 'palette4_t'},														-- 0x2d62c8 - 0x2d62d0 = battle disabled (grey) text palette, 4 colors
-		{name = 'battleYellowPalette', type = 'palette4_t'},													-- 0x2d62d0 - 0x2d62d8 = battle active (yellow) text palette, 4 colors
-		{name = 'battleBluePalette', type = 'palette4_t'},														-- 0x2d62d8 - 0x2d62e0 = battle blue text palette, 4 colors
-		{name = 'battleEmptyPalette', type = 'palette4_t'},														-- 0x2d62e0 - 0x2d62e8 = empty color palette, 4 colors
-		{name = 'battleGrayPalette', type = 'palette4_t'},														-- 0x2d62e8 - 0x2d62f0 = battle gauge (grey) text palette, 4 colors
-		{name = 'battleGreenPalette', type = 'palette4_t'},														-- 0x2d62f0 - 0x2d62f8 = battle green text palette, 4 colors
-		{name = 'battleRedPalette', type = 'palette4_t'},														-- 0x2d62f8 - 0x2d6300 = battle red text palette, 4 colors
-		{name = 'battleMenuPalettes', type = 'palette16_8_t'},													-- 0x2d6300 - 0x2d6400 = battle/menu character sprite palettes, 8 palettes, 16 colors each
+		{name = 'battleWhitePalette', type = Palette4},															-- 0x2d62c0 - 0x2d62c8 = battle standard (white) text palette, 4 colors
+		{name = 'battleGrayPalette', type = Palette4},															-- 0x2d62c8 - 0x2d62d0 = battle disabled (grey) text palette, 4 colors
+		{name = 'battleYellowPalette', type = Palette4},														-- 0x2d62d0 - 0x2d62d8 = battle active (yellow) text palette, 4 colors
+		{name = 'battleBluePalette', type = Palette4},															-- 0x2d62d8 - 0x2d62e0 = battle blue text palette, 4 colors
+		{name = 'battleEmptyPalette', type = Palette4},															-- 0x2d62e0 - 0x2d62e8 = empty color palette, 4 colors
+		{name = 'battleGrayPalette', type = Palette4},															-- 0x2d62e8 - 0x2d62f0 = battle gauge (grey) text palette, 4 colors
+		{name = 'battleGreenPalette', type = Palette4},															-- 0x2d62f0 - 0x2d62f8 = battle green text palette, 4 colors
+		{name = 'battleRedPalette', type = Palette4},															-- 0x2d62f8 - 0x2d6300 = battle red text palette, 4 colors
+		{name = 'battleMenuPalettes', type = Palette16_8},														-- 0x2d6300 - 0x2d6400 = battle/menu character sprite palettes, 8 palettes, 16 colors each
 		{name = 'itemDescBase', type = 'uint8_t['..(-(0x2d6400 - 0x2d77a0))..']'},								-- 0x2d6400 - 0x2d77a0
 		{name = 'loreDescBase', type = 'uint8_t['..(-(0x2d77a0 - 0x2d7a70))..']'},								-- 0x2d77a0 - 0x2d7a70
 		{name = 'loreDescOffsets', type = 'uint16_t['..numLores..']'},											-- 0x2d7a70 - 0x2d7aa0
 		{name = 'itemDescOffsets', type = 'uint16_t['..numItems..']'},											-- 0x2d7aa0 - 0x2d7ca0
 		{name = 'characters', type = ffi.typeof('$['..numCharacters..']', Character)},							-- 0x2d7ca0 - 0x2d8220
-		{name = 'expForLevelUp', type = 'uint16_t[106]'},										-- 0x2d8220 - 0x2d82f4
+		{name = 'expForLevelUp', type = 'uint16_t[106]'},														-- 0x2d8220 - 0x2d82f4
 		{name = 'treasureOfs', type = 'uint16_t[0x1a0]'},														-- 0x2d82f4 - 0x2d8634 	-- offset +0x2d8634 into treasures
 		{name = 'treasures', type = ffi.typeof('$[0x11e]', Treasure)},											-- 0x2d8634 - 0x2d8bca
 		{name = 'padding_2d8bca', type = 'uint8_t['..(-(0x2d8bca - 0x2d8e5b))..']'},							-- 0x2d8bca - 0x2d8e5b = 'ff's
@@ -2493,7 +2497,7 @@ game_t = struct{
 		{name = 'padding_2d8e9b', type = 'uint8_t['..(-(0x2d8e9b - 0x2d8f00))..']'},							-- 0x2d8e9b - 0x2d8f00 = 'ff's
 		{name = 'maps', type = ffi.typeof('$[0x19f]', Map)},													-- 0x2d8f00 - 0x2dc47f
 		{name = 'padding_2dc47f', type = 'uint8_t[1]'},															-- 0x2dc47f - 0x2df480
-		{name = 'mapPalettes', type = 'palette16_8_t[48]'},														-- 0x2dc480 - 0x2df480 = map palettes (48 elements, 16x8 colors each)
+		{name = 'mapPalettes', type = ffi.typeof('$[48]', Palette16_8)},										-- 0x2dc480 - 0x2df480 = map palettes (48 elements, 16x8 colors each)
 		{name = 'bigDoorsOfs', type = 'uint16_t[0x201]'},														-- 0x2df480 - 0x2df882
 		{name = 'bigDoors', type = ffi.typeof('$[0x98]', BigDoor)},												-- 0x2df882 - 0x2dfcaa
 		{name = 'padding_2dfcaa', type = 'uint8_t['..(-(0x2dfcaa - 0x2dfe00))..']'},							-- 0x2dfcaa - 0x2dfe00 = 'ff's
@@ -2503,8 +2507,8 @@ game_t = struct{
 		-- 0x2e4842 - 0x2e4851     Sprites used for various positions of map character
 		{name = 'unknown_2dfff2', type = 'uint8_t['..(-(0x2dfff2 - 0x2e9b14))..']'},
 
-		{name = 'WoBTileProps', type = ffi.typeof('$[0x100]', WorldTileProps)},								-- 0x2e9b14 - 0x2e9d14
-		{name = 'WoRTileProps', type = ffi.typeof('$[0x100]', WorldTileProps)},								-- 0x2e9d14 - 0x2e9f14
+		{name = 'WoBTileProps', type = ffi.typeof('$[0x100]', WorldTileProps)},									-- 0x2e9b14 - 0x2e9d14
+		{name = 'WoRTileProps', type = ffi.typeof('$[0x100]', WorldTileProps)},									-- 0x2e9d14 - 0x2e9f14
 
 		{name = 'unknown_2e9f14', type = 'uint8_t['..(-(0x2e9f14 - 0x2ed434))..']'},							-- 0x2e9f14 - 0x2ed434 = looks like more world tile props.
 
@@ -2726,6 +2730,10 @@ game.positionedText = StringList{
 
 
 game.RGBA5551 = RGBA5551
+game.Palette4 = Palette4
+game.Palette8 = Palette8
+game.Palette16 = Palette16
+game.Palette16_8 = Palette16_8
 game.Spell = Spell
 game.SpellLearn = SpellLearn
 game.SpellRef = SpellRef
