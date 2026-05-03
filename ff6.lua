@@ -189,33 +189,23 @@ local function compzstr(ptr)
 end
 
 local function gamestrtype(args)
-	local name = assert(args.name)
 	local size = assert(args.size)
-	ffi.cdef([[
-typedef struct ]]..name..[[ {
-	uint8_t ptr[]]..size..[[];
-} ]]..name..[[;
-]])
-	assert.eq(ffi.sizeof(name), size)
-	local metatype = ffi.metatype(name, {
+	local ctype = ffi.typeof([[struct { uint8_t ptr[]]..size..[[]; }]])
+	assert.eq(ffi.sizeof(ctype), size)
+	ffi.metatype(ctype, {
 		__tostring = function(self)
 			return string.trim(gamestr(self.ptr, size))
 		end,
-		__concat = function(a,b) return tostring(a) .. tostring(b) end,
+		__concat = string.concat,
 	})
-	return metatype
+	return ctype
 end
 
 local function rawtype(args)
-	local name = assert(args.name)
 	local size = assert(args.size)
-	ffi.cdef([[
-typedef struct ]]..name..[[ {
-	uint8_t ptr[]]..size..[[];
-} ]]..name..[[;
-]])
-	assert.eq(ffi.sizeof(name), size)
-	local metatype = ffi.metatype(name, {
+	local ctype = ffi.typeof([[struct { uint8_t ptr[]]..size..[[]; }]])
+	assert.eq(ffi.sizeof(ctype), size)
+	ffi.metatype(ctype, {
 		__tostring = function(self)
 			local s = table()
 			for i=0,size-1 do
@@ -223,9 +213,9 @@ typedef struct ]]..name..[[ {
 			end
 			return s:concat' '
 		end,
-		__concat = function(a,b) return tostring(a) .. tostring(b) end,
+		__concat = string.concat,
 	})
-	return metatype
+	return ctype
 end
 
 --[[
@@ -237,7 +227,8 @@ args:
 local function bitflagtype(args)
 	local ctype = args.type or 'uint8_t'
 	return ff6struct{
-		name = assert(args.name),
+		name = args.name,
+		ctypeOnly = not args.name,
 		fields = table.mapi(assert(args.options), function(option)
 			return {[assert(option)] = ctype..':1'}
 		end),
@@ -330,33 +321,28 @@ local effect4_t = bitflagtype{
 
 local function makefixedstr(n)
 	return gamestrtype{
-		name = 'str'..n..'_t',
 		size = n,
 	}
 end
 
-makefixedstr(6)
-makefixedstr(7)
-makefixedstr(8)
-makefixedstr(9)
-makefixedstr(10)
-makefixedstr(12)
-makefixedstr(13)
+local Str6 = makefixedstr(6)
+local Str7 = makefixedstr(7)
+local Str8 = makefixedstr(8)
+local Str9 = makefixedstr(9)
+local Str10 = makefixedstr(10)
+local Str12 = makefixedstr(12)
+local Str13 = makefixedstr(13)
 
 local madefixedraw = {}
 local function makefixedraw(n)
 	local cache = madefixedraw[n]
-	if cache then return table.unpack(cache) end
-	local name = 'raw'..n..'_t'
-	local mt = rawtype{
-		name = name,
-		size = n,
-	}
-	madefixedraw[n] = {mt, name}
-	return mt, name
+	if cache then return cache end
+	local mt = rawtype{size = n}
+	madefixedraw[n] = mt
+	return mt
 end
 
-makefixedraw(12)	-- raw12_t for uint8_t[12] for the blitzes
+local Raw12 = makefixedraw(12)	-- Raw12 for uint8_t[12] for the blitzes
 
 ---------------- COMPRESSED/UNCOMPRESSED STRINGS ----------------
 
@@ -462,8 +448,9 @@ end
 
 ---------------- GRAPHICS ----------------
 
-local color_t = ff6struct{
-	name = 'color_t',
+local RGBA5551 = ff6struct{
+	--ctypeOnly = true,
+	name = 'RGBA5551',
 	fields = {
 		{r = 'uint16_t:5'},
 		{g = 'uint16_t:5'},
@@ -489,25 +476,25 @@ local color_t = ff6struct{
 		end
 	end,
 }
-assert.eq(ffi.sizeof'color_t', 2)
+assert.eq(ffi.sizeof(RGBA5551), 2)
 
 local palette4_t = createVec{
 	dim = 4,
-	ctype = 'color_t',
+	ctype = 'RGBA5551',
 	vectype = 'palette4_t',
 }
 assert.eq(ffi.sizeof'palette4_t', 2*4)
 
 local palette8_t = createVec{
 	dim = 8,
-	ctype = 'color_t',
+	ctype = 'RGBA5551',
 	vectype = 'palette8_t',
 }
 assert.eq(ffi.sizeof'palette8_t', 2*8)
 
 local palette16_t = createVec{
 	dim = 16,
-	ctype = 'color_t',
+	ctype = 'RGBA5551',
 	vectype = 'palette16_t',
 }
 assert.eq(ffi.sizeof'palette16_t', 2*16)
@@ -521,8 +508,8 @@ assert.eq(ffi.sizeof'palette16_8_t', 2*16*8)
 
 local numMenuChars = 19
 
-local mapColorMathProps_t = ff6struct{
-	name = 'mapColorMathProps_t',
+local MapColorMathProps = ff6struct{
+	ctypeOnly = true,
 	fields = {
 		{colorMath = 'uint8_t:6'},	-- 0=layer1, 1=layer2, 2=layer3, 3=layer4, 4=sprites, 5=back area
 		{half = 'uint8_t:1'},
@@ -531,7 +518,7 @@ local mapColorMathProps_t = ff6struct{
 		{subScreen = 'uint8_t'},	-- only uses 6 bits?
 	},
 }
-assert.eq(ffi.sizeof'mapColorMathProps_t', 3)
+assert.eq(ffi.sizeof(MapColorMathProps), 3)
 
 ---------------- AUDIO ----------------
 
@@ -547,12 +534,10 @@ local uint24_t = ff6struct{
 		end
 	end,
 }
-assert.eq(ffi.sizeof'uint24_t', 3)
+assert.eq(ffi.sizeof(uint24_t), 3)
 local numBRRSamples = 63
 
 ---------------- SPELLS ----------------
-
-local numSpells = 0x100
 
 
 -- needs 'game' as a parameter ... but can't always get it there ... so look for a global instead
@@ -570,8 +555,8 @@ local function getSpellName(i)
 end
 
 -- needs 'game' to correctly call 'getSpellName' with a parameter
-local spellref_t = reftype{
-	name = 'spellref_t',
+local SpellRef = reftype{
+	name = 'SpellRef',
 	getter = function(i)
 		if i == 0xff then return nil end
 		return getSpellName(i)
@@ -579,8 +564,8 @@ local spellref_t = reftype{
 	getterSkipNone = true,
 }
 
-local spell_t = ff6struct{
-	name = 'spell_t',
+local Spell = ff6struct{
+	ctypeOnly = true,
 	fields = {
 		-- 00:
 		{targetting = 'targetting_t'},
@@ -650,61 +635,46 @@ local spell_t = ff6struct{
 		end
 	end,
 }
-assert.eq(ffi.sizeof'spell_t', 0x0e)
+assert.eq(ffi.sizeof(Spell), 0x0e)
 
-local spellsAddr = 0x046ac0
-local spellDescOffsetsAddr = 0x18cf80
-local spellDescBaseAddr = 0x18c9a0	-- spells 0-53
-
-ffi.cdef[[typedef str9_t esperBonusDesc_t;]]
+local EsperBonusDesc = Str9
 local numEsperBonuses = 17
-local esperBonusDescsAddr = 0x0ffeae
-
-local longEsperBonusDescOffsetsAddr = 0x2dffd0
-local longEsperBonusDescBaseAddr = 0x2dfe00
 
 -- another one that needs 'game'
-local esperBonus_t = reftype{
-	name = 'esperBonus_t',
+local EsperBonus = reftype{
+	ctypeOnly = true,
 	getter = function(i) return gameC.esperBonusDescs[i] end,
 }
 
-local esperAttackNamesAddr = 0x26fe8f
 -- also needs a pointer to 'game'
 local function getEsperName(i) return getSpellName(i + 54) end
 
-local spellLearn_t = ff6struct{
-	name = 'spellLearn_t',
+local SpellLearn = ff6struct{
+	name = 'SpellLearn',
 	fields = {
 		{rate = 'uint8_t'},
-		{spell = 'spellref_t'},
+		{spell = SpellRef},
 	},
 }
+assert.eq(ffi.sizeof(SpellLearn), 2)
 
-local esper_t = ff6struct{
-	name = 'esper_t',
+local Esper = ff6struct{
+	ctypeOnly = true,
 	fields = {
-		{spellLearn1 = 'spellLearn_t'},
-		{spellLearn2 = 'spellLearn_t'},
-		{spellLearn3 = 'spellLearn_t'},
-		{spellLearn4 = 'spellLearn_t'},
-		{spellLearn5 = 'spellLearn_t'},
-		{bonus = 'esperBonus_t'},
+		{spellLearn1 = SpellLearn},
+		{spellLearn2 = SpellLearn},
+		{spellLearn3 = SpellLearn},
+		{spellLearn4 = SpellLearn},
+		{spellLearn5 = SpellLearn},
+		{bonus = EsperBonus},
 	},
 }
-assert.eq(ffi.sizeof'esper_t', 11)
+assert.eq(ffi.sizeof(Esper), 11)
 local numEspers = 27
-local espersAddr = 0x186e00
-
--- 0x0f3940 - 0x0f3c40
-local esperDescBaseAddr = 0x0f3940
-
--- 0x0ffe40 - 0x0ffe76 = esper desc offsets
-local esperDescOffsetsAddr = 0x0ffe40
 
 --[[ can't do this until i convert all ff6struct to struct, then i can use anonymous fields.
-local battleAnimEffectIndex_t = struct{
-	name = 'battleAnimEffectIndex_t',
+local BattleAnimEffectIndex = struct{
+	ctypeOnly = true,
 	union = true,
 	fields = {
 		{name='u16', type='uint16_t', no_iter=true},
@@ -717,12 +687,12 @@ local battleAnimEffectIndex_t = struct{
 		}},
 	},
 }
-assert.eq(ffi.sizeof(battleAnimEffectIndex_t), 2)
+assert.eq(ffi.sizeof(BattleAnimEffectIndex), 2)
 --]]
 
 -- collections of up to 3 animation-effects to play
-local battleAnimSet_t = ff6struct{
-	name = 'battleAnimSet_t',
+local BattleAnimSet = ff6struct{
+	ctypeOnly = true,
 	fields = {
 		--[[ TODO get struct to serialize member arrays
 		{effect = 'uint16_t[3]'},	-- 0xffff = none, otherwise values are from 0-0x3fff, bit15 means something, idk.
@@ -738,9 +708,9 @@ local battleAnimSet_t = ff6struct{
 		{effect3 = 'uint16_t'},
 		--]]
 		--[[
-		{effect1 = 'battleAnimEffectIndex_t'},
-		{effect2 = 'battleAnimEffectIndex_t'},
-		{effect3 = 'battleAnimEffectIndex_t'},
+		{effect1 = BattleAnimEffectIndex},
+		{effect2 = BattleAnimEffectIndex},
+		{effect3 = BattleAnimEffectIndex},
 		--]]
 
 		-- index into 'battleAnimPalettes' table
@@ -754,14 +724,11 @@ local battleAnimSet_t = ff6struct{
 		{wait = 'uint8_t'},
 	},
 }
-assert.eq(ffi.sizeof'battleAnimSet_t', 0xe)
-local numBattleAnimSets = 444
-
-local numBattleAnimPalettes = 0xf0
+assert.eq(ffi.sizeof(BattleAnimSet), 0xe)
 
 -- animations made up of frames
-local battleAnimEffect_t = ff6struct{
-	name = 'battleAnimEffect_t',
+local BattleAnimEffect = ff6struct{
+	ctypeOnly = true,
 	fields = {
 		{numFrames = 'uint8_t:6'},
 		{graphicSetHighBit = 'uint8_t:1'},	-- is this a separate bit?
@@ -778,11 +745,10 @@ local battleAnimEffect_t = ff6struct{
 		{height = 'uint8_t'},
 	},
 }
-assert.eq(ffi.sizeof'battleAnimEffect_t', 6)
-local numBattleAnimEffects = 650
+assert.eq(ffi.sizeof(BattleAnimEffect), 6)
 
-local battleAnim16x16Tile_t = ff6struct{
-	name = 'battleAnim16x16Tile_t',
+local BattleAnim16x16Tile = ff6struct{
+	ctypeOnly = true,
 	fields = {
 		-- x y destination to place the tile in the frame
 		{y = 'uint8_t:4'},
@@ -794,13 +760,13 @@ local battleAnim16x16Tile_t = ff6struct{
 		{vflip16 = 'uint8_t:1'},
 	},
 }
-assert.eq(ffi.sizeof'battleAnim16x16Tile_t', 2)
+assert.eq(ffi.sizeof(BattleAnim16x16Tile), 2)
 
 -- graphicSet is a collection of 0x40 (0x10 x 4) 8x8 tiles
 -- Each 8x8 tile holds info of the tile address, hflip, and vflip
--- This is pointed to by battleAnimEffect_t.graphicSet
-local battleAnim8x8Tile_t = ff6struct{
-	name = 'battleAnim8x8Tile_t',
+-- This is pointed to by BattleAnimEffect.graphicSet
+local BattleAnim8x8Tile = ff6struct{
+	ctypeOnly = true,
 	fields = {
 		-- * tileLen (8 * bpp) + tileAddrBase (0x187000 for 2bpp, 0x130000 for 3bpp) gives the 8x8 tile data
 		-- for 3bpp, points into 0x130000 - 0x14c998, which only holds 4881
@@ -810,27 +776,22 @@ local battleAnim8x8Tile_t = ff6struct{
 		{vflip = 'uint16_t:1'},
 	},
 }
-assert.eq(ffi.sizeof'battleAnim8x8Tile_t', 2)
+assert.eq(ffi.sizeof(BattleAnim8x8Tile), 2)
 
 ---------------- MONSTERS HEADER ----------------
 
 local numMonsters = 0x180
 
-ffi.cdef[[typedef str10_t monsterName_t;]]
-local monsterNamesAddr = 0x0fc050
+local MonsterName = Str10
 
 -- This is a uint8_t even though there are 384 monsters.
 -- If I find a uint16_t then I'll make reftype more flexible and make a second monsterRef16_t type.
-local monsterRef_t = reftype{
-	name = 'monsterRef_t',
+local MonsterRef = reftype{
+	ctypeOnly = true,
 	getter = function(i) return gameC.monsterNames[i] end,
 }
 
 local numFormations = 0x240
-local numFormationMPs = 0x200
-
-local formationAddr = 0xf6200		-- 576 in size
-local formationMPAddr = 0x1fb400	-- 512 in size
 
 local xy4b_t = ff6struct{
 	name = 'xy4b_t',
@@ -844,6 +805,33 @@ local xy4b_6_t = createVec{
 	ctype = 'xy4b_t',
 	vectype = 'xy4b_6_t',
 }
+
+local numFormationSizeOffsets = 13
+
+local FormationSize = ff6struct{
+	ctypeOnly = true,
+	fields = {
+		{unused_0_0 = 'uint8_t:1'},		-- 0.0
+		{unused_0_1 = 'uint8_t:1'},		-- 0.1
+		{unused_0_2 = 'uint8_t:1'},		-- 0.2
+		{unused_0_3 = 'uint8_t:1'},		-- 0.3
+		{unused_0_4 = 'uint8_t:1'},		-- 0.4
+		{unused_0_5 = 'uint8_t:1'},		-- 0.5
+		{unused_0_6 = 'uint8_t:1'},		-- 0.6
+		{unknown_0_7 = 'uint8_t:1'},	-- 0.7
+		{unknown_1_0 = 'uint8_t:1'},	-- 1.0
+		{unused_1_1 = 'uint8_t:1'},		-- 1.1
+		{unused_1_2 = 'uint8_t:1'},		-- 1.2
+		{unknown_1_3 = 'uint8_t:1'},	-- 1.3
+		{unknown_1_4 = 'uint8_t:1'},	-- 1.4
+		{unused_1_5 = 'uint8_t:1'},		-- 1.5
+		{unused_1_6 = 'uint8_t:1'},		-- 1.6
+		{unused_1_7 = 'uint8_t:1'},		-- 1.7
+		{width = 'uint8_t'},
+		{height = 'uint8_t'},
+	},
+}
+assert.eq(ffi.sizeof(FormationSize), 4)
 
 local formation_t = ff6struct{
 	name = 'formation_t',
@@ -932,7 +920,7 @@ local formation_t = ff6struct{
 		mt.getFormationSize = function(self, i)
 			local offset = gameC.formationSizeOffsets[self.formationSize]
 			local addr = 0x020000 + offset
-			local formationSize = ffi.cast('formationSize_t*', rom + addr)
+			local formationSize = ffi.cast(ffi.typeof('$*', FormationSize), rom + addr)
 			return formationSize[i-1]
 		end
 
@@ -958,7 +946,7 @@ local formation_t = ff6struct{
 			if key == 'formationSize' then
 				local v = self[key]
 				local offset = gameC.formationSizeOffsets[v]
-				local formationSize = ffi.cast('formationSize_t*', rom + 0x020000 + offset)
+				local formationSize = ffi.cast(ffi.typeof('$*', FormationSize), rom + 0x020000 + offset)
 				return tolua(range(1,6):mapi(function(i)
 					if self['active'..i] ~= 0 then
 						return tostring(formationSize[i-1])
@@ -1046,37 +1034,6 @@ local formation2_t = ff6struct{
 }
 assert.eq(ffi.sizeof'formation2_t', 4)
 
-local numFormationSizeOffsets = 13
-
--- this is an arbitrary number, just like null-term string Base field sizes,
--- because it is referenced by offsets
-local numFormationSizes = 48
-
-local formationSize_t = ff6struct{
-	name = 'formationSize_t',
-	fields = {
-		{unused_0_0 = 'uint8_t:1'},		-- 0.0
-		{unused_0_1 = 'uint8_t:1'},		-- 0.1
-		{unused_0_2 = 'uint8_t:1'},		-- 0.2
-		{unused_0_3 = 'uint8_t:1'},		-- 0.3
-		{unused_0_4 = 'uint8_t:1'},		-- 0.4
-		{unused_0_5 = 'uint8_t:1'},		-- 0.5
-		{unused_0_6 = 'uint8_t:1'},		-- 0.6
-		{unknown_0_7 = 'uint8_t:1'},	-- 0.7
-		{unknown_1_0 = 'uint8_t:1'},	-- 1.0
-		{unused_1_1 = 'uint8_t:1'},		-- 1.1
-		{unused_1_2 = 'uint8_t:1'},		-- 1.2
-		{unknown_1_3 = 'uint8_t:1'},	-- 1.3
-		{unknown_1_4 = 'uint8_t:1'},	-- 1.4
-		{unused_1_5 = 'uint8_t:1'},		-- 1.5
-		{unused_1_6 = 'uint8_t:1'},		-- 1.6
-		{unused_1_7 = 'uint8_t:1'},		-- 1.7
-		{width = 'uint8_t'},
-		{height = 'uint8_t'},
-	},
-}
-assert.eq(ffi.sizeof'formationSize_t', 4)
-
 ff6struct{
 	name = 'monsterRandomBattleEntry_t',
 	fields = {
@@ -1098,10 +1055,10 @@ local monsterRandomBattleEntry4_t = createVec{
 	vectype = 'monsterRandomBattleEntry4_t',
 }
 
-ff6struct{
-	name = 'RandomBattlesPerTerrain_t',
+local WorldSectorRandomBattlesPerTerrain = ff6struct{
+	ctypeOnly = true,
 	fields = {
-		-- each is a lookup into monsterRandomBattles[]
+		-- each is a ref to monsterRandomBattles[]
 		{grass = 'uint8_t'},
 		{forest = 'uint8_t'},
 		{desert = 'uint8_t'},
@@ -1109,23 +1066,14 @@ ff6struct{
 	},
 }
 
-local monsterPalettesAddr = 0x127820
-local numMonsterPalettes = 0x300
--- ... of type palette8_t
-
 -- the first 'numMonsters' overlaps
 -- then there's 32 more
 -- the first 27 of those are espers
 -- the last 5 are unknown/unused
-local numMonsterSprites = 0x1a0
-
 -- TODO there are 0x19f of these, not 0x180 ...
 -- ... same with the monster stat table?
-local monsterSpritesAddr = 0x127000
-local monsterSpriteDataAddr = 0x297000
-
-local monsterSprite_t = struct{
-	name = 'monsterSprite_t',
+local MonsterSprite = struct{
+	ctypeOnly = true,
 	tostringFields = true,
 	tostringOmitFalse = true,
 	tostringOmitNil = true,
@@ -1143,17 +1091,17 @@ local monsterSprite_t = struct{
 		mt.typeToString = fieldsToHex
 	end,
 }
-assert.eq(ffi.sizeof'monsterSprite_t', 5)
+assert.eq(ffi.sizeof(MonsterSprite), 5)
 
 ---------------- ITEMS ----------------
 
 local numItems = 0x100
-local numItemTypes = 0x20
 
-local itemNamesAddr = 0x12b300
-
-local itemref_t = reftype{
-	name = 'itemref_t',
+local ItemRef = reftype{
+	-- TODO can't use ctypeOnly=true
+	-- because this is used in ItemRef4 which uses createVec
+	-- which doesn't support ctypeOnly yet
+	name = 'ItemRef',
 	getter = function(i)
 		if i == 0xff then return nil end
 		return gameC.itemNames[i]
@@ -1171,8 +1119,7 @@ local itemUseAbilityNames = {
 	'dried meat',
 }
 
-local equipFlags_t, code = bitflagtype{
-	name = 'equipFlags_t',
+local EquipFlags, code = bitflagtype{
 	type = 'uint16_t',
 	options = {
 		'terra',
@@ -1193,7 +1140,7 @@ local equipFlags_t, code = bitflagtype{
 		'meritAward',
 	},
 }
-assert.eq(ffi.sizeof'equipFlags_t', 2)
+assert.eq(ffi.sizeof(EquipFlags), 2)
 
 local itemSpecialAbilityNames = {
 	'nothing',	-- 00
@@ -1214,8 +1161,8 @@ local itemSpecialAbilityNames = {
 	'uses MP for mortal blow',
 }
 
-local item_t = ff6struct{
-	name = 'item_t',
+local Item = ff6struct{
+	ctypeOnly = true,
 	fields = {
 		-- 0x00:
 		{itemType = 'uint8_t:4'},		-- not the same as 'itemTypeNames'
@@ -1224,9 +1171,9 @@ local item_t = ff6struct{
 		{canUseInMenu = 'uint8_t:1'},
 		{unused_0_7 = 'uint8_t:1'},		-- only here for the ptr union size calc in struct.lua
 		-- 0x01:
-		{equip = 'equipFlags_t'},
+		{equip = EquipFlags},
 		-- 0x03:
-		{spellLearn = 'spellLearn_t'},
+		{spellLearn = SpellLearn},
 		-- 0x05:
 		{isCharmBangle = 'uint8_t:1'},
 		{isMoogleCharm = 'uint8_t:1'},
@@ -1299,7 +1246,7 @@ local item_t = ff6struct{
 		{stamina = 'uint8_t:4'},
 		{magicPower = 'uint8_t:4'},
 		-- 0x12:
-		{spellCast = 'uint8_t:6'},	-- should be spellref_t, but it looks like you can't use structs with bitfields
+		{spellCast = 'uint8_t:6'},	-- should be SpellRef, but it looks like you can't use structs with bitfields
 		{castOnAttack = 'uint8_t:1'},
 		{castOnItemUse = 'uint8_t:1'},	-- "destroy if used"
 		-- 0x13:
@@ -1354,38 +1301,29 @@ local item_t = ff6struct{
 		end
 	end,
 }
-assert.eq(ffi.offsetof('item_t', 'itemType'), 0)
-assert.eq(ffi.offsetof('item_t', 'spellLearn'), 3)
-assert.eq(ffi.offsetof('item_t', 'raiseStealChance'), 0x0b)
-assert.eq(ffi.offsetof('item_t', 'changeFightToXFight'), 0x0c)
-assert.eq(ffi.sizeof'item_t', 0x1e)
+assert.eq(ffi.offsetof(Item, 'itemType'), 0)
+assert.eq(ffi.offsetof(Item, 'spellLearn'), 3)
+assert.eq(ffi.offsetof(Item, 'raiseStealChance'), 0x0b)
+assert.eq(ffi.offsetof(Item, 'changeFightToXFight'), 0x0c)
+assert.eq(ffi.sizeof(Item), 0x1e)
 
-local itemColosseumInfo_t = ff6struct{
-	name = 'itemColosseumInfo_t',
+local ItemColosseumInfo = ff6struct{
+	ctypeOnly = true,
 	fields = {
-		{monster = 'monsterRef_t'},
+		{monster = MonsterRef},
 		{unknown = 'uint8_t'},	-- always 64.  worth experimenting to see if bit 0 here is for the monster ref?
-		{itemWon = 'itemref_t'},
+		{itemWon = ItemRef},
 		{hideName = 'uint8_t'},	-- 0 = no, 255 = yes
 	},
 }
-assert.eq(ffi.sizeof'itemColosseumInfo_t', 4)
+assert.eq(ffi.sizeof(ItemColosseumInfo), 4)
 
-local itemsAddr = 0x185000
-
-local itemColosseumInfosAddr = 0x1fb600
-local itemDescOffsetsAddr = 0x2d7aa0
-local itemDescBaseAddr = 0x2d6400
-
-ffi.cdef[[typedef str13_t rareItemName_t;]]
+local RareItemName = Str13
 local numRareItems = 20
-local rareItemDescOffsetAddr = 0x0efb60
-local rareItemNamesAddr = 0x0efba0
-local rareItemDescBaseAddr = 0x0efcb0
 
 ---------------- MONSTERS ----------------
 
--- monster_t 0x1f
+-- Monster 0x1f
 local monsterSpecialAttackNames = {
 	'None',
 	'Steal Item',
@@ -1407,8 +1345,8 @@ local monsterSpecialAttackNames = {
 
 local monsterAttackNamesAddr = 0x0fd0d0
 
-local monster_t = ff6struct{
-	name = 'monster_t',
+local Monster = ff6struct{
+	ctypeOnly = true,
 	fields = {
 		-- 0x00:
 		{speed = 'uint8_t'},		-- rpglegion says speed
@@ -1502,78 +1440,66 @@ local monster_t = ff6struct{
 		end
 	end,
 }
-assert.eq(ffi.sizeof'monster_t', 0x20)
-local monstersAddr = 0x0f0000
+assert.eq(ffi.sizeof(Monster), 0x20)
 
-local monsterItem_t = ff6struct{
-	name = 'monsterItem_t',
+local MonsterItem = ff6struct{
+	ctypeOnly = true,
 	fields = {
-		{rareSteal = 'itemref_t'},
-		{commonSteal = 'itemref_t'},
-		{rareDrop = 'itemref_t'},
-		{commonDrop = 'itemref_t'},
+		{rareSteal = ItemRef},
+		{commonSteal = ItemRef},
+		{rareDrop = ItemRef},
+		{commonDrop = ItemRef},
 	},
 }
-local monsterItemsAddr = 0x0f3000
 
-local monsterSketchesAddr = 0x0f4300
-
-local spellref2_t = createVec{
+local SpellRef2 = createVec{
 	dim = 2,
-	ctype = 'spellref_t',
-	vectype = 'spellref2_t',
+	ctype = 'SpellRef',
+	vectype = 'SpellRef2',
 }
-assert.eq(ffi.sizeof'spellref2_t', 2)
-local monsterRagesAddr = 0x0f4600
-local numRages = 0x100
+assert.eq(ffi.sizeof(SpellRef2), 2)
 
-local spellref4_t = createVec{
+local SpellRef4 = createVec{
 	dim = 4,
-	ctype = 'spellref_t',
-	vectype = 'spellref4_t',
+	ctype = 'SpellRef',
+	vectype = 'SpellRef4',
 }
-assert.eq(ffi.sizeof'spellref4_t', 4)
-local monsterSpellsAddr = 0x0f3d00
+assert.eq(ffi.sizeof(SpellRef4), 4)
 
-local itemref4_t = createVec{
+local ItemRef4 = createVec{
 	dim = 4,
-	ctype = 'itemref_t',
-	vectype = 'itemref4_t',
+	ctype = 'ItemRef',
+	vectype = 'ItemRef4',
 }
-assert.eq(ffi.sizeof'itemref4_t', 4)
-
-local metamorphSetsAddr = 0x047f40
-local numMetamorphSets = 0x1a
+assert.eq(ffi.sizeof(ItemRef4), 4)
 
 ---------------- CHARACTERS ----------------
 
-local numExpLevelUps = 106
 local numLevels = 98
 
-ffi.cdef[[typedef str7_t menuName_t;]]
-local numMenuNames = 0x20
-local menuNamesAddr = 0x018cea0
+local MenuName = Str7
 
-local menuref_t = reftype{
-	name = 'menuref_t',
+local MenuNameRef = reftype{
+	-- TODO can't use ctypeOnly until createVec supports it as well
+	--ctypeOnly = true,
+	name = 'MenuNameRef',
 	getter = function(i)
 		return gameC.menuNames[i]
 	end,
 }
 
-ffi.cdef[[typedef str6_t characterName_t;]]
-local characterNamesAddr = 0x0478c0
+local CharacterName = Str6
 
-local menuref4_t = createVec{
+local MenuNameRef4 = createVec{
 	dim = 4,
-	ctype = 'menuref_t',
-	vectype = 'menuref4_t',
+	ctype = 'MenuNameRef',
+	vectype = 'MenuNameRef4',
 }
 
-local itemref2_t = createVec{
+local ItemRef2 = createVec{
 	dim = 2,
-	ctype = 'itemref_t',
-	vectype = 'itemref2_t',
+	ctype = 'ItemRef',
+	vectype = 'ItemRef2',
 }
 
 local Character = ff6struct{
@@ -1581,7 +1507,7 @@ local Character = ff6struct{
 	fields = {
 		{hp = 'uint8_t'},
 		{mp = 'uint8_t'},
-		{menu = 'menuref4_t'},
+		{menu = MenuNameRef4},
 		{vigor = 'uint8_t'},
 		{speed = 'uint8_t'},
 		{stamina = 'uint8_t'},
@@ -1592,11 +1518,11 @@ local Character = ff6struct{
 		{evade = 'uint8_t'},
 		{magicBlock = 'uint8_t'},
 		-- or should these all be an itemref6_t?
-		{lhand = 'itemref_t'},
-		{rhand = 'itemref_t'},
-		{head = 'itemref_t'},
-		{body = 'itemref_t'},
-		{relic = 'itemref2_t'},
+		{lhand = ItemRef},
+		{rhand = ItemRef},
+		{head = ItemRef},
+		{body = ItemRef},
+		{relic = ItemRef2},
 		{level = 'uint8_t'},
 	},
 }
@@ -1604,10 +1530,10 @@ assert.eq(ffi.sizeof(Character), 22)
 
 local numCharacters = 0x40	-- allegedly...
 
-local MogDanceName = ffi.typeof'str12_t'
+local MogDanceName = Str12
 local numMogDances = 8
 
-local SwordTechName = ffi.typeof'str12_t'
+local SwordTechName = Str12
 local numSwordTechs = 8
 
 local numBlitzes = 8
@@ -1657,9 +1583,7 @@ local shopPriceTypes = {
 }
 
 local ShopInfo = ff6struct{
-	-- TODO
 	ctypeOnly = true,
-	--name = 'ShopInfo',
 
 	fields = {
 		{shopType = 'uint8_t:4'},
@@ -1688,7 +1612,7 @@ local ShopInfo = ff6struct{
 
 local itemref8_t = createVec{
 	vectype = 'itemref8_t',
-	ctype = 'itemref_t',
+	ctype = 'ItemRef',
 	dim = 8,
 }
 
@@ -2151,7 +2075,7 @@ local MapEventTrigger = ff6struct{
 	ctypeOnly = true,
 	fields = {
 		{pos = 'xy8b_t'},
-		{script = 'uint24_t'},
+		{script = uint24_t},
 	},
 	metatable = function(mt)
 		mt.getScriptAddr = function(self)
@@ -2297,7 +2221,7 @@ game_t = struct{
 		{name = 'unknown_02ced0', type = 'uint8_t['..(-(0x02ced0 - 0x02d01a))..']'},							-- 0x02ced0 - 0x02d01a
 
 		{name = 'formationSizeOffsets', type = 'uint16_t['..numFormationSizeOffsets..']'},						-- 0x02d01a - 0x02d034 = offset by +0x020000 into formationSize[]
-		{name = 'formationSizes', type = 'formationSize_t['..numFormationSizes..']'},							-- 0x02d034 - 0x02d0f4
+		{name = 'formationSizes', type = ffi.typeof('$[48]', FormationSize)},									-- 0x02d034 - 0x02d0f4
 
 		-- 0x036f00 - ? = menu portrait palette assignment (1 byte each)
 		-- 0x036f1b - ? = pointer to menu portrait graphics (2 bytes each)
@@ -2314,21 +2238,21 @@ game_t = struct{
 		{name = 'unknown_03c406', type = 'uint8_t['..(-(0x03c406 - 0x040000))..']'},							-- 0x03c406 - 0x040000
 
 		{name = 'mapEventTriggerOfs', type = 'uint16_t['..((0x040342 - 0x040000)/2)..']'},						-- 0x040000 - 0x040342 = offset by +0x040000
-		{name = 'mapEventTriggers', type = ffi.typeof('$[0x48f]', MapEventTrigger)},											-- 0x040342 - 0x041a0d = map event triggers (5 bytes each)
+		{name = 'mapEventTriggers', type = ffi.typeof('$[0x48f]', MapEventTrigger)},							-- 0x040342 - 0x041a0d = map event triggers (5 bytes each)
 
 		{name = 'padding_041a0d', type = 'uint8_t['..(-(0x041a0d - 0x041a10))..']'},							-- 0x041a0d - 0x041a10
 
 		{name = 'npcOfs', type = 'uint16_t['..(-(0x041a10 - 0x041d52)/2)..']'},									-- 0x041a10 - 0x041d52 = npc offsets (+0x041a10)
-		{name = 'npcs', type = ffi.typeof('$[0x891]', NPC)},																	-- 0x041d52 - 0x046a6b = npc data
+		{name = 'npcs', type = ffi.typeof('$[0x891]', NPC)},													-- 0x041d52 - 0x046a6b = npc data
 		{name = 'unused_046a6b', type = 'uint8_t['..(-(0x046a6b - 0x046ac0))..']'},								-- 0x046a6b - 0x046ac0 = unused
-		{name = 'spells', type = 'spell_t['..numSpells..']'},													-- 0x046ac0 - 0x0478c0
-		{name = 'characterNames', type = 'characterName_t['..numCharacters..']'},								-- 0x0478c0 - 0x047a40
-		{name = 'blitzData', type = 'raw12_t['..numBlitzes..']'},												-- 0x047a40 - 0x047aa0
+		{name = 'spells', type = ffi.typeof('$[0x100]', Spell)},												-- 0x046ac0 - 0x0478c0
+		{name = 'characterNames', type = ffi.typeof('$['..numCharacters..']', CharacterName)},					-- 0x0478c0 - 0x047a40
+		{name = 'blitzData', type = ffi.typeof('$['..numBlitzes..']', Raw12)},									-- 0x047a40 - 0x047aa0
 
 		{name = 'unknown_047aa0', type = 'uint8_t['..(-(0x047aa0 - 0x047ac0))..']'},							-- 0x047aa0 - 0x047ac0.  something here, but mostly zeroes at the end.  maybe there's just 1 last blitz at the end?
 
-		{name = 'shops', type = ffi.typeof('$[0x80]', Shop)},											-- 0x047ac0 - 0x047f40
-		{name = 'metamorphSets', type = 'itemref4_t['..numMetamorphSets..']'},									-- 0x047f40 - 0x047fa8
+		{name = 'shops', type = ffi.typeof('$[0x80]', Shop)},													-- 0x047ac0 - 0x047f40
+		{name = 'metamorphSets', type = ffi.typeof('$[0x1a]', ItemRef4)},										-- 0x047f40 - 0x047fa8
 		{name = 'padding_047fa8', type = 'uint8_t[0x18]'},														-- 0x047fa8 - 0x047fc0 = 00's.  just like font intro is.  is this just 24 more bytes of font data?
 		{name = 'font', type = 'uint8_t['..(0x10 * 0x100)..']'},												-- 0x047fc0 - 0x048fc0 -- font graphics (8x8x2bpp, 16 bytes each, 0x00-0xff) ... the first half is blank
 		{name = 'font16_widths', type = 'uint8_t['.. 0x80 ..']'},												-- 0x048fc0 - 0x049040 -- font character cell widths (0x00-0x7f)
@@ -2349,7 +2273,7 @@ game_t = struct{
 
 		{name = 'unknown_051ec7', type = 'uint8_t['..(-(0x051ec7 - 0x053c5f))..']'},							-- 0x051ec7 - 0x053c5f
 
-		{name = 'brrSamplePtrs', type = 'uint24_t['..numBRRSamples..']'},										-- 0x053c5f - 0x053d1c -- BRR sample pointers (x63, 3 bytes each)
+		{name = 'brrSamplePtrs', type = ffi.typeof('$['..numBRRSamples..']', uint24_t)},										-- 0x053c5f - 0x053d1c -- BRR sample pointers (x63, 3 bytes each)
 		{name = 'loopStartOfs', type = 'uint16_t['..numBRRSamples..']'},										-- 0x053d1c - 0x053d9a -- loop start pointers (x63, 2 bytes each)
 		{name = 'pitchMults', type = 'uint16_t['..numBRRSamples..']'},											-- 0x053d9a - 0x053e18 -- pitch multipliers (x63, 2 bytes each)
 		{name = 'adsrData', type = 'uint16_t['..numBRRSamples..']'},											-- 0x053e18 - 0x053e96 -- ADSR data (x63, 2 bytes each)
@@ -2362,7 +2286,7 @@ game_t = struct{
 
 		{name = 'theEndGraphics2', type = 'uint8_t['..(-(0x09fe00 - 0x09ff00))..']'},							-- 0x09fe00 - 0x09ff00 = 4bpp
 		{name = 'theEndPalette', type = 'palette16_8_t'},														-- 0x09ff00 - 0x0a0000
-		{name = 'eventScript', type = 'uint8_t['..(-(0x0a0000 - 0x0ce600))..']'},									-- 0x0a0000 - 0x0ce600
+		{name = 'eventScript', type = 'uint8_t['..(-(0x0a0000 - 0x0ce600))..']'},								-- 0x0a0000 - 0x0ce600
 		{name = 'dialogOffsets', type = 'uint16_t['..numDialogs..']'},											-- 0x0ce600 - 0x0d0000.  the first dialog offset points to the dialog which needs the bank byte to increment
 		{name = 'dialogBase', type = 'uint8_t['..(-(0x0d0000 - 0x0ef100))..']'},								-- 0x0d0000 - 0x0ef100 ... hmm, there are dangling npc-event-scripts from 0x0d200 to 0x0de302 ... in the middle of dialogBase
 		{name = 'mapNameBase', type = 'uint8_t['..(-(0x0ef100 - 0x0ef600))..']'},								-- 0x0ef100 - 0x0ef600
@@ -2374,26 +2298,26 @@ game_t = struct{
 
 		{name = 'rareItemDescOffsets', type = 'uint16_t['..numRareItems..']'},									-- 0x0efb60 - 0x0efb88
 		{name = 'padding_0efb88', type = 'uint8_t[0x18]'},														-- 0x0efb88 - 0x0efba0 -- all 'ff' repeated ... enough for 12 extra offsets ... there are 20 rare items ... 20+12=32
-		{name = 'rareItemNames', type = 'rareItemName_t['..numRareItems..']'},									-- 0x0efba0 - 0x0efca4 -- rare item names are 13 chars
+		{name = 'rareItemNames', type = ffi.typeof('$['..numRareItems..']', RareItemName)},						-- 0x0efba0 - 0x0efca4 -- rare item names are 13 chars
 		{name = 'padding_0efca4', type = 'uint8_t[0xc]'},														-- 0x0efca4 - 0x0efcb0 -- all 'ff' repeated, for 12 bytes, not quite 1 more name
 		{name = 'rareItemDescBase', type = 'uint8_t['..(-(0x0efcb0 - 0x0f0000))..']'},							-- 0x0efcb0 - 0x0f0000
-		{name = 'monsters', type = 'monster_t['..numMonsters..']'},												-- 0x0f0000 - 0x0f3000
-		{name = 'monsterItems', type = 'monsterItem_t['..numMonsters..']'},										-- 0x0f3000 - 0x0f3600
+		{name = 'monsters', type = ffi.typeof('$['..numMonsters..']', Monster)},								-- 0x0f0000 - 0x0f3000
+		{name = 'monsterItems', type = ffi.typeof('$['..numMonsters..']', MonsterItem)},						-- 0x0f3000 - 0x0f3600
 
 		-- 0x0f3600 - 0x0f37c0 is mostly zeroes
 		-- 0x0f37c0 - 0x0f3940 is something
 		{name = 'unknown_0f3600', type = 'uint8_t['..(-(0x0f3600 - 0x0f3940))..']'},							-- 0x0f3600 - 0x0f3940
 
 		{name = 'esperDescBase', type = 'uint8_t['..(-(0x0f3940 - 0x0f3c40))..']'},								-- 0x0f3940 - 0x0f3c40
-		{name = 'swordTechNames', type = ffi.typeof('$['..numSwordTechs..']', SwordTechName)},								-- 0x0f3c40 - 0x0f3ca0
+		{name = 'swordTechNames', type = ffi.typeof('$['..numSwordTechs..']', SwordTechName)},					-- 0x0f3c40 - 0x0f3ca0
 		{name = 'padding_0f3ca0', type = 'uint8_t[0x60]'},														-- 0x0f3ca0 - 0x0f3d00 -- all 'ff' repeated
-		{name = 'monsterSpells', type = 'spellref4_t['..numMonsters..']'},										-- 0x0f3d00 - 0x0f4300
-		{name = 'monsterSketches', type = 'spellref2_t['..numMonsters..']'},									-- 0x0f4300 - 0x0f4600
-		{name = 'monsterRages', type = 'spellref2_t['..numRages..']'},											-- 0x0f4600 - 0x0f4800
+		{name = 'monsterSpells', type = ffi.typeof('$['..numMonsters..']', SpellRef4)},							-- 0x0f3d00 - 0x0f4300
+		{name = 'monsterSketches', type = ffi.typeof('$['..numMonsters..']', SpellRef2)},						-- 0x0f4300 - 0x0f4600
+		{name = 'monsterRages', type = ffi.typeof('$[0x100]', SpellRef2)},										-- 0x0f4600 - 0x0f4800
 		{name = 'monsterRandomBattles', type = 'monsterRandomBattleEntry4_t[0x100]'},							-- 0x0f4800 - 0x0f5000
 		{name = 'monsterEventBattles', type = 'monsterRandomBattleEntry2_t[0x100]'},							-- 0x0f5000 - 0x0f5400
-		{name = 'worldSectorRandomBattlesPerTerrain', type = 'RandomBattlesPerTerrain_t[0x80]'},				-- 0x0f5400 - 0x0f5600 = [world][sectorx][sectory]  ... 64 sectors (32x32 chunks of 256x256 world map) per WoB, 64 for WoR
-		{name = 'mapRandomBattleOptions', type = 'uint8_t[0x200]'},													-- 0x0f5600 - 0x0f5800 = one per map, index into monsterRandomBattles
+		{name = 'worldSectorRandomBattlesPerTerrain', type = ffi.typeof('$[0x80]', WorldSectorRandomBattlesPerTerrain)},-- 0x0f5400 - 0x0f5600 = [world][sectorx][sectory]  ... 64 sectors (32x32 chunks of 256x256 world map) per WoB, 64 for WoR
+		{name = 'mapRandomBattleOptions', type = 'uint8_t[0x200]'},												-- 0x0f5600 - 0x0f5800 = one per map, index into monsterRandomBattles
 		{name = 'worldSectorRandomBattleEncounterRatesPerTerrain', type = 'uint8_t[0x80]'},						-- 0x0f5800 - 0x0f5880 = 2 bits used ... 64 sectors per WoB, 64 per WoR ... 8 items per sector, 2bpp each ( https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:rom_map )
 		{name = 'mapBattleProbability', type = 'uint8_t[0x80]'},												-- 0x0f5880 - 0x0f5900 = 2 bits used
 		{name = 'formation2s', type = 'formation2_t['..numFormations..']'},										-- 0x0f5900 - 0x0f6200
@@ -2403,9 +2327,9 @@ game_t = struct{
 		{name = 'unknown_0f8400', type = 'uint8_t['..(-(0x0f8400 - 0x0f8700))..']'},							-- 0x0f8400 - 0x0f8700
 
 		{name = 'monsterScripts', type = 'uint8_t['..(-(0x0f8700 - 0x0fc050))..']'},							-- 0x0f8700 - 0x0fc050
-		{name = 'monsterNames', type = 'monsterName_t['..numMonsters..']'},										-- 0x0fc050 - 0x0fcf50
+		{name = 'monsterNames', type = ffi.typeof('$['..numMonsters..']', MonsterName)},						-- 0x0fc050 - 0x0fcf50
 		{name = 'monsterNameThing', type = 'uint8_t['..numMonsters..']'},										-- 0x0fcf50 - 0x0fd0d0
-		{name = 'monsterAttackNames', type = 'monsterName_t['..numMonsters..']'},								-- 0x0fd0d0 - 0x0fdfd0
+		{name = 'monsterAttackNames', type = ffi.typeof('$['..numMonsters..']', MonsterName)},					-- 0x0fd0d0 - 0x0fdfd0
 		{name = 'padding_0fdfd0', type = 'uint8_t[0x10]'},														-- 0x0fdfd0 - 0x0fdfe0 = 'ff's
 		{name = 'battleDialogOffsets', type = 'uint16_t['..numBattleDialogs..']'},								-- 0x0fdfe0 - 0x0fe1e0
 		{name = 'battleDialogBase', type = 'uint8_t['..(-(0x0fe1e0 - 0x0ff450))..']'},							-- 0x0fe1e0 - 0x0ff450
@@ -2422,12 +2346,12 @@ game_t = struct{
 
 		{name = 'unknown_0ffe80', type = 'uint8_t['..(-(0x0ffe80 - 0x0ffeae))..']'},							-- 0x0ffe76 - 0x0ffeae
 
-		{name = 'esperBonusDescs', type = 'esperBonusDesc_t['..numEsperBonuses..']'},							-- 0x0ffeae - 0x0fff47
+		{name = 'esperBonusDescs', type = ffi.typeof('$['..numEsperBonuses..']', EsperBonusDesc)},				-- 0x0ffeae - 0x0fff47
 		{name = 'padding_0fff47', type = 'uint8_t[87]'},														-- 0x0fff47 - 0x0fff9e = 'ff's
 		{name = 'blitzDescOffsets', type = 'uint16_t['..numBlitzes..']'},										-- 0x0fff9e - 0x0fffae
 		{name = 'swordTechDescOffsets', type = 'uint16_t['..numSwordTechs..']'},								-- 0x0fffae - 0x0fffbe
 		{name = 'battleAnimScripts', type = 'uint8_t['..(-(0x0fffbe - 0x107fb2))..']'},							-- 0x0fffbe - 0x107fb2 <- indexed into with battleAnimScriptOffsets[i] + 0x100000
-		{name = 'battleAnimSets', type = 'battleAnimSet_t['..numBattleAnimSets..']'},							-- 0x107fb2 - 0x1097fa
+		{name = 'battleAnimSets', type = ffi.typeof('$[444]', BattleAnimSet)},												-- 0x107fb2 - 0x1097fa
 		{name = 'padding_1097fa', type = 'uint8_t['..(-(0x1097fa - 0x109800))..']'},							-- 0x1097fa - 0x109800 = 'ff's, just like the end of battleAnimSets
 
 		{name = 'unknown_109800', type = 'uint8_t['..(-(0x109800 - 0x10d000))..']'},							-- 0x109800 - 0x10d000
@@ -2437,25 +2361,25 @@ game_t = struct{
 
 		{name = 'unknown_10fd00', type = 'uint8_t['..(-(0x10fd00 - 0x110141))..']'},							-- 0x10fd00 - 0x110141
 
-		{name = 'battleAnimFrame16x16Tiles', type = 'battleAnim16x16Tile_t[0x74cb]'},							-- 0x110141 - 0x11ead7 ... 2 bytes each ... pointers from battleAnimFrame16x16TileOffsets offset by 0x110000 but point into here
+		{name = 'battleAnimFrame16x16Tiles', type = ffi.typeof('$[0x74cb]', BattleAnim16x16Tile)},							-- 0x110141 - 0x11ead7 ... 2 bytes each ... pointers from battleAnimFrame16x16TileOffsets offset by 0x110000 but point into here
 		{name = 'padding_11ead7', type = 'uint8_t'},															-- 0x11ead7 - 0x11ead8 -- 'ff'
-		{name = 'battleAnimScriptOffsets', type = 'uint16_t[660]'},												-- 0x11ead8 - 0x11f000 ... uint16 offsets +0x100000 ... maybe there are only 650 of these to match with `numBattleAnimEffects`?
+		{name = 'battleAnimScriptOffsets', type = 'uint16_t[660]'},												-- 0x11ead8 - 0x11f000 ... uint16 offsets +0x100000 ... maybe there are only 650 of these to match with `countof(battleAnimEffects)`?
 		{name = 'battleMessageBase', type = 'uint8_t['..(-(0x11f000 - 0x11f7a0))..']'},							-- 0x11f000 - 0x11f7a0
 		{name = 'battleMessageOffsets', type = 'uint16_t['..numBattleMessages..']'},							-- 0x11f7a0 - 0x11f9a0
 
 		{name = 'unknown_11f9a0', type = 'uint8_t['..(-(0x11f9a0 - 0x120000))..']'},							-- 0x11f9a0 - 0x120000
 
-		{name = 'battleAnimGraphicsSets3bpp', type = 'battleAnim8x8Tile_t['..(0x20 * 0x180)..']'},				-- 0x120000 - 0x126000 - holds the 'graphicSet' uint16 offsets from battleAnimEffect_t * (0x20 entries == 0x40 bytes)
-		{name = 'battleAnimPalettes', type = 'palette8_t['..numBattleAnimPalettes..']'},						-- 0x126000 - 0x126f00
-		{name = 'itemTypeNames', type = 'str7_t['..numItemTypes..']'},											-- 0x126f00 - 0x126fe0
+		{name = 'battleAnimGraphicsSets3bpp', type = ffi.typeof('$['..(0x20 * 0x180)..']', BattleAnim8x8Tile)},	-- 0x120000 - 0x126000 - holds the 'graphicSet' uint16 offsets from BattleAnimEffect * (0x20 entries == 0x40 bytes)
+		{name = 'battleAnimPalettes', type = 'palette8_t[0xf0]'},												-- 0x126000 - 0x126f00
+		{name = 'itemTypeNames', type = ffi.typeof('$[0x20]', Str7)},														-- 0x126f00 - 0x126fe0
 		{name = 'padding_126fe0', type = 'uint8_t[0x20]'},														-- 0x126fe0 - 0x127000 = 'ff's
-		{name = 'monsterSprites', type = 'monsterSprite_t['..numMonsterSprites..']'},							-- 0x127000 - 0x127820
-		{name = 'monsterPalettes', type = 'palette8_t['..numMonsterPalettes..']'},								-- 0x127820 - 0x12a820
+		{name = 'monsterSprites', type = ffi.typeof('$[0x1a0]', MonsterSprite)},								-- 0x127000 - 0x127820
+		{name = 'monsterPalettes', type = 'palette8_t[0x300]'},													-- 0x127820 - 0x12a820
 		{name = 'monsterSpriteTileMask8Ofs', type = 'uint16_t'},												-- 0x12a820 - 0x12a822
 		{name = 'monsterSpriteTileMask16Ofs', type = 'uint16_t'},												-- 0x12a822 - 0x12a824
 		{name = 'monsterSpriteTileMaskData', type = 'uint8_t['..(0x12b300 - 0x12a824 )..']'},					-- 0x12a824 - 0x12b300
-		{name = 'itemNames', type = 'str13_t['..numItems..']'},													-- 0x12b300 - 0x12c000
-		{name = 'battleAnimGraphicsSets2bpp', type = 'battleAnim8x8Tile_t['..(0x20 * 0xb0)..']'},				-- 0x12c000 - 0x12ec00	-- should be 2bpp battle animation 16x16-tile-info referenced by .graphicSet
+		{name = 'itemNames', type = ffi.typeof('$['..numItems..']', Str13)},													-- 0x12b300 - 0x12c000
+		{name = 'battleAnimGraphicsSets2bpp', type = ffi.typeof('$['..(0x20 * 0xb0)..']', BattleAnim8x8Tile)},	-- 0x12c000 - 0x12ec00	-- should be 2bpp battle animation 16x16-tile-info referenced by .graphicSet
 		{name = 'WoBPalettes', type = 'palette16_8_t'},															-- 0x12ec00 - 0x12ed00
 		{name = 'WoRPalettes', type = 'palette16_8_t'},															-- 0x12ed00 - 0x12ee00
 		{name = 'setzerAirshipPalette', type = 'palette16_8_t'},												-- 0x12ee00 - 0x12ef00
@@ -2468,17 +2392,17 @@ game_t = struct{
 
 		{name = 'unknown_14ca00', type = 'uint8_t['..(-(0x14ca00 - 0x14d000))..']'},							-- 0x14ca00 - 0x14d000
 
-		{name = 'battleAnimEffects', type = 'battleAnimEffect_t['..numBattleAnimEffects..']'},					-- 0x14d000 - 0x14df3c
-		{name = 'battleAnimFrame16x16TileOffsets', type = 'uint16_t[4194]'},									-- 0x14df3c - 0x150000	-- +0x110000 ... really just 2949 that are valid.  each is a uint16_t, add to 0x110000 to get the start of the variable-length battleAnim16x16Tile_t list into battleAnimFrame16x16Tiles
+		{name = 'battleAnimEffects', type = ffi.typeof('$[650]', BattleAnimEffect)},							-- 0x14d000 - 0x14df3c
+		{name = 'battleAnimFrame16x16TileOffsets', type = 'uint16_t[4194]'},									-- 0x14df3c - 0x150000	-- +0x110000 ... really just 2949 that are valid.  each is a uint16_t, add to 0x110000 to get the start of the variable-length BattleAnim16x16Tile list into battleAnimFrame16x16Tiles
 
 		{name = 'fieldSpriteGraphics', type = 'uint8_t['..(-(0x150000 - 0x185000))..']'},						-- 0x150000 - 0x185000 = character images, 0x16a0 bytes each
 
-		{name = 'items', type = 'item_t['..numItems..']'},														-- 0x185000 - 0x186e00
-		{name = 'espers', type = 'esper_t['..numEspers..']'},													-- 0x186e00 - 0x186f29
+		{name = 'items', type = ffi.typeof('$['..numItems..']', Item)},											-- 0x185000 - 0x186e00
+		{name = 'espers', type = ffi.typeof('$['..numEspers..']', Esper)},										-- 0x186e00 - 0x186f29
 		{name = 'padding_186f29', type = 'uint8_t['..(-(0x186f29 - 0x187000))..']'},							-- 0x186f29 - 0x187000 = 'ff's
 		{name = 'battleAnimGraphics2bpp', type = 'uint8_t['..(-(0x187000 - 0x18c9a0))..']'},					-- 0x187000 - 0x18c9a0	-- 2bpp, so 1434 tiles
 		{name = 'spellDescBase', type = 'uint8_t['..(-(0x18c9a0 - 0x18cea0))..']'},								-- 0x18c9a0 - 0x18cea0
-		{name = 'menuNames', type = 'menuName_t['..numMenuNames..']'},											-- 0x18cea0 - 0x18cf80
+		{name = 'menuNames', type = ffi.typeof('$[0x20]', MenuName)},											-- 0x18cea0 - 0x18cf80
 		{name = 'spellDescOffsets', type = 'uint16_t[54]'},														-- 0x18cf80 - 0x18cfec
 		{name = 'padding_18cfec', type = 'uint8_t['..(-(0x18cfec - 0x18d000))..']'},							-- 0x18cfec - 0x18d000 = 'ff's
 
@@ -2493,17 +2417,17 @@ game_t = struct{
 		{name = 'mapTilePropsCompressed', type = 'uint8_t['..(-(0x19a800 - 0x19cd10))..']'},					-- 0x19a800 - 0x19cd10 = map tile properties (compressed)
 		{name = 'mapTilePropsOffsets', type = 'uint16_t[0x2a]'},												-- 0x19cd10 - 0x19cd60 = offsets to map tile properties (+0x19a800) into mapTilePropsCompressed ... 0x40 but only 0x29 point to valid compressed data
 		{name = 'unused_19cd62', type = 'uint16_t[0x16]'},														-- 0x19cd60 - 0x19cd90
-		{name = 'mapLayoutOffsets', type = 'uint24_t[0x160]'},													-- 0x19cd90 - 0x19d1b0 = offsets to map data (352 items), (+0x19d1b0)
+		{name = 'mapLayoutOffsets', type = ffi.typeof('$[0x160]', uint24_t)},													-- 0x19cd90 - 0x19d1b0 = offsets to map data (352 items), (+0x19d1b0)
 		{name = 'mapLayoutsCompressed', type = 'uint8_t['..(-(0x19d1b0 - 0x1e0000))..']'},						-- 0x19d1b0 - 0x1e0000 = map data (compressed)
 		{name = 'mapTilesetsCompressed', type = 'uint8_t['..(-(0x1e0000 - 0x1fb400))..']'},						-- 0x1e0000 - 0x1fb400 = map tile formation (compressed)
-		{name = 'formationMPs', type = 'uint8_t['..numFormationMPs..']'},										-- 0x1fb400 - 0x1fb600
-		{name = 'itemColosseumInfos', type = 'itemColosseumInfo_t['..numItems..']'},							-- 0x1fb600 - 0x1fba00
-		{name = 'mapTilesetOffsets', type = 'uint24_t[0x4b]'},													-- 0x1fba00 - 0x1fbaff -- 24bit, offset by +0x1e0000, points into mapTilesetsCompressed ... last points to invalid data so I cut it off.
+		{name = 'formationMPs', type = 'uint8_t[0x200]'},														-- 0x1fb400 - 0x1fb600
+		{name = 'itemColosseumInfos', type = ffi.typeof('$['..numItems..']', ItemColosseumInfo)},				-- 0x1fb600 - 0x1fba00
+		{name = 'mapTilesetOffsets', type = ffi.typeof('$[0x4b]', uint24_t)},													-- 0x1fba00 - 0x1fbaff -- 24bit, offset by +0x1e0000, points into mapTilesetsCompressed ... last points to invalid data so I cut it off.
 		{name = 'padding_1fbaff', type = 'uint8_t[31]'},														-- 0x1fbaff - 0x1fbb00
 		{name = 'doorsOfs', type = 'uint16_t[0x201]'},															-- 0x1fbb00 - 0x1fbf02 -- offset by +0x1fbb00
 		{name = 'doors', type = ffi.typeof('$[0x469]', Door)},													-- 0x1fbf02 - 0x1fd978 = Door[] (only 415 used?)
 		{name = 'padding_1fd978', type = 'uint8_t[136]'},														-- 0x1fd978 - 0x1fda00 = 'ff's
-		{name = 'mapTileGraphicsOffsets', type = 'uint24_t[0x52]'},												-- 0x1fda00 - 0x1fdaf6 = town tile graphics pointers (+0x1fdb00), points into mapTileGraphics
+		{name = 'mapTileGraphicsOffsets', type = ffi.typeof('$[0x52]', uint24_t)},								-- 0x1fda00 - 0x1fdaf6 = town tile graphics pointers (+0x1fdb00), points into mapTileGraphics
 		{name = 'padding_1fdaf6', type = 'uint8_t[10]'},														-- 0x1fdaf6 - 0x1fdb00
 		{name = 'mapTileGraphics', type = 'uint8_t['..(-(0x1fdb00 - 0x25f400))..']'},							-- 0x1fdb00 - 0x25f400 = map tile graphics for layers 1&2, 4bpp
 		{name = 'unknown_25f400', type = 'uint8_t['..(-(0x25f400 - 0x260000))..']'},							-- 0x25f400 - 0x260000 -- there's one battle bg in here
@@ -2511,9 +2435,9 @@ game_t = struct{
 		{name = 'characterPalettes', type = 'palette16_t['..numCharacterPalettes..']'},							-- 0x268000 - 0x268400	-- also town tile palettes?
 		{name = 'mapNameOffsets', type = 'uint16_t['..numMapNames..']'},										-- 0x268400 - 0x268780
 		{name = 'mapTileGraphicsLayer3', type = 'uint8_t['..(-(0x268780 - 0x26cd60))..']'},						-- 0x268780 - 0x26cd60  map tile garphics for layer 3, 2bpp
-		{name = 'mapTileGraphicsLayer3Offsets', type = 'uint24_t[18]'},											-- 0x26cd60 - 0x26cd96 = offset, +0x268780 .. there's 19, but only 18 point to valid compressed data ...
+		{name = 'mapTileGraphicsLayer3Offsets', type = ffi.typeof('$[18]', uint24_t)},							-- 0x26cd60 - 0x26cd96 = offset, +0x268780 .. there's 19, but only 18 point to valid compressed data ...
 		{name = 'padding_26cd96', type = 'uint8_t[10]'},														-- 0x26cd96 - 0x26cda0
-		{name = 'mapAnimGraphicsLayer3Ofs', type = 'uint24_t[10]'},												-- 0x26cda0 - 0x26cdbe = offset, +0x26cdc0 to mapAnimGraphicsLayer3.  has values [0]=0 thru [6]=0x23d8 (which is the end of mapAnimGraphicsLayer3), so there's 6 entries
+		{name = 'mapAnimGraphicsLayer3Ofs', type = ffi.typeof('$[10]', uint24_t)},								-- 0x26cda0 - 0x26cdbe = offset, +0x26cdc0 to mapAnimGraphicsLayer3.  has values [0]=0 thru [6]=0x23d8 (which is the end of mapAnimGraphicsLayer3), so there's 6 entries
 		{name = 'padding_26cdbe', type = 'uint8_t[2]'},															-- 0x26cdbe - 0x26cdc0
 		{name = 'mapAnimGraphicsLayer3', type = 'uint8_t['..(-(0x26cdc0 - 0x26f198))..']'},						-- 0x26cdc0 - 0x26f198 = 2bpp, compressed
 		{name = 'padding_26f198', type = 'uint8_t['..(-(0x26f198 - 0x26f200))..']'},							-- 0x26f198 - 0x26f200 = FF's, probably tail filler of mapAnimGraphicsLayer3
@@ -2523,15 +2447,15 @@ game_t = struct{
 		{name = 'hpIncPerLevelUp', type = 'uint8_t['..numLevels..']'},											-- 0x26f4a0 - 0x26f502
 		{name = 'mpIncPerLevelUp', type = 'uint8_t['..numLevels..']'},											-- 0x26f502 - 0x26f564
 		{name = 'padding_26f564', type = 'uint8_t[3]'},															-- 0x26f564 - 0x26f567
-		{name = 'spellNames_0to53', type = 'str7_t[54]'}, 														-- 0x26f567 - 0x26f6e1
-		{name = 'spellNames_54to80', type = 'str8_t[27]'},                             							-- 0x26f6e1 - 0x26f7b9
-		{name = 'spellNames_81to255', type = 'str10_t[175]'},													-- 0x26f7b9 - 0x26fe8f
-		{name = 'esperAttackNames', type = 'str10_t['..numEspers..']'},											-- 0x26fe8f - 0x26ff9d
+		{name = 'spellNames_0to53', type = ffi.typeof('$[54]', Str7)}, 											-- 0x26f567 - 0x26f6e1
+		{name = 'spellNames_54to80', type = ffi.typeof('$[27]', Str8)},                             			-- 0x26f6e1 - 0x26f7b9
+		{name = 'spellNames_81to255', type = ffi.typeof('$[175]', Str10)},										-- 0x26f7b9 - 0x26fe8f
+		{name = 'esperAttackNames', type = ffi.typeof('$['..numEspers..']', Str10)},							-- 0x26fe8f - 0x26ff9d
 		{name = 'mogDanceNames', type = ffi.typeof('$['..numMogDances..']', MogDanceName)},						-- 0x26ff9d - 0x26fffd
 		{name = 'padding_26fffd', type = 'uint8_t[3]'},															-- 0x26fffd - 0x270000
 		{name = 'battleBgProperties', type = ffi.typeof('$[56]', BattleBgProps)},								-- 0x270000 - 0x270150 = 56*6
-		{name = 'battleBgPalettes', type = 'color_t[0xa80]'},													-- 0x270150 - 0x271650 ... everything's says 56 or 96? max index is 0x34 = 52
-		{name = 'battleBgGfxAddrs', type = 'uint24_t[0xa8]'},													-- 0x271650 - 0x271848 = 75 used, the rest are 0's, most points into battleBgGfxCompressed
+		{name = 'battleBgPalettes', type = ffi.typeof('$[0xa80]', RGBA5551)},									-- 0x270150 - 0x271650 ... everything's says 56 or 96? max index is 0x34 = 52
+		{name = 'battleBgGfxAddrs', type = ffi.typeof('$[0xa8]', uint24_t)},									-- 0x271650 - 0x271848 = 75 used, the rest are 0's, most points into battleBgGfxCompressed
 		{name = 'battleBgLayoutOffsets', type = 'uint16_t[0x70]'},												-- 0x271848 - 0x271928 = +0x270000 .  49 are valid. invalid contain 0x1928.  points into battleBgLayoutCompressed
 		{name = 'battleBgLayoutCompressed', type = 'uint8_t['..(-(0x271928-0x27a9e7))..']'},					-- 0x271928 - 0x27a9e7 = 32x32x4bpp
 		{name = 'battleBgGfxCompressed', type = 'uint8_t['..(-(0x27a9e7-0x296300))..']'},						-- 0x27a9e7 - 0x296300 = 4bpp
@@ -2561,7 +2485,7 @@ game_t = struct{
 		{name = 'loreDescOffsets', type = 'uint16_t['..numLores..']'},											-- 0x2d7a70 - 0x2d7aa0
 		{name = 'itemDescOffsets', type = 'uint16_t['..numItems..']'},											-- 0x2d7aa0 - 0x2d7ca0
 		{name = 'characters', type = ffi.typeof('$['..numCharacters..']', Character)},							-- 0x2d7ca0 - 0x2d8220
-		{name = 'expForLevelUp', type = 'uint16_t['..numExpLevelUps..']'},										-- 0x2d8220 - 0x2d82f4
+		{name = 'expForLevelUp', type = 'uint16_t[106]'},										-- 0x2d8220 - 0x2d82f4
 		{name = 'treasureOfs', type = 'uint16_t[0x1a0]'},														-- 0x2d82f4 - 0x2d8634 	-- offset +0x2d8634 into treasures
 		{name = 'treasures', type = ffi.typeof('$[0x11e]', Treasure)},											-- 0x2d8634 - 0x2d8bca
 		{name = 'padding_2d8bca', type = 'uint8_t['..(-(0x2d8bca - 0x2d8e5b))..']'},							-- 0x2d8bca - 0x2d8e5b = 'ff's
@@ -2612,10 +2536,10 @@ assertOffset('formationSizeOffsets', 0x02d01a)
 assertOffset('formationSizes', 0x02d034)
 assertOffset('positionedTextOffsets', 0x03c00e)
 assertOffset('positionedTextBase', 0x03c2fc)
-assertOffset('spells', spellsAddr)
-assertOffset('characterNames', characterNamesAddr)
+assertOffset('spells', 0x046ac0)
+assertOffset('characterNames', 0x0478c0)
 assertOffset('shops', 0x047ac0)
-assertOffset('metamorphSets', metamorphSetsAddr)
+assertOffset('metamorphSets', 0x047f40)
 assertOffset('font', 0x047fc0)
 assertOffset('font16_widths', 0x048fc0)
 assertOffset('font16_20_to_7f', 0x0490c0)
@@ -2629,22 +2553,22 @@ assertOffset('brrSamples', 0x054a35)
 assertOffset('dialogOffsets', 0x0ce600)
 assertOffset('dialogBase', 0x0d0000)
 assertOffset('mapNameBase', 0x0ef100)
-assertOffset('rareItemDescOffsets', rareItemDescOffsetAddr)
-assertOffset('rareItemNames', rareItemNamesAddr)
-assertOffset('rareItemDescBase', rareItemDescBaseAddr)
-assertOffset('monsters', monstersAddr)
-assertOffset('monsterItems', monsterItemsAddr)
-assertOffset('esperDescBase', esperDescBaseAddr)
+assertOffset('rareItemDescOffsets', 0x0efb60)
+assertOffset('rareItemNames', 0x0efba0)
+assertOffset('rareItemDescBase', 0x0efcb0)
+assertOffset('monsters', 0x0f0000)
+assertOffset('monsterItems', 0x0f3000)
+assertOffset('esperDescBase', 0x0f3940)
 assertOffset('swordTechNames', 0x0f3c40)
-assertOffset('monsterSpells', monsterSpellsAddr)
-assertOffset('monsterSketches', monsterSketchesAddr)
-assertOffset('monsterRages', monsterRagesAddr)
-assertOffset('monsterNames', monsterNamesAddr)
+assertOffset('monsterSpells', 0x0f3d00)
+assertOffset('monsterSketches', 0x0f4300)
+assertOffset('monsterRages', 0x0f4600)
+assertOffset('monsterNames', 0x0fc050)
 assertOffset('monsterAttackNames', monsterAttackNamesAddr)
 assertOffset('blitzDescBase', 0x0ffc00)
 assertOffset('swordTechDescBase', 0x0ffd00)
-assertOffset('esperDescOffsets', esperDescOffsetsAddr)
-assertOffset('esperBonusDescs', esperBonusDescsAddr)
+assertOffset('esperDescOffsets', 0x0ffe40)
+assertOffset('esperBonusDescs', 0x0ffeae)
 assertOffset('blitzDescOffsets', 0x0fff9e)
 assertOffset('swordTechDescOffsets', 0x0fffae)
 assertOffset('battleAnimScripts', 0x0fffbe)
@@ -2655,20 +2579,20 @@ assertOffset('battleMessageOffsets', 0x11f7a0)
 assertOffset('battleAnimGraphicsSets3bpp', 0x120000)
 assertOffset('battleAnimPalettes', 0x126000)
 assertOffset('itemTypeNames', 0x126f00)
-assertOffset('monsterSprites', monsterSpritesAddr)
-assertOffset('monsterPalettes', monsterPalettesAddr)
-assertOffset('itemNames', itemNamesAddr)
+assertOffset('monsterSprites', 0x127000)
+assertOffset('monsterPalettes', 0x127820)
+assertOffset('itemNames', 0x12b300)
 assertOffset('WoBPalettes', 0x12ec00)
 assertOffset('WoRPalettes', 0x12ed00)
 assertOffset('setzerAirshipPalette', 0x12ee00)
 assertOffset('darylAirshipPalette', 0x12ef00)
-assertOffset('items', itemsAddr)
-assertOffset('espers', espersAddr)
-assertOffset('spellDescBase', spellDescBaseAddr)
-assertOffset('menuNames', menuNamesAddr)
-assertOffset('spellDescOffsets', spellDescOffsetsAddr)
+assertOffset('items', 0x185000)
+assertOffset('espers', 0x186e00)
+assertOffset('spellDescBase', 0x18c9a0)
+assertOffset('menuNames', 0x018cea0)
+assertOffset('spellDescOffsets', 0x18cf80)
 assertOffset('formationMPs', 0x1fb400)
-assertOffset('itemColosseumInfos', itemColosseumInfosAddr)
+assertOffset('itemColosseumInfos', 0x1fb600)
 assertOffset('mapTilesetOffsets', mapTilesetOfsAddr)
 assertOffset('characterPalettes', 0x268000)
 assertOffset('mapNameOffsets', 0x268400)
@@ -2677,20 +2601,20 @@ assertOffset('mapAnimGraphicsLayer3', 0x26cdc0)
 assertOffset('hpIncPerLevelUp', 0x26f4a0)
 assertOffset('mpIncPerLevelUp', 0x26f502)
 assertOffset('spellNames_0to53', 0x26f567)
-assertOffset('esperAttackNames', esperAttackNamesAddr)
+assertOffset('esperAttackNames', 0x26fe8f)
 assertOffset('mogDanceNames', 0x26ff9d)
-assertOffset('monsterSpriteData', monsterSpriteDataAddr)
+assertOffset('monsterSpriteData', 0x297000)
 assertOffset('menuImages', 0x2d0000)
 assertOffset('menuWindowPalettes', 0x2d1c00)
 assertOffset('characterMenuImages', 0x2d1d00)
-assertOffset('itemDescBase', itemDescBaseAddr)
+assertOffset('itemDescBase', 0x2d6400)
 assertOffset('loreDescBase', 0x2d77a0)
 assertOffset('loreDescOffsets', 0x2d7a70)
-assertOffset('itemDescOffsets', itemDescOffsetsAddr)
+assertOffset('itemDescOffsets', 0x2d7aa0)
 assertOffset('characters', 0x2d7ca0)
 --assertOffset('expForLevelUp', expForLevelUpAddr)
-assertOffset('longEsperBonusDescBase', longEsperBonusDescBaseAddr)
-assertOffset('longEsperBonusDescOffsets', longEsperBonusDescOffsetsAddr)
+assertOffset('longEsperBonusDescBase', 0x2dfe00)
+assertOffset('longEsperBonusDescOffsets', 0x2dffd0)
 
 gameC = ffi.cast(ffi.typeof('$*', game_t), rom)
 
@@ -2702,23 +2626,12 @@ game.rom = rom
 game.romstr = romstr
 game.romsize = romsize
 
-game.numSpells = numSpells
-game.numBattleAnimSets = numBattleAnimSets
-game.numBattleAnimEffects = numBattleAnimEffects
-game.numBattleAnimPalettes = numBattleAnimPalettes
 game.numEsperBonuses = numEsperBonuses
 game.numEspers = numEspers
 game.numMonsters = numMonsters
-game.numMonsterSprites = numMonsterSprites
-game.numMonsterPalettes = numMonsterPalettes
 game.numItems = numItems
-game.numItemTypes = numItemTypes
 game.numRareItems = numRareItems
-game.numRages = numRages
-game.numMetamorphSets = numMetamorphSets
-game.numExpLevelUps = numExpLevelUps
 game.numLevels = numLevels
-game.numMenuNames = numMenuNames
 game.numCharacters = numCharacters
 game.numCharacterSpriteFrames = numCharacterSpriteFrames
 game.numCharacterSprites = numCharacterSprites
@@ -2733,9 +2646,7 @@ game.numBattleDialogs = numBattleDialogs
 game.numBattleDialog2s = numBattleDialog2s
 game.numBattleMessages = numBattleMessages
 game.numFormations = numFormations
-game.numFormationMPs = numFormationMPs
 game.numFormationSizeOffsets = numFormationSizeOffsets
-game.numFormationSizes = numFormationSizes
 game.numPositionedText = numPositionedText
 game.numBRRSamples = numBRRSamples
 game.numMenuChars = numMenuChars
@@ -2814,6 +2725,29 @@ game.positionedText = StringList{
 }
 
 
+game.RGBA5551 = RGBA5551
+game.Spell = Spell
+game.SpellLearn = SpellLearn
+game.SpellRef = SpellRef
+game.SpellRef2 = SpellRef2
+game.SpellRef4 = SpellRef4
+game.Esper = Esper
+game.EsperBonusDesc = EsperBonusDesc
+game.EsperBonus = EsperBonus
+game.FormationSize = FormationSize
+game.MonsterSprite = MonsterSprite
+game.Item = Item
+game.ItemRef = ItemRef
+game.ItemRef2 = ItemRef2
+game.ItemRef4 = ItemRef4
+game.ItemColosseumInfo = ItemColosseumInfo
+game.RareItemName = RareItemName
+game.MonsterName = MonsterName
+game.Monster = Monster
+game.MonsterItem = MonsterItem
+game.MenuName = MenuName
+game.MenuNameRef4 = MenuNameRef4
+game.CharacterName = CharacterName
 game.Character = Character
 game.SwordTechName = SwordTechName
 game.CharHiAndSize = CharHiAndSize
@@ -2831,6 +2765,10 @@ game.MapEventTrigger = MapEventTrigger
 game.WorldTileProps = WorldTileProps
 game.BattleBgProps = BattleBgProps
 game.Treasure = Treasure
+game.BattleAnimSet = BattleAnimSet
+game.BattleAnimEffect = BattleAnimEffect
+game.BattleAnim16x16Tile = BattleAnim16x16Tile 
+game.BattleAnim8x8Tile = BattleAnim8x8Tile
 game.game_t = game_t
 
 require 'ff6.maps'(game)

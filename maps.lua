@@ -234,7 +234,7 @@ data = ffi.string(dest, #data)
 		else
 			palsrc = op.safeindex(game, prefix..'Palettes')
 		end
-		local palette = palsrc and makePalette(palsrc, 4, 16*8)
+		local palette = palsrc and makePalette(game, palsrc, 4, 16*8)
 
 		local tilesetdata = gfxstr
 		local gfxdata = ffi.cast('uint8_t*', gfxstr) + 0x400
@@ -757,7 +757,7 @@ data = ffi.string(dest, #data)
 		if paletteIndex >= 0
 		and paletteIndex < countof(game.mapPalettes)
 		then
-			palette = makePalette(game.mapPalettes + paletteIndex, 4, 16*8)
+			palette = makePalette(game, game.mapPalettes + paletteIndex, 4, 16*8)
 		end
 
 		local tileProps = game.getMapTileProps(map.tileProps)

@@ -130,7 +130,7 @@ do	-- here decompress all 'mapTileGraphics' tiles irrespective of offset table
 	-- alright where is the palette info stored?
 	-- and I'm betting somewhere is the 16x16 info that points into this 8x8 tile data...
 	-- and I'm half-suspicious it is compressed ...
-	im.palette = makePalette(game.mapPalettes + 0xc, 4, 16 * 8)
+	im.palette = makePalette(game, game.mapPalettes + 0xc, 4, 16 * 8)
 	im:save((maptilespath/'tiles-layers1and2.png').path)
 end
 
@@ -174,33 +174,35 @@ do
 	-- alright where is the palette info stored?
 	-- and I'm betting somewhere is the 16x16 info that points into this 8x8 tile data...
 	-- and I'm half-suspicious it is compressed ...
-	im.palette = makePalette(game.mapPalettes + 0xc, 4, 16 * 8)
+	im.palette = makePalette(game, game.mapPalettes + 0xc, 4, 16 * 8)
 	im:save((maptilespath/'tiles-layer3.png').path)
 end
 
 -- mapPalettes is type palette16_8_t[48]
--- which is color_t[48][8][16]
+-- which is RGBA5551[48][8][16]
 -- (so 16 is inner-most, then 8, then 48)
 -- That means 2x of the 8x16 colors fit into each 256-color palette.
 -- That means 48 128-color palettes fit into 24 different 256-color palettes.
 -- So divide by 2 to find the filename location of your map-palette-index.
 makePaletteSets(
+	game,
 	mappalpath,
 	game.mapPalettes,
-	ffi.sizeof(game.mapPalettes) / ffi.sizeof'color_t',
+	ffi.sizeof(game.mapPalettes) / ffi.sizeof(game.RGBA5551),
 	function(index) return bit.band(0xf, index) == 0 end
 )
 
 local mappalworldspath = path'mappalworld'
 mappalworldspath:mkdir()
 makePaletteSets(
+	game,
 	mappalworldspath,
 	game.WoBPalettes,
 	(
 		ffi.sizeof(game.WoBPalettes)
 		+ ffi.sizeof(game.WoRPalettes)
 		+ ffi.sizeof(game.setzerAirshipPalette)
-	) / ffi.sizeof'color_t',
+	) / ffi.sizeof(game.RGBA5551),
 	function(index) return bit.band(0xf, index) == 0 end
 )
 
@@ -510,7 +512,7 @@ for _,tilesetIndex in ipairs(game.mapTilesetCache:keys():sort()) do
 			-- starting to wonder why key is just gfx1/2/3/4 and not /paletteIndex as well....
 			local paletteIndexes = table(tileset.palettesForGfxStr[gfxstr] or {0}):sort()
 			for _,paletteIndex in ipairs(paletteIndexes) do
-				local palette = makePalette(game.mapPalettes + paletteIndex, 4, 16*8)
+				local palette = makePalette(game, game.mapPalettes + paletteIndex, 4, 16*8)
 
 	--print('drawing '..gfxstr..' with palette '..paletteIndex)
 
@@ -559,7 +561,7 @@ for _,gfxIndex in ipairs(game.mapTileGraphicsCache:keys():sort()) do
 		-- notice, some gfxs only ever use only 128 of them
 
 		local paletteIndex = gfx.palettes:keys():sort()[1] or 0
-		local palette = makePalette(game.mapPalettes + paletteIndex, 4, 16*8)
+		local palette = makePalette(game, game.mapPalettes + paletteIndex, 4, 16*8)
 
 		local size = vec2i(16, 16)
 		local img = Image(8 * size.x, 8 * size.y, 1, 'uint8_t'):clear()
@@ -587,7 +589,7 @@ for _,gfxLayer3Addr in ipairs(game.mapTileGraphicsLayer3Cache:keys():sort()) do
 	if gfxLayer3 and gfxLayer3.data then
 		-- layer3 always has the same layout, so it has no tileset, so just use that layout for the graphics tiles
 		local paletteIndex = gfxLayer3.palettes and gfxLayer3.palettes:keys():sort()[1] or 0
-		local palette = makePalette(game.mapPalettes + paletteIndex, 4, 16*8)
+		local palette = makePalette(game, game.mapPalettes + paletteIndex, 4, 16*8)
 
 		local size = vec2i(16, 16)
 		local img = Image(16 * size.x, 16 * size.y, 1, 'uint8_t'):clear()

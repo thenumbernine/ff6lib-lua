@@ -18,7 +18,6 @@ local GLTex2D = require 'gl.tex2d'
 local GLGeometry = require 'gl.geometry'
 local GLSceneObject = require 'gl.sceneobject'
 local ig = require 'imgui'
-local makePalette = require 'ff6.graphics'.makePalette
 
 local infn = cmdline[1]
 assert(infn, "missing filename")

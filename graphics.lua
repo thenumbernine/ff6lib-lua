@@ -135,8 +135,8 @@ local function drawTileLinear(im, xofs, yofs, tile, bpp, hflip, vflip, palor, pa
 end
 
 -- returns a Lua table of the palette
-local function makePalette(pal, bpp, n)
-	pal = ffi.cast('color_t*', pal)
+local function makePalette(game, pal, bpp, n)
+	pal = ffi.cast(ffi.typeof('$*', game.RGBA5551), pal)
 	local mask = bit.lshift(1, bpp) - 1
 	return range(0,n-1):mapi(function(i)
 		-- 0 is always transparent
@@ -152,6 +152,7 @@ end
 
 -- used by monsters
 local function makeTiledImageWithMask(
+	game,
 	tilesWide,
 	tilesHigh,
 	bpp,
@@ -204,16 +205,16 @@ local function makeTiledImageWithMask(
 		end
 	end
 
-	im.palette = makePalette(pal, bpp, bit.lshift(1, bpp))
+	im.palette = makePalette(game, pal, bpp, bit.lshift(1, bpp))
 
 	return im
 end
 
 -- make multiple palette#.png images, each 16x16
-local function makePaletteSets(dir, pal, numColors, isTransparent)
+local function makePaletteSets(game, dir, pal, numColors, isTransparent)
 	dir = path(dir)
 	dir:mkdir()
-	pal = ffi.cast('color_t*', pal)
+	pal = ffi.cast(ffi.typeof('$*', game.RGBA5551), pal)
 	for palSheetIndex=0,math.ceil(numColors / 256)-1 do
 		local palimage = Image(16, 16, 4, 'uint8_t'):clear()
 		local p = palimage.buffer + 0

@@ -70,6 +70,7 @@ local function writeMonsterSprite(
 	end
 
 	local im = makeTiledImageWithMask(
+		game,
 		tilesWide,		-- tiles wide
 		tilesHigh,		-- tiles high
 		bitsPerPixel,	-- 3 or 4

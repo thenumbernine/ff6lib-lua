@@ -28,7 +28,7 @@ local romsize = game.romsize
 
 local countof = game.countof
 
-for i=0,game.numSpells-1 do
+for i=0,countof(game.spells)-1 do
 	print('spell #'..i)
 	print('Name="'..game.getSpellName(i)..'"')
 	if i < 54 then
@@ -40,7 +40,7 @@ for i=0,game.numSpells-1 do
 	print()
 end
 
-for i=0,game.numSpells-1 do
+for i=0,countof(game.spells)-1 do
 	if game.spells[i].isLore ~= 0 then
 		print('Name="'..game.getSpellName(i)..'"')
 		for j=0,game.numMonsters-1 do
@@ -49,7 +49,7 @@ for i=0,game.numSpells-1 do
 					print('\tsketch '..game.monsterNames[j])
 				end
 			end
-			if j < game.numRages then
+			if j < countof(game.monsterRages) then
 				for k=0,1 do
 					if game.monsterRages[j].s[k].i == i then
 						print('\trage '..game.monsterNames[j])
@@ -86,7 +86,7 @@ for i=0,game.numItems-1 do
 	print()
 end
 
-for i=0,game.numItemTypes-1 do
+for i=0,countof(game.itemTypeNames)-1 do
 	print('item type #'..i..' = '..game.itemTypeNames[i])
 end
 print()
@@ -105,7 +105,7 @@ print()
 
 do
 	local unique = {}
-	for i=0,game.numMonsterPalettes-1 do
+	for i=0,countof(game.monsterPalettes)-1 do
 		print('monsterPalettes[0x'..i:hex()..'] = '..game.monsterPalettes[i])
 		unique[ffi.string(game.monsterPalettes + i, ffi.sizeof'palette8_t')] = true
 	end
@@ -124,7 +124,7 @@ for i=0,game.numMonsters-1 do
 	print('spells = '..game.monsterSpells[i])
 	print(game.monsterItems[i])
 	print('sketches = '..game.monsterSketches[i])
-	if i < game.numRages then print('rages = '..game.monsterRages[i]) end
+	if i < countof(game.monsterRages) then print('rages = '..game.monsterRages[i]) end
 	print()
 end
 
@@ -263,7 +263,7 @@ do
 			if bit.band(i, 0xf) == 0 then return {0,0,0,0} end
 			return {0,0,0,255}
 		end):append(
-			makePalette(game.battleBgPalettes + paletteIndex * 16*3, 4, 16*3)
+			makePalette(game, game.battleBgPalettes + paletteIndex * 16*3, 4, 16*3)
 		)
 
 		local layoutSize = vec2i(32, 32)
@@ -332,7 +332,7 @@ end
 local totalPixels = 0
 -- [[
 local writeMonsterSprite = require 'ff6.monstersprite'
-for i=0,game.numMonsterSprites-1 do
+for i=0,countof(game.monsterSprites)-1 do
 	print('monsterSprites[0x'..i:hex()..'] = '..game.monsterSprites[i])
 	totalPixels = totalPixels + writeMonsterSprite(game, i)
 end
@@ -348,7 +348,7 @@ local monsterSpriteOffsetSet = {}
 -- so I can try to group monsterSprite.offset by matching palettes
 local monsterPalettes_monsterSpriteIndexes = {}
 
-for i=0,game.numMonsterSprites-1 do
+for i=0,countof(game.monsterSprites)-1 do
 	local monsterSprite = game.monsterSprites + i
 	if not monsterSpriteOffsetSet[monsterSprite.offset] then
 		monsterSpriteOffsetSet[monsterSprite.offset] = table()
@@ -426,9 +426,10 @@ do
 	-- write monster palettes
 	local p = path'monsters_graphicset'
 	makePaletteSets(
+		game,
 		p,
 		game.monsterPalettes,
-		bit.lshift(game.numMonsterPalettes, 3),
+		bit.lshift(countof(game.monsterPalettes), 3),
 		function(index)
 			return transparents[index]
 		end
@@ -436,14 +437,14 @@ do
 end
 --]]
 
-for i=0,game.numMetamorphSets-1 do
+for i=0,countof(game.metamorphSets)-1 do
 	print('metamorph set #'..i..' = '..game.metamorphSets[i])
 end
 print()
 
-for i=0,game.numFormations-1 do
+for i=0,countof(game.formations)-1 do
 	print('formation=0x'..i:hex())
-	if i < game.numFormationMPs then
+	if i < countof(game.formationMPs) then
 		print('\tmp='..game.formationMPs[i])
 	end
 
@@ -467,19 +468,19 @@ for i=0,game.numFormations-1 do
 	print()
 end
 
-for i=0,game.numFormationSizeOffsets-1 do
+for i=0,countof(game.formationSizeOffsets)-1 do
 	local offset = game.formationSizeOffsets[i]
 	local addr = offset + 0x020000
 	print('formation size offset #0x'..i:hex()
 		..' offset='..('0x%04x'):format(offset)
 		..' addr='..('0x%04x'):format(addr)
-		..' formationSize='..ffi.cast('formationSize_t*', rom + addr)[0]
+		..' formationSize='..ffi.cast(ffi.typeof('$*', game.FormationSize), rom + addr)[0]
 		..(i==0 and '' or (' delta=0x'..(game.formationSizeOffsets[i] - game.formationSizeOffsets[i-1]):hex()))
 	)
 end
 print()
 
-for i=0,game.numFormationSizes-1 do
+for i=0,countof(game.formationSizes)-1 do
 	print('formation size #'..i..' = '
 		..('0x%04x'):format(ffi.cast('uint8_t*', game.formationSizes + i) - rom)
 		..' '..game.formationSizes[i])
@@ -493,7 +494,7 @@ for i=0,0xff do
 		local formationEntry = game.monsterRandomBattles[i].s[j]
 		local formationIndex = formationEntry.formation
 		local formationDesc = 'formation=0x'..formationIndex:hex()..':'
-		if formationIndex < game.numFormations then
+		if formationIndex < countof(game.formations) then
 			local formation = game.formations + formationIndex
 			local monsterCounts = {}
 			for k=1,6 do
@@ -565,9 +566,9 @@ for i=0,game.numCharacters-1 do
 		local value
 		if ctype == 'uint8_t' then
 			value = ch[name]
-		elseif ctype == 'menuref4_t'
-		or ctype == 'itemref_t'
-		or ctype == 'itemref2_t'
+		elseif ffi.typeof(ctype) == game.MenuNameRef4
+		or ffi.typeof(ctype) == game.ItemRef
+		or ffi.typeof(ctype) == game.ItemRef2
 		then
 			-- TODO count unique values
 			goto skip
@@ -600,7 +601,7 @@ local chx, chy = 0, 0
 local sheetIndex = 0
 local charSheet = Image(256, 256, 1, 'uint8_t')
 local function flushCharSheet()
-	charSheet.palette = makePalette(game.characterPalettes, 4, 256)
+	charSheet.palette = makePalette(game, game.characterPalettes, 4, 256)
 	charSheet:save('characters/sheet'..sheetIndex..'.png')
 	charSheet:clear()
 	sheetIndex = sheetIndex + 1
@@ -644,7 +645,7 @@ for charIndex=0,game.numCharacterSprites-1 do
 		--local frameName = tostring(frameIndex)
 		local frameName = ('%02d'):format(frameIndex)
 		local relname = spriteName..'_'..frameName..'.png'
-		im.palette = makePalette(game.characterPalettes + palIndex, 4, 16)
+		im.palette = makePalette(game, game.characterPalettes + palIndex, 4, 16)
 		im:save('characters/'..relname)
 		--]=]
 		--[=[ save to our char sheet
@@ -683,6 +684,7 @@ print('wrote total pixels', totalPixels)
 --]]
 -- [[ while we're here , why not write out the char palettes
 makePaletteSets(
+	game,
 	path'character_pals',
 	game.characterPalettes,
 	16 * game.numCharacterPalettes,
@@ -692,7 +694,7 @@ makePaletteSets(
 )
 --]]
 
-for i=0,game.numMenuNames-1 do
+for i=0,countof(game.menuNames)-1 do
 	print('menu #'..i..' = "'..game.menuNames[i]..'"')
 end
 print()
@@ -721,7 +723,7 @@ end
 print()
 
 io.write('exp for level up: ')
-for i=0,game.numExpLevelUps-1 do
+for i=0,countof(game.expForLevelUp)-1 do
 	io.write(' ',game.expForLevelUp[i])
 end
 print()
@@ -851,7 +853,7 @@ do
 				tileIndex = tileIndex + 1
 			end
 		end
-		im.palette = makePalette(game.menuPortraitPalette + charIndex, 4, 16)
+		im.palette = makePalette(game, game.menuPortraitPalette + charIndex, 4, 16)
 		im:save(
 			menucharpath('menu'..charIndex..'.png').path
 		)
@@ -1017,9 +1019,9 @@ Quick	99
 
 -- [[ spells ... gobbleygook
 -- this made the screen go garbage at the first battle
-	for i=0,game.numSpells-1 do
+	for i=0,countof(game.spells)-1 do
 		local spell = game.spells+i
-		for j=0,ffi.sizeof'spell_t'-1 do
+		for j=0,ffi.sizeof(game.Spell)-1 do
 			spell.s[j] = math.random(0,255)
 		end
 		spell.unused_7_2 = 0
@@ -1056,7 +1058,7 @@ Quick	99
 
 --[[ espers ... gobbleygook everywhere
 	for i=0,game.numEspers-1 do
-		for j=0,ffi.sizeof'esper_t'-1 do
+		for j=0,ffi.sizeof(game.Esper)-1 do
 			game.espers[i].s[j] = math.random(0,255)
 		end
 	end
@@ -1081,7 +1083,7 @@ Quick	99
 -- this makes countdown often
 	for i=0,game.numItems-1 do		-- is numItems 256 or 255?
 		local item = game.items+i
-		for j=0,ffi.sizeof'item_t'-1 do
+		for j=0,ffi.sizeof(game.Item)-1 do
 			item.s[j] = math.random(0,255)
 		end
 		-- I think this is what causes glitches ... maybe ...
@@ -1146,14 +1148,14 @@ Quick	99
 		game.monsters[i].specialAttackDealsNoDamage = math.random(0,1)
 		--]=]
 
-		for j=0,ffi.sizeof'spellref4_t'-1 do
+		for j=0,game.monsterSpells[i].dim-1 do
 			game.monsterSpells[i].s[j].i = math.random(0,255)
 		end
-		for j=0,ffi.sizeof'spellref2_t'-1 do
+		for j=0,game.monsterSketches[i].dim-1 do
 			game.monsterSketches[i].s[j].i = math.random(0,255)
 		end
-		if i < game.numRages then
-			for j=0,ffi.sizeof'spellref2_t'-1 do
+		if i < countof(game.monsterRages) then
+			for j=0,game.monsterRages[i].dim-1 do
 				game.monsterRages[i].s[j].i = math.random(0,255)
 			end
 		end
@@ -1179,12 +1181,12 @@ Quick	99
 		-- [=[
 		ch.hp = math.random(0,255)
 		ch.mp = math.random(0,255)
-		--ch.menu.s[0].i = math.random(0,game.numMenuNames-1)		-- fight
-		--ch.menu.s[1].i = math.random(0,game.numMenuNames-1)
+		--ch.menu.s[0].i = math.random(0,countof(game.menuNames)-1)		-- fight
+		--ch.menu.s[1].i = math.random(0,countof(game.menuNames)-1)
 		--ch.menu.s[0].i = goodMenus:pickRandom()
 		ch.menu.s[1].i = goodMenus:pickRandom()
-		--ch.menu.s[2].i = math.random(0,game.numMenuNames-1)		-- magic
-		--ch.menu.s[3].i = math.random(0,game.numMenuNames-1)		-- item
+		--ch.menu.s[2].i = math.random(0,countof(game.menuNames)-1)		-- magic
+		--ch.menu.s[3].i = math.random(0,countof(game.menuNames)-1)		-- item
 		-- [==[
 		ch.vigor = math.random(0,255)
 		ch.speed = math.random(0,255)
