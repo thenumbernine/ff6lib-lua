@@ -1624,21 +1624,22 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 			end
 
 			if self.showTiles then
-				for i=0,(self.tileWindow:getMapVolume() or 0)-1 do
-					local mapWidth, mapHeight = self.tileWindow:getMapSize()
-					local x = i % mapWidth
-					local y = (i - x) / mapWidth
-					if leftPress
-					and x <= mx and mx <= x+1
-					and y <= my and my <= y+1
+				local mapWidth, mapHeight = self.tileWindow:getMapSize()
+				if mapWidth and mapHeight then
+					local x = math.floor(mx)
+					local y = math.floor(my)
+					if x >= 0 and my >= 0
+					and x < mapWidth
+					and y < mapHeight
 					then
-						self.tileWindow:setIndex(i)
-						self.tileWindow.show[0] = true
-					end
-					if i == self.treasureWindow.index then
+						local i = x + mapWidth * y
 						settable(uniforms.bbox, x, y, 1, 1)
 						settable(uniforms.color, 1,1,1,1)
 						showHL()
+						if leftPress then
+							self.tileWindow:setIndex(i)
+							self.tileWindow.show[0] = true
+						end
 					end
 				end
 			end
