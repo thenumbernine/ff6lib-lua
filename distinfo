@@ -17,18 +17,20 @@ files = {
 	"reftype.lua",
 	"run-maps.lua",
 	"run.lua",
+	"script.lua",
 	"sounds.lua",
-	"vis.rua",
+	"vis.lua",
 }
 deps = {
 	"audio",
 	"ext",
-	"ffi",
 	"gl",
 	"gnuplot",
 	"image",
 	"imgui",
+	"sdl",
 	"stl",
 	"struct",
+	"template",
 	"vec-ffi",
 }
