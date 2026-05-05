@@ -2,12 +2,10 @@ local ffi = require 'ffi'
 local graphics = require 'graphics'
 local makeTiledImageWithMask = graphics.makeTiledImageWithMask
 
-local function writeMonsterSprite(
+local function readMonsterSprite(
 	game,
 	index
 )
-	path'monsters':mkdir()
-
 	local rom = game.rom
 	local monsterSprite = game.monsterSprites[index]
 
@@ -22,15 +20,20 @@ local function writeMonsterSprite(
 
 	-- now find a monster image with a matching offset...
 
-	-- weir that the tile-is-16-pixels bit is at the end of the 1st and not the 2nd byte ...
-	local paletteIndex = bit.bor(monsterSprite.palLo, bit.lshift(monsterSprite.palHi, 8))
+	-- weird that the tile-is-16-pixels bit is at the end of the 1st and not the 2nd byte ...
+	local paletteIndex = monsterSprite:getPaletteIndex()
+
+	-- there are 0x300 x palettes of 8 colors each = 0x1800 colors
+	-- = 0x18 = 24 palettes of x 0x100 = 256 colors
+	-- and it looks like the last few aren't even used ...
 	local pal = game.monsterPalettes + paletteIndex
 
 	local tileMaskData8, tileMaskData16
 	do
-		local addr1 = game.monsterSpriteTileMask8Ofs + 0x120000	-- 0x120000 = battleAnimGraphicsSets3bpp
-		local addr2 = game.monsterSpriteTileMask16Ofs + 0x120000
-		local addr3 = 0x12b300		-- item names -- the next section, so end of addr2's space
+		local baseaddr = ffi.offsetof(Game, 'battleAnimGraphicsSets3bpp')	-- 0x120000 = battleAnimGraphicsSets3bpp
+		local addr1 = game.monsterSpriteTileMask8Ofs + baseaddr
+		local addr2 = game.monsterSpriteTileMask16Ofs + baseaddr
+		local addr3 = ffi.offsetof(Game, 'itemNames')	-- 0x12b300 = the next section, so end of addr2's space
 
 		local numTileMasks8 = bit.rshift((addr2 - addr1), 3)
 		local numTileMasks16 = bit.rshift((addr3 - addr2), 5)
@@ -77,11 +80,11 @@ local function writeMonsterSprite(
 		tileMaskData,	-- mask bitvector
 		monsterSprite.tileMaskIndex,	-- start of mask bitvector
 		game.monsterSpriteData + offset * 8,
+
+		-- hmm, all pal does is be used to create a palette table, so maybe I don't have to pass it?
 		pal
 	)
 
-	im:save('monsters/monster'..('%03d'):format(index)..' '..game.monsterNames[index]..'.png')
-
-	return im.width * im.height
+	return im
 end
-return writeMonsterSprite
+return readMonsterSprite

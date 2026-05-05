@@ -1097,6 +1097,9 @@ local MonsterSprite = struct{
 	},
 	metatable = function(mt)
 		mt.typeToString = fieldsToHex
+		function mt:getPaletterIndex()
+			return bit.bor(self.palLo, bit.lshift(self.palHi, 8))
+		end
 	end,
 }
 assert.eq(ffi.sizeof(MonsterSprite), 5)

@@ -331,13 +331,19 @@ end
 
 local totalPixels = 0
 -- [[
-local writeMonsterSprite = require 'ff6.monstersprite'
-for i=0,countof(game.monsterSprites)-1 do
-	print('monsterSprites[0x'..i:hex()..'] = '..game.monsterSprites[i])
-	totalPixels = totalPixels + writeMonsterSprite(game, i)
+do
+	local monstersPath = path'monsters'
+	monstersPath:mkdir()
+	local readMonsterSprite = require 'ff6.monstersprite'
+	for i=0,countof(game.monsterSprites)-1 do
+		print('monsterSprites[0x'..i:hex()..'] = '..game.monsterSprites[i])
+		local im = readMonsterSprite(game, i)
+		im:save(monstersPath/('monster'..('%03d'):format(i)..' '..game.monsterNames[i]..'.png'))
+		totalPixels = totalPixels + im.width * im.height
+	end
+	print('wrote monster pixels', totalPixels)
+	print()
 end
-print('wrote monster pixels', totalPixels)
-print()
 --]]
 
 -- [[ see how many unique monsters there are ...
