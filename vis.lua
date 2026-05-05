@@ -327,6 +327,23 @@ function MapWindow:setIndex(newIndex, pushStack)
 		return
 	end
 
+	-- refresh the monster random battle options to reflect the map's
+	if self.index < 2 then
+		local sectorIndex = app.worldEncounterSectorWindow.index
+		print('sectorIndex', app.worldEncounterSectorWindow.index)
+		--[[ segfaulting
+		if sectorIndex >= 0 and sectorIndex < #app.worldEncounterSectorWindow:getArray() then
+			local randomBattlesPerTerrain = game.worldSectorRandomBattlesPerTerrain + sectorIndex
+			local battleIndex = randomBattlesPerTerrain.grass
+			self.app.randomBattleOptionsWindow:popupButton(battleIndex)
+		end
+		--]]
+	else
+		app.randomBattleOptionsWindow:setIndex(mapInfo.monsterRandomBattleOptionIndex)
+	end
+
+
+
 	local map = mapInfo.map
 	local paletteIndex = tonumber(map.palette)
 	local gfxLayer3 = mapInfo.gfxLayer3
@@ -553,7 +570,7 @@ function MapWindow:setIndex(newIndex, pushStack)
 --]]
 
 	-- start us off centered at the first door we find
-	if mapInfo.doors then	
+	if mapInfo.doors then
 		local e = mapInfo.doors[1]
 		if e then
 			app:centerView(e.pos.x, e.pos.y)
@@ -596,7 +613,7 @@ function TileWindow:showIndexUI(ar)
 	local layerSizes = mapInfo.layerSizes
 	local tilePropsData = mapInfo.tilePropsData
 	local layouts = mapInfo.layouts
-	
+
 	local layout1Data = layouts[1] and layouts[1].data
 	if layout1Data then
 		local layoutptr = ffi.cast('uint8_t*', layout1Data)
@@ -611,7 +628,7 @@ function TileWindow:showIndexUI(ar)
 		local layerSize = layerSizes[layer]
 		local layoutData = layout and layout.data
 		if layoutData then
-			
+
 			local posx, posy = 0, 0
 			if layerPos[layer]
 			-- if we have a position for the layer, but we're using parallax, then the position is going to be relative to the view
@@ -959,6 +976,7 @@ function MonsterWindow:showIndexUI(ar)
 	for name in monster:fielditer() do
 		ig.igText(' '..name..' = '..tostring(monster[name]))
 	end
+	ig.igText'attacks:'
 	local monsterSpells = game.monsterSpells[self.index]
 	for i=0,monsterSpells.dim-1 do
 		ig.igPushID_Str'monsterSpells'
@@ -967,6 +985,7 @@ function MonsterWindow:showIndexUI(ar)
 		ig.igPopID()
 		ig.igPopID()
 	end
+	ig.igText'items:'
 	local monsterItem = game.monsterItems[self.index]
 	for name in monsterItem:fielditer() do
 		ig.igPushID_Str(name)
@@ -976,6 +995,7 @@ function MonsterWindow:showIndexUI(ar)
 		ig.igPopID()
 	end
 	local monsterSketches = game.monsterSketches[self.index]
+	ig.igText'sketches:'
 	for i=0,monsterSketches.dim-1 do
 		ig.igPushID_Str'monsterSketches'
 		ig.igPushID_Int(i)
@@ -984,6 +1004,7 @@ function MonsterWindow:showIndexUI(ar)
 		ig.igPopID()
 	end
 	if self.index < countof(game.monsterRages)then
+		ig.igText'rages:'
 		local monsterRages = game.monsterRages[self.index]
 		for i=0,monsterRages.dim-1 do
 			ig.igPushID_Str'monsterRages'
@@ -1238,7 +1259,7 @@ uniform float t;
 in vec2 tcv;
 out vec4 fragColor;
 void main() {
-	
+
 	if (((int(gl_FragCoord.x) - int(gl_FragCoord.y) - int(t)) & 15) < 8) discard;
 	//if (mod((gl_FragCoord.x + gl_FragCoord.y) / 10., 1.) < .5) discard;
 
@@ -1314,14 +1335,28 @@ void main() {
 
 	self.mapSize = vec2d()
 
+	self.monsterWindow = MonsterWindow{app=self}
+
+	self.battleFormationWindow = BattleFormationWindow{app=self}
+
+	self.randomBattleOptionsWindow = RandomBattleOptionsWindow{app=self}
+	self.eventBattleOptionsWindow = EventBattleOptionsWindow{app=self}
+
+	self.baseWindows = table()
+	self.baseWindows:append{
+		self.monsterWindow,
+		self.battleFormationWindow,
+		self.randomBattleOptionsWindow,
+		self.eventBattleOptionsWindow,
+	}
 
 	-- make mapWindow's windows first:
 	self.showTiles = true
 	self.tileWindow = TileWindow{app=self}
-	
+
 	self.showTreasures = true
 	self.treasureWindow = TreasureWindow{app=self}
-	
+
 	self.showTouchTriggers = true
 	self.touchTriggerWindow = TouchTriggerWindow{app=self}
 
@@ -1359,23 +1394,12 @@ void main() {
 
 	self.scriptWindow = ScriptWindow{app=self}
 
-	self.monsterWindow = MonsterWindow{app=self}
-
-	self.battleFormationWindow = BattleFormationWindow{app=self}
-
-	self.randomBattleOptionsWindow = RandomBattleOptionsWindow{app=self}
-	self.eventBattleOptionsWindow = EventBattleOptionsWindow{app=self}
-
 	-- base-level not dependent on another window:
-	self.baseWindows = table{
+	self.baseWindows:append{
 		self.mapWindow,
 		self.itemWindow,
 		self.spellWindow,
 		self.scriptWindow,
-		self.monsterWindow,
-		self.battleFormationWindow,
-		self.randomBattleOptionsWindow,
-		self.eventBattleOptionsWindow,
 	}
 
 	self.scriptWindow.show[0] = false	-- who keeps opening this?
