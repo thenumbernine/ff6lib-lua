@@ -1097,7 +1097,7 @@ local MonsterSprite = struct{
 	},
 	metatable = function(mt)
 		mt.typeToString = fieldsToHex
-		function mt:getPaletterIndex()
+		function mt:getPaletteIndex()
 			return bit.bor(self.palLo, bit.lshift(self.palHi, 8))
 		end
 	end,
