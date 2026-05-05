@@ -2186,16 +2186,16 @@ Game = struct{
 	end,
 
 	fields = {
-		{name = 'name', type = 'unknown_000000', type = arrayType(uint8_t, -(0x000000 - 0x0051ba))},				-- 0x000000 - 0x0051ba
+		{name = 'name', type = 'unknown_000000', type = arrayType(uint8_t, -(0x000000 - 0x0051ba))},			-- 0x000000 - 0x0051ba
 
-		{name = 'characterMenuImageOffsets', type = arrayType(uint16_t, 16)},											-- 0x0051ba - 0x0051da
-		{name = 'characterMenuImageTileLayout', type = arrayType(uint8_t, 25)},											-- 0x0051da - 0x0051f3
+		{name = 'characterMenuImageOffsets', type = arrayType(uint16_t, 16)},									-- 0x0051ba - 0x0051da
+		{name = 'characterMenuImageTileLayout', type = arrayType(uint8_t, 25)},									-- 0x0051da - 0x0051f3
 
 		{name = 'unknown_0051f3', type = arrayType(uint8_t, -(0x0051f3 - 0x0091d5))}, 							-- 0x0051f3 - 0x0091d5
 
-		{name = 'mapAnimPropOfs', type = arrayType(uint16_t, 0x15)},														-- 0x0091d5 - 0x0091ff = map animation properties pointer table (+0x0091ff) (only 10 used)
-		{name = 'mapAnimProps', type = arrayType(MapAnimProps, 144)},													-- 0x0091ff - 0x00979f = map animation properties [144] @ 10 bytes each
-		{name = 'mapAnimPropsLayer3Ofs', type = arrayType(uint16_t, 7)},													-- 0x00979f - 0x0097ad = map animation properties layer 3 pointer table (+0x0097ad) (only 6 used)
+		{name = 'mapAnimPropOfs', type = arrayType(uint16_t, 0x15)},											-- 0x0091d5 - 0x0091ff = map animation properties pointer table (+0x0091ff) (only 10 used)
+		{name = 'mapAnimProps', type = arrayType(MapAnimProps, 144)},											-- 0x0091ff - 0x00979f = map animation properties [144] @ 10 bytes each
+		{name = 'mapAnimPropsLayer3Ofs', type = arrayType(uint16_t, 7)},										-- 0x00979f - 0x0097ad = map animation properties layer 3 pointer table (+0x0097ad) (only 6 used)
 		{name = 'mapAnimPropsLayer3', type = arrayType(MapAnimPropsLayer3, 6)},									-- 0x0097ad - 0x009825 = map animation properties layer 3 [6]
 		{name = 'mapPalAnim', type = arrayType(MapPalAnim, 20)},												-- 0x009825 - 0x00989d = map palette animation
 
@@ -2209,7 +2209,7 @@ Game = struct{
 		{name = 'unknown_00d026', type = arrayType(uint8_t, -(0x00d026 - 0x00d0f2))},							-- 0x00d026 - 0x00d0f2
 
 		-- 0x00d0f2 - ? = pointer to map character graphics (2 bytes each)
-		{name = 'characterSpriteOffsetLo', type = arrayType(uint16_t, numCharacterSprites)},						-- 0x00d0f2 - 0x00d23c
+		{name = 'characterSpriteOffsetLo', type = arrayType(uint16_t, numCharacterSprites)},					-- 0x00d0f2 - 0x00d23c
 
 		{name = 'characterSpriteOffsetHiAndSize', type = arrayType(CharHiAndSize, numCharacterSprites)},		-- 0x00d23c - 0x00d386
 
@@ -2222,14 +2222,14 @@ Game = struct{
 
 		{name = 'unknown_02ced0', type = arrayType(uint8_t, -(0x02ced0 - 0x02d01a))},							-- 0x02ced0 - 0x02d01a
 
-		{name = 'formationSizeOffsets', type = arrayType(uint16_t, numFormationSizeOffsets)},						-- 0x02d01a - 0x02d034 = offset by +0x020000 into formationSize[]
+		{name = 'formationSizeOffsets', type = arrayType(uint16_t, numFormationSizeOffsets)},					-- 0x02d01a - 0x02d034 = offset by +0x020000 into formationSize[]
 		{name = 'formationSizes', type = arrayType(FormationSize, 48)},											-- 0x02d034 - 0x02d0f4
 
 		-- 0x036f00 - ? = menu portrait palette assignment (1 byte each)
 		-- 0x036f1b - ? = pointer to menu portrait graphics (2 bytes each)
 		{name = 'unknown_02d0f4', type = arrayType(uint8_t, -(0x02d0f4 - 0x03c00e))},							-- 0x02d0f4 - 0x03c00e
 
-		{name = 'positionedTextOffsets', type = arrayType(uint16_t, numPositionedText)},							-- 0x03c00e - 0x03c018
+		{name = 'positionedTextOffsets', type = arrayType(uint16_t, numPositionedText)},						-- 0x03c00e - 0x03c018
 
 		{name = 'unknown_03c018', type = arrayType(uint8_t, -(0x03c018 - 0x03c2fc))},							-- 0x03c018 - 0x03c2fc
 
@@ -2239,14 +2239,14 @@ Game = struct{
 		-- "P}BUY  SELL  EXITA:}GPAr GPAz}Owned:Az Equipped:AP Bat PwrAP DefenseAl â¦Af{Hi! Can I help you?Af{Help yourself!Af{How many?Af{Whatcha got?Af{How many?Af{Bye!          Af{You need more GP!Af{Too many!       Af{One's plenty! A"
 		{name = 'unknown_03c406', type = arrayType(uint8_t, -(0x03c406 - 0x040000))},							-- 0x03c406 - 0x040000
 
-		{name = 'touchTriggerOfs', type = arrayType(uint16_t, (0x040342 - 0x040000)/2)},							-- 0x040000 - 0x040342 = offset by +0x040000
+		{name = 'touchTriggerOfs', type = arrayType(uint16_t, (0x040342 - 0x040000)/2)},						-- 0x040000 - 0x040342 = offset by +0x040000
 		{name = 'touchTriggers', type = arrayType(TouchTrigger, 0x48f)},										-- 0x040342 - 0x041a0d = map event triggers (5 bytes each)
 
 		{name = 'padding_041a0d', type = arrayType(uint8_t, -(0x041a0d - 0x041a10))},							-- 0x041a0d - 0x041a10
 
-		{name = 'npcOfs', type = arrayType(uint16_t, -(0x041a10 - 0x041d52)/2)},									-- 0x041a10 - 0x041d52 = npc offsets (+0x041a10)
+		{name = 'npcOfs', type = arrayType(uint16_t, -(0x041a10 - 0x041d52)/2)},								-- 0x041a10 - 0x041d52 = npc offsets (+0x041a10)
 		{name = 'npcs', type = arrayType(NPC, 0x891)},															-- 0x041d52 - 0x046a6b = npc data
-		{name = 'unused_046a6b', type = arrayType(uint8_t, -(0x046a6b - 0x046ac0))},								-- 0x046a6b - 0x046ac0 = unused
+		{name = 'unused_046a6b', type = arrayType(uint8_t, -(0x046a6b - 0x046ac0))},							-- 0x046a6b - 0x046ac0 = unused
 		{name = 'spells', type = arrayType(Spell, 0x100)},														-- 0x046ac0 - 0x0478c0
 		{name = 'characterNames', type = arrayType(CharacterName, numCharacters)},								-- 0x0478c0 - 0x047a40
 		{name = 'blitzData', type = arrayType(Raw12, numBlitzes)},												-- 0x047a40 - 0x047aa0
@@ -2255,7 +2255,7 @@ Game = struct{
 
 		{name = 'shops', type = arrayType(Shop, 0x80)},															-- 0x047ac0 - 0x047f40
 		{name = 'metamorphSets', type = arrayType(ItemRef4, 0x1a)},												-- 0x047f40 - 0x047fa8
-		{name = 'padding_047fa8', type = arrayType(uint8_t, 0x18)},														-- 0x047fa8 - 0x047fc0 = 00's.  just like font intro is.  is this just 24 more bytes of font data?
+		{name = 'padding_047fa8', type = arrayType(uint8_t, 0x18)},												-- 0x047fa8 - 0x047fc0 = 00's.  just like font intro is.  is this just 24 more bytes of font data?
 		{name = 'font', type = arrayType(uint8_t, 0x10 * 0x100)},												-- 0x047fc0 - 0x048fc0 -- font graphics (8x8x2bpp, 16 bytes each, 0x00-0xff) ... the first half is blank
 		{name = 'font16_widths', type = arrayType(uint8_t, 0x80)},												-- 0x048fc0 - 0x049040 -- font character cell widths (0x00-0x7f)
 
@@ -2270,7 +2270,7 @@ Game = struct{
 		-- 0x04f6fb-0x04ffff = Ending Sprite Graphics (compressed)
 		{name = 'unknown_049900', type = arrayType(uint8_t, -(0x049900 - 0x05070e))},							-- 0x049900 - 0x05070e
 
-		{name = 'spcMainCodeLoopLen', type = uint16_t},														-- 0x05070e - 0x050710 -- length of main SPC code loop
+		{name = 'spcMainCodeLoopLen', type = uint16_t},															-- 0x05070e - 0x050710 -- length of main SPC code loop
 		{name = 'spcMainCode', type = arrayType(uint8_t, -(0x050710 - 0x051ec7))},								-- 0x050710 - 0x051ec7 -- main SPC code loop
 
 		{name = 'unknown_051ec7', type = arrayType(uint8_t, -(0x051ec7 - 0x053c5f))},							-- 0x051ec7 - 0x053c5f
@@ -2289,7 +2289,7 @@ Game = struct{
 		{name = 'theEndGraphics2', type = arrayType(uint8_t, -(0x09fe00 - 0x09ff00))},							-- 0x09fe00 - 0x09ff00 = 4bpp
 		{name = 'theEndPalette', type = Palette16_8},															-- 0x09ff00 - 0x0a0000
 		{name = 'eventScript', type = arrayType(uint8_t, -(0x0a0000 - 0x0ce600))},								-- 0x0a0000 - 0x0ce600
-		{name = 'dialogOffsets', type = arrayType(uint16_t, numDialogs)},											-- 0x0ce600 - 0x0d0000.  the first dialog offset points to the dialog which needs the bank byte to increment
+		{name = 'dialogOffsets', type = arrayType(uint16_t, numDialogs)},										-- 0x0ce600 - 0x0d0000.  the first dialog offset points to the dialog which needs the bank byte to increment
 		{name = 'dialogBase', type = arrayType(uint8_t, -(0x0d0000 - 0x0ef100))},								-- 0x0d0000 - 0x0ef100 ... hmm, there are dangling npc-event-scripts from 0x0d200 to 0x0de302 ... in the middle of dialogBase
 		{name = 'mapNameBase', type = arrayType(uint8_t, -(0x0ef100 - 0x0ef600))},								-- 0x0ef100 - 0x0ef600
 
@@ -2298,10 +2298,10 @@ Game = struct{
 		-- 0x0ef678 - 0x0efb60 is mostly '06' repeated
 		{name = 'unknown_0ef600', type = arrayType(uint8_t, -(0x0ef600 - 0x0efb60))},							-- 0x0ef600 - 0x0efb60
 
-		{name = 'rareItemDescOffsets', type = arrayType(uint16_t, numRareItems)},									-- 0x0efb60 - 0x0efb88
-		{name = 'padding_0efb88', type = arrayType(uint8_t, 0x18)},														-- 0x0efb88 - 0x0efba0 -- all 'ff' repeated ... enough for 12 extra offsets ... there are 20 rare items ... 20+12=32
+		{name = 'rareItemDescOffsets', type = arrayType(uint16_t, numRareItems)},								-- 0x0efb60 - 0x0efb88
+		{name = 'padding_0efb88', type = arrayType(uint8_t, 0x18)},												-- 0x0efb88 - 0x0efba0 -- all 'ff' repeated ... enough for 12 extra offsets ... there are 20 rare items ... 20+12=32
 		{name = 'rareItemNames', type = arrayType(RareItemName, numRareItems)},									-- 0x0efba0 - 0x0efca4 -- rare item names are 13 chars
-		{name = 'padding_0efca4', type = arrayType(uint8_t, 0xc)},														-- 0x0efca4 - 0x0efcb0 -- all 'ff' repeated, for 12 bytes, not quite 1 more name
+		{name = 'padding_0efca4', type = arrayType(uint8_t, 0xc)},												-- 0x0efca4 - 0x0efcb0 -- all 'ff' repeated, for 12 bytes, not quite 1 more name
 		{name = 'rareItemDescBase', type = arrayType(uint8_t, -(0x0efcb0 - 0x0f0000))},							-- 0x0efcb0 - 0x0f0000
 		{name = 'monsters', type = arrayType(Monster, numMonsters)},											-- 0x0f0000 - 0x0f3000
 		{name = 'monsterItems', type = arrayType(MonsterItem, numMonsters)},									-- 0x0f3000 - 0x0f3600
@@ -2310,18 +2310,18 @@ Game = struct{
 		-- 0x0f37c0 - 0x0f3940 is something
 		{name = 'unknown_0f3600', type = arrayType(uint8_t, -(0x0f3600 - 0x0f3940))},							-- 0x0f3600 - 0x0f3940
 
-		{name = 'esperDescBase', type = arrayType(uint8_t, -(0x0f3940 - 0x0f3c40))},								-- 0x0f3940 - 0x0f3c40
+		{name = 'esperDescBase', type = arrayType(uint8_t, -(0x0f3940 - 0x0f3c40))},							-- 0x0f3940 - 0x0f3c40
 		{name = 'swordTechNames', type = arrayType(SwordTechName, numSwordTechs)},								-- 0x0f3c40 - 0x0f3ca0
-		{name = 'padding_0f3ca0', type = arrayType(uint8_t, 0x60)},														-- 0x0f3ca0 - 0x0f3d00 -- all 'ff' repeated
+		{name = 'padding_0f3ca0', type = arrayType(uint8_t, 0x60)},												-- 0x0f3ca0 - 0x0f3d00 -- all 'ff' repeated
 		{name = 'monsterSpells', type = arrayType(SpellRef4, numMonsters)},										-- 0x0f3d00 - 0x0f4300
 		{name = 'monsterSketches', type = arrayType(SpellRef2, numMonsters)},									-- 0x0f4300 - 0x0f4600
 		{name = 'monsterRages', type = arrayType(SpellRef2, 0x100)},											-- 0x0f4600 - 0x0f4800
 		{name = 'monsterRandomBattles', type = arrayType(MonsterRandomBattleEntry4, 0x100)},					-- 0x0f4800 - 0x0f5000
 		{name = 'monsterEventBattles', type = arrayType(MonsterRandomBattleEntry2, 0x100)},						-- 0x0f5000 - 0x0f5400
 		{name = 'worldSectorRandomBattlesPerTerrain', type = arrayType(WorldSectorRandomBattlesPerTerrain, 0x80)},-- 0x0f5400 - 0x0f5600 = [world][sectorx][sectory]  ... 64 sectors (32x32 chunks of 256x256 world map) per WoB, 64 for WoR
-		{name = 'mapRandomBattleOptions', type = arrayType(uint8_t, 0x200)},												-- 0x0f5600 - 0x0f5800 = one per map, index into monsterRandomBattles
-		{name = 'worldSectorRandomBattleEncounterRatesPerTerrain', type = arrayType(uint8_t, 0x80)},						-- 0x0f5800 - 0x0f5880 = 2 bits used ... 64 sectors per WoB, 64 per WoR ... 8 items per sector, 2bpp each ( https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:rom_map )
-		{name = 'mapBattleProbability', type = arrayType(uint8_t, 0x80)},												-- 0x0f5880 - 0x0f5900 = 2 bits used
+		{name = 'mapRandomBattleOptions', type = arrayType(uint8_t, 0x200)},									-- 0x0f5600 - 0x0f5800 = one per map, index into monsterRandomBattles
+		{name = 'worldSectorRandomBattleEncounterRatesPerTerrain', type = arrayType(uint8_t, 0x80)},			-- 0x0f5800 - 0x0f5880 = 2 bits used ... 64 sectors per WoB, 64 per WoR ... 8 items per sector, 2bpp each ( https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:rom_map )
+		{name = 'mapBattleProbability', type = arrayType(uint8_t, 0x80)},										-- 0x0f5880 - 0x0f5900 = 2 bits used
 		{name = 'formation2s', type = arrayType(Formation2, numFormations)},									-- 0x0f5900 - 0x0f6200
 		{name = 'formations', type = arrayType(Formation, numFormations)},										-- 0x0f6200 - 0x0f83c0
 		{name = 'padding_0f83c0', type = arrayType(uint8_t, -(0x0f83c0 - 0x0f8400))},							-- 0x0f83c0 - 0x0f8400 - all 'ff' repeated.  probably 4 last empty formations + padding
@@ -2330,43 +2330,43 @@ Game = struct{
 
 		{name = 'monsterScripts', type = arrayType(uint8_t, -(0x0f8700 - 0x0fc050))},							-- 0x0f8700 - 0x0fc050
 		{name = 'monsterNames', type = arrayType(MonsterName, numMonsters)},									-- 0x0fc050 - 0x0fcf50
-		{name = 'monsterNameThing', type = arrayType(uint8_t, numMonsters)},										-- 0x0fcf50 - 0x0fd0d0
+		{name = 'monsterNameThing', type = arrayType(uint8_t, numMonsters)},									-- 0x0fcf50 - 0x0fd0d0
 		{name = 'monsterAttackNames', type = arrayType(MonsterName, numMonsters)},								-- 0x0fd0d0 - 0x0fdfd0
-		{name = 'padding_0fdfd0', type = arrayType(uint8_t, 0x10)},														-- 0x0fdfd0 - 0x0fdfe0 = 'ff's
-		{name = 'battleDialogOffsets', type = arrayType(uint16_t, numBattleDialogs)},								-- 0x0fdfe0 - 0x0fe1e0
+		{name = 'padding_0fdfd0', type = arrayType(uint8_t, 0x10)},												-- 0x0fdfd0 - 0x0fdfe0 = 'ff's
+		{name = 'battleDialogOffsets', type = arrayType(uint16_t, numBattleDialogs)},							-- 0x0fdfe0 - 0x0fe1e0
 		{name = 'battleDialogBase', type = arrayType(uint8_t, -(0x0fe1e0 - 0x0ff450))},							-- 0x0fe1e0 - 0x0ff450
 
 		{name = 'unknown_0ff450', type = arrayType(uint8_t, -(0x0ff450 - 0x0ffc00))},							-- 0x0ff450 - 0x0ffc00
 
-		{name = 'blitzDescBase', type = arrayType(uint8_t, -(0x0ffc00 - 0x0ffd00))},								-- 0x0ffc00 - 0x0ffd00
-		{name = 'swordTechDescBase', type = arrayType(uint8_t, -(0x0ffd00 - 0x0ffe00))},							-- 0x0ffd00 - 0xfffe00
+		{name = 'blitzDescBase', type = arrayType(uint8_t, -(0x0ffc00 - 0x0ffd00))},							-- 0x0ffc00 - 0x0ffd00
+		{name = 'swordTechDescBase', type = arrayType(uint8_t, -(0x0ffd00 - 0x0ffe00))},						-- 0x0ffd00 - 0xfffe00
 
 		{name = 'unknown_0ffe00', type = arrayType(uint8_t, -(0x0ffe00 - 0x0ffe40))},							-- 0x0ffe00 - 0x0ffe40
 
 		{name = 'esperDescOffsets', type = arrayType(uint16_t, numEspers)},										-- 0x0ffe40 - 0x0ffe76
-		{name = 'padding_0ffe76', type = arrayType(uint8_t, 0xa)},														-- 0x0ffe76 - 0x0ffe80 = 026d repeated, probably the final offset.
+		{name = 'padding_0ffe76', type = arrayType(uint8_t, 0xa)},												-- 0x0ffe76 - 0x0ffe80 = 026d repeated, probably the final offset.
 
 		{name = 'unknown_0ffe80', type = arrayType(uint8_t, -(0x0ffe80 - 0x0ffeae))},							-- 0x0ffe76 - 0x0ffeae
 
 		{name = 'esperBonusDescs', type = arrayType(EsperBonusDesc, numEsperBonuses)},							-- 0x0ffeae - 0x0fff47
-		{name = 'padding_0fff47', type = arrayType(uint8_t, 87)},														-- 0x0fff47 - 0x0fff9e = 'ff's
-		{name = 'blitzDescOffsets', type = arrayType(uint16_t, numBlitzes)},										-- 0x0fff9e - 0x0fffae
+		{name = 'padding_0fff47', type = arrayType(uint8_t, 87)},												-- 0x0fff47 - 0x0fff9e = 'ff's
+		{name = 'blitzDescOffsets', type = arrayType(uint16_t, numBlitzes)},									-- 0x0fff9e - 0x0fffae
 		{name = 'swordTechDescOffsets', type = arrayType(uint16_t, numSwordTechs)},								-- 0x0fffae - 0x0fffbe
-		{name = 'battleAnimScripts', type = arrayType(uint8_t, -(0x0fffbe - 0x107fb2))},							-- 0x0fffbe - 0x107fb2 <- indexed into with battleAnimScriptOffsets[i] + 0x100000
+		{name = 'battleAnimScripts', type = arrayType(uint8_t, -(0x0fffbe - 0x107fb2))},						-- 0x0fffbe - 0x107fb2 <- indexed into with battleAnimScriptOffsets[i] + 0x100000
 		{name = 'battleAnimSets', type = arrayType(BattleAnimSet, 444)},										-- 0x107fb2 - 0x1097fa
 		{name = 'padding_1097fa', type = arrayType(uint8_t, -(0x1097fa - 0x109800))},							-- 0x1097fa - 0x109800 = 'ff's, just like the end of battleAnimSets
 
 		{name = 'unknown_109800', type = arrayType(uint8_t, -(0x109800 - 0x10d000))},							-- 0x109800 - 0x10d000
 
 		{name = 'battleDialog2Offsets', type = arrayType(uint16_t, numBattleDialog2s)},							-- 0x10d000 - 0x10d200
-		{name = 'battleDialog2Base', type = arrayType(uint8_t, -(0x10d200 - 0x10fd00))},							-- 0x10d200 - 0x10fd00
+		{name = 'battleDialog2Base', type = arrayType(uint8_t, -(0x10d200 - 0x10fd00))},						-- 0x10d200 - 0x10fd00
 
 		{name = 'unknown_10fd00', type = arrayType(uint8_t, -(0x10fd00 - 0x110141))},							-- 0x10fd00 - 0x110141
 
 		{name = 'battleAnimFrame16x16Tiles', type = arrayType(BattleAnim16x16Tile, 0x74cb)},					-- 0x110141 - 0x11ead7 ... 2 bytes each ... pointers from battleAnimFrame16x16TileOffsets offset by 0x110000 but point into here
 		{name = 'padding_11ead7', type = uint8_t},																-- 0x11ead7 - 0x11ead8 -- 'ff'
-		{name = 'battleAnimScriptOffsets', type = arrayType(uint16_t, 660)},												-- 0x11ead8 - 0x11f000 ... uint16 offsets +0x100000 ... maybe there are only 650 of these to match with `countof(battleAnimEffects)`?
-		{name = 'battleMessageBase', type = arrayType(uint8_t, -(0x11f000 - 0x11f7a0))},							-- 0x11f000 - 0x11f7a0
+		{name = 'battleAnimScriptOffsets', type = arrayType(uint16_t, 660)},									-- 0x11ead8 - 0x11f000 ... uint16 offsets +0x100000 ... maybe there are only 650 of these to match with `countof(battleAnimEffects)`?
+		{name = 'battleMessageBase', type = arrayType(uint8_t, -(0x11f000 - 0x11f7a0))},						-- 0x11f000 - 0x11f7a0
 		{name = 'battleMessageOffsets', type = arrayType(uint16_t, numBattleMessages)},							-- 0x11f7a0 - 0x11f9a0
 
 		{name = 'unknown_11f9a0', type = arrayType(uint8_t, -(0x11f9a0 - 0x120000))},							-- 0x11f9a0 - 0x120000
@@ -2374,11 +2374,11 @@ Game = struct{
 		{name = 'battleAnimGraphicsSets3bpp', type = arrayType(BattleAnim8x8Tile, 0x20 * 0x180)},				-- 0x120000 - 0x126000 - holds the 'graphicSet' uint16 offsets from BattleAnimEffect * (0x20 entries == 0x40 bytes)
 		{name = 'battleAnimPalettes', type = arrayType(Palette8, 0xf0)},										-- 0x126000 - 0x126f00
 		{name = 'itemTypeNames', type = arrayType(Str7, 0x20)},													-- 0x126f00 - 0x126fe0
-		{name = 'padding_126fe0', type = arrayType(uint8_t, 0x20)},														-- 0x126fe0 - 0x127000 = 'ff's
+		{name = 'padding_126fe0', type = arrayType(uint8_t, 0x20)},												-- 0x126fe0 - 0x127000 = 'ff's
 		{name = 'monsterSprites', type = arrayType(MonsterSprite, 0x1a0)},										-- 0x127000 - 0x127820
 		{name = 'monsterPalettes', type = arrayType(Palette8, 0x300)},											-- 0x127820 - 0x12a820
-		{name = 'monsterSpriteTileMask8Ofs', type = uint16_t},												-- 0x12a820 - 0x12a822
-		{name = 'monsterSpriteTileMask16Ofs', type = uint16_t},												-- 0x12a822 - 0x12a824
+		{name = 'monsterSpriteTileMask8Ofs', type = uint16_t},													-- 0x12a820 - 0x12a822
+		{name = 'monsterSpriteTileMask16Ofs', type = uint16_t},													-- 0x12a822 - 0x12a824
 		{name = 'monsterSpriteTileMaskData', type = arrayType(uint8_t, 0x12b300 - 0x12a824 )},					-- 0x12a824 - 0x12b300
 		{name = 'itemNames', type = arrayType(Str13, numItems)},												-- 0x12b300 - 0x12c000
 		{name = 'battleAnimGraphicsSets2bpp', type = arrayType(BattleAnim8x8Tile, 0x20 * 0xb0)},				-- 0x12c000 - 0x12ec00	-- should be 2bpp battle animation 16x16-tile-info referenced by .graphicSet
@@ -2395,7 +2395,7 @@ Game = struct{
 		{name = 'unknown_14ca00', type = arrayType(uint8_t, -(0x14ca00 - 0x14d000))},							-- 0x14ca00 - 0x14d000
 
 		{name = 'battleAnimEffects', type = arrayType(BattleAnimEffect, 650)},									-- 0x14d000 - 0x14df3c
-		{name = 'battleAnimFrame16x16TileOffsets', type = arrayType(uint16_t, 4194)},									-- 0x14df3c - 0x150000	-- +0x110000 ... really just 2949 that are valid.  each is a uint16_t, add to 0x110000 to get the start of the variable-length BattleAnim16x16Tile list into battleAnimFrame16x16Tiles
+		{name = 'battleAnimFrame16x16TileOffsets', type = arrayType(uint16_t, 4194)},							-- 0x14df3c - 0x150000	-- +0x110000 ... really just 2949 that are valid.  each is a uint16_t, add to 0x110000 to get the start of the variable-length BattleAnim16x16Tile list into battleAnimFrame16x16Tiles
 
 		{name = 'fieldSpriteGraphics', type = arrayType(uint8_t, -(0x150000 - 0x185000))},						-- 0x150000 - 0x185000 = character images, 0x16a0 bytes each
 
@@ -2403,9 +2403,9 @@ Game = struct{
 		{name = 'espers', type = arrayType(Esper, numEspers)},													-- 0x186e00 - 0x186f29
 		{name = 'padding_186f29', type = arrayType(uint8_t, -(0x186f29 - 0x187000))},							-- 0x186f29 - 0x187000 = 'ff's
 		{name = 'battleAnimGraphics2bpp', type = arrayType(uint8_t, -(0x187000 - 0x18c9a0))},					-- 0x187000 - 0x18c9a0	-- 2bpp, so 1434 tiles
-		{name = 'spellDescBase', type = arrayType(uint8_t, -(0x18c9a0 - 0x18cea0))},								-- 0x18c9a0 - 0x18cea0
+		{name = 'spellDescBase', type = arrayType(uint8_t, -(0x18c9a0 - 0x18cea0))},							-- 0x18c9a0 - 0x18cea0
 		{name = 'menuNames', type = arrayType(MenuName, 0x20)},													-- 0x18cea0 - 0x18cf80
-		{name = 'spellDescOffsets', type = arrayType(uint16_t, 54)},														-- 0x18cf80 - 0x18cfec
+		{name = 'spellDescOffsets', type = arrayType(uint16_t, 54)},											-- 0x18cf80 - 0x18cfec
 		{name = 'padding_18cfec', type = arrayType(uint8_t, -(0x18cfec - 0x18d000))},							-- 0x18cfec - 0x18d000 = 'ff's
 
 		{name = 'unknown_18d000', type = arrayType(uint8_t, -(0x18d000 - 0x18e6ba))},							-- 0x18d000 - 0x18e6ba
@@ -2417,52 +2417,52 @@ Game = struct{
 		{name = 'unknown_18e800', type = arrayType(uint8_t, -(0x18e800 - 0x19a800))},							-- 0x18e800 - 0x19a800
 
 		{name = 'mapTilePropsCompressed', type = arrayType(uint8_t, -(0x19a800 - 0x19cd10))},					-- 0x19a800 - 0x19cd10 = map tile properties (compressed)
-		{name = 'mapTilePropsOffsets', type = arrayType(uint16_t, 0x2a)},												-- 0x19cd10 - 0x19cd60 = offsets to map tile properties (+0x19a800) into mapTilePropsCompressed ... 0x40 but only 0x29 point to valid compressed data
-		{name = 'unused_19cd62', type = arrayType(uint16_t, 0x16)},														-- 0x19cd60 - 0x19cd90
+		{name = 'mapTilePropsOffsets', type = arrayType(uint16_t, 0x2a)},										-- 0x19cd10 - 0x19cd60 = offsets to map tile properties (+0x19a800) into mapTilePropsCompressed ... 0x40 but only 0x29 point to valid compressed data
+		{name = 'unused_19cd62', type = arrayType(uint16_t, 0x16)},												-- 0x19cd60 - 0x19cd90
 		{name = 'mapLayoutOffsets', type = arrayType(uint24_t, 0x160)},											-- 0x19cd90 - 0x19d1b0 = offsets to map data (352 items), (+0x19d1b0)
 		{name = 'mapLayoutsCompressed', type = arrayType(uint8_t, -(0x19d1b0 - 0x1e0000))},						-- 0x19d1b0 - 0x1e0000 = map data (compressed)
-		{name = 'mapTilesetsCompressed', type = arrayType(uint8_t, -(0x1e0000 - 0x1fb400))},						-- 0x1e0000 - 0x1fb400 = map tile formation (compressed)
-		{name = 'formationMPs', type = arrayType(uint8_t, 0x200)},														-- 0x1fb400 - 0x1fb600
+		{name = 'mapTilesetsCompressed', type = arrayType(uint8_t, -(0x1e0000 - 0x1fb400))},					-- 0x1e0000 - 0x1fb400 = map tile formation (compressed)
+		{name = 'formationMPs', type = arrayType(uint8_t, 0x200)},												-- 0x1fb400 - 0x1fb600
 		{name = 'itemColosseumInfos', type = arrayType(ItemColosseumInfo, numItems)},							-- 0x1fb600 - 0x1fba00
 		{name = 'mapTilesetOffsets', type = arrayType(uint24_t, 0x4b)},											-- 0x1fba00 - 0x1fbaff -- 24bit, offset by +0x1e0000, points into mapTilesetsCompressed ... last points to invalid data so I cut it off.
-		{name = 'padding_1fbaff', type = arrayType(uint8_t, 31)},														-- 0x1fbaff - 0x1fbb00
-		{name = 'doorsOfs', type = arrayType(uint16_t, 0x201)},															-- 0x1fbb00 - 0x1fbf02 -- offset by +0x1fbb00
+		{name = 'padding_1fbaff', type = arrayType(uint8_t, 31)},												-- 0x1fbaff - 0x1fbb00
+		{name = 'doorsOfs', type = arrayType(uint16_t, 0x201)},													-- 0x1fbb00 - 0x1fbf02 -- offset by +0x1fbb00
 		{name = 'doors', type = arrayType(Door, 0x469)},														-- 0x1fbf02 - 0x1fd978 = Door[] (only 415 used?)
-		{name = 'padding_1fd978', type = arrayType(uint8_t, 136)},														-- 0x1fd978 - 0x1fda00 = 'ff's
+		{name = 'padding_1fd978', type = arrayType(uint8_t, 136)},												-- 0x1fd978 - 0x1fda00 = 'ff's
 		{name = 'mapTileGraphicsOffsets', type = arrayType(uint24_t, 0x52)},									-- 0x1fda00 - 0x1fdaf6 = town tile graphics pointers (+0x1fdb00), points into mapTileGraphics
-		{name = 'padding_1fdaf6', type = arrayType(uint8_t, 10)},														-- 0x1fdaf6 - 0x1fdb00
+		{name = 'padding_1fdaf6', type = arrayType(uint8_t, 10)},												-- 0x1fdaf6 - 0x1fdb00
 		{name = 'mapTileGraphics', type = arrayType(uint8_t, -(0x1fdb00 - 0x25f400))},							-- 0x1fdb00 - 0x25f400 = map tile graphics for layers 1&2, 4bpp
 		{name = 'unknown_25f400', type = arrayType(uint8_t, -(0x25f400 - 0x260000))},							-- 0x25f400 - 0x260000 -- there's one battle bg in here
 		{name = 'mapAnimGraphics', type = arrayType(uint8_t, -(0x260000 - 0x268000))},							-- 0x260000 - 0x268000 = 4bpp
 		{name = 'characterPalettes', type = arrayType(Palette16, numCharacterPalettes)},						-- 0x268000 - 0x268400	-- also town tile palettes?
 		{name = 'mapNameOffsets', type = arrayType(uint16_t, numMapNames)},										-- 0x268400 - 0x268780
-		{name = 'mapTileGraphicsLayer3', type = arrayType(uint8_t, -(0x268780 - 0x26cd60))},						-- 0x268780 - 0x26cd60  map tile garphics for layer 3, 2bpp
+		{name = 'mapTileGraphicsLayer3', type = arrayType(uint8_t, -(0x268780 - 0x26cd60))},					-- 0x268780 - 0x26cd60  map tile garphics for layer 3, 2bpp
 		{name = 'mapTileGraphicsLayer3Offsets', type = arrayType(uint24_t, 18)},								-- 0x26cd60 - 0x26cd96 = offset, +0x268780 .. there's 19, but only 18 point to valid compressed data ...
-		{name = 'padding_26cd96', type = arrayType(uint8_t, 10)},														-- 0x26cd96 - 0x26cda0
+		{name = 'padding_26cd96', type = arrayType(uint8_t, 10)},												-- 0x26cd96 - 0x26cda0
 		{name = 'mapAnimGraphicsLayer3Ofs', type = arrayType(uint24_t, 10)},									-- 0x26cda0 - 0x26cdbe = offset, +0x26cdc0 to mapAnimGraphicsLayer3.  has values [0]=0 thru [6]=0x23d8 (which is the end of mapAnimGraphicsLayer3), so there's 6 entries
-		{name = 'padding_26cdbe', type = arrayType(uint8_t, 2)},															-- 0x26cdbe - 0x26cdc0
-		{name = 'mapAnimGraphicsLayer3', type = arrayType(uint8_t, -(0x26cdc0 - 0x26f198))},						-- 0x26cdc0 - 0x26f198 = 2bpp, compressed
+		{name = 'padding_26cdbe', type = arrayType(uint8_t, 2)},												-- 0x26cdbe - 0x26cdc0
+		{name = 'mapAnimGraphicsLayer3', type = arrayType(uint8_t, -(0x26cdc0 - 0x26f198))},					-- 0x26cdc0 - 0x26f198 = 2bpp, compressed
 		{name = 'padding_26f198', type = arrayType(uint8_t, -(0x26f198 - 0x26f200))},							-- 0x26f198 - 0x26f200 = FF's, probably tail filler of mapAnimGraphicsLayer3
 
 		{name = 'unknown_26f200', type = arrayType(uint8_t, -(0x26f200 - 0x26f4a0))},							-- 0x26f200 - 0x26f4a0.  filled from 0x26f200 - 0x26f440, then FF's from 0x0026f440 - 0x26f4a0
 
-		{name = 'hpIncPerLevelUp', type = arrayType(uint8_t, numLevels)},											-- 0x26f4a0 - 0x26f502
-		{name = 'mpIncPerLevelUp', type = arrayType(uint8_t, numLevels)},											-- 0x26f502 - 0x26f564
-		{name = 'padding_26f564', type = arrayType(uint8_t, 3)},															-- 0x26f564 - 0x26f567
+		{name = 'hpIncPerLevelUp', type = arrayType(uint8_t, numLevels)},										-- 0x26f4a0 - 0x26f502
+		{name = 'mpIncPerLevelUp', type = arrayType(uint8_t, numLevels)},										-- 0x26f502 - 0x26f564
+		{name = 'padding_26f564', type = arrayType(uint8_t, 3)},												-- 0x26f564 - 0x26f567
 		{name = 'spellNames_0to53', type = arrayType(Str7, 54)}, 												-- 0x26f567 - 0x26f6e1
 		{name = 'spellNames_54to80', type = arrayType(Str8, 27)},                             					-- 0x26f6e1 - 0x26f7b9
 		{name = 'spellNames_81to255', type = arrayType(Str10, 175)},											-- 0x26f7b9 - 0x26fe8f
 		{name = 'esperAttackNames', type = arrayType(Str10, numEspers)},										-- 0x26fe8f - 0x26ff9d
 		{name = 'mogDanceNames', type = arrayType(MogDanceName, numMogDances)},									-- 0x26ff9d - 0x26fffd
-		{name = 'padding_26fffd', type = arrayType(uint8_t, 3)},															-- 0x26fffd - 0x270000
+		{name = 'padding_26fffd', type = arrayType(uint8_t, 3)},												-- 0x26fffd - 0x270000
 		{name = 'battleBgProperties', type = arrayType(BattleBgProps, 56)},										-- 0x270000 - 0x270150 = 56*6
 		{name = 'battleBgPalettes', type = arrayType(RGBA5551, 0xa80)},											-- 0x270150 - 0x271650 ... everything's says 56 or 96? max index is 0x34 = 52
 		{name = 'battleBgGfxAddrs', type = arrayType(uint24_t, 0xa8)},											-- 0x271650 - 0x271848 = 75 used, the rest are 0's, most points into battleBgGfxCompressed
-		{name = 'battleBgLayoutOffsets', type = arrayType(uint16_t, 0x70)},												-- 0x271848 - 0x271928 = +0x270000 .  49 are valid. invalid contain 0x1928.  points into battleBgLayoutCompressed
+		{name = 'battleBgLayoutOffsets', type = arrayType(uint16_t, 0x70)},										-- 0x271848 - 0x271928 = +0x270000 .  49 are valid. invalid contain 0x1928.  points into battleBgLayoutCompressed
 		{name = 'battleBgLayoutCompressed', type = arrayType(uint8_t, -(0x271928-0x27a9e7))},					-- 0x271928 - 0x27a9e7 = 32x32x4bpp
 		{name = 'battleBgGfxCompressed', type = arrayType(uint8_t, -(0x27a9e7-0x296300))},						-- 0x27a9e7 - 0x296300 = 4bpp
 		{name = 'theEndGraphics1', type = arrayType(uint8_t, -(0x296300 - 0x297000))},							-- 0x296300 - 0x297000 = 4bpp
-		{name = 'monsterSpriteData', type = arrayType(uint8_t, -(0x297000 - 0x2d0000))},							-- 0x297000 - 0x2d0000 = monster graphics
+		{name = 'monsterSpriteData', type = arrayType(uint8_t, -(0x297000 - 0x2d0000))},						-- 0x297000 - 0x2d0000 = monster graphics
 		{name = 'menuImages', type = arrayType(uint8_t, -(0x2d0000 - 0x2d0e00))},								-- 0x2d0000 - 0x2d0e00 = menu images 0x200 = bg pattern, 0x180 = borders, so 0x380 total ... x8 per menu scheme
 
 		{name = 'unknown_2d0e00', type = arrayType(uint8_t, -(0x2d0e00 - 0x2d1c00))},							-- 0x2d0e00 - 0x2d1c00
@@ -2470,7 +2470,7 @@ Game = struct{
 		{name = 'menuWindowPalettes', type = Palette16_8},														-- 0x2d1c00 - 0x2d1d00 = menu window palettes, x8, 16 colors each, 2 bytes per color
 		-- TODO struct multi dim arrays ...
 		--{name = 'characterMenuImages', type = 'uint8_t['..numMenuChars..'][5][5][8][4]'},						-- 0x2d1d00 - 0x2d5860 = character menu images [char][tx][ty][col][row] @ 4bpp
-		{name = 'characterMenuImages', type = arrayType(uint8_t, numMenuChars * 5 * 5 * 8 * 4)},					-- 0x2d1d00 - 0x2d5860 = character menu images [char][tx][ty][col][row] @ 4bpp
+		{name = 'characterMenuImages', type = arrayType(uint8_t, numMenuChars * 5 * 5 * 8 * 4)},				-- 0x2d1d00 - 0x2d5860 = character menu images [char][tx][ty][col][row] @ 4bpp
 		{name = 'menuPortraitPalette', type = arrayType(Palette16, numMenuChars)},								-- 0x2d5860 - 0x2d5ac0 = menu portrait palettes (16 colors each)
 		{name = 'handCursorGraphics', type = arrayType(uint8_t, -(0x2d5ac0 - 0x2d62c0))},						-- 0x2d5ac0 - 0x2d62c0 ? = hand cursor graphics
 		{name = 'battleWhitePalette', type = Palette4},															-- 0x2d62c0 - 0x2d62c8 = battle standard (white) text palette, 4 colors
@@ -2484,23 +2484,23 @@ Game = struct{
 		{name = 'battleMenuPalettes', type = Palette16_8},														-- 0x2d6300 - 0x2d6400 = battle/menu character sprite palettes, 8 palettes, 16 colors each
 		{name = 'itemDescBase', type = arrayType(uint8_t, -(0x2d6400 - 0x2d77a0))},								-- 0x2d6400 - 0x2d77a0
 		{name = 'loreDescBase', type = arrayType(uint8_t, -(0x2d77a0 - 0x2d7a70))},								-- 0x2d77a0 - 0x2d7a70
-		{name = 'loreDescOffsets', type = arrayType(uint16_t, numLores)},											-- 0x2d7a70 - 0x2d7aa0
-		{name = 'itemDescOffsets', type = arrayType(uint16_t, numItems)},											-- 0x2d7aa0 - 0x2d7ca0
+		{name = 'loreDescOffsets', type = arrayType(uint16_t, numLores)},										-- 0x2d7a70 - 0x2d7aa0
+		{name = 'itemDescOffsets', type = arrayType(uint16_t, numItems)},										-- 0x2d7aa0 - 0x2d7ca0
 		{name = 'characters', type = arrayType(Character, numCharacters)},										-- 0x2d7ca0 - 0x2d8220
-		{name = 'expForLevelUp', type = arrayType(uint16_t, 106)},														-- 0x2d8220 - 0x2d82f4
-		{name = 'treasureOfs', type = arrayType(uint16_t, 0x1a0)},														-- 0x2d82f4 - 0x2d8634 	-- offset +0x2d8634 into treasures
+		{name = 'expForLevelUp', type = arrayType(uint16_t, 106)},												-- 0x2d8220 - 0x2d82f4
+		{name = 'treasureOfs', type = arrayType(uint16_t, 0x1a0)},												-- 0x2d82f4 - 0x2d8634 	-- offset +0x2d8634 into treasures
 		{name = 'treasures', type = arrayType(Treasure, 0x11e)},												-- 0x2d8634 - 0x2d8bca
 		{name = 'padding_2d8bca', type = arrayType(uint8_t, -(0x2d8bca - 0x2d8e5b))},							-- 0x2d8bca - 0x2d8e5b = 'ff's
-		{name = 'battleBgDance', type = arrayType(uint8_t, 0x40)},														-- 0x2d8e5b - 0x2d8e9b
+		{name = 'battleBgDance', type = arrayType(uint8_t, 0x40)},												-- 0x2d8e5b - 0x2d8e9b
 		{name = 'padding_2d8e9b', type = arrayType(uint8_t, -(0x2d8e9b - 0x2d8f00))},							-- 0x2d8e9b - 0x2d8f00 = 'ff's
 		{name = 'maps', type = arrayType(Map, 0x19f)},															-- 0x2d8f00 - 0x2dc47f
-		{name = 'padding_2dc47f', type = arrayType(uint8_t, 1)},															-- 0x2dc47f - 0x2df480
+		{name = 'padding_2dc47f', type = arrayType(uint8_t, 1)},												-- 0x2dc47f - 0x2df480
 		{name = 'mapPalettes', type = arrayType(Palette16_8, 48)},												-- 0x2dc480 - 0x2df480 = map palettes (48 elements, 16x8 colors each)
-		{name = 'bigDoorsOfs', type = arrayType(uint16_t, 0x201)},														-- 0x2df480 - 0x2df882
+		{name = 'bigDoorsOfs', type = arrayType(uint16_t, 0x201)},												-- 0x2df480 - 0x2df882
 		{name = 'bigDoors', type = arrayType(BigDoor, 0x98)},													-- 0x2df882 - 0x2dfcaa
 		{name = 'padding_2dfcaa', type = arrayType(uint8_t, -(0x2dfcaa - 0x2dfe00))},							-- 0x2dfcaa - 0x2dfe00 = 'ff's
 		{name = 'longEsperBonusDescBase', type = arrayType(uint8_t, -(0x2dfe00 - 0x2dffd0))},					-- 0x2dfe00 - 0x2dffd0
-		{name = 'longEsperBonusDescOffsets', type = arrayType(uint16_t, numEsperBonuses)},							-- 0x2dffd0 - 0x2dfff2
+		{name = 'longEsperBonusDescOffsets', type = arrayType(uint16_t, numEsperBonuses)},						-- 0x2dffd0 - 0x2dfff2
 
 		-- 0x2e4842 - 0x2e4851     Sprites used for various positions of map character
 		{name = 'unknown_2dfff2', type = arrayType(uint8_t, -(0x2dfff2 - 0x2e9b14))},
@@ -2517,7 +2517,7 @@ Game = struct{
 
 		{name = 'WoRGfxDataCompressed', type = arrayType(uint8_t, -(0x2f4a46 - 0x2f6a56))},						-- 0x2f4a46 - 0x2f6a56
 		{name = 'WoRLayoutCompressed', type = arrayType(uint8_t, -(0x2f6a56 - 0x2f9d17))},						-- 0x2f6a56 - 0x2f9d17
-		{name = 'SerpentTrenchLayoutCompressed', type = arrayType(uint8_t, -(0x2f9d17 - 0x2fb631))},				-- 0x2f9d17 - 0x2fb631
+		{name = 'SerpentTrenchLayoutCompressed', type = arrayType(uint8_t, -(0x2f9d17 - 0x2fb631))},			-- 0x2f9d17 - 0x2fb631
 		{name = 'SerpentTrenchGfxDataCompressed', type = arrayType(uint8_t, -(0x2fb631 - 0x2fc624))},			-- 0x2fb631 - 0x2fc624
 
 		-- still something else at the end
