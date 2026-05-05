@@ -1,5 +1,5 @@
 local ffi = require 'ffi'
-local graphics = require 'graphics'
+local graphics = require 'ff6.graphics'
 local makeTiledImageWithMask = graphics.makeTiledImageWithMask
 
 local function readMonsterSprite(
