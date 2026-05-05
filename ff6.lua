@@ -1088,12 +1088,12 @@ local MonsterSprite = struct{
 	tostringOmitEmpty = true,
 	packed = true,
 	fields = {
-		{name='offset', type='uint16_t:15'},
-		{name='_3bpp', type='uint16_t:1'},
-		{name='palHi', type='uint8_t:7'},
-		{name='tile16', type='uint8_t:1'},
-		{name='palLo', type=uint8_t},
-		{name='tileMaskIndex', type=uint8_t},
+		{name='offset', type='uint16_t:15'},	-- 0.0 - 1.6
+		{name='_3bpp', type='uint16_t:1'},		-- 1.7
+		{name='palHi', type='uint8_t:7'},		-- 2.0 - 2.6
+		{name='tile16', type='uint8_t:1'},		-- 2.7
+		{name='palLo', type=uint8_t},			-- 3.0 - 3.7
+		{name='tileMaskIndex', type=uint8_t},	-- 4.0 - 4.7
 	},
 	metatable = function(mt)
 		mt.typeToString = fieldsToHex
