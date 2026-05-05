@@ -6,6 +6,7 @@ local function readMonsterSprite(
 	game,
 	index
 )
+	local Game = game.Game
 	local rom = game.rom
 	local monsterSprite = game.monsterSprites[index]
 
