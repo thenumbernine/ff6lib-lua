@@ -2218,6 +2218,7 @@ Game = struct{
 		{name = 'unknown_00d27c', type = arrayType(uint8_t, -(0x00d386 - 0x02ce2b))},							-- 0x00d386 - 0x02ce2b
 
 		-- battle character palette assignment (1 byte each)
+		-- or actually last bit probably means something else since it's not indexable
 		{name = 'characterPaletteIndexes', type = arrayType(uint8_t, numCharacterSprites)},						-- 0x02ce2b - 0x02ced0
 
 		{name = 'unknown_02ced0', type = arrayType(uint8_t, -(0x02ced0 - 0x02d01a))},							-- 0x02ced0 - 0x02d01a
