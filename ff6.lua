@@ -15,6 +15,12 @@ local uint8_t_p = ffi.typeof'uint8_t*'
 local uint16_t = ffi.typeof'uint16_t'
 
 
+-- util? ext.ffi or something?
+local function countof(array)
+	return ffi.sizeof(array) / (ffi.cast(uint8_t_p, array+1) - ffi.cast(uint8_t_p, array+0))
+end
+
+
 local Game
 
 -- default output to hex
@@ -376,7 +382,7 @@ function StringList:init(args)
 	self.offsets = assert(args.offsets)
 	assert.type(self.offsets, 'cdata')
 
-	self.numOffsets = tostring(ffi.typeof(self.offsets)):match'ctype<unsigned short %(&%)%[(%d+)%]>'
+	self.numOffsets = countof(self.offsets)
 
 	self.addrBase = args.addrBase
 	self.compressed = args.compressed
@@ -2666,10 +2672,7 @@ game.compstr = compstr
 game.getSpellName = getSpellName
 game.getEsperName = getEsperName
 
--- util? ext.ffi or something?
-game.countof = function(array)
-	return ffi.sizeof(array) / (ffi.cast(uint8_t_p, array+1) - ffi.cast(uint8_t_p, array+0))
-end
+game.countof = countof
 
 game.decompress = require 'ff6.decompress'
 
