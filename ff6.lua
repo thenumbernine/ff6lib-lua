@@ -2282,7 +2282,7 @@ Game = struct{
 
 		{name = 'brrSamplePtrs', type = arrayType(uint24_t, numBRRSamples)},									-- 0x053c5f - 0x053d1c -- BRR sample pointers (x63, 3 bytes each)
 		{name = 'loopStartOfs', type = arrayType(uint16_t, numBRRSamples)},										-- 0x053d1c - 0x053d9a -- loop start pointers (x63, 2 bytes each)
-		{name = 'pitchMults', type = arrayType(uint16_t, numBRRSamples)},											-- 0x053d9a - 0x053e18 -- pitch multipliers (x63, 2 bytes each)
+		{name = 'pitchMults', type = arrayType(uint16_t, numBRRSamples)},										-- 0x053d9a - 0x053e18 -- pitch multipliers (x63, 2 bytes each)
 		{name = 'adsrData', type = arrayType(uint16_t, numBRRSamples)},											-- 0x053e18 - 0x053e96 -- ADSR data (x63, 2 bytes each)
 
 		{name = 'unknown_053e96', type = arrayType(uint8_t, -(0x053e96 - 0x054a35))},							-- 0x053e96 - 0x054a35
