@@ -1186,13 +1186,17 @@ void main() {
 }
 ]],
 			fragmentCode = [[
+precision highp usampler2D;	// needed by #version 300 es
 uniform usampler2D tex;
 uniform sampler2D palTex;
 in vec2 tcv;
 out vec4 fragColor;
 void main() {
-	int index = int(texture(tex, tcv, 0).r);
+	int index = int(texture(tex, tcv, 0.).r);
 	fragColor = texelFetch(palTex, ivec2(index, 0), 0);
+
+	// GL_ALPHA_TEST isn't in GLES3:
+	if (fragColor.a < .5) discard;
 }
 ]],
 			uniforms = {
@@ -1271,6 +1275,7 @@ void main() {
 }
 ]],
 			fragmentCode = [[
+precision highp usampler2D;	// needed by #version 300 es
 uniform usampler2D tex;
 uniform sampler2D palTex;
 uniform int palIndex;
@@ -1283,7 +1288,7 @@ void main() {
 	if (((int(gl_FragCoord.x) - int(gl_FragCoord.y) - int(t)) & 15) < 8) discard;
 	//if (mod((gl_FragCoord.x + gl_FragCoord.y) / 10., 1.) < .5) discard;
 
-	int flags = int(texture(tex, tcv, 0).r);
+	int flags = int(texture(tex, tcv, 0.).r);
 	flags &= 1 << palIndex;
 	if (flags == 0) discard;
 	fragColor = texelFetch(palTex, ivec2(palIndex, 0), 0);
@@ -1502,15 +1507,15 @@ function App:draw(animFrameIndex)
 			end
 		end
 
-		gl.glEnable(gl.GL_ALPHA_TEST)
-		gl.glAlphaFunc(gl.GL_GREATER, .5)
+		--gl.glEnable(gl.GL_ALPHA_TEST)
+		--gl.glAlphaFunc(gl.GL_GREATER, .5)
 
 		self.layerDrawObj.texs[1] = tex
 		self.layerDrawObj.texs[2] = self.mapWindow.mapPalTex
 		self.layerDrawObj:draw()
 
+		--gl.glDisable(gl.GL_ALPHA_TEST)
 		gl.glDisable(gl.GL_BLEND)
-		gl.glDisable(gl.GL_ALPHA_TEST)
 	end
 
 	local mapInfo = self.mapWindow:getMapInfo()
