@@ -702,6 +702,11 @@ function DoorWindow:showIndexUI(ar)
 	ig.igText(' pos = '..e.pos)
 	if ig.igButton(' map = '..e.mapIndex) then
 		self.app.mapWindow:setIndex(e.mapIndex, 0 ~= e.setParentMap)
+		-- new map should be loaded now
+		local mapWidth, mapHeight = self.app.tileWindow:getMapSize()
+		if mapWidth and mapHeight then
+			self.app.tileWindow:setIndex(e.dest.x + mapWidth * e.dest.y)
+		end
 		self.app:centerView(e.dest.x, e.dest.y)
 	end
 	ig.igText(' setParentMap = '..e.setParentMap)
@@ -1666,20 +1671,32 @@ function App:update()
 				if self.showTiles then
 					local mapWidth, mapHeight = self.tileWindow:getMapSize()
 					if mapWidth and mapHeight then
+						-- show tile under mouse
 						local x = math.floor(mx)
 						local y = math.floor(my)
-						if x >= 0 and my >= 0
+						if x >= 0 and y >= 0
 						and x < mapWidth
 						and y < mapHeight
 						then
-							local i = x + mapWidth * y
 							settable(uniforms.bbox, x, y, 1, 1)
 							settable(uniforms.color, 1,1,1,1)
 							showHL()
 							if leftPress then
+								local i = x + mapWidth * y
 								self.tileWindow:setIndex(i)
 								self.tileWindow.show[0] = true
 							end
+						end
+						-- show selected tile
+						local x = self.tileWindow.index % mapWidth
+						local y = (self.tileWindow.index - x) / mapWidth
+						if x >= 0 and y >= 0
+						and x < mapWidth
+						and y < mapHeight
+						then
+							settable(uniforms.bbox, x, y, 1, 1)
+							settable(uniforms.color, 1,1,1,1)
+							showHL()
 						end
 					end
 				end
