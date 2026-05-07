@@ -570,7 +570,7 @@ for i=0,game.numCharacters-1 do
 	print()
 	for name,ctype,field in ch:fielditer() do
 		local value
-		if ctype == 'uint8_t' then
+		if ffi.typeof(ctype) == ffi.typeof'uint8_t' then
 			value = ch[name]
 		elseif ffi.typeof(ctype) == game.MenuNameRef4
 		or ffi.typeof(ctype) == game.ItemRef
