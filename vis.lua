@@ -21,6 +21,7 @@ local ig = require 'imgui'
 
 local startTime = timer.getTime()
 
+--[=[
 local infn = cmdline[1]
 do
 	--[[ fails for now because js can't block on the main ui thread (which is running lua) and I don't want to convert every single lua-in-js function to async...
@@ -42,6 +43,10 @@ local game = require 'ff6'((assert(path(infn):read())))
 local Game = game.Game
 local rom = game.rom
 local countof = game.countof
+--]=]
+-- [=[
+local app, game, Game, rom, countof
+--]=]
 
 local function settableindex(t, i, ...)
 	if select('#', ...) == 0 then return end
@@ -1350,6 +1355,21 @@ void main() {
 
 	self.mapSize = vec2d()
 
+
+	if cmdline[1] then
+		self:onLoadROM(cmdline[1])
+	end
+end
+
+
+function App:onLoadROM(infn)
+	-- muh globals
+	game = require 'ff6'((assert(path(infn):read())))
+	Game = game.Game
+	rom = game.rom
+	countof = game.countof
+
+
 	self.monsterWindow = MonsterWindow{app=self}
 
 	self.battleFormationWindow = BattleFormationWindow{app=self}
@@ -1384,7 +1404,7 @@ void main() {
 	self.showNPCs = true
 	self.npcWindow = NPCWindow{app=self}
 
-	self.showWorldEncounterSectors = true
+	self.showWorldEncounterSectors = false	-- nah too big
 	self.worldEncounterSectorWindow = WorldEncounterSectorWindow{app=self}
 
 	-- then make mapWindow:
@@ -1419,7 +1439,6 @@ void main() {
 
 	self.scriptWindow.show[0] = false	-- who keeps opening this?
 end
-
 
 local function mat4x4mul(m, x, y, z, w)
 	x = tonumber(x)
@@ -1539,272 +1558,312 @@ function App:update()
 
 	gl.glClear(gl.GL_COLOR_BUFFER_BIT)
 
-	local t = timer.getTime() - startTime
-	self.frameIndex = math.floor(t * self.animSpeed)
-	local view = self.view
-	self.layerDrawObj.uniforms.mvProjMat = self.view.mvProjMat.ptr
+	if game then
+		local t = timer.getTime() - startTime
+		self.frameIndex = math.floor(t * self.animSpeed)
+		local view = self.view
+		self.layerDrawObj.uniforms.mvProjMat = self.view.mvProjMat.ptr
 
-	self.tooltipText = nil
+		self.tooltipText = nil
 
-	if self.show16x16mapTiles then
-		for k=1,2 do
-			if self.map16x16tileTexs then
-				local texs = self.map16x16tileTexs[k]
-				local tex = texs[(self.frameIndex % #texs) + 1]
+		if self.show16x16mapTiles then
+			for k=1,2 do
+				if self.map16x16tileTexs then
+					local texs = self.map16x16tileTexs[k]
+					local tex = texs[(self.frameIndex % #texs) + 1]
 
-				view:setupModelView()
-				view.mvMat:applyScale(1, -1)
-				view.mvMat:applyTranslate((k-1) * (tex.width/16 + 1), 0, 0)
-				view.mvMat:applyScale(tex.width/16, tex.height/16)
-				view.mvProjMat:mul4x4(view.projMat, view.mvMat)
+					view:setupModelView()
+					view.mvMat:applyScale(1, -1)
+					view.mvMat:applyTranslate((k-1) * (tex.width/16 + 1), 0, 0)
+					view.mvMat:applyScale(tex.width/16, tex.height/16)
+					view.mvProjMat:mul4x4(view.projMat, view.mvMat)
 
-				self.layerDrawObj.texs[1] = tex
-				self.layerDrawObj.texs[2] = self.mapWindow.mapPalTex
-				self.layerDrawObj:draw()
-			end
-		end
-	else
-
-
-		-- mapSize is in texels
-		-- so now coords are in 16x16 tiles
-		view.mvMat:applyScale(1, -1)
-		view.mvMat:applyScale(self.mapSize.x / 16, self.mapSize.y / 16, 1)
-		view.mvProjMat:mul4x4(view.projMat, view.mvMat)
-
-		-- draw layers blended together
-		self:draw(bit.band(self.frameIndex, 7))	-- mod by max anim frame gcd
-
-		-- draw overlays of things in the map:
-
-		gl.glEnable(gl.GL_BLEND)
-		gl.glBlendEquation(gl.GL_FUNC_ADD)
-		gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE)
-
-		if self.layerDrawObj
-		and self.tilePropsTex
-		then
-			local totalBits = 0
-			for i=0,numTilePropsBits-1 do
-				if 0 ~= bit.band(bit.lshift(1, i), self.showTileMask) then
-					totalBits = totalBits + 1
+					self.layerDrawObj.texs[1] = tex
+					self.layerDrawObj.texs[2] = self.mapWindow.mapPalTex
+					self.layerDrawObj:draw()
 				end
 			end
-			for i=0,numTilePropsBits-1 do
-				if 0 ~= bit.band(bit.lshift(1, i), self.showTileMask) then
-					self.flagsDrawObj.texs[1] = self.tilePropsTex
-					self.flagsDrawObj.texs[2] = self.tilePropsPalTex
-					self.flagsDrawObj.uniforms.t = 20 * t - i
-					self.flagsDrawObj.uniforms.mvProjMat = view.mvProjMat.ptr
-					self.flagsDrawObj.uniforms.palIndex = i
-					self.flagsDrawObj.uniforms.alpha = 1 / math.max(1, totalBits)
-					self.flagsDrawObj:draw()
-				end
-			end
-		end
+		else
 
-		gl.glBlendFunc(gl.GL_ONE, gl.GL_ONE)
 
-		local mapInfo = self.mapWindow:getMapInfo()
-		if mapInfo then
-			view:setupModelView()
+			-- mapSize is in texels
+			-- so now coords are in 16x16 tiles
 			view.mvMat:applyScale(1, -1)
+			view.mvMat:applyScale(self.mapSize.x / 16, self.mapSize.y / 16, 1)
 			view.mvProjMat:mul4x4(view.projMat, view.mvMat)
 
-			local rectObj = self.rectObj
-			local uniforms = rectObj.uniforms
-			uniforms.mvProjMat = view.mvProjMat.ptr
+			-- draw layers blended together
+			self:draw(bit.band(self.frameIndex, 7))	-- mod by max anim frame gcd
 
-			local function showHL()
-				local x,y,w,h = table.unpack(uniforms.bbox)
-				local eps = .1
-				settable(uniforms.color, 1,1,1,1)
-				settable(uniforms.bbox, x-eps, y-eps, 2*eps, h+2*eps)
-				rectObj:draw()
-				settable(uniforms.bbox, x-eps, y-eps, w+2*eps, 2*eps)
-				rectObj:draw()
-				settable(uniforms.bbox, x+w-eps, y-eps, 2*eps, h+2*eps)
-				rectObj:draw()
-				settable(uniforms.bbox, x-eps, y+h-eps, w+2*eps, 2*eps)
-				rectObj:draw()
-			end
+			-- draw overlays of things in the map:
 
-			local mx, my, mz, mw = self:invTransform(self.mouse.pos.x * self.width, self.mouse.pos.y * self.height)
-	mx = mx + self.view.pos.x
-	my = my + self.view.pos.y	-- why isn't htis in the matrix and therefore in invTransform ?
-	my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
-self.tooltipText = math.floor(mx)..', '..math.floor(my)
+			gl.glEnable(gl.GL_BLEND)
+			gl.glBlendEquation(gl.GL_FUNC_ADD)
+			gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE)
 
-			local leftPress = self.mouse.leftPress
-
-			if (self.mapWindow.index == 0 or self.mapWindow.index == 1)
-			and self.showWorldEncounterSectors
+			if self.layerDrawObj
+			and self.tilePropsTex
 			then
-				for sectorIndex=0,0x3f do
-					local x = bit.lshift(bit.band(sectorIndex, 7), 5)
-					local y = bit.lshift(bit.band(bit.rshift(sectorIndex, 3), 7), 5)
-					local w, h = 32, 32
-
-					local i = bit.bor(sectorIndex, bit.lshift(self.mapWindow.index, 6))
-					if leftPress
-					and x <= mx and mx <= x+w
-					and y <= my and my <= y+h
-					then
-						self.worldEncounterSectorWindow:setIndex(i)
-						self.worldEncounterSectorWindow.show[0] = true
+				local totalBits = 0
+				for i=0,numTilePropsBits-1 do
+					if 0 ~= bit.band(bit.lshift(1, i), self.showTileMask) then
+						totalBits = totalBits + 1
 					end
-					settable(uniforms.color, .7, .7, .7, 1)
-					settable(uniforms.bbox, x, y, w, h)
-					--rectObj:draw()
-					if i == self.worldEncounterSectorWindow.index then
-						showHL()
+				end
+				for i=0,numTilePropsBits-1 do
+					if 0 ~= bit.band(bit.lshift(1, i), self.showTileMask) then
+						self.flagsDrawObj.texs[1] = self.tilePropsTex
+						self.flagsDrawObj.texs[2] = self.tilePropsPalTex
+						self.flagsDrawObj.uniforms.t = 20 * t - i
+						self.flagsDrawObj.uniforms.mvProjMat = view.mvProjMat.ptr
+						self.flagsDrawObj.uniforms.palIndex = i
+						self.flagsDrawObj.uniforms.alpha = 1 / math.max(1, totalBits)
+						self.flagsDrawObj:draw()
 					end
 				end
 			end
 
-			if self.showTiles then
-				local mapWidth, mapHeight = self.tileWindow:getMapSize()
-				if mapWidth and mapHeight then
-					local x = math.floor(mx)
-					local y = math.floor(my)
-					if x >= 0 and my >= 0
-					and x < mapWidth
-					and y < mapHeight
-					then
-						local i = x + mapWidth * y
+			gl.glBlendFunc(gl.GL_ONE, gl.GL_ONE)
+
+			local mapInfo = self.mapWindow:getMapInfo()
+			if mapInfo then
+				view:setupModelView()
+				view.mvMat:applyScale(1, -1)
+				view.mvProjMat:mul4x4(view.projMat, view.mvMat)
+
+				local rectObj = self.rectObj
+				local uniforms = rectObj.uniforms
+				uniforms.mvProjMat = view.mvProjMat.ptr
+
+				local function showHL()
+					local x,y,w,h = table.unpack(uniforms.bbox)
+					local eps = .1
+					settable(uniforms.color, 1,1,1,1)
+					settable(uniforms.bbox, x-eps, y-eps, 2*eps, h+2*eps)
+					rectObj:draw()
+					settable(uniforms.bbox, x-eps, y-eps, w+2*eps, 2*eps)
+					rectObj:draw()
+					settable(uniforms.bbox, x+w-eps, y-eps, 2*eps, h+2*eps)
+					rectObj:draw()
+					settable(uniforms.bbox, x-eps, y+h-eps, w+2*eps, 2*eps)
+					rectObj:draw()
+				end
+
+				local mx, my, mz, mw = self:invTransform(self.mouse.pos.x * self.width, self.mouse.pos.y * self.height)
+		mx = mx + self.view.pos.x
+		my = my + self.view.pos.y	-- why isn't htis in the matrix and therefore in invTransform ?
+		my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
+	self.tooltipText = math.floor(mx)..', '..math.floor(my)
+
+				local leftPress = self.mouse.leftPress
+
+				if (self.mapWindow.index == 0 or self.mapWindow.index == 1)
+				and self.showWorldEncounterSectors
+				then
+					for sectorIndex=0,0x3f do
+						local x = bit.lshift(bit.band(sectorIndex, 7), 5)
+						local y = bit.lshift(bit.band(bit.rshift(sectorIndex, 3), 7), 5)
+						local w, h = 32, 32
+
+						local i = bit.bor(sectorIndex, bit.lshift(self.mapWindow.index, 6))
+						if leftPress
+						and x <= mx and mx <= x+w
+						and y <= my and my <= y+h
+						then
+							self.worldEncounterSectorWindow:setIndex(i)
+							self.worldEncounterSectorWindow.show[0] = true
+						end
+						settable(uniforms.color, .7, .7, .7, 1)
+						settable(uniforms.bbox, x, y, w, h)
+						--rectObj:draw()
+						if i == self.worldEncounterSectorWindow.index then
+							showHL()
+						end
+					end
+				end
+
+				if self.showTiles then
+					local mapWidth, mapHeight = self.tileWindow:getMapSize()
+					if mapWidth and mapHeight then
+						local x = math.floor(mx)
+						local y = math.floor(my)
+						if x >= 0 and my >= 0
+						and x < mapWidth
+						and y < mapHeight
+						then
+							local i = x + mapWidth * y
+							settable(uniforms.bbox, x, y, 1, 1)
+							settable(uniforms.color, 1,1,1,1)
+							showHL()
+							if leftPress then
+								self.tileWindow:setIndex(i)
+								self.tileWindow.show[0] = true
+							end
+						end
+					end
+				end
+				if self.showTreasures then
+					for i,t in ipairs(mapInfo.treasures) do
+						local x, y = tonumber(t.pos.x), tonumber(t.pos.y)
+						if leftPress
+						and x <= mx and mx <= x+1
+						and y <= my and my <= y+1
+						then
+							self.treasureWindow:setIndex(i-1)
+							self.treasureWindow.show[0] = true
+						end
 						settable(uniforms.bbox, x, y, 1, 1)
-						settable(uniforms.color, 1,1,1,1)
-						showHL()
-						if leftPress then
-							self.tileWindow:setIndex(i)
-							self.tileWindow.show[0] = true
+						settable(uniforms.color, 0,0,1,1)
+						rectObj:draw()
+						if i-1 == self.treasureWindow.index then
+							showHL()
+						end
+					end
+				end
+				if self.showTouchTriggers then
+					for i,e in ipairs(mapInfo.touchTriggers) do
+						local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
+						if leftPress
+						and x <= mx and mx <= x+1
+						and y <= my and my <= y+1
+						then
+							self.touchTriggerWindow:setIndex(i-1)
+							self.touchTriggerWindow.show[0] = true
+						end
+						settable(uniforms.bbox, x, y, 1, 1)
+						settable(uniforms.color, 0,0,1,1)
+						rectObj:draw()
+						if i-1 == self.touchTriggerWindow.index then
+							showHL()
+						end
+					end
+				end
+				if self.showDoors then
+					for i,e in ipairs(mapInfo.doors) do
+						local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
+						if leftPress
+						and x <= mx and mx <= x+1
+						and y <= my and my <= y+1
+						then
+							self.doorWindow:setIndex(i-1)
+							self.doorWindow.show[0] = true
+						end
+						settable(uniforms.bbox, x, y, 1, 1)
+						settable(uniforms.color, 1,0,0,1)
+						rectObj:draw()
+						if i-1 == self.doorWindow.index then
+							showHL()
+						end
+					end
+				end
+				if self.showBigDoors then
+					for i,e in ipairs(mapInfo.bigDoors) do
+						local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
+						local w, h
+						if e.vertical == 0 then
+							w, h = e.length+1, 1
+						else
+							w, h = 1, e.length+1
+						end
+						if leftPress
+						and x <= mx and mx <= x+w
+						and y <= my and my <= y+h
+						then
+							self.bigDoorWindow:setIndex(i-1)
+							self.bigDoorWindow.show[0] = true
+						end
+						settable(uniforms.bbox, x, y, w, h)
+						settable(uniforms.color, 1,0,0,1)
+						rectObj:draw()
+						if i-1 == self.bigDoorWindow.index then
+							showHL()
+						end
+					end
+				end
+				if self.showNPCs then
+					for i,n in ipairs(mapInfo.npcs) do
+						local x, y = tonumber(n.x), tonumber(n.y)
+						if leftPress
+						and x <= mx and mx <= x+1
+						and y <= my and my <= y+1
+						then
+							self.npcWindow:setIndex(i-1)
+							self.npcWindow.show[0] = true
+						end
+						settable(uniforms.bbox, x, y, 1, 1)
+						settable(uniforms.color, 0,1,0,1)
+						rectObj:draw()
+						if i-1 == self.npcWindow.index then
+							showHL()
 						end
 					end
 				end
 			end
-			if self.showTreasures then
-				for i,t in ipairs(mapInfo.treasures) do
-					local x, y = tonumber(t.pos.x), tonumber(t.pos.y)
-					if leftPress
-					and x <= mx and mx <= x+1
-					and y <= my and my <= y+1
-					then
-						self.treasureWindow:setIndex(i-1)
-						self.treasureWindow.show[0] = true
-					end
-					settable(uniforms.bbox, x, y, 1, 1)
-					settable(uniforms.color, 0,0,1,1)
-					rectObj:draw()
-					if i-1 == self.treasureWindow.index then
-						showHL()
-					end
-				end
-			end
-			if self.showTouchTriggers then
-				for i,e in ipairs(mapInfo.touchTriggers) do
-					local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
-					if leftPress
-					and x <= mx and mx <= x+1
-					and y <= my and my <= y+1
-					then
-						self.touchTriggerWindow:setIndex(i-1)
-						self.touchTriggerWindow.show[0] = true
-					end
-					settable(uniforms.bbox, x, y, 1, 1)
-					settable(uniforms.color, 0,0,1,1)
-					rectObj:draw()
-					if i-1 == self.touchTriggerWindow.index then
-						showHL()
-					end
-				end
-			end
-			if self.showDoors then
-				for i,e in ipairs(mapInfo.doors) do
-					local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
-					if leftPress
-					and x <= mx and mx <= x+1
-					and y <= my and my <= y+1
-					then
-						self.doorWindow:setIndex(i-1)
-						self.doorWindow.show[0] = true
-					end
-					settable(uniforms.bbox, x, y, 1, 1)
-					settable(uniforms.color, 1,0,0,1)
-					rectObj:draw()
-					if i-1 == self.doorWindow.index then
-						showHL()
-					end
-				end
-			end
-			if self.showBigDoors then
-				for i,e in ipairs(mapInfo.bigDoors) do
-					local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
-					local w, h
-					if e.vertical == 0 then
-						w, h = e.length+1, 1
-					else
-						w, h = 1, e.length+1
-					end
-					if leftPress
-					and x <= mx and mx <= x+w
-					and y <= my and my <= y+h
-					then
-						self.bigDoorWindow:setIndex(i-1)
-						self.bigDoorWindow.show[0] = true
-					end
-					settable(uniforms.bbox, x, y, w, h)
-					settable(uniforms.color, 1,0,0,1)
-					rectObj:draw()
-					if i-1 == self.bigDoorWindow.index then
-						showHL()
-					end
-				end
-			end
-			if self.showNPCs then
-				for i,n in ipairs(mapInfo.npcs) do
-					local x, y = tonumber(n.x), tonumber(n.y)
-					if leftPress
-					and x <= mx and mx <= x+1
-					and y <= my and my <= y+1
-					then
-						self.npcWindow:setIndex(i-1)
-						self.npcWindow.show[0] = true
-					end
-					settable(uniforms.bbox, x, y, 1, 1)
-					settable(uniforms.color, 0,1,0,1)
-					rectObj:draw()
-					if i-1 == self.npcWindow.index then
-						showHL()
-					end
-				end
-			end
+
+			gl.glDisable(gl.GL_BLEND)
 		end
-
-		gl.glDisable(gl.GL_BLEND)
 	end
-
 
 	-- draw gui
 	App.super.update(self)
 end
 
-function App:updateGUI()
-	local mapInfo = self.mapWindow:getMapInfo()
-	local map = mapInfo and mapInfo.map
+_G.sdlOpenFileDialogCallback = function(userdata, filelist, filter)
+	-- filelist is `char const * const *`, so a list-of-pointers-to-strings
+	require 'sdl.assert'.nonnull(filelist)
+	if filelist[0] == nil then
+		print('user picked nothing')
+		return
+	end
+	local fn = ffi.string(filelist[0])
+	print('user picked', fn)
+	app:onLoadROM(fn)
+end
+_G.sdlOpenFileDialogClosure = ffi.cast('SDL_DialogFileCallback', sdlOpenFileDialogCallback)
 
+function App:updateGUI()
+	local mapInfo = self.mapWindow and self.mapWindow:getMapInfo()
+	local map = mapInfo and mapInfo.map
 	if ig.igBeginMainMenuBar() then
 
-		if ig.igBeginMenu'view' then
-			for _,w in ipairs(self.baseWindows) do
-				if ig.igButton(w.name) then
-					w.show[0] = true
-				end
+		if ig.igBeginMenu'File' then
+			if ig.igButton'Open...' then
+				sdl.SDL_ShowOpenFileDialog(
+					sdlOpenFileDialogClosure,
+					nil,				-- userdata
+					self.window,		-- window
+					nil,				-- filters
+					0,					-- nfilters
+					path:cwd().path,	-- default_location
+					0					-- allow_many
+				)
 			end
 
 			ig.igEndMenu()
 		end
 
-		if ig.igBeginMenu'map' then
+		if ig.igBeginMenu'View' then
+			if self.baseWindows then
+				for _,w in ipairs(self.baseWindows) do
+					if ig.igButton(w.name) then
+						w.show[0] = true
+					end
+				end
+			end
+
+			if ig.igButton'reset view' then
+				self.view.ortho = true
+				self.view.orthoSize = 256
+				self.view.pos:set(0,0,10)
+				self.view.orbit:set(0,0,0)
+				self.view.angle:set(0,0,0,1)
+			end
+
+			ig.igEndMenu()
+		end
+
+		if map
+		and ig.igBeginMenu'Map' then
 
 			if self.layerAnimTexs then
 				local doSaveLayerPNGs = ig.igButton'save layer pngs'
@@ -1923,18 +1982,6 @@ function App:updateGUI()
 			ig.igEndMenu()
 		end
 
-		if ig.igBeginMenu'view' then
-			if ig.igButton'reset view' then
-				self.view.ortho = true
-				self.view.orthoSize = 256
-				self.view.pos:set(0,0,10)
-				self.view.orbit:set(0,0,0)
-				self.view.angle:set(0,0,0,1)
-			end
-
-			ig.igEndMenu()
-		end
-
 		ig.igEndMainMenuBar()
 	end
 
@@ -1948,7 +1995,9 @@ function App:updateGUI()
 			end
 		end
 	end
-	updateRecursive(self.baseWindows)
+	if self.baseWindows then	-- if game is loaded...
+		updateRecursive(self.baseWindows)
+	end
 
 	if self.tooltipText then
 		ig.igBeginTooltip()
@@ -1970,6 +2019,8 @@ function App:event(e)
 	--local canHandleMouse = not ig.igGetIO()[0].WantCaptureMouse
 	local canHandleKeyboard = not ig.igGetIO()[0].WantCaptureKeyboard
 
+	if not game then return end
+
 	if canHandleKeyboard then
 		if e.type == sdl.SDL_EVENT_KEY_UP then
 			if e.key.key == sdl.SDLK_LEFT then
@@ -1981,4 +2032,5 @@ function App:event(e)
 	end
 end
 
-return App():run()
+app = App()
+app:run()
