@@ -194,6 +194,10 @@ local function ptrType(baseType)
 end
 
 local function arrayType(baseType, size)
+	-- neither luajit nor lua-ffi-wasm can handle decimals in array sizes.
+	-- how come lua-ffi-wasm gets a decimal in array size here?
+	-- aha, because lua-ffi-wasm is based on Lua 5.4, when they introduced separate decimal and integer numbers, and started serializing them differently.
+	size = math.floor(size)
 	return ffi.typeof('$['..size..']', baseType)
 end
 
