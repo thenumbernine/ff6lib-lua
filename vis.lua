@@ -21,32 +21,8 @@ local ig = require 'imgui'
 
 local startTime = timer.getTime()
 
---[=[
-local infn = cmdline[1]
-do
-	--[[ fails for now because js can't block on the main ui thread (which is running lua) and I don't want to convert every single lua-in-js function to async...
-	local has, js = pcall(require, 'js')	-- check for lua-ffi-wasm
-	print('has js', has, js)
-	if has then
-		-- if we're in browser and they didn't provide a cli filename (natch) then prompt them for an upload-to-browser
-		if not infn then
-			infn = js.promptForUpload()
-		end
-	else
-	--]]do
-		-- cli? expect filename
-		assert(infn, "missing filename")
-	end
-end
-
-local game = require 'ff6'((assert(path(infn):read())))
-local Game = game.Game
-local rom = game.rom
-local countof = game.countof
---]=]
--- [=[
+-- set these globals upon App:onLoadROM(), which itself will get called at startup based on the cli
 local app, game, Game, rom, countof
---]=]
 
 local function settableindex(t, i, ...)
 	if select('#', ...) == 0 then return end
@@ -1815,13 +1791,9 @@ end
 
 _G.sdlOpenFileDialogCallback = function(userdata, filelist, filter)
 	-- filelist is `char const * const *`, so a list-of-pointers-to-strings
-	require 'sdl.assert'.nonnull(filelist)
-	if filelist[0] == nil then
-		print('user picked nothing')
-		return
-	end
+	require 'sdl.assert'.nonnull(filelist)	-- error
+	if filelist[0] == nil then return end	-- no file picked
 	local fn = ffi.string(filelist[0])
-	print('user picked', fn)
 	app:onLoadROM(fn)
 end
 _G.sdlOpenFileDialogClosure = ffi.cast('SDL_DialogFileCallback', sdlOpenFileDialogCallback)
