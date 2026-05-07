@@ -74,6 +74,7 @@ local worldTilePropsNames = {
 	'veldt',
 	'phoenixCave',
 	'kefkasTower',
+	-- my extras
 	'unused1',
 	'unused2',
 }
@@ -564,6 +565,9 @@ function MapWindow:setIndex(newIndex, pushStack)
 		end
 	end
 --]]
+
+	-- clear previous flood-fills
+	app.floodFillTiles = nil
 
 	-- start us off centered at the first door we find
 	if mapInfo.doors then
@@ -1613,6 +1617,8 @@ function App:update()
 
 			local mapInfo = self.mapWindow:getMapInfo()
 			if mapInfo then
+				local mapWidth, mapHeight = self.tileWindow:getMapSize()
+
 				view:setupModelView()
 				view.mvMat:applyScale(1, -1)
 				view.mvProjMat:mul4x4(view.projMat, view.mvMat)
@@ -1634,6 +1640,7 @@ function App:update()
 					settable(uniforms.bbox, x-eps, y+h-eps, w+2*eps, 2*eps)
 					rectObj:draw()
 				end
+
 
 				local mx, my, mz, mw = self:invTransform(self.mouse.pos.x * self.width, self.mouse.pos.y * self.height)
 		mx = mx + self.view.pos.x
@@ -1669,7 +1676,6 @@ function App:update()
 				end
 
 				if self.showTiles then
-					local mapWidth, mapHeight = self.tileWindow:getMapSize()
 					if mapWidth and mapHeight then
 						-- show tile under mouse
 						local x = math.floor(mx)
@@ -1794,6 +1800,18 @@ function App:update()
 						if i-1 == self.npcWindow.index then
 							showHL()
 						end
+					end
+				end
+
+
+				-- tempting to implement this as a bitflag layer ...
+				if self.floodFillTiles then
+					for i in pairs(self.floodFillTiles) do
+						local x = i % mapWidth
+						local y = (i - x) / mapWidth
+						settable(uniforms.bbox, x, y, 1, 1)
+						settable(uniforms.color, 1,.5,0,1)
+						rectObj:draw()
 					end
 				end
 			end
@@ -1972,6 +1990,112 @@ function App:updateGUI()
 			end
 
 			ig.luatableInputFloat('animSpeed', self, 'animSpeed')
+
+			local mapInfo = game.getMap(self.mapWindow.index)
+
+			if mapInfo
+			and self.tilePropsTex
+			and self.tilePropsTex.data
+			then
+				local data = self.tilePropsTex.data
+				local mapWidth = self.tilePropsTex.width
+				local mapHeight = self.tilePropsTex.height
+				if ig.igButton'Flood Fill Tile...' then
+					local x = self.tileWindow.index % mapWidth
+					local y = (self.tileWindow.index - x) / mapWidth
+
+					-- now flood-fill against bit #17 (the fake one for the special-value of 'impassible')
+					local dirs = {
+						{1,0},
+						{0,1},
+						{-1,0},
+						{0,-1},
+					}
+
+					local layerPos = mapInfo.layerPos
+					local layerSizes = mapInfo.layerSizes
+					local layouts = mapInfo.layouts
+
+					local filled = {}
+					local function writeFilled(x,y)
+						local i = x + mapWidth * y
+						-- read 16x16's here ...
+						local value = 0
+						for layer=1,3 do
+							local layout = layouts[layer]
+							local layerSize = layerSizes[layer]
+							local layoutData = layout and layout.data
+							if layoutData then
+
+								local posx, posy = 0, 0
+								if layerPos[layer]
+								-- if we have a position for the layer, but we're using parallax, then the position is going to be relative to the view
+								--and map.parallax == 0
+								then
+									posx, posy = layerPos[layer]:unpack()
+								end
+
+								local layoutptr = ffi.cast('uint8_t*', layoutData)
+								local srcX = (x - posx) % layerSize.x
+								local srcY = (y - posy) % layerSize.y
+								local tile16x16 = layoutptr[((srcX + layerSize.x * srcY) % #layoutData)]
+
+								value = bit.bor(value, bit.lshift(
+									tile16x16,
+									bit.lshift(layer-1, 3)	-- shift our 16x16 byte left 8 bits per layer...
+								))
+							end
+						end
+
+						filled[i] = value
+					end
+					local function canTraverse(x,y)
+						return 0 == bit.band(0x20000, data[x + mapWidth * y])
+					end
+					if canTraverse(x,y) then
+						writeFilled(x, y)
+						local fillstack = table()
+						fillstack:insert{x, y}
+						while #fillstack > 0 do
+							local x0, y0 = table.unpack(fillstack:remove())
+							for _,dir in ipairs(dirs) do
+								local x1, y1 = x0 + dir[1], y0 + dir[2]
+								if x1 >= 0 and x1 < mapWidth
+								and y1 >= 0 and y1 < mapHeight
+								then
+									local i = x1 + mapWidth * y1
+									if not filled[i]
+									and canTraverse(x1, y1)
+									then
+										writeFilled(x1, y1)
+										fillstack:insert{x1, y1}
+									end
+								end
+							end
+						end
+					end
+
+					local hist = {}
+					for index, tileValue in pairs(filled) do
+						hist[tileValue] = (hist[tileValue] or 0) + 1
+					end
+					print('flood fill histogram:')
+					local tileValues = table.keys(hist):sort(function(a,b)
+						return hist[a] > hist[b]
+					end)
+					for _,tileValue in ipairs(tileValues) do
+						print('\t'..('0x%06x'):format(tileValue)..' = '..hist[tileValue])
+					end
+
+					self.floodFillTiles = filled
+				end
+
+				if self.floodFillTiles then
+					if ig.igButton'Clear Fill Tiles' then
+						self.floodFillTiles = nil
+					end
+				end
+			end
 
 			ig.igEndMenu()
 		end
