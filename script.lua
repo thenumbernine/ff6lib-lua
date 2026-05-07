@@ -68,7 +68,6 @@ return function(game)
 			end
 		end
 		self:getargs(args:unpack())
-		return addr
 	end
 	function Cmd:getargs(...)
 		if self.argnames then
@@ -1149,7 +1148,6 @@ game.oobEventScriptAddrs = table()	-- TODO handle these too
 				local ptrtype = ffi.typeof('$*', ctype)
 				local o = ffi.cast(ptrtype, rom + addr)[0]
 				addr = addr + ffi.sizeof(ctype)
-
 				-- if it's a primitive and bitness <= 32
 				if ctype == uint8_t
 				or ctype == int8_t
