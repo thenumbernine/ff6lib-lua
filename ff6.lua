@@ -418,7 +418,7 @@ function StringList:__tostring()
 	end
 
 	-- track memory used
-	local numPtr = tostring(ffi.typeof(self.data)):match'ctype<unsigned char %(&%)%[(%d+)%]>'
+	local numPtr = countof(self.data)
 	assert(numPtr)
 	local addrMin = self.data - rom
 	local addrMax = addrMin + numPtr
