@@ -13,7 +13,7 @@ local vec2i = require 'vec-ffi.vec2i'
 local vec2d = require 'vec-ffi.vec2d'
 local vec3i = require 'vec-ffi.vec3i'
 local vec3d = require 'vec-ffi.vec3d'
-local vec4x4fcol = 'vec-ffi.vec4x4fcol'
+local vec4x4fcol = require 'vec-ffi.vec4x4fcol'
 local box2i = require 'vec-ffi.box2i'
 local sdl = require 'sdl'
 local gl = require 'gl.setup'(cmdline.gl)
@@ -759,6 +759,7 @@ function TileWindow:showIndexUI(ar)
 				tileValues = tileValues,	-- int of tile16x16 layers, sorted by occurrence
 				bbox = fillBbox,
 				floorTile = floorTile,
+				wallTile = 0,
 			}
 		end
 
@@ -777,15 +778,18 @@ function TileWindow:showIndexUI(ar)
 		end
 
 
-		if app.floodFillTiles then
+		local floodFillTiles = app.floodFillTiles
+		if floodFillTiles then
 			ig.igText'flood fill bounds:'
-			local bbox = app.floodFillTiles.bbox
+			local bbox = floodFillTiles.bbox
 			ig.luatableInputInt('flood fill min x', bbox.min, 'x')
 			ig.luatableInputInt('flood fill min y', bbox.min, 'y')
 			ig.luatableInputInt('flood fill max x', bbox.max, 'x')
 			ig.luatableInputInt('flood fill max y', bbox.max, 'y')
 
-			ig.luatableInputInt('floor tile', app.floodFillTiles, 'floorTile')
+			-- AsText so it can handle all lua number parsing, including 0x's
+			ig.luatableInputFloatAsText('floor tile', floodFillTiles, 'floorTile')
+			ig.luatableInputFloatAsText('wall tile', floodFillTiles, 'wallTile')
 
 			if ig.igButton'export voxelmap' then
 				-- 1) make our voxelmap
@@ -801,15 +805,27 @@ function TileWindow:showIndexUI(ar)
 				for y=0,tonumber(size.y)-1 do
 					for x=0,tonumber(size.x)-1 do
 						local vox = v.v + (3 + x + size.x * y)
-						vox.spriteIndex = app.floodFillTiles.floorTile
-						vox.mesh3DIndex = 0	-- hmm todo?
+						vox.spriteIndex = floodFillTiles.floorTile
+						vox.mesh3DIndex = 0	-- hmm todo, floor voxel mesh index
+
+						-- if this is a non-traversible tile then grow the walls
+						local i = x + bbox.min.x + mapWidth * (y + bbox.min.y)
+						if not floodFillTiles.filled[i] then
+							for z=1,size.z-1 do
+								local vox = v.v + (3 + x + size.x * (y + size.y * z))
+								vox.spriteIndex = floodFillTiles.wallTile	-- TODO make this the most-prominent-wall-tile
+								-- idk how to find that out ... trace from top of traversible filled region to the ceiling tile and count up most-prevalent
+								vox.mesh3DIndex = 0	-- hmm todo, wall voxel mesh index
+							end
+						end
 					end
 				end
+				path('exported-voxelmap-map'..self.app.mapWindow.index..'.vox'):write(voxelmap:toBinStr())
 			end
 
 			ig.igText('flood fill histogram:')
-			for _,tileValue in ipairs(app.floodFillTiles.tileValues) do
-				ig.igText('\t'..('0x%06x'):format(tileValue)..' = '..app.floodFillTiles.hist[tileValue])
+			for _,tileValue in ipairs(floodFillTiles.tileValues) do
+				ig.igText('\t'..('0x%06x'):format(tileValue)..' = '..floodFillTiles.hist[tileValue])
 			end
 		end
 	end
