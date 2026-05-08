@@ -540,11 +540,8 @@ function MapWindow:setIndex(newIndex, pushStack)
 			-- TODO how to specify animation # as well?
 			-- might have to just write these out based on mapindex ... and just skip unique ones?
 
-			--for frameIndex=0,3 do
-			-- but we have disableAnimationGeneration set so ...
-			for frameIndex=0,0 do
-				-- trying to load animated map frames...
-				do--if not disableAnimationGeneration then
+			for frameIndex=0,3 do
+				do
 					local index = 0 --map.animatedLayers1And2
 					local startOffset = game.mapAnimPropOfs[index]
 					assert.eq(startOffset % ffi.sizeof(game.MapAnimProps), 0)
@@ -584,7 +581,7 @@ function MapWindow:setIndex(newIndex, pushStack)
 							gfxDatas,
 							nil -- mapInfo.gfxLayer3 and mapInfo.gfxLayer3.data
 						)
-						
+
 						-- bake palette into rgba (so imgui can use it)
 						for srcy=0,15 do
 							for srcx=0,15 do
@@ -689,7 +686,7 @@ function TileWindow:showIndexUI(ar)
 			local srcY = (y - posy) % layerSize.y
 			local tile16x16 = layoutptr[((srcX + layerSize.x * srcY) % #layoutData)]
 			ig.igText('layer '..layer)
-		
+
 			local tileSheetWin = self.app.layerTileSheetWindows[layer]
 			if tileSheetWin then
 				ig.igSameLine()
@@ -879,11 +876,11 @@ function TileWindow:showIndexUI(ar)
 									--vox.orientation = 32	-- flip x in voxel orientation?
 								end
 							else
-								
+
 								--[[ TODO read the real tile instad of the most prominent
 								vox.spriteIndex = tile44to55(
-									
-								
+
+
 								)
 								--]]
 							end
@@ -896,6 +893,43 @@ function TileWindow:showIndexUI(ar)
 				for _,tileValue in ipairs(floodFillTiles.tileValues) do
 					ig.igText('\t'..('0x%06x'):format(tileValue)..' = '..floodFillTiles.hist[tileValue])
 				end
+			end
+		end
+	end
+end
+function TileWindow:setIndex(index, ...)
+	TileWindow.super.setIndex(self, index, ...)
+
+	-- also set layer-tile-sheet-window's index...
+	if not self.app.mapWindow then return end
+	local mapIndex = self.app.mapWindow.index
+	local mapInfo = game.getMap(mapIndex)
+	if not mapInfo then return end
+	local w, h = self:getMapSize()
+	local x = self.index % w
+	local y = (self.index - x) / w
+	local layerPos = mapInfo.layerPos
+	local layerSizes = mapInfo.layerSizes
+	local layouts = mapInfo.layouts
+	for layer=1,3 do
+		local tileSheetWin = self.app.layerTileSheetWindows[layer]
+		if tileSheetWin then
+			local layout = layouts[layer]
+			local layerSize = layerSizes[layer]
+			local layoutData = layout and layout.data
+			if layoutData then
+				local posx, posy = 0, 0
+				if layerPos[layer]
+				-- if we have a position for the layer, but we're using parallax, then the position is going to be relative to the view
+				--and map.parallax == 0
+				then
+					posx, posy = layerPos[layer]:unpack()
+				end
+				local layoutptr = ffi.cast('uint8_t*', layoutData)
+				local srcX = (x - posx) % layerSize.x
+				local srcY = (y - posy) % layerSize.y
+				local tile16x16 = layoutptr[((srcX + layerSize.x * srcY) % #layoutData)]
+				tileSheetWin:setIndex(tile16x16)
 			end
 		end
 	end
@@ -918,50 +952,60 @@ do
 		if not layerTexs then return end
 		local texs = layerTexs[self.layerIndex]
 		if not texs then return end
-		-- only one per layer it seems?
-		for j,tex in ipairs(texs) do
-			-- ... and handle clicks ...
-			--[=[ how to handle click location:
-			local texScreenPos = ig.igGetCursorScreenPos()
-			local mousePos = ig.igGetMousePos()
-			local cursorX = mousePos.x - texScreenPos.x - 4
-			local cursorY = mousePos.y - texScreenPos.y - 4
-			local x = math.clamp(math.floor(cursorX / tex.width * tilesWide), 0, tilesWide-1)
-			local y = math.clamp(math.floor(cursorY / tex.height * tilesHigh), 0, tilesHigh-1)
-			--]=]
-			ig.igImageButton(
-				'tile sheet '..self.layerIndex..' '..j,
-				ffi.cast('ImTextureID', tex.id),
-				ig.ImVec2(tex.width, tex.height)
-			)
+		-- TODO pick this based on animation frame...
+		local tex = texs[(self.app.frameIndex % #texs) + 1]
 
-			-- ... and draw highlights ...
-			-- [=[ how to draw a highlight over an imgui box:
-			if self.index >= 0 and self.index < 255 then
-				ig.igGetItemRectMin(min)
-				ig.igGetItemRectMax(max)
-				local minx, miny = min.x, min.y
-				local maxx, maxy = max.x, max.y
-				local sizex = maxx - minx
-				local sizey = maxy - miny
-				local x = bit.band(0xf, self.index)
-				local y = bit.band(0xf, bit.rshift(self.index, 4))
-				min.x = x / 16 * sizex + minx
-				max.x = (x+1) / 16 * sizex + minx
-				min.y = y / 16 * sizey + miny
-				max.y = (y+1) / 16 * sizey + miny
-				ig.ImDrawList_AddRect(
-					ig.igGetWindowDrawList(),
-					min, 
-					max, 
-					0xff00ffff, -- yellow color ... is it ABGR ?
-					0,			-- rounding
-					0,			-- typical flags
-					2			-- thickness
-				)
-			end
-			--]=]
+		local availSize = ig.ImVec2()
+		ig.igGetContentRegionAvail(availSize)
+		availSize.x = availSize.x - 16	-- make room for scrollbar
+		availSize.y = availSize.y - 4
+		local scale = math.max(1, availSize.x / tex.width, availSize.y / tex.height)
+		local sizeX = math.ceil(scale * tex.width)
+		local sizeY = math.ceil(scale * tex.height)
+
+		-- ... and handle clicks ...
+		-- [=[ how to handle click location:
+		local texScreenPos = ig.igGetCursorScreenPos()
+		local mousePos = ig.igGetMousePos()
+		local cursorX = mousePos.x - texScreenPos.x - 4
+		local cursorY = mousePos.y - texScreenPos.y - 4
+		local x = math.clamp(math.floor(cursorX / sizeX * 16), 0, 15)
+		local y = math.clamp(math.floor(cursorY / sizeY * 16), 0, 15)
+		--]=]
+		if ig.igImageButton(
+			self.name,
+			ffi.cast('ImTextureID', tex.id),
+			ig.ImVec2(sizeX, sizeY)
+		) then
+			self.index = bit.bor(x, bit.lshift(y, 4))
 		end
+
+		-- ... and draw highlights ...
+		-- [=[ how to draw a highlight over an imgui box:
+		if self.index >= 0 and self.index < 256 then
+			ig.igGetItemRectMin(min)
+			ig.igGetItemRectMax(max)
+			local minx, miny = min.x, min.y
+			local maxx, maxy = max.x, max.y
+			local sizex = maxx - minx
+			local sizey = maxy - miny
+			local x = bit.band(0xf, self.index)
+			local y = bit.band(0xf, bit.rshift(self.index, 4))
+			min.x = x / 16 * sizex + minx
+			max.x = (x+1) / 16 * sizex + minx
+			min.y = y / 16 * sizey + miny
+			max.y = (y+1) / 16 * sizey + miny
+			ig.ImDrawList_AddRect(
+				ig.igGetWindowDrawList(),
+				min,
+				max,
+				0xff00ffff, -- yellow color ... is it ABGR ?
+				0,			-- rounding
+				0,			-- typical flags
+				2			-- thickness
+			)
+		end
+		--]=]
 	end
 end
 
