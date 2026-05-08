@@ -36,6 +36,14 @@ end
 --]]
 
 
+-- convert from 4-bit xy ff6 16x16 tilemap index to numo9 5-bit xy 8x8 tilemap index
+local function tile44to55(index)
+	return bit.bor(
+		bit.lshift(bit.band(0x0f, index), 1),
+		bit.lshift(bit.band(0xf0, index), 2)
+	)
+end
+
 local startTime = timer.getTime()
 
 -- set these globals upon App:onLoadROM(), which itself will get called at startup based on the cli
@@ -124,7 +132,11 @@ local mapTilePropsFlagForName = table.map(mapTilePropsNames, function(name, inde
 end):setmetatable(nil)
 
 
-local ArrayWindow = class()
+local Window = class()
+-- .name
+-- .update
+
+local ArrayWindow = Window:subclass()
 
 function ArrayWindow:init(args)
 	self.children = table(args.children)
@@ -290,7 +302,6 @@ assert.len(tilePropsNames, numTilePropsBits)
 	ig.igSameLine()
 	app.npcWindow:popupButton()
 
-
 	if self.index < 2 then
 		ig.luatableTooltipCheckbox('showWorldEncounterSectors', app, 'showWorldEncounterSectors')
 		ig.igSameLine()
@@ -299,9 +310,12 @@ assert.len(tilePropsNames, numTilePropsBits)
 		app.randomBattleOptionsWindow:popupButton(mapInfo.monsterRandomBattleOptionIndex)
 	end
 
-
-	app.show16x16mapTiles = not not app.show16x16mapTiles
-	ig.luatableTooltipCheckbox('show 16x16 tiles', app, 'show16x16mapTiles')
+	-- [[ here or in TileWindow?
+	for i,win in ipairs(app.layerTileSheetWindows) do
+		if i > 1 then ig.igSameLine() end
+		win:popupButton()
+	end
+	--]]
 
 	local map = mapInfo.map
 	if map then
@@ -392,8 +406,6 @@ function MapWindow:setIndex(newIndex, pushStack)
 			print('map layer'..i..' pos', layerPos[i])
 		end
 	end
-
-	local palette = mapInfo.palette
 
 	if not palette then
 		print("map "..mapIndex.." has no palette")
@@ -554,7 +566,8 @@ function MapWindow:setIndex(newIndex, pushStack)
 				local paletteIndex = tonumber(map.palette)
 
 				local size = vec2d(16, 16)
-				local img = Image(16 * size.x, 16 * size.y, 1, 'uint8_t'):clear()
+				local tileImg = Image(16, 16, 1, 'uint8_t'):clear()
+				local img = Image(16 * size.x, 16 * size.y, 4, 'uint8_t'):clear()
 				-- what is its format?
 				local tile16x16 = 0
 				for j=0,size.y-1 do
@@ -562,9 +575,8 @@ function MapWindow:setIndex(newIndex, pushStack)
 					for i=0,size.x-1 do
 						local x = bit.lshift(i, 4)
 						game.layer1and2drawtile16x16(
-							img,
-							x,
-							y,
+							--img, x, y,
+							tileImg, 0, 0,
 							tile16x16,
 							--map.tilesetDatas[layer]
 							game.mapTilesetCache[tilesetIndex].data,
@@ -572,6 +584,18 @@ function MapWindow:setIndex(newIndex, pushStack)
 							gfxDatas,
 							nil -- mapInfo.gfxLayer3 and mapInfo.gfxLayer3.data
 						)
+						
+						-- bake palette into rgba (so imgui can use it)
+						for srcy=0,15 do
+							for srcx=0,15 do
+								for ch=0,img.channels-1 do
+									local palIndex = tileImg.buffer[bit.bor(srcx, bit.lshift(srcy, 4))]
+									local dstp = img.buffer + img.channels * (x + srcx + bit.lshift(size.x, 4) * (y + srcy))
+									dstp[0], dstp[1], dstp[2], dstp[3] = table.unpack(palette[palIndex+1])
+								end
+							end
+						end
+
 						tile16x16 = tile16x16 + 1
 					end
 				end
@@ -580,7 +604,8 @@ function MapWindow:setIndex(newIndex, pushStack)
 					data = img.buffer,
 					width = img.width,
 					height = img.height,
-					internalFormat = gl.GL_R8UI,
+					--internalFormat = gl.GL_R8UI,
+					internalFormat = gl.GL_RGBA,
 
 					minFilter = gl.GL_NEAREST,
 					magFilter = gl.GL_NEAREST,
@@ -639,7 +664,7 @@ function TileWindow:showIndexUI(ar)
 	local layout1Data = layouts[1] and layouts[1].data
 	if layout1Data then
 		local layoutptr = ffi.cast('uint8_t*', layout1Data)
-		if  tilePropsData then
+		if tilePropsData then
 			local tilePropsPtr = ffi.cast('uint16_t*', tilePropsData)
 			local flags = tilePropsPtr[layoutptr[self.index]]
 			ig.igText(('tile props = 0x%04x'):format(flags))
@@ -663,12 +688,19 @@ function TileWindow:showIndexUI(ar)
 			local srcX = (x - posx) % layerSize.x
 			local srcY = (y - posy) % layerSize.y
 			local tile16x16 = layoutptr[((srcX + layerSize.x * srcY) % #layoutData)]
-			ig.igText(('layer %d tile: 0x%02x'):format(layer, tile16x16))
+			ig.igText('layer '..layer)
+		
+			local tileSheetWin = self.app.layerTileSheetWindows[layer]
+			if tileSheetWin then
+				ig.igSameLine()
+				tileSheetWin:popupButton(tile16x16)
+			end
+			--ig.igText(('layer %d tile: 0x%02x'):format(layer, tile16x16))
 		end
 	end
 
-
 	if mapInfo then
+		ig.igSeparator()
 		local mapWidth, mapHeight = self.app.tileWindow:getMapSize()
 
 		if app.tilePropsTex
@@ -781,6 +813,7 @@ function TileWindow:showIndexUI(ar)
 						bbox = bbox,
 						floorTile = floorTile,
 						wallTile = 0,
+						ceilingTile = 0,
 					}
 				end
 			end
@@ -805,6 +838,7 @@ function TileWindow:showIndexUI(ar)
 				-- AsText so it can handle all lua number parsing, including 0x's
 				ig.luatableInputFloatAsText('floor tile', floodFillTiles, 'floorTile')
 				ig.luatableInputFloatAsText('wall tile', floodFillTiles, 'wallTile')
+				ig.luatableInputFloatAsText('ceiling tile', floodFillTiles, 'ceilingTile')
 
 				if ig.igButton'export voxelmap' then
 					-- 1) make our voxelmap
@@ -824,20 +858,34 @@ function TileWindow:showIndexUI(ar)
 					for y=0,tonumber(size.y)-1 do
 						for x=0,tonumber(size.x)-1 do
 							local vox = voxelmap:getVoxelBlobPtr(x, y, 0)
-							vox.spriteIndex = floodFillTiles.floorTile
+							vox.intval = 0	-- reset from clear
+							vox.spriteIndex = tile44to55(floodFillTiles.floorTile)
 							vox.mesh3DIndex = 0	-- hmm todo, floor voxel mesh index
+							--vox.orientation = 32	-- flip x in voxel orientation?
 
 							-- if this is a non-traversible tile then grow the walls
-							local i = x + bbox.min.x + mapWidth * (y + bbox.min.y)
+							local i = x + bbox.min.x + mapWidth * ((size.y - 1 - y) + bbox.min.y)
 							if not floodFillTiles.filled[i] then
 								for z=1,size.z-1 do
 									local vox = voxelmap:getVoxelBlobPtr(x, y, z)
+									vox.intval = 0	-- reset from clear
 									-- TODO if it's a north wall then copy source tiles going y+
 									-- and if it's any other wall then copy from the north tile wall profile
-									vox.spriteIndex = floodFillTiles.wallTile	-- TODO make this the most-prominent-wall-tile
+									vox.spriteIndex = z == size.z-1
+										and tile44to55(floodFillTiles.ceilingTile)
+										or tile44to55(floodFillTiles.wallTile)	-- TODO make this the most-prominent-wall-tile
 									-- idk how to find that out ... trace from top of traversible filled region to the ceiling tile and count up most-prevalent
 									vox.mesh3DIndex = 0	-- hmm todo, wall voxel mesh index
+									--vox.orientation = 32	-- flip x in voxel orientation?
 								end
+							else
+								
+								--[[ TODO read the real tile instad of the most prominent
+								vox.spriteIndex = tile44to55(
+									
+								
+								)
+								--]]
 							end
 						end
 					end
@@ -849,6 +897,70 @@ function TileWindow:showIndexUI(ar)
 					ig.igText('\t'..('0x%06x'):format(tileValue)..' = '..floodFillTiles.hist[tileValue])
 				end
 			end
+		end
+	end
+end
+
+local TileSheetWindow = ArrayWindow:subclass()
+TileSheetWindow.name = 'tile sheet'
+function TileSheetWindow:init(...)
+	self.array = range(256)
+	TileSheetWindow.super.init(self, ...)
+end
+function TileSheetWindow:getArray()
+	return self.array
+end
+do
+	local min = ig.ImVec2()
+	local max = ig.ImVec2()
+	function TileSheetWindow:showIndexUI(ar)
+		local layerTexs = self.app.map16x16tileTexs
+		if not layerTexs then return end
+		local texs = layerTexs[self.layerIndex]
+		if not texs then return end
+		-- only one per layer it seems?
+		for j,tex in ipairs(texs) do
+			-- ... and handle clicks ...
+			--[=[ how to handle click location:
+			local texScreenPos = ig.igGetCursorScreenPos()
+			local mousePos = ig.igGetMousePos()
+			local cursorX = mousePos.x - texScreenPos.x - 4
+			local cursorY = mousePos.y - texScreenPos.y - 4
+			local x = math.clamp(math.floor(cursorX / tex.width * tilesWide), 0, tilesWide-1)
+			local y = math.clamp(math.floor(cursorY / tex.height * tilesHigh), 0, tilesHigh-1)
+			--]=]
+			ig.igImageButton(
+				'tile sheet '..self.layerIndex..' '..j,
+				ffi.cast('ImTextureID', tex.id),
+				ig.ImVec2(tex.width, tex.height)
+			)
+
+			-- ... and draw highlights ...
+			-- [=[ how to draw a highlight over an imgui box:
+			if self.index >= 0 and self.index < 255 then
+				ig.igGetItemRectMin(min)
+				ig.igGetItemRectMax(max)
+				local minx, miny = min.x, min.y
+				local maxx, maxy = max.x, max.y
+				local sizex = maxx - minx
+				local sizey = maxy - miny
+				local x = bit.band(0xf, self.index)
+				local y = bit.band(0xf, bit.rshift(self.index, 4))
+				min.x = x / 16 * sizex + minx
+				max.x = (x+1) / 16 * sizex + minx
+				min.y = y / 16 * sizey + miny
+				max.y = (y+1) / 16 * sizey + miny
+				ig.ImDrawList_AddRect(
+					ig.igGetWindowDrawList(),
+					min, 
+					max, 
+					0xff00ffff, -- yellow color ... is it ABGR ?
+					0,			-- rounding
+					0,			-- typical flags
+					2			-- thickness
+				)
+			end
+			--]=]
 		end
 	end
 end
@@ -1624,6 +1736,13 @@ function App:onLoadROM(infn)
 	self.showTiles = true
 	self.tileWindow = TileWindow{app=self}
 
+	self.layerTileSheetWindows = table()
+	for i=1,2 do
+		self.layerTileSheetWindows[i] = TileSheetWindow{app=self}
+		self.layerTileSheetWindows[i].name = 'layer '..i..' tile sheet'
+		self.layerTileSheetWindows[i].layerIndex = i
+	end
+
 	self.showTreasures = true
 	self.treasureWindow = TreasureWindow{app=self}
 
@@ -1647,7 +1766,7 @@ function App:onLoadROM(infn)
 		app = self,
 		index = cmdline[2] and assert(tonumber(cmdline[2])) or 0,
 		show = true,
-		children = {
+		children = table{
 			self.tileWindow,
 			self.treasureWindow,
 			self.touchTriggerWindow,
@@ -1655,7 +1774,7 @@ function App:onLoadROM(infn)
 			self.bigDoorWindow,
 			self.npcWindow,
 			self.worldEncounterSectorWindow,
-		},
+		}:append(self.layerTileSheetWindows),
 	}
 
 	self.itemWindow = ItemWindow{app=self}
@@ -1795,276 +1914,255 @@ function App:update()
 
 		self.tooltipText = nil
 
-		if self.show16x16mapTiles then
-			for k=1,2 do
-				if self.map16x16tileTexs then
-					local texs = self.map16x16tileTexs[k]
-					local tex = texs[(self.frameIndex % #texs) + 1]
+		-- mapSize is in texels
+		-- so now coords are in 16x16 tiles
+		view.mvMat:applyScale(1, -1)
+		view.mvMat:applyScale(self.mapSize.x / 16, self.mapSize.y / 16, 1)
+		view.mvProjMat:mul4x4(view.projMat, view.mvMat)
 
-					view:setupModelView()
-					view.mvMat:applyScale(1, -1)
-					view.mvMat:applyTranslate((k-1) * (tex.width/16 + 1), 0, 0)
-					view.mvMat:applyScale(tex.width/16, tex.height/16)
-					view.mvProjMat:mul4x4(view.projMat, view.mvMat)
+		-- draw layers blended together
+		self:draw(bit.band(self.frameIndex, 7))	-- mod by max anim frame gcd
 
-					self.layerDrawObj.texs[1] = tex
-					self.layerDrawObj.texs[2] = self.mapWindow.mapPalTex
-					self.layerDrawObj:draw()
+		-- draw overlays of things in the map:
+
+		gl.glEnable(gl.GL_BLEND)
+		gl.glBlendEquation(gl.GL_FUNC_ADD)
+		gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE)
+
+		if self.layerDrawObj
+		and self.tilePropsTex
+		then
+			local totalBits = 0
+			for i=0,numTilePropsBits-1 do
+				if 0 ~= bit.band(bit.lshift(1, i), self.showTileMask) then
+					totalBits = totalBits + 1
 				end
 			end
-		else
+			for i=0,numTilePropsBits-1 do
+				if 0 ~= bit.band(bit.lshift(1, i), self.showTileMask) then
+					self.flagsDrawObj.texs[1] = self.tilePropsTex
+					self.flagsDrawObj.texs[2] = self.tilePropsPalTex
+					self.flagsDrawObj.uniforms.t = 20 * t - i
+					self.flagsDrawObj.uniforms.mvProjMat = view.mvProjMat.ptr
+					self.flagsDrawObj.uniforms.palIndex = i
+					self.flagsDrawObj.uniforms.alpha = 1 / math.max(1, totalBits)
+					self.flagsDrawObj:draw()
+				end
+			end
+		end
 
+		gl.glBlendFunc(gl.GL_ONE, gl.GL_ONE)
 
-			-- mapSize is in texels
-			-- so now coords are in 16x16 tiles
+		local mapInfo = self.mapWindow:getMapInfo()
+		if mapInfo then
+			local mapWidth, mapHeight = self.tileWindow:getMapSize()
+
+			view:setupModelView()
 			view.mvMat:applyScale(1, -1)
-			view.mvMat:applyScale(self.mapSize.x / 16, self.mapSize.y / 16, 1)
 			view.mvProjMat:mul4x4(view.projMat, view.mvMat)
 
-			-- draw layers blended together
-			self:draw(bit.band(self.frameIndex, 7))	-- mod by max anim frame gcd
+			local rectObj = self.rectObj
+			local uniforms = rectObj.uniforms
+			uniforms.mvProjMat = view.mvProjMat.ptr
 
-			-- draw overlays of things in the map:
-
-			gl.glEnable(gl.GL_BLEND)
-			gl.glBlendEquation(gl.GL_FUNC_ADD)
-			gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE)
-
-			if self.layerDrawObj
-			and self.tilePropsTex
-			then
-				local totalBits = 0
-				for i=0,numTilePropsBits-1 do
-					if 0 ~= bit.band(bit.lshift(1, i), self.showTileMask) then
-						totalBits = totalBits + 1
-					end
-				end
-				for i=0,numTilePropsBits-1 do
-					if 0 ~= bit.band(bit.lshift(1, i), self.showTileMask) then
-						self.flagsDrawObj.texs[1] = self.tilePropsTex
-						self.flagsDrawObj.texs[2] = self.tilePropsPalTex
-						self.flagsDrawObj.uniforms.t = 20 * t - i
-						self.flagsDrawObj.uniforms.mvProjMat = view.mvProjMat.ptr
-						self.flagsDrawObj.uniforms.palIndex = i
-						self.flagsDrawObj.uniforms.alpha = 1 / math.max(1, totalBits)
-						self.flagsDrawObj:draw()
-					end
-				end
+			local function showHL()
+				local x,y,w,h = table.unpack(uniforms.bbox)
+				local eps = .1
+				settable(uniforms.color, 1,1,1,1)
+				settable(uniforms.bbox, x-eps, y-eps, 2*eps, h+2*eps)
+				rectObj:draw()
+				settable(uniforms.bbox, x-eps, y-eps, w+2*eps, 2*eps)
+				rectObj:draw()
+				settable(uniforms.bbox, x+w-eps, y-eps, 2*eps, h+2*eps)
+				rectObj:draw()
+				settable(uniforms.bbox, x-eps, y+h-eps, w+2*eps, 2*eps)
+				rectObj:draw()
 			end
 
-			gl.glBlendFunc(gl.GL_ONE, gl.GL_ONE)
 
-			local mapInfo = self.mapWindow:getMapInfo()
-			if mapInfo then
-				local mapWidth, mapHeight = self.tileWindow:getMapSize()
+			local mx, my, mz, mw = self:invTransform(self.mouse.pos.x * self.width, self.mouse.pos.y * self.height)
+	mx = mx + self.view.pos.x
+	my = my + self.view.pos.y	-- why isn't htis in the matrix and therefore in invTransform ?
+	my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
+self.tooltipText = math.floor(mx)..', '..math.floor(my)
 
-				view:setupModelView()
-				view.mvMat:applyScale(1, -1)
-				view.mvProjMat:mul4x4(view.projMat, view.mvMat)
+			local leftPress = self.mouse.leftPress
 
-				local rectObj = self.rectObj
-				local uniforms = rectObj.uniforms
-				uniforms.mvProjMat = view.mvProjMat.ptr
+			if (self.mapWindow.index == 0 or self.mapWindow.index == 1)
+			and self.showWorldEncounterSectors
+			then
+				for sectorIndex=0,0x3f do
+					local x = bit.lshift(bit.band(sectorIndex, 7), 5)
+					local y = bit.lshift(bit.band(bit.rshift(sectorIndex, 3), 7), 5)
+					local w, h = 32, 32
 
-				local function showHL()
-					local x,y,w,h = table.unpack(uniforms.bbox)
-					local eps = .1
-					settable(uniforms.color, 1,1,1,1)
-					settable(uniforms.bbox, x-eps, y-eps, 2*eps, h+2*eps)
-					rectObj:draw()
-					settable(uniforms.bbox, x-eps, y-eps, w+2*eps, 2*eps)
-					rectObj:draw()
-					settable(uniforms.bbox, x+w-eps, y-eps, 2*eps, h+2*eps)
-					rectObj:draw()
-					settable(uniforms.bbox, x-eps, y+h-eps, w+2*eps, 2*eps)
-					rectObj:draw()
-				end
-
-
-				local mx, my, mz, mw = self:invTransform(self.mouse.pos.x * self.width, self.mouse.pos.y * self.height)
-		mx = mx + self.view.pos.x
-		my = my + self.view.pos.y	-- why isn't htis in the matrix and therefore in invTransform ?
-		my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
-	self.tooltipText = math.floor(mx)..', '..math.floor(my)
-
-				local leftPress = self.mouse.leftPress
-
-				if (self.mapWindow.index == 0 or self.mapWindow.index == 1)
-				and self.showWorldEncounterSectors
-				then
-					for sectorIndex=0,0x3f do
-						local x = bit.lshift(bit.band(sectorIndex, 7), 5)
-						local y = bit.lshift(bit.band(bit.rshift(sectorIndex, 3), 7), 5)
-						local w, h = 32, 32
-
-						local i = bit.bor(sectorIndex, bit.lshift(self.mapWindow.index, 6))
-						if leftPress
-						and x <= mx and mx <= x+w
-						and y <= my and my <= y+h
-						then
-							self.worldEncounterSectorWindow:setIndex(i)
-							self.worldEncounterSectorWindow.show[0] = true
-						end
-						settable(uniforms.color, .7, .7, .7, 1)
-						settable(uniforms.bbox, x, y, w, h)
-						--rectObj:draw()
-						if i == self.worldEncounterSectorWindow.index then
-							showHL()
-						end
+					local i = bit.bor(sectorIndex, bit.lshift(self.mapWindow.index, 6))
+					if leftPress
+					and x <= mx and mx <= x+w
+					and y <= my and my <= y+h
+					then
+						self.worldEncounterSectorWindow:setIndex(i)
+						self.worldEncounterSectorWindow.show[0] = true
 					end
-				end
-
-				if self.showTiles then
-					if mapWidth and mapHeight then
-						-- show tile under mouse
-						local x = math.floor(mx)
-						local y = math.floor(my)
-						if x >= 0 and y >= 0
-						and x < mapWidth
-						and y < mapHeight
-						then
-							settable(uniforms.bbox, x, y, 1, 1)
-							settable(uniforms.color, 1,1,1,1)
-							showHL()
-							if leftPress then
-								local i = x + mapWidth * y
-								self.tileWindow:setIndex(i)
-								self.tileWindow.show[0] = true
-							end
-						end
-						-- show selected tile
-						local x = self.tileWindow.index % mapWidth
-						local y = (self.tileWindow.index - x) / mapWidth
-						if x >= 0 and y >= 0
-						and x < mapWidth
-						and y < mapHeight
-						then
-							settable(uniforms.bbox, x, y, 1, 1)
-							settable(uniforms.color, 1,1,1,1)
-							showHL()
-						end
-					end
-				end
-				if self.showTreasures then
-					for i,t in ipairs(mapInfo.treasures) do
-						local x, y = tonumber(t.pos.x), tonumber(t.pos.y)
-						if leftPress
-						and x <= mx and mx <= x+1
-						and y <= my and my <= y+1
-						then
-							self.treasureWindow:setIndex(i-1)
-							self.treasureWindow.show[0] = true
-						end
-						settable(uniforms.bbox, x, y, 1, 1)
-						settable(uniforms.color, 0,0,1,1)
-						rectObj:draw()
-						if i-1 == self.treasureWindow.index then
-							showHL()
-						end
-					end
-				end
-				if self.showTouchTriggers then
-					for i,e in ipairs(mapInfo.touchTriggers) do
-						local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
-						if leftPress
-						and x <= mx and mx <= x+1
-						and y <= my and my <= y+1
-						then
-							self.touchTriggerWindow:setIndex(i-1)
-							self.touchTriggerWindow.show[0] = true
-						end
-						settable(uniforms.bbox, x, y, 1, 1)
-						settable(uniforms.color, 0,0,1,1)
-						rectObj:draw()
-						if i-1 == self.touchTriggerWindow.index then
-							showHL()
-						end
-					end
-				end
-				if self.showDoors then
-					for i,e in ipairs(mapInfo.doors) do
-						local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
-						if leftPress
-						and x <= mx and mx <= x+1
-						and y <= my and my <= y+1
-						then
-							self.doorWindow:setIndex(i-1)
-							self.doorWindow.show[0] = true
-						end
-						settable(uniforms.bbox, x, y, 1, 1)
-						settable(uniforms.color, 1,0,0,1)
-						rectObj:draw()
-						if i-1 == self.doorWindow.index then
-							showHL()
-						end
-					end
-				end
-				if self.showBigDoors then
-					for i,e in ipairs(mapInfo.bigDoors) do
-						local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
-						local w, h
-						if e.vertical == 0 then
-							w, h = e.length+1, 1
-						else
-							w, h = 1, e.length+1
-						end
-						if leftPress
-						and x <= mx and mx <= x+w
-						and y <= my and my <= y+h
-						then
-							self.bigDoorWindow:setIndex(i-1)
-							self.bigDoorWindow.show[0] = true
-						end
-						settable(uniforms.bbox, x, y, w, h)
-						settable(uniforms.color, 1,0,0,1)
-						rectObj:draw()
-						if i-1 == self.bigDoorWindow.index then
-							showHL()
-						end
-					end
-				end
-				if self.showNPCs then
-					for i,n in ipairs(mapInfo.npcs) do
-						local x, y = tonumber(n.x), tonumber(n.y)
-						if leftPress
-						and x <= mx and mx <= x+1
-						and y <= my and my <= y+1
-						then
-							self.npcWindow:setIndex(i-1)
-							self.npcWindow.show[0] = true
-						end
-						settable(uniforms.bbox, x, y, 1, 1)
-						settable(uniforms.color, 0,1,0,1)
-						rectObj:draw()
-						if i-1 == self.npcWindow.index then
-							showHL()
-						end
-					end
-				end
-
-
-				-- tempting to implement this as a bitflag layer ...
-				local mapIndex = self.mapWindow.index
-				local floodFillTilesForThisMap = app.floodFillTilesPerMap[mapIndex]
-				if floodFillTilesForThisMap then
-					for ffIndex,floodFillTiles in ipairs(floodFillTilesForThisMap) do
-						for i in pairs(floodFillTiles.filled) do
-							local x = i % mapWidth
-							local y = (i - x) / mapWidth
-							settable(uniforms.bbox, x, y, 1, 1)
-							settable(uniforms.color, 1,.5,0,1)
-							rectObj:draw()
-						end
-						local bbox = floodFillTiles.bbox
-						settable(uniforms.bbox, bbox.min.x, bbox.min.y, bbox.max.x - bbox.min.x + 1, bbox.max.y - bbox.min.y + 1)
-						settable(uniforms.color, 1,1,1,1)
+					settable(uniforms.color, .7, .7, .7, 1)
+					settable(uniforms.bbox, x, y, w, h)
+					--rectObj:draw()
+					if i == self.worldEncounterSectorWindow.index then
 						showHL()
 					end
 				end
 			end
 
-			gl.glDisable(gl.GL_BLEND)
+			if self.showTiles then
+				if mapWidth and mapHeight then
+					-- show tile under mouse
+					local x = math.floor(mx)
+					local y = math.floor(my)
+					if x >= 0 and y >= 0
+					and x < mapWidth
+					and y < mapHeight
+					then
+						settable(uniforms.bbox, x, y, 1, 1)
+						settable(uniforms.color, 1,1,1,1)
+						showHL()
+						if leftPress then
+							local i = x + mapWidth * y
+							self.tileWindow:setIndex(i)
+							self.tileWindow.show[0] = true
+						end
+					end
+					-- show selected tile
+					local x = self.tileWindow.index % mapWidth
+					local y = (self.tileWindow.index - x) / mapWidth
+					if x >= 0 and y >= 0
+					and x < mapWidth
+					and y < mapHeight
+					then
+						settable(uniforms.bbox, x, y, 1, 1)
+						settable(uniforms.color, 1,1,1,1)
+						showHL()
+					end
+				end
+			end
+			if self.showTreasures then
+				for i,t in ipairs(mapInfo.treasures) do
+					local x, y = tonumber(t.pos.x), tonumber(t.pos.y)
+					if leftPress
+					and x <= mx and mx <= x+1
+					and y <= my and my <= y+1
+					then
+						self.treasureWindow:setIndex(i-1)
+						self.treasureWindow.show[0] = true
+					end
+					settable(uniforms.bbox, x, y, 1, 1)
+					settable(uniforms.color, 0,0,1,1)
+					rectObj:draw()
+					if i-1 == self.treasureWindow.index then
+						showHL()
+					end
+				end
+			end
+			if self.showTouchTriggers then
+				for i,e in ipairs(mapInfo.touchTriggers) do
+					local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
+					if leftPress
+					and x <= mx and mx <= x+1
+					and y <= my and my <= y+1
+					then
+						self.touchTriggerWindow:setIndex(i-1)
+						self.touchTriggerWindow.show[0] = true
+					end
+					settable(uniforms.bbox, x, y, 1, 1)
+					settable(uniforms.color, 0,0,1,1)
+					rectObj:draw()
+					if i-1 == self.touchTriggerWindow.index then
+						showHL()
+					end
+				end
+			end
+			if self.showDoors then
+				for i,e in ipairs(mapInfo.doors) do
+					local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
+					if leftPress
+					and x <= mx and mx <= x+1
+					and y <= my and my <= y+1
+					then
+						self.doorWindow:setIndex(i-1)
+						self.doorWindow.show[0] = true
+					end
+					settable(uniforms.bbox, x, y, 1, 1)
+					settable(uniforms.color, 1,0,0,1)
+					rectObj:draw()
+					if i-1 == self.doorWindow.index then
+						showHL()
+					end
+				end
+			end
+			if self.showBigDoors then
+				for i,e in ipairs(mapInfo.bigDoors) do
+					local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
+					local w, h
+					if e.vertical == 0 then
+						w, h = e.length+1, 1
+					else
+						w, h = 1, e.length+1
+					end
+					if leftPress
+					and x <= mx and mx <= x+w
+					and y <= my and my <= y+h
+					then
+						self.bigDoorWindow:setIndex(i-1)
+						self.bigDoorWindow.show[0] = true
+					end
+					settable(uniforms.bbox, x, y, w, h)
+					settable(uniforms.color, 1,0,0,1)
+					rectObj:draw()
+					if i-1 == self.bigDoorWindow.index then
+						showHL()
+					end
+				end
+			end
+			if self.showNPCs then
+				for i,n in ipairs(mapInfo.npcs) do
+					local x, y = tonumber(n.x), tonumber(n.y)
+					if leftPress
+					and x <= mx and mx <= x+1
+					and y <= my and my <= y+1
+					then
+						self.npcWindow:setIndex(i-1)
+						self.npcWindow.show[0] = true
+					end
+					settable(uniforms.bbox, x, y, 1, 1)
+					settable(uniforms.color, 0,1,0,1)
+					rectObj:draw()
+					if i-1 == self.npcWindow.index then
+						showHL()
+					end
+				end
+			end
+
+
+			-- tempting to implement this as a bitflag layer ...
+			local mapIndex = self.mapWindow.index
+			local floodFillTilesForThisMap = app.floodFillTilesPerMap[mapIndex]
+			if floodFillTilesForThisMap then
+				for ffIndex,floodFillTiles in ipairs(floodFillTilesForThisMap) do
+					for i in pairs(floodFillTiles.filled) do
+						local x = i % mapWidth
+						local y = (i - x) / mapWidth
+						settable(uniforms.bbox, x, y, 1, 1)
+						settable(uniforms.color, 1,.5,0,1)
+						rectObj:draw()
+					end
+					local bbox = floodFillTiles.bbox
+					settable(uniforms.bbox, bbox.min.x, bbox.min.y, bbox.max.x - bbox.min.x + 1, bbox.max.y - bbox.min.y + 1)
+					settable(uniforms.color, 1,1,1,1)
+					showHL()
+				end
+			end
 		end
+
+		gl.glDisable(gl.GL_BLEND)
 	end
 
 	-- draw gui
