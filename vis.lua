@@ -1,5 +1,7 @@
 #!/usr/bin/env luajit
-local cmdline = require 'ext.cmdline'(...)
+
+-- global, since app calls onLoadROM at the end of initGL 
+cmdline = require 'ext.cmdline'(...)
 
 -- do this before requiring 'App'
 local gl = require 'gl.setup'(cmdline.gl)
@@ -14,13 +16,5 @@ if path'../numo9':exists() then
 end
 --]]
 
-
 local App = require 'ff6.vis.app'
-
-local app = App()
-
-if cmdline[1] then
-	app:onLoadROM(cmdline[1], cmdline[2])
-end
-
-app:run()
+return App():run()

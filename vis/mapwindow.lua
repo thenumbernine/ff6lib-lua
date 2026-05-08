@@ -134,9 +134,16 @@ function MapWindow:showIndexUI(ar)
 	end
 
 	-- [[ here or in TileWindow?
-	for i,win in ipairs(app.layerTileSheetWindows) do
-		if i > 1 then ig.igSameLine() end
-		win:popupButton()
+	if app.map16x16tileTexs then
+		local first = true
+		for i=1,2 do
+			if app.map16x16tileTexs[i] then
+				if not first then ig.igSameLine() end
+				first = false
+				local win = app.layerTileSheetWindows[i]
+				win:popupButton()
+			end
+		end
 	end
 	--]]
 
@@ -351,6 +358,9 @@ function MapWindow:setIndex(newIndex, pushStack)
 		end
 		app.map16x16tileTexs = nil
 	end
+	
+
+
 	if map then
 		app.map16x16tileTexs = table()
 
@@ -360,13 +370,18 @@ function MapWindow:setIndex(newIndex, pushStack)
 			return gfx.data
 		end)
 
-		for k=1,2 do
-			app.map16x16tileTexs[k] = table()
-			local tilesetIndex = tonumber(map['tileset'..k])
+		local worldInfo = game.worldInfos[mapIndex+1]	-- worldInfos is 1-based
+
+		local maxLayers = worldInfo and 1 or 2
+		for layer=1,maxLayers do
+			app.map16x16tileTexs[layer] = table()
+			local tilesetIndex = tonumber(map['tileset'..layer])
 			-- TODO how to specify animation # as well?
 			-- might have to just write these out based on mapindex ... and just skip unique ones?
 
-			for frameIndex=0,3 do
+			local maxFrames = worldInfo and 1 or 4
+
+			for frameIndex=0,maxFrames-1 do
 				do
 					local index = 0 --map.animatedLayers1And2
 					local startOffset = game.mapAnimPropOfs[index]
@@ -397,16 +412,28 @@ function MapWindow:setIndex(newIndex, pushStack)
 					local y = bit.lshift(j, 4)
 					for i=0,size.x-1 do
 						local x = bit.lshift(i, 4)
-						game.layer1and2drawtile16x16(
-							--img, x, y,
-							tileImg, 0, 0,
-							tile16x16,
-							--map.tilesetDatas[layer]
-							game.mapTilesetCache[tilesetIndex].data,
-							nil,
-							gfxDatas,
-							nil -- mapInfo.gfxLayer3 and mapInfo.gfxLayer3.data
-						)
+						
+						if worldInfo then
+							game.layer1worlddrawtile16x16(
+								--layerImg, x, y,
+								tileImg, 0, 0,
+								tile16x16,
+								worldInfo.tilesetdata,	--game.tilesetDatas[layer],
+											--game.mapTilesetCache[tilesetIndex].data,
+								worldInfo.gfxdata	--gfxDatas[layer]
+							)
+						else
+							game.layer1and2drawtile16x16(
+								--img, x, y,
+								tileImg, 0, 0,
+								tile16x16,
+								--map.tilesetDatas[layer]
+								game.mapTilesetCache[tilesetIndex].data,
+								nil,
+								gfxDatas,
+								nil -- mapInfo.gfxLayer3 and mapInfo.gfxLayer3.data
+							)
+						end
 
 						-- bake palette into rgba (so imgui can use it)
 						for srcy=0,15 do
@@ -422,7 +449,7 @@ function MapWindow:setIndex(newIndex, pushStack)
 						tile16x16 = tile16x16 + 1
 					end
 				end
-				app.map16x16tileTexs[k]:insert(GLTex2D{
+				app.map16x16tileTexs[layer]:insert(GLTex2D{
 					--image = img,
 					data = img.buffer,
 					width = img.width,

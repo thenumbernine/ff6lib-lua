@@ -218,7 +218,14 @@ for i,worldInfo in ipairs(game.worldInfos) do
 		img.palette = worldInfo.palette
 		for j=0,15 do
 			for i=0,15 do
-				game.layer1worlddrawtile16x16(img, i*16, j*16, i+16*j, worldInfo.tilesetdata, worldInfo.gfxdata)
+				game.layer1worlddrawtile16x16(
+					img,
+					bit.lshift(i, 4),
+					bit.lshift(j, 4),
+					bit.bor(i, bit.lshift(j, 4)),
+					worldInfo.tilesetdata,
+					worldInfo.gfxdata
+				)
 			end
 		end
 		img:save((maptilesetpath('world'..i..'.png')).path)

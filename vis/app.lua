@@ -107,7 +107,7 @@ void main() {
 
 
 	local colorsForBits = table{
-		vec3d(1,0,0),
+		vec3d(1,.5,0),
 		vec3d(0,1,0),
 		vec3d(0,0,1),
 		vec3d(0,1,1),
@@ -125,8 +125,8 @@ void main() {
 		vec3d(.5,.5,.5),
 		vec3d(.25, .25, .25),
 
-		vec3d(0,.25,0),
-		vec3d(.25,0,0),
+		vec3d(1,0,.5),
+		vec3d(1,0,0),
 	}
 	local tilePropsPalSize = 32
 	assert.ge(tilePropsPalSize, numTilePropsBits)	-- TODO rup2 or something
@@ -172,7 +172,7 @@ in vec2 tcv;
 out vec4 fragColor;
 void main() {
 
-	if (((int(gl_FragCoord.x) - int(gl_FragCoord.y) - int(t)) & 15) < 12) discard;
+	if (((int(gl_FragCoord.x) - int(gl_FragCoord.y) - int(t)) & 15) < 8) discard;
 	//if (mod((gl_FragCoord.x + gl_FragCoord.y) / 10., 1.) < .5) discard;
 
 	int flags = int(texture(tex, tcv, 0.).r);
@@ -260,6 +260,10 @@ void main() {
 				}
 			)))
 		)
+	end
+
+	if cmdline[1] then
+		self:onLoadROM(cmdline[1], cmdline[2])
 	end
 end
 
@@ -522,12 +526,14 @@ function App:update()
 		if self.layerDrawObj
 		and self.tilePropsTex
 		then
+			--[[
 			local totalBits = 0
 			for i=0,numTilePropsBits-1 do
 				if 0 ~= bit.band(bit.lshift(1, i), self.showTileMask) then
 					totalBits = totalBits + 1
 				end
 			end
+			--]]
 			for i=0,numTilePropsBits-1 do
 				if 0 ~= bit.band(bit.lshift(1, i), self.showTileMask) then
 					self.flagsDrawObj.texs[1] = self.tilePropsTex
@@ -535,13 +541,15 @@ function App:update()
 					self.flagsDrawObj.uniforms.t = 20 * t - i
 					self.flagsDrawObj.uniforms.mvProjMat = view.mvProjMat.ptr
 					self.flagsDrawObj.uniforms.palIndex = i
-					self.flagsDrawObj.uniforms.alpha = 1 / math.max(1, totalBits)
+					--self.flagsDrawObj.uniforms.alpha = 1 / math.max(1, totalBits)	-- for additive blending
+					self.flagsDrawObj.uniforms.alpha = .5
 					self.flagsDrawObj:draw()
 				end
 			end
 		end
 
-		gl.glBlendFunc(gl.GL_ONE, gl.GL_ONE)
+		--gl.glBlendFunc(gl.GL_ONE, gl.GL_ONE)
+		gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
 
 		local mapInfo = self.mapWindow:getMapInfo()
 		if mapInfo then
@@ -558,7 +566,7 @@ function App:update()
 			local function showHL()
 				local x,y,w,h = table.unpack(uniforms.bbox)
 				local eps = .1
-				settable(uniforms.color, 1,1,1,1)
+				settable(uniforms.color, 1,1,1,.5)
 				settable(uniforms.bbox, x-eps, y-eps, 2*eps, h+2*eps)
 				rectObj:draw()
 				settable(uniforms.bbox, x-eps, y-eps, w+2*eps, 2*eps)
@@ -578,6 +586,26 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 
 			local leftPress = self.mouse.leftPress
 
+
+			-- tempting to implement this as a bitflag layer ...
+			local mapIndex = self.mapWindow.index
+			local floodFillTilesForThisMap = self.floodFillTilesPerMap[mapIndex]
+			if floodFillTilesForThisMap then
+				for ffIndex,floodFillTiles in ipairs(floodFillTilesForThisMap) do
+					for i in pairs(floodFillTiles.filled) do
+						local x = i % mapWidth
+						local y = (i - x) / mapWidth
+						settable(uniforms.bbox, x, y, 1, 1)
+						settable(uniforms.color, 0,1,.5,.5)
+						rectObj:draw()
+					end
+					local bbox = floodFillTiles.bbox
+					settable(uniforms.bbox, bbox.min.x, bbox.min.y, bbox.max.x - bbox.min.x + 1, bbox.max.y - bbox.min.y + 1)
+					settable(uniforms.color, 1,1,1,1)
+					showHL()
+				end
+			end
+
 			if (self.mapWindow.index == 0 or self.mapWindow.index == 1)
 			and self.showWorldEncounterSectors
 			then
@@ -594,7 +622,7 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 						self.worldEncounterSectorWindow:setIndex(i)
 						self.worldEncounterSectorWindow.show[0] = true
 					end
-					settable(uniforms.color, .7, .7, .7, 1)
+					settable(uniforms.color, .7, .7, .7, .5)
 					settable(uniforms.bbox, x, y, w, h)
 					--rectObj:draw()
 					if i == self.worldEncounterSectorWindow.index then
@@ -613,7 +641,7 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 					and y < mapHeight
 					then
 						settable(uniforms.bbox, x, y, 1, 1)
-						settable(uniforms.color, 1,1,1,1)
+						settable(uniforms.color, 1,1,1,.5)
 						showHL()
 						if leftPress then
 							local i = x + mapWidth * y
@@ -629,7 +657,7 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 					and y < mapHeight
 					then
 						settable(uniforms.bbox, x, y, 1, 1)
-						settable(uniforms.color, 1,1,1,1)
+						settable(uniforms.color, 1,1,1,.5)
 						showHL()
 					end
 				end
@@ -645,7 +673,7 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 						self.treasureWindow.show[0] = true
 					end
 					settable(uniforms.bbox, x, y, 1, 1)
-					settable(uniforms.color, 0,0,1,1)
+					settable(uniforms.color, 0,0,1,.5)
 					rectObj:draw()
 					if i-1 == self.treasureWindow.index then
 						showHL()
@@ -663,7 +691,7 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 						self.touchTriggerWindow.show[0] = true
 					end
 					settable(uniforms.bbox, x, y, 1, 1)
-					settable(uniforms.color, 0,0,1,1)
+					settable(uniforms.color, 0,0,1,.5)
 					rectObj:draw()
 					if i-1 == self.touchTriggerWindow.index then
 						showHL()
@@ -681,7 +709,7 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 						self.doorWindow.show[0] = true
 					end
 					settable(uniforms.bbox, x, y, 1, 1)
-					settable(uniforms.color, 1,0,0,1)
+					settable(uniforms.color, 1,0,0,.5)
 					rectObj:draw()
 					if i-1 == self.doorWindow.index then
 						showHL()
@@ -705,7 +733,7 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 						self.bigDoorWindow.show[0] = true
 					end
 					settable(uniforms.bbox, x, y, w, h)
-					settable(uniforms.color, 1,0,0,1)
+					settable(uniforms.color, 1,0,0,.5)
 					rectObj:draw()
 					if i-1 == self.bigDoorWindow.index then
 						showHL()
@@ -723,31 +751,11 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 						self.npcWindow.show[0] = true
 					end
 					settable(uniforms.bbox, x, y, 1, 1)
-					settable(uniforms.color, 0,1,0,1)
+					settable(uniforms.color, 0,1,0,.5)
 					rectObj:draw()
 					if i-1 == self.npcWindow.index then
 						showHL()
 					end
-				end
-			end
-
-
-			-- tempting to implement this as a bitflag layer ...
-			local mapIndex = self.mapWindow.index
-			local floodFillTilesForThisMap = self.floodFillTilesPerMap[mapIndex]
-			if floodFillTilesForThisMap then
-				for ffIndex,floodFillTiles in ipairs(floodFillTilesForThisMap) do
-					for i in pairs(floodFillTiles.filled) do
-						local x = i % mapWidth
-						local y = (i - x) / mapWidth
-						settable(uniforms.bbox, x, y, 1, 1)
-						settable(uniforms.color, 1,.5,0,1)
-						rectObj:draw()
-					end
-					local bbox = floodFillTiles.bbox
-					settable(uniforms.bbox, bbox.min.x, bbox.min.y, bbox.max.x - bbox.min.x + 1, bbox.max.y - bbox.min.y + 1)
-					settable(uniforms.color, 1,1,1,1)
-					showHL()
 				end
 			end
 		end
@@ -813,7 +821,6 @@ function App:updateGUI()
 
 		if map
 		and ig.igBeginMenu'Map' then
-
 			if self.layerAnimTexs then
 				local doSaveLayerPNGs = ig.igButton'save layer pngs'
 				local doSaveGIF = ig.igButton'save animated gif'
