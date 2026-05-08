@@ -119,7 +119,7 @@ function TileWindow:showIndexUI(ar)
 		then
 			posx, posy = layerPos[layer]:unpack()
 		end
-		
+
 		local layoutptr = ffi.cast('uint8_t*', layoutData)
 		local layerSize = layerSizes[layer]
 		local srcX = (x - posx) % layerSize.x
@@ -138,9 +138,9 @@ function TileWindow:showIndexUI(ar)
 	local function getFloorTile(x,y)
 		if x < 0 or y < 0 or x >= mapWidth or y >= mapHeight then return end
 		-- which layer do I use?
-		--- I guess I use layer1 
-		--   except when it's transparent 
-		--   (same as when topSpritePriority is set?) 
+		--- I guess I use layer1
+		--   except when it's transparent
+		--   (same as when topSpritePriority is set?)
 		--  and then I use layer2?
 		-- [[
 		local props = getTileProps(x, y)
@@ -156,7 +156,7 @@ function TileWindow:showIndexUI(ar)
 		--]]
 		local tile = getTile16x16(x, y, 1)
 		--if tile == 0 then tile = getTile16x16(x, y, 2) end
-		return tile	
+		return tile
 	end
 
 	local function getWallOrCeilingTile(x,y)
@@ -289,7 +289,7 @@ function TileWindow:showIndexUI(ar)
 				local vector = require 'stl.vector-lua'
 				local size = vec3i(bbox.max.x - bbox.min.x, bbox.max.y - bbox.min.y, 8)
 
-				
+
 				-- TODO store somehwere
 				local tileIsNorthSlope = string.split(floodFillTiles.tileIsNorthSlope, ','):mapi(function(x)
 					return true, (assert(tonumber(x)))
@@ -298,7 +298,7 @@ function TileWindow:showIndexUI(ar)
 				-- TODO store somehwere
 				-- TODO allow customization somewhere somehow in the UI / flood-fill-save info
 				local function applyRemaps(tileIndex)
-					if tileIndex == 2 then 
+					if tileIndex == 2 then
 						-- in ff6, tile 1 <-> mine 2 is empty, but in mine it is where i put the torch animations (which are not present in the ff6 tile sheet)
 						return 85
 					end
@@ -316,11 +316,13 @@ function TileWindow:showIndexUI(ar)
 					end
 					voxelmap = BlobVoxelMap(v:dataToStr())
 				end
-				
+
 				-- 2) copy ground tiles across
-				for x=0,tonumber(size.x)-1 do
-					local alt = 0
-					for y=0,tonumber(size.y)-1 do	-- from bottom to top of 2D map, per-row (important for north-facing-stairs sake)
+				--local altForCol = range(size.x):mapi(function() return 0 end)
+				local alt = 0
+				for y=0,tonumber(size.y)-1 do	-- from bottom to top of 2D map, per-row (important for north-facing-stairs sake)
+					local nextAlt
+					for x=0,tonumber(size.x)-1 do
 						for z=0,alt do
 							local vox = voxelmap:getVoxelBlobPtr(x, y, z)
 							vox.intval = 0	-- reset from clear
@@ -335,7 +337,7 @@ function TileWindow:showIndexUI(ar)
 						local i = mapx + mapWidth * mapy
 						if not floodFillTiles.filled[i] then
 							-- if this is a non-traversible tile then grow the walls
-							-- TODO determine which wall, 
+							-- TODO determine which wall,
 							--  if it's north-facing then use y-z tile for walls
 							--  if it's south/east/west then reuse a previosly-created north-facing wall tile profile.
 							for z=alt+1,size.z-1 do
@@ -360,10 +362,10 @@ function TileWindow:showIndexUI(ar)
 							local floorTile16x16 = getFloorTile(mapx, mapy)
 							local slope = tileIsNorthSlope[floorTile16x16]
 							if slope then
-								alt = alt + 1
+								nextAlt = alt + 1
 							end
 							-- read the real tile and use it instead of the most prominent
-							local vox = voxelmap:getVoxelBlobPtr(x, y, alt)
+							local vox = voxelmap:getVoxelBlobPtr(x, y, math.min(nextAlt or alt, size.z-1))
 							vox.intval = 0	-- reset from clear
 							vox.spriteIndex = applyRemaps(tile44to55(floorTile16x16 or floodFillTiles.floorTile))
 							if not slope then
@@ -371,12 +373,13 @@ function TileWindow:showIndexUI(ar)
 								vox.orientation = 34	-- flip y
 							else
 								vox.mesh3DIndex = 5		-- "slope with sides"
-								-- TODO I need a mesh that is y-slope-up with texcoords aligned ... 
+								-- TODO I need a mesh that is y-slope-up with texcoords aligned ...
 								-- ... or maybe I need extra bits for applying orientation2D to the texcoords?
-								vox.orientation = 33	
+								vox.orientation = 35
 							end
 						end
 					end
+					alt = math.min(nextAlt or alt, size.z-1)
 				end
 				path('exported-voxelmap-map'..mapIndex..'.vox'):write(voxelmap:toBinStr())
 			end
