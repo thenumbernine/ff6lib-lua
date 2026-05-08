@@ -1073,6 +1073,8 @@ local MonsterRandomBattleEntry4 = createVec{
 	dim = 4,
 }
 
+local terrainTypes = {'grass', 'forest', 'desert', 'dirt'}
+local encounterNames = {'normal', 'low', 'high', 'none'}
 local WorldSectorRandomBattlesPerTerrain = ff6struct{
 	ctypeOnly = true,
 	fields = {
@@ -2105,7 +2107,7 @@ local WorldTileProps = ff6struct{
 		{airshipCantLand = 'uint16_t:1'},	-- 0.1
 		{airshipShadow = 'uint16_t:2'},		-- 0.2-3 ... aka elevation?
 		{blocksWalking = 'uint16_t:1'},		-- 0.4
-		{forest = 'uint16_t:1'},			-- 0.5
+		{bottomHalfSemiTransparent = 'uint16_t:1'},	-- 0.5
 		{enemyEncounters = 'uint16_t:1'},	-- 0.6
 		{unknown_0_7 = 'uint16_t:1'},		-- 0.7
 		-- now I can't tell from the ascii art, but its either 1 unused and 3 for background, or its 4 for background ...
@@ -2786,6 +2788,9 @@ game.BattleAnimSet = BattleAnimSet
 game.BattleAnimEffect = BattleAnimEffect
 game.BattleAnim16x16Tile = BattleAnim16x16Tile 
 game.BattleAnim8x8Tile = BattleAnim8x8Tile
+game.terrainTypes = terrainTypes
+game.encounterNames = encounterNames
+game.WorldSectorRandomBattlesPerTerrain = WorldSectorRandomBattlesPerTerrain
 game.Game = Game
 
 require 'ff6.maps'(game)

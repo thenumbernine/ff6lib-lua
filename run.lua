@@ -532,8 +532,6 @@ for i=0,0xff do
 end
 print()
 
-local terrains = {'grass', 'forest', 'desert', 'dirt'}	-- also fields of WorldSectorBattles_t
-local encounterNames = {'normal', 'low', 'high', 'none'}
 -- first 64 are each 32x32 tile segment in the WoB, next 64 are segments in the WoR
 for i=0,0x7f do
 	print('map sector encounter #0x'..i:hex()
@@ -543,10 +541,10 @@ for i=0,0x7f do
 	)
 	local randomBattlesPerTerrain = game.worldSectorRandomBattlesPerTerrain + i
 	local encounterRateBits = game.worldSectorRandomBattleEncounterRatesPerTerrain[i]
-	for i,terrain in ipairs(terrains) do
+	for i,terrain in ipairs(game.terrainTypes) do
 		local battleIndex = randomBattlesPerTerrain[terrain]
 		local encounter = bit.band(3, bit.rshift(encounterRateBits, bit.lshift(i-1, 1)))
-		local encounterRateName = encounterNames[encounter+1]
+		local encounterRateName = game.encounterNames[encounter+1]
 		print('', terrain, 'monster random battle options 0x'..battleIndex:hex(), 'rate='..encounterRateName)
 	end
 end
