@@ -767,15 +767,6 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 	App.super.update(self)
 end
 
-_G.sdlOpenFileDialogCallback = function(userdata, filelist, filter)
-	-- filelist is `char const * const *`, so a list-of-pointers-to-strings
-	require 'sdl.assert'.nonnull(filelist)	-- error
-	if filelist[0] == nil then return end	-- no file picked
-	local fn = ffi.string(filelist[0])
-	app:onLoadROM(fn)
-end
-_G.sdlOpenFileDialogClosure = ffi.cast('SDL_DialogFileCallback', sdlOpenFileDialogCallback)
-
 function App:updateGUI()
 	local game = self.game
 
@@ -785,14 +776,31 @@ function App:updateGUI()
 
 		if ig.igBeginMenu'File' then
 			if ig.igButton'Open...' then
+				if self.sdlOpenFileDialogClosure then
+					self.sdlOpenFileDialogClosure:free()
+				end
+
+				-- do I have to save the function? I would think it being in the closure is enough that it doesn't __gc...
+				self.sdlOpenFileDialogCallback = function(userdata, filelist, filter)
+					xpcall(function()
+						-- filelist is `char const * const *`, so a list-of-pointers-to-strings
+						require 'sdl.assert'.nonnull(filelist)	-- error
+						if filelist[0] == nil then return end	-- no file picked
+						self:onLoadROM(ffi.string(filelist[0]))
+					end, function(err)
+						print(err..'\n'..debug.traceback())
+					end)
+				end
+				self.sdlOpenFileDialogClosure = ffi.cast('SDL_DialogFileCallback', sdlOpenFileDialogCallback)
+
 				sdl.SDL_ShowOpenFileDialog(
-					sdlOpenFileDialogClosure,
-					nil,				-- userdata
-					self.window,		-- window
-					nil,				-- filters
-					0,					-- nfilters
-					path:cwd().path,	-- default_location
-					0					-- allow_many
+					self.sdlOpenFileDialogClosure,	-- callback
+					nil,							-- userdata
+					self.window,					-- window
+					nil,							-- filters
+					0,								-- nfilters
+					path:cwd().path,				-- default_location
+					0								-- allow_many
 				)
 			end
 

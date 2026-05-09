@@ -7,6 +7,7 @@ local fromlua = require 'ext.fromlua'
 local vec2i = require 'vec-ffi.vec2i'
 local vec3i = require 'vec-ffi.vec3i'
 local box2i = require 'vec-ffi.box2i'
+local sdl = require 'sdl'
 local ig = require 'imgui'
 local ArrayWindow = require 'ff6.vis.arraywindow'
 local mapTilePropsFlagForName = require 'ff6.vis.util'.mapTilePropsFlagForName
@@ -273,11 +274,36 @@ function TileWindow:showIndexUI(ar)
 				return	-- iterated table is invalidated
 			end
 
-			ig.luatableInputText('output filename', ffInfo, 'destFilename')
+			ig.luatableTooltipInputText('output filename', ffInfo, 'destFilename')
 			ig.igSameLine()
 			if ig.igButton'...' then
+
+				if self.sdlSaveFileDialog_chooseOutputFilenameClosure then
+					self.sdlSaveFileDialog_chooseOutputFilenameClosure:free()
+				end
+				self.sdlSaveFileDialog_chooseOutputFilenameFunction = function(userdata, filelist, filter)
+					xpcall(function()
+						require 'sdl.assert'.nonnull(filelist)	-- error
+						if filelist[0] == nil then return end	-- no file picked
+						ffInfo.destFilename = ffi.string(filelist[0])
+					end, function(err)
+						print(err..'\n'..debug.traceback())
+					end)
+				end
+				self.sdlSaveFileDialog_chooseOutputFilenameClosure = ffi.cast('SDL_DialogFileCallback', self.sdlSaveFileDialog_chooseOutputFilenameFunction)
+
 				-- TODO do a SDL open file dialog here
 				-- and save the resutl as our output location
+				sdl.SDL_ShowSaveFileDialog(
+					self.sdlSaveFileDialog_chooseOutputFilenameClosure,
+					nil,				-- userdata
+					self.app.window,	-- window
+					nil,				-- filters
+					0,					-- nfilters
+					path(ffInfo.destFilename):getdir():exists()
+						and path(ffInfo.destFilename):getdir().path
+						or path:cwd().path		-- default_location
+				)
 			end
 
 			-- text here, or tolua/fromlua here to verify syntax?
