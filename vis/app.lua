@@ -591,15 +591,15 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 			local mapIndex = self.mapWindow.index
 			local floodFillTilesForThisMap = self.floodFillTilesPerMap[mapIndex]
 			if floodFillTilesForThisMap then
-				for ffIndex,floodFillTiles in ipairs(floodFillTilesForThisMap) do
-					for i in pairs(floodFillTiles.filled) do
+				for ffIndex,ffInfo in ipairs(floodFillTilesForThisMap) do
+					for i in pairs(ffInfo.filled) do
 						local x = i % mapWidth
 						local y = (i - x) / mapWidth
 						settable(uniforms.bbox, x, y, 1, 1)
 						settable(uniforms.color, 0,1,.5,.5)
 						rectObj:draw()
 					end
-					local bbox = floodFillTiles.bbox
+					local bbox = ffInfo.bbox
 					settable(uniforms.bbox, bbox.min.x, bbox.min.y, bbox.max.x - bbox.min.x + 1, bbox.max.y - bbox.min.y + 1)
 					settable(uniforms.color, 1,1,1,1)
 					showHL()

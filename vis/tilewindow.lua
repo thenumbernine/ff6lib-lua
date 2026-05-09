@@ -3,6 +3,7 @@ local table = require 'ext.table'
 local string = require 'ext.string'
 local range = require 'ext.range'
 local path = require 'ext.path'
+local fromlua = require 'ext.fromlua'
 local vec2i = require 'vec-ffi.vec2i'
 local vec3i = require 'vec-ffi.vec3i'
 local box2i = require 'vec-ffi.box2i'
@@ -255,6 +256,9 @@ function TileWindow:showIndexUI(ar)
 					wallTile = 0,
 					ceilingTile = 0,
 					tileIsNorthSlope = '',
+					tileRemapping = '',	-- lua key->value code for a table for remapping 32x32 of 8x8 (numo9-index) tile-indexes
+					destFilename = 'exported-voxelmap-map'..mapIndex..'-'..(#app.floodFillTilesPerMap[mapIndex]+1)..'.vox',
+					maxAlt = 8,
 				}
 			end
 		end
@@ -262,49 +266,57 @@ function TileWindow:showIndexUI(ar)
 
 	local floodFillTilesForThisMap = app.floodFillTilesPerMap[mapIndex]
 	if floodFillTilesForThisMap then
-		for ffIndex,floodFillTiles in ipairs(floodFillTilesForThisMap) do
+		for ffIndex,ffInfo in ipairs(floodFillTilesForThisMap) do
 			ig.igSeparator()
-			if ig.igButton'Clear Fill Tiles' then
+			if ig.igButton'Remove' then
 				floodFillTilesForThisMap:remove(ffIndex)
 				return	-- iterated table is invalidated
 			end
 
+			ig.luatableInputText('output filename', ffInfo, 'destFilename')
+			
+			-- text here, or tolua/fromlua here to verify syntax?
+			ig.luatableInputText('tile remapping', ffInfo, 'tileRemapping')
+
+			ig.luatableInputInt('voxelmap height', ffInfo, 'maxAlt')
+
 			ig.igText'flood fill bounds:'
-			local bbox = floodFillTiles.bbox
+			local bbox = ffInfo.bbox
 			ig.luatableInputInt('flood fill min x', bbox.min, 'x')
 			ig.luatableInputInt('flood fill min y', bbox.min, 'y')
 			ig.luatableInputInt('flood fill max x', bbox.max, 'x')
 			ig.luatableInputInt('flood fill max y', bbox.max, 'y')
 
 			-- AsText so it can handle all lua number parsing, including 0x's
-			ig.luatableInputFloatAsText('floor tile', floodFillTiles, 'floorTile')
-			ig.luatableInputFloatAsText('wall tile', floodFillTiles, 'wallTile')
-			ig.luatableInputFloatAsText('ceiling tile', floodFillTiles, 'ceilingTile')
+			ig.luatableInputFloatAsText('floor tile', ffInfo, 'floorTile')
+			ig.luatableInputFloatAsText('wall tile', ffInfo, 'wallTile')
+			ig.luatableInputFloatAsText('ceiling tile', ffInfo, 'ceilingTile')
 
-			floodFillTiles.tileIsNorthSlope = floodFillTiles.tileIsNorthSlope or ''
-			ig.luatableInputText('north slopes:', floodFillTiles, 'tileIsNorthSlope')
+			ig.luatableInputText('north slopes:', ffInfo, 'tileIsNorthSlope')
 
 			if ig.igButton'export voxelmap' then
 				-- 1) make our voxelmap
 				local vector = require 'stl.vector-lua'
-				local size = vec3i(bbox.max.x - bbox.min.x, bbox.max.y - bbox.min.y, 8)
+				local size = vec3i(bbox.max.x - bbox.min.x, bbox.max.y - bbox.min.y, ffInfo.maxAlt)
 
 
-				-- TODO store somehwere
-				local tileIsNorthSlope = string.split(floodFillTiles.tileIsNorthSlope, ','):mapi(function(x)
+				local tileIsNorthSlope = string.split(ffInfo.tileIsNorthSlope, ','):mapi(function(x)
 					return true, (assert(tonumber(x)))
 				end)
 
-				-- TODO store somehwere
-				-- TODO allow customization somewhere somehow in the UI / flood-fill-save info
-				local function applyRemaps(tileIndex)
-					if tileIndex == 2 then
-						-- in ff6, tile 1 <-> mine 2 is empty, but in mine it is where i put the torch animations (which are not present in the ff6 tile sheet)
-						return 85
-					end
-					return tileIndex
+				local tileRemap
+				if string.trim(ffInfo.tileRemapping) ~= '' then
+					xpcall(function()
+						tileRemap = assert(fromlua(ffInfo.tileRemapping))
+					end, function(err)
+						print(err..'\n'..debug.traceback())
+					end)
 				end
 
+				-- in ff6, tile 1 <-> mine 2 is empty, but in mine it is where i put the torch animations (which are not present in the ff6 tile sheet)
+				local function applyRemaps(tileIndex)
+					return tileRemap and tileRemap[tileIndex] or tileIndex 
+				end
 
 
 				local voxelmap
@@ -326,7 +338,7 @@ function TileWindow:showIndexUI(ar)
 						for z=0,alt do
 							local vox = voxelmap:getVoxelBlobPtr(x, y, z)
 							vox.intval = 0	-- reset from clear
-							vox.spriteIndex = applyRemaps(tile44to55(floodFillTiles.floorTile))
+							vox.spriteIndex = applyRemaps(tile44to55(ffInfo.floorTile))
 							vox.mesh3DIndex = 0	-- hmm todo, floor voxel mesh index
 							--vox.orientation = 32	-- flip x in voxel orientation?
 							vox.orientation = 34	-- flip y
@@ -335,7 +347,7 @@ function TileWindow:showIndexUI(ar)
 						local mapx = x + bbox.min.x
 						local mapy = size.y - 1 - y + bbox.min.y
 						local i = mapx + mapWidth * mapy
-						if not floodFillTiles.filled[i] then
+						if not ffInfo.filled[i] then
 							-- if this is a non-traversible tile then grow the walls
 							-- TODO determine which wall,
 							--  if it's north-facing then use y-z tile for walls
@@ -349,8 +361,8 @@ function TileWindow:showIndexUI(ar)
 									getWallOrCeilingTile(mapx, mapy - z)
 									or (
 										z == size.z-1
-										and floodFillTiles.ceilingTile
-										or floodFillTiles.wallTile	-- TODO make this the most-prominent-wall-tile
+										and ffInfo.ceilingTile
+										or ffInfo.wallTile	-- TODO make this the most-prominent-wall-tile
 									)
 								))
 								-- idk how to find that out ... trace from top of traversible filled region to the ceiling tile and count up most-prevalent
@@ -367,7 +379,7 @@ function TileWindow:showIndexUI(ar)
 							-- read the real tile and use it instead of the most prominent
 							local vox = voxelmap:getVoxelBlobPtr(x, y, math.min(nextAlt or alt, size.z-1))
 							vox.intval = 0	-- reset from clear
-							vox.spriteIndex = applyRemaps(tile44to55(floorTile16x16 or floodFillTiles.floorTile))
+							vox.spriteIndex = applyRemaps(tile44to55(floorTile16x16 or ffInfo.floorTile))
 							if not slope then
 								vox.mesh3DIndex = 0	-- hmm todo, floor voxel mesh index
 								vox.orientation = 34	-- flip y
@@ -375,18 +387,19 @@ function TileWindow:showIndexUI(ar)
 								vox.mesh3DIndex = 5		-- "slope with sides"
 								-- TODO I need a mesh that is y-slope-up with texcoords aligned ...
 								-- ... or maybe I need extra bits for applying orientation2D to the texcoords?
+								-- TODO use the voxelmap rotation lookup tables for a left-applied z-rotation on 34 (aka flip-y)...
 								vox.orientation = 35
 							end
 						end
 					end
 					alt = math.min(nextAlt or alt, size.z-1)
 				end
-				path('exported-voxelmap-map'..mapIndex..'.vox'):write(voxelmap:toBinStr())
+				path(ffInfo.destFilename):write(voxelmap:toBinStr())
 			end
 
 			ig.igText('flood fill histogram:')
-			for _,tileValue in ipairs(floodFillTiles.tileValues) do
-				ig.igText('\t'..('0x%06x'):format(tileValue)..' = '..floodFillTiles.hist[tileValue])
+			for _,tileValue in ipairs(ffInfo.tileValues) do
+				ig.igText('\t'..('0x%06x'):format(tileValue)..' = '..ffInfo.hist[tileValue])
 			end
 		end
 	end
