@@ -274,7 +274,12 @@ function TileWindow:showIndexUI(ar)
 			end
 
 			ig.luatableInputText('output filename', ffInfo, 'destFilename')
-			
+			ig.igSameLine()
+			if ig.igButton'...' then
+				-- TODO do a SDL open file dialog here
+				-- and save the resutl as our output location
+			end
+
 			-- text here, or tolua/fromlua here to verify syntax?
 			ig.luatableInputText('tile remapping', ffInfo, 'tileRemapping')
 
