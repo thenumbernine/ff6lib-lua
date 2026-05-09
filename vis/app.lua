@@ -691,7 +691,7 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 						self.touchTriggerWindow.show[0] = true
 					end
 					settable(uniforms.bbox, x, y, 1, 1)
-					settable(uniforms.color, 0,0,1,.5)
+					settable(uniforms.color, 1,0,1,.5)
 					rectObj:draw()
 					if i-1 == self.touchTriggerWindow.index then
 						showHL()
@@ -709,7 +709,7 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 						self.doorWindow.show[0] = true
 					end
 					settable(uniforms.bbox, x, y, 1, 1)
-					settable(uniforms.color, 1,0,0,.5)
+					settable(uniforms.color, 0,1,0,.5)
 					rectObj:draw()
 					if i-1 == self.doorWindow.index then
 						showHL()
@@ -733,7 +733,7 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 						self.bigDoorWindow.show[0] = true
 					end
 					settable(uniforms.bbox, x, y, w, h)
-					settable(uniforms.color, 1,0,0,.5)
+					settable(uniforms.color, 0,1,0,.5)
 					rectObj:draw()
 					if i-1 == self.bigDoorWindow.index then
 						showHL()
@@ -751,7 +751,7 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 						self.npcWindow.show[0] = true
 					end
 					settable(uniforms.bbox, x, y, 1, 1)
-					settable(uniforms.color, 0,1,0,.5)
+					settable(uniforms.color, 0,1,1,.5)
 					rectObj:draw()
 					if i-1 == self.npcWindow.index then
 						showHL()
