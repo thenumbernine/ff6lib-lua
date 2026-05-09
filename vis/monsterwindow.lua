@@ -117,6 +117,7 @@ function MonsterWindow:setIndex(...)
 
 	-- clear cache
 	self.battleFormationsWithThis = nil
+	-- TODO items that, when you bet them, you fight this monster
 end
 
 return MonsterWindow

@@ -64,6 +64,31 @@ function ItemWindow:showIndexUI(ar)
 	ig.igText('  unknown = '..colinfo.unknown)
 	ig.igText('  hideName = '..colinfo.hideName)
 
+
+	if self.colosseumBetsWithThis == nil then
+		self.colosseumBetsWithThis = table()
+		for i=0,game.countof(game.items)-1 do
+			local otherColInfo = game.itemColosseumInfos + i
+			if otherColInfo.itemWon.i == self.index then
+				self.colosseumBetsWithThis:insert(i)
+			end
+		end
+	end
+	ig.igSeparator()
+	ig.igText"colosseum bets that give this item..."
+	if #self.colosseumBetsWithThis == 0 then
+		ig.igText'...none'
+	else
+		ig.igPushID_Str'itemWindow-colosseumBetsWithThis'
+		for j,i in ipairs(self.colosseumBetsWithThis) do
+			ig.igPushID_Int(j)
+			self:popupButton(i)
+			ig.igPopID()
+		end
+		ig.igPopID()
+	end
+
+
 	if self.monstersWithThis == nil then
 		self.monstersWithThis = table()
 		for i=0,game.countof(game.monsterItems)-1 do
@@ -75,7 +100,6 @@ function ItemWindow:showIndexUI(ar)
 			end
 		end
 	end
-
 	ig.igSeparator()
 	ig.igText'monsters with this item...'
 	if #self.monstersWithThis == 0 then
@@ -108,10 +132,8 @@ function ItemWindow:showIndexUI(ar)
 			end
 		end
 	end
-
 	ig.igSeparator()
 	ig.igText'found in treasure chest ...'
-
 	if #self.treasuresWithThis == 0 then
 		ig.igText'...none'
 	else
@@ -170,6 +192,7 @@ function ItemWindow:setIndex(...)
 	ItemWindow.super.setIndex(self, ...)
 
 	-- clear cache
+	self.colosseumBetsWithThis = nil
 	self.monstersWithThis = nil
 	self.treasuresWithThis = nil
 	self.metamorphsWithThis = nil
