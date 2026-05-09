@@ -33,4 +33,4 @@ function TreasureWindow:showIndexUI(ar)
 	end
 end
 
-return TreasureWindow 
+return TreasureWindow

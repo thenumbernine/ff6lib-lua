@@ -26,7 +26,7 @@ end
 
 function ArrayWindow:getIndexName() end
 
-function ArrayWindow:popupButton(targetIndex)
+function ArrayWindow:popupButton(targetIndex, extraText)
 	if targetIndex ~= nil then
 		assert.type(targetIndex, 'number')
 	end
@@ -40,6 +40,7 @@ function ArrayWindow:popupButton(targetIndex)
 		..(targetIndex and '#'..targetIndex..'/' or '')
 		..(has and #ar or 'none')
 		..(indexName and ' '..indexName or '')
+	if extraText then k = k .. ' '.. extraText end
 	if not has then
 		ig.igText(k)
 		self.show[0] = false

@@ -26,6 +26,7 @@ function WorldEncounterSectorWindow:showIndexUI(ar)
 	local randomBattlesPerTerrain = game.worldSectorRandomBattlesPerTerrain + self.index
 	local encounterRateBits = game.worldSectorRandomBattleEncounterRatesPerTerrain[self.index]
 	for i,terrain in ipairs(game.terrainTypes) do
+		ig.igPushID_Str(terrain)
 		ig.igText('terrain = '..tostring(terrain))
 		local encounter = bit.band(3, bit.rshift(encounterRateBits, bit.lshift(i-1, 1)))
 		local encounterRateName = game.encounterNames[encounter+1]
@@ -35,6 +36,7 @@ function WorldEncounterSectorWindow:showIndexUI(ar)
 		ig.igSameLine()
 		local battleIndex = randomBattlesPerTerrain[terrain]
 		app.randomBattleOptionsWindow:popupButton(battleIndex)
+		ig.igPopID()
 	end
 end
 

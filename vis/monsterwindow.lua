@@ -1,4 +1,5 @@
 local range = require 'ext.range'
+local table = require 'ext.table'
 local ig = require 'imgui'
 local ArrayWindow = require 'ff6.vis.arraywindow'
 
@@ -28,8 +29,8 @@ function MonsterWindow:showIndexUI(ar)
 	ig.igText(' name = "'..self:getIndexName(self.index)..'"')
 	ig.igText(' attack name = "'..game.monsterAttackNames[self.index]..'"')
 	local monster = game.monsters[self.index]
-	for name in monster:fielditer() do
-		ig.igText(' '..name..' = '..tostring(monster[name]))
+	for field in monster:fielditer() do
+		ig.igText(' '..field..' = '..tostring(monster[field]))
 	end
 	ig.igText'attacks:'
 	local monsterSpells = game.monsterSpells[self.index]
@@ -42,11 +43,11 @@ function MonsterWindow:showIndexUI(ar)
 	end
 	ig.igText'items:'
 	local monsterItem = game.monsterItems[self.index]
-	for name in monsterItem:fielditer() do
-		ig.igPushID_Str(name)
-		ig.igText('  '..name..' = ')
+	for field in monsterItem:fielditer() do
+		ig.igPushID_Str(field)
+		ig.igText('  '..field..' = ')
 		ig.igSameLine()
-		app.itemWindow:popupButton(monsterItem[name].i)
+		app.itemWindow:popupButton(monsterItem[field].i)
 		ig.igPopID()
 	end
 	local monsterSketches = game.monsterSketches[self.index]
@@ -69,6 +70,44 @@ function MonsterWindow:showIndexUI(ar)
 			ig.igPopID()
 		end
 	end
+
+	-- reverse searches ...
+
+	ig.igSeparator()
+
+	if not self.battleFormationsWithThis then
+		self.battleFormationsWithThis = table()
+		for i=0,game.countof(game.formations)-1 do
+			local formation = game.formations + i
+			for j=1,6 do
+				if formation:getMonsterActive(j) then
+					local monsterIndex = formation:getMonsterIndex(j)
+					if monsterIndex == self.index then
+						self.battleFormationsWithThis:insertUnique(i)
+					end
+				end
+			end
+		end
+	end
+	ig.igText('found in battle formations...')
+	if #self.battleFormationsWithThis == 0 then
+		ig.igText('...none')
+	else
+		ig.igPushID_Str('monster-battleFormationsWithThis')
+		for j,i in ipairs(self.battleFormationsWithThis) do
+			ig.igPushID_Int(j)
+			self.app.battleFormationWindow:popupButton(i)
+			ig.igPopID()
+		end
+		ig.igPopID()
+	end
+end
+
+function MonsterWindow:setIndex(...)
+	MonsterWindow.super.setIndex(self, ...)
+
+	-- clear cache
+	self.battleFormationsWithThis = nil
 end
 
 return MonsterWindow
