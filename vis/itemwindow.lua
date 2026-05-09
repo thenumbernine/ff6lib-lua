@@ -28,10 +28,27 @@ function ItemWindow:showIndexUI(ar)
 
 	local item = game.items + self.index
 	ig.igText(' name = '..self:getIndexName(self.index))
-	ig.igText(' desc = "'..game.gamezstr(game.itemDescBase + game.itemDescOffsets[self.index])..'"')
-	for name in item:fielditer() do
-		ig.igText(' '..name..' = '..tostring(item[name]))
+
+	if ig.igCollapsingHeader'fields' then
+		ig.igText(' desc = "'..game.gamezstr(game.itemDescBase + game.itemDescOffsets[self.index])..'"')
+		for field in item:fielditer() do
+			if field == 'spellLearn' then
+				if item.spellLearn.rate > 0 then
+					app.spellWindow:popupButton(item.spellLearn.spell.i)
+				end
+				ig.igText(' spell learn rate = '..item.spellLearn.rate)
+			elseif field == 'spellCast' then
+				-- is this the right condition?
+				--if item.castOnAttack ~= 0 or item.castOnItemUse ~= 0 then
+					app.spellWindow:popupButton(item.spellCast)
+				--end
+			else
+				ig.igText(' '..field..' = '..tostring(item[field]))
+			end
+		end
 	end
+
+	ig.igSeparator()
 
 	ig.igText' colosseum info:'
 	local colinfo = game.itemColosseumInfos[self.index]
@@ -67,11 +84,12 @@ function ItemWindow:showIndexUI(ar)
 		ig.igPushID_Str'itemWindow-monstersWithThis'
 		for j,info in ipairs(self.monstersWithThis) do
 			ig.igPushID_Int(j)
-			self.app.monsterWindow:popupButton(info.monsterIndex, info.field)
+			app.monsterWindow:popupButton(info.monsterIndex, info.field)
 			ig.igPopID()
 		end
 		ig.igPopID()
 	end
+
 
 	if self.treasuresWithThis == nil then
 		self.treasuresWithThis = table()
@@ -91,7 +109,6 @@ function ItemWindow:showIndexUI(ar)
 		end
 	end
 
-
 	ig.igSeparator()
 	ig.igText'found in treasure chest ...'
 
@@ -101,21 +118,21 @@ function ItemWindow:showIndexUI(ar)
 		ig.igPushID_Str'itemWindow-treasuresWithThis'
 		for j,info in ipairs(self.treasuresWithThis) do
 			ig.igPushID_Int(j)
-			if self.app.mapWindow:popupButton(
+			if app.mapWindow:popupButton(
 				info.mapIndex,
 				'treasure #'..info.treasureIndex
 			) then
-				self.app.treasureWindow.show[0] = true
-				self.app.treasureWindow:setIndex(info.treasureIndex-1)
+				app.treasureWindow.show[0] = true
+				app.treasureWindow:setIndex(info.treasureIndex-1)
 
 				local t = info.treasure
 				-- just like doorWindow...
 				-- new map should be loaded now
-				local mapWidth, mapHeight = self.app.tileWindow:getMapSize()
+				local mapWidth, mapHeight = app.tileWindow:getMapSize()
 				if mapWidth and mapHeight then
-					self.app.tileWindow:setIndex(t.pos.x + mapWidth * t.pos.y)
+					app.tileWindow:setIndex(t.pos.x + mapWidth * t.pos.y)
 				end
-				self.app:centerView(t.pos.x, t.pos.y)
+				app:centerView(t.pos.x, t.pos.y)
 			end
 			ig.igPopID()
 		end
@@ -123,6 +140,30 @@ function ItemWindow:showIndexUI(ar)
 	end
 
 
+	if self.metamorphsWithThis == nil then
+		self.metamorphsWithThis = table()
+		for i=0,game.countof(game.metamorphSets)-1 do
+			local mmset = game.metamorphSets + i
+			for j=0,mmset.dim-1 do
+				if mmset.s[j].i == self.index then
+					self.metamorphsWithThis:insert(i)
+					break
+				end
+			end
+		end
+	end
+
+	ig.igSeparator()
+	ig.igText'found in metamorph sets ...'
+	if #self.metamorphsWithThis == 0 then
+		ig.igText'...none'
+	else
+		ig.igPushID_Str'itemWindow-metamorphsWithThis'
+		for _,metamorphIndex in ipairs(self.metamorphsWithThis) do
+			app.metamorphWindow:popupButton(metamorphIndex)
+		end
+		ig.igPopID()
+	end
 end
 
 function ItemWindow:setIndex(...)
@@ -131,7 +172,7 @@ function ItemWindow:setIndex(...)
 	-- clear cache
 	self.monstersWithThis = nil
 	self.treasuresWithThis = nil
-	-- TODO metamorph set ...
+	self.metamorphsWithThis = nil
 end
 
 return ItemWindow

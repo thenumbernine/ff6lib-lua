@@ -372,6 +372,9 @@ function App:onLoadROM(infn, mapIndex)
 	local SpellWindow = require 'ff6.vis.spellwindow'
 	self.spellWindow = SpellWindow{app=self}
 
+	local MetamorphWindow = require 'ff6.vis.metamorphwindow'
+	self.metamorphWindow = MetamorphWindow{app=self}
+
 	local ScriptWindow = require 'ff6.vis.scriptwindow'
 	self.scriptWindow = ScriptWindow{app=self}
 
@@ -380,6 +383,7 @@ function App:onLoadROM(infn, mapIndex)
 		self.mapWindow,
 		self.itemWindow,
 		self.spellWindow,
+		self.metamorphWindow,
 		self.scriptWindow,
 	}
 

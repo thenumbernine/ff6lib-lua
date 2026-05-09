@@ -27,11 +27,20 @@ function MonsterWindow:showIndexUI(ar)
 	local game = app.game
 
 	ig.igText(' name = "'..self:getIndexName(self.index)..'"')
-	ig.igText(' attack name = "'..game.monsterAttackNames[self.index]..'"')
-	local monster = game.monsters[self.index]
-	for field in monster:fielditer() do
-		ig.igText(' '..field..' = '..tostring(monster[field]))
+
+	if ig.igCollapsingHeader'fields' then
+		ig.igText(' attack name = "'..game.monsterAttackNames[self.index]..'"')
+		local monster = game.monsters[self.index]
+		for field in monster:fielditer() do
+			if field == 'metamorphSet' then
+				app.metamorphWindow:popupButton(monster.metamorphSet)
+			else
+				ig.igText(' '..field..' = '..tostring(monster[field]))
+			end
+		end
 	end
+
+	ig.igSeparator()
 	ig.igText'attacks:'
 	local monsterSpells = game.monsterSpells[self.index]
 	for i=0,monsterSpells.dim-1 do

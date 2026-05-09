@@ -37,4 +37,19 @@ function SpellWindow:showIndexUI(ar)
 	end
 end
 
+--[[
+TODO point back to ...
+- item.spellLearn.spell.i
+- item.spellCast
+- monster attacks
+- monster gau rages
+- monster relm sketches
+- strago lores
+- cyan swdtechs
+- sabin blitzes
+- mog dances
+- esper attacks
+- esper learns
+--]]
+
 return SpellWindow
