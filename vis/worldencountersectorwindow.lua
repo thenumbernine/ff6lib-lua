@@ -20,9 +20,11 @@ function WorldEncounterSectorWindow:showIndexUI(ar)
 	local app = self.app
 	local game = app.game
 
-	ig.igText('world='..bit.rshift(self.index, 6))
-	ig.igText('x='..bit.lshift(bit.band(self.index, 7), 5))
-	ig.igText('y='..bit.lshift(bit.band(bit.rshift(self.index, 3), 7), 5))
+	ig.igText(
+		'world='..bit.rshift(self.index, 6)
+		..' x='..bit.lshift(bit.band(self.index, 7), 5)
+		..' y='..bit.lshift(bit.band(bit.rshift(self.index, 3), 7), 5)
+	)
 	local randomBattlesPerTerrain = game.worldSectorRandomBattlesPerTerrain + self.index
 	local encounterRateBits = game.worldSectorRandomBattleEncounterRatesPerTerrain[self.index]
 	for i,terrain in ipairs(game.terrainTypes) do
