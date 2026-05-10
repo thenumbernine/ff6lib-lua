@@ -35,6 +35,7 @@ local function settable(t, ...)
 end
 
 
+local doubleClickTime = 1
 local startTime = timer.getTime()
 
 local app	-- singleton, save for the sdl open file callback
@@ -50,6 +51,9 @@ function App:initGL(...)
 	app = self
 
 	App.super.initGL(self, ...)
+
+	self.lastLeftPressTime = startTime
+	self.leftPressTime = startTime
 
 	self.view.ortho = true
 	self.view.orthoSize = 16
@@ -589,7 +593,10 @@ function App:update()
 self.tooltipText = math.floor(mx)..', '..math.floor(my)
 
 			local leftPress = self.mouse.leftPress
-
+			if leftPress then
+				self.lastLeftPressTime = self.leftPressTime
+				self.leftPressTime = timer.getTime()
+			end
 
 			-- tempting to implement this as a bitflag layer ...
 			local mapIndex = self.mapWindow.index
@@ -711,6 +718,14 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 					then
 						self.doorWindow:setIndex(i-1)
 						self.doorWindow.show[0] = true
+						print('double-click time', self.leftPressTime - self.lastLeftPressTime)
+						-- double-click to quick-traverse map
+						-- TODO looks like SDL captures this for me
+						-- that means I shouldn't be using the mouse object for per-frame mouse state tracking
+						-- but instead i should be doing this in the event function
+						if self.leftPressTime - self.lastLeftPressTime < doubleClickTime then
+							self.doorWindow:goThruDoor()
+						end
 					end
 					settable(uniforms.bbox, x, y, 1, 1)
 					settable(uniforms.color, 0,1,0,.5)
@@ -735,6 +750,10 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 					then
 						self.bigDoorWindow:setIndex(i-1)
 						self.bigDoorWindow.show[0] = true
+						-- double-click to quick-traverse map
+						if self.leftPressTime - self.lastLeftPressTime < doubleClickTime then
+							self.bigDoorWindow:goThruDoor()
+						end
 					end
 					settable(uniforms.bbox, x, y, w, h)
 					settable(uniforms.color, 0,1,0,.5)

@@ -26,8 +26,6 @@ function MonsterWindow:showIndexUI(ar)
 	local app = self.app
 	local game = app.game
 
-	ig.igText(' name = "'..self:getIndexName(self.index)..'"')
-
 	if ig.igCollapsingHeader'fields' then
 		ig.igText(' attack name = "'..game.monsterAttackNames[self.index]..'"')
 		local monster = game.monsters[self.index]
@@ -110,6 +108,30 @@ function MonsterWindow:showIndexUI(ar)
 		end
 		ig.igPopID()
 	end
+
+
+	if self.colosseumBetsWithThis == nil then
+		self.colosseumBetsWithThis = table()
+		for i=0,game.countof(game.items)-1 do
+			local colInfo = game.itemColosseumInfos + i
+			if colInfo.monster.i == self.index then
+				self.colosseumBetsWithThis:insert(i)
+			end
+		end
+	end
+	ig.igSeparator()
+	ig.igText"colosseum bets that give this item..."
+	if #self.colosseumBetsWithThis == 0 then
+		ig.igText'...none'
+	else
+		ig.igPushID_Str'monsterWindow-colosseumBetsWithThis'
+		for j,i in ipairs(self.colosseumBetsWithThis) do
+			ig.igPushID_Int(j)
+			self:popupButton(i)
+			ig.igPopID()
+		end
+		ig.igPopID()
+	end
 end
 
 function MonsterWindow:setIndex(...)
@@ -117,7 +139,7 @@ function MonsterWindow:setIndex(...)
 
 	-- clear cache
 	self.battleFormationsWithThis = nil
-	-- TODO items that, when you bet them, you fight this monster
+	self.colosseumBetsWithThis = nil
 end
 
 return MonsterWindow

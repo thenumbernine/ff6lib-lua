@@ -73,6 +73,33 @@ function ArrayWindow:update()
 			self.index = pushIndex	-- so setIndex registers a change
 			self:setIndex(newIndex)
 		end
+
+
+		local name = self:getIndexName(self.index) or ''
+		ig.igText('name = '..name)
+		if not self.searchText then
+			ig.igSameLine()
+			if ig.igButton'...' then
+				self.searchText = name
+			end
+		else
+			ig.luatableInputText('find', self, 'searchText')
+			if ig.igButton'go' then
+				-- TODO also count initially and cahce and cycle and show 1/40 or whatever
+				for d=1,#self:getArray() do
+					local i = (self.index + d) % #self:getArray()
+					local n = tostring(self:getIndexName(i))
+					if n:lower():find(self.searchText:lower(), 1, true) then
+						self:setIndex(i)
+					end
+				end
+			end
+			ig.igSameLine()
+			if ig.igButton'cancel' then
+				self.searchText = nil
+			end
+		end
+
 		self:showIndexUI(ar)
 	end
 	ig.igEnd()

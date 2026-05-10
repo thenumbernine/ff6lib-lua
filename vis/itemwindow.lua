@@ -27,7 +27,6 @@ function ItemWindow:showIndexUI(ar)
 	local game = app.game
 
 	local item = game.items + self.index
-	ig.igText(' name = '..self:getIndexName(self.index))
 
 	if ig.igCollapsingHeader'fields' then
 		ig.igText(' desc = "'..game.gamezstr(game.itemDescBase + game.itemDescOffsets[self.index])..'"')

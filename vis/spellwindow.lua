@@ -25,7 +25,6 @@ function SpellWindow:showIndexUI(ar)
 	local app = self.app
 	local game = app.game
 
-	ig.igText(' name = '..self:getIndexName(self.index))
 	if self.index < 54 then
 		ig.igText(' desc = "'..game.gamezstr(game.spellDescBase + game.spellDescOffsets[self.index])..'"')
 	elseif self.index >= 54 and self.index < 64 then
