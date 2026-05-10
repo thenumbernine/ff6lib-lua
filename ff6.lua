@@ -2263,9 +2263,7 @@ Game = struct{
 		{name = 'spells', type = arrayType(Spell, 0x100)},														-- 0x046ac0 - 0x0478c0
 		{name = 'characterNames', type = arrayType(CharacterName, numCharacters)},								-- 0x0478c0 - 0x047a40
 		{name = 'blitzData', type = arrayType(Raw12, numBlitzes)},												-- 0x047a40 - 0x047aa0
-
-		{name = 'unknown_047aa0', type = arrayType(uint8_t, -(0x047aa0 - 0x047ac0))},							-- 0x047aa0 - 0x047ac0.  something here, but mostly zeroes at the end.  maybe there's just 1 last blitz at the end?
-
+		{name = 'gauInitialRages', type = arrayType(uint8_t, -(0x047aa0 - 0x047ac0))},							-- 0x047aa0 - 0x047ac0 .. TODO? index into what?
 		{name = 'shops', type = arrayType(Shop, 0x80)},															-- 0x047ac0 - 0x047f40
 		{name = 'metamorphSets', type = arrayType(ItemRef4, 0x1a)},												-- 0x047f40 - 0x047fa8
 		{name = 'padding_047fa8', type = arrayType(uint8_t, 0x18)},												-- 0x047fa8 - 0x047fc0 = 00's.  just like font intro is.  is this just 24 more bytes of font data?
@@ -2461,7 +2459,7 @@ Game = struct{
 
 		{name = 'hpIncPerLevelUp', type = arrayType(uint8_t, numLevels)},										-- 0x26f4a0 - 0x26f502
 		{name = 'mpIncPerLevelUp', type = arrayType(uint8_t, numLevels)},										-- 0x26f502 - 0x26f564
-		{name = 'padding_26f564', type = arrayType(uint8_t, 3)},												-- 0x26f564 - 0x26f567
+		{name = 'stragoInitialLores', type = arrayType(uint8_t, 3)},											-- 0x26f564 - 0x26f567 ... hmm TODO?
 		{name = 'spellNames_0to53', type = arrayType(Str7, 54)}, 												-- 0x26f567 - 0x26f6e1
 		{name = 'spellNames_54to80', type = arrayType(Str8, 27)},                             					-- 0x26f6e1 - 0x26f7b9
 		{name = 'spellNames_81to255', type = arrayType(Str10, 175)},											-- 0x26f7b9 - 0x26fe8f
