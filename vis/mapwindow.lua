@@ -149,6 +149,9 @@ function MapWindow:showIndexUI(ar)
 
 	local map = mapInfo.map
 	if map then
+		-- fields:
+		ig.igSameLine()
+
 		for fieldname, ctype, field in map[0]:fielditer() do
 			self:editField(map[0], fieldname, ctype, field)
 		end

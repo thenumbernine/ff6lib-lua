@@ -39,46 +39,51 @@ function MonsterWindow:showIndexUI(ar)
 	end
 
 	ig.igSeparator()
+
 	ig.igText'attacks:'
+	ig.igPushID_Str'monsterSpells'
 	local monsterSpells = game.monsterSpells[self.index]
 	for i=0,monsterSpells.dim-1 do
-		ig.igPushID_Str'monsterSpells'
 		ig.igPushID_Int(i)
-		app.spellWindow:popupButton(monsterSpells.s[i].i)
-		ig.igPopID()
+		self:editSpellRef(monsterSpells.s[i], 'i')
 		ig.igPopID()
 	end
+	ig.igPopID()
+
 	ig.igText'items:'
+	ig.igPushID_Str'items'
 	local monsterItem = game.monsterItems[self.index]
 	for fieldname, ctype, field in monsterItem:fielditer() do
 		ig.igPushID_Str(fieldname)
-		ig.igText('  '..fieldname..' = ')
-		ig.igSameLine()
-		app.itemWindow:popupButton(monsterItem[fieldname].i)
+		-- TODO pass the *Ref into edit*Ref
+		self:editItemRef(monsterItem[fieldname], 'i')
 		ig.igPopID()
 	end
+	ig.igPopID()
+
 	local monsterSketches = game.monsterSketches[self.index]
 	ig.igText'sketches:'
+	ig.igPushID_Str'monsterSketches'
 	for i=0,monsterSketches.dim-1 do
-		ig.igPushID_Str'monsterSketches'
 		ig.igPushID_Int(i)
-		app.spellWindow:popupButton(monsterSketches.s[i].i)
-		ig.igPopID()
+		self:editSpellRef(monsterSketches.s[i], 'i')
 		ig.igPopID()
 	end
+	ig.igPopID()
+
 	if self.index < game.countof(game.monsterRages)then
 		ig.igText'rages:'
+		ig.igPushID_Str'monsterRages'
 		local monsterRages = game.monsterRages[self.index]
 		for i=0,monsterRages.dim-1 do
-			ig.igPushID_Str'monsterRages'
 			ig.igPushID_Int(i)
-			app.spellWindow:popupButton(monsterRages.s[i].i)
-			ig.igPopID()
+			self:editSpellRef(monsterRages.s[i], 'i')
 			ig.igPopID()
 		end
+		ig.igPopID()
 	end
 
-	-- reverse searches ...
+	-- reverse-references:
 
 	ig.igSeparator()
 

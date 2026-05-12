@@ -14,7 +14,8 @@ end
 function TouchTriggerWindow:showIndexUI(ar)
 	local e = ar[1+self.index]
 	if not e then return end
-	ig.igText(' pos = '..e.pos)
+
+	self:editField(e, 'pos')
 	self.app.scriptWindow:popupButtonForAddr(e:getScriptAddr())
 end
 

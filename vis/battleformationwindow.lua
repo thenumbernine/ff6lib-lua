@@ -80,6 +80,8 @@ function BattleFormationWindow:showIndexUI(ar)
 		self:editField(formation2, fieldname, ctype, field)
 	end
 
+	-- reverse-references:
+
 	if not self.battlesWithThis then
 		self.battlesWithThis = {}
 		for _,field in ipairs{'monsterRandomBattles', 'monsterEventBattles'} do

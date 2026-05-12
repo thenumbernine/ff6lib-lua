@@ -24,9 +24,12 @@ function MetamorphWindow:showIndexUI(ar)
 
 	for i=0,mmset.dim-1 do
 		ig.igPushID_Int(i)
-		app.itemWindow:popupButton(mmset.s[i].i)
+		self:editItemRef(mmset.s[i], 'i')
+		--app.itemWindow:popupButton(mmset.s[i].i)
 		ig.igPopID()
 	end
+
+	-- reverse-references:
 
 	if not self.monstersWithThis then
 		self.monstersWithThis = table()

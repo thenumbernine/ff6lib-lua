@@ -25,19 +25,21 @@ function WorldEncounterSectorWindow:showIndexUI(ar)
 		..' x='..bit.lshift(bit.band(self.index, 7), 5)
 		..' y='..bit.lshift(bit.band(bit.rshift(self.index, 3), 7), 5)
 	)
+
 	local randomBattlesPerTerrain = game.worldSectorRandomBattlesPerTerrain + self.index
 	local encounterRateBits = game.worldSectorRandomBattleEncounterRatesPerTerrain[self.index]
 	for i,terrain in ipairs(game.terrainTypes) do
 		ig.igPushID_Str(terrain)
 		ig.igText('terrain = '..tostring(terrain))
+
+		-- TODO editme
 		local encounter = bit.band(3, bit.rshift(encounterRateBits, bit.lshift(i-1, 1)))
 		local encounterRateName = game.encounterNames[encounter+1]
 		ig.igText('rate = '..tostring(encounterRateName))
 
 		ig.igText('battle options = ')
 		ig.igSameLine()
-		local battleIndex = randomBattlesPerTerrain[terrain]
-		app.randomBattleOptionsWindow:popupButton(battleIndex)
+		self:editRef(app.randomBattleOptionsWindow, randomBattlesPerTerrain, terrain)
 		ig.igPopID()
 	end
 end

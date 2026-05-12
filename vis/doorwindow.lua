@@ -1,7 +1,6 @@
 local ig = require 'imgui'
 local ArrayWindow = require 'ff6.vis.arraywindow'
 
-
 local DoorWindow = ArrayWindow:subclass()
 DoorWindow.name = 'door'
 function DoorWindow:getArray()
@@ -11,16 +10,20 @@ end
 function DoorWindow:showIndexUI(ar)
 	local e = ar[1+self.index]
 	if not e then return end
-	ig.igText(' pos = '..e.pos)
-	if ig.igButton(' map = '..e.mapIndex) then
-		self:goThruDoor()
+
+	ig.igPushID_Str(self.name)
+	for fieldname, ctype, field in e:fielditer() do
+		ig.igPushID_Str(fieldname)
+		if fieldname == 'mapIndex' then
+			if self:editRef(self.app.mapWindow, e, 'mapIndex') then
+				self:goThruDoor()
+			end
+		else
+			self:editField(e, fieldname, ctype, field)
+		end
+		ig.igPopID()
 	end
-	ig.igText(' setParentMap = '..e.setParentMap)
-	ig.igText(' zLevel = '..e.zLevel)
-	ig.igText(' showDestName = '..e.showDestName)
-	ig.igText(' destFacingDir = '..e.destFacingDir)
-	ig.igText(' unknown_3_6 = '..e.unknown_3_6)
-	ig.igText(' dest = '..e.dest)
+	ig.igPopID()
 end
 
 function DoorWindow:goThruDoor()

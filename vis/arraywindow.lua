@@ -117,6 +117,7 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 	ig.igText(' '..fieldname..' = '..tostring(obj[fieldname]))
 	--]]
 	-- [[ edit:
+	ctype = ctype or ffi.typeof(obj[fieldname])
 	local ctypeobj = require 'ext.op'.land(pcall(function() return ffi.typeof(ctype) end))
 
 	-- checkboxes:
@@ -131,6 +132,12 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 	elseif ctypeobj == game.XY4b
 	or ctypeobj == game.XY8sb
 	or ctypeobj == game.XY8b
+	or ctypeobj == game.EquipFlags
+	or ctypeobj == game.Effect1
+	or ctypeobj == game.Effect2
+	or ctypeobj == game.Effect3
+	or ctypeobj == game.Element
+	or ctypeobj == game.Targetting
 	then
 		-- i think imgui has vector inputs... hmmm
 		local modified
@@ -156,19 +163,22 @@ end
 
 function ArrayWindow:editRef(win, obj, fieldname)
 	local app = self.app
-
---[[ regular
-	ig.luatableInputInt(fieldname, obj, fieldname)
+	local modified
+-- [[ regular
+	modified = ig.luatableInputInt(fieldname, obj, fieldname)
 	--obj[fieldname] = obj[field] % #win:getArray()
+	-- but maps, 511 is previous-map and is oob, so ... allow for now?
+	--	or make that / other special-values into checkboxes...
 --]]
--- [[ don't ref past end of morph set
+--[[ don't ref past end of morph set
 -- but then you have to modulo the number before reassignment or else it'll cast to the bitfield size and the modulo will be way off
 	local tmp = {tonumber(obj[fieldname])}
 	ig.luatableInputInt(fieldname, tmp, 1)
 	obj[fieldname] = tmp[1] % #win:getArray()
 --]]
 	ig.igSameLine()
-	win:popupButton(obj[fieldname])
+	modified = win:popupButton(obj[fieldname]) or modified
+	return modified
 end
 
 function ArrayWindow:editMetamorphRef(...)
@@ -176,6 +186,12 @@ function ArrayWindow:editMetamorphRef(...)
 end
 function ArrayWindow:editMonsterRef(...)
 	return self:editRef(self.app.monsterWindow, ...)
+end
+function ArrayWindow:editSpellRef(...)
+	return self:editRef(self.app.spellWindow, ...)
+end
+function ArrayWindow:editItemRef(...)
+	return self:editRef(self.app.itemWindow, ...)
 end
 
 return ArrayWindow

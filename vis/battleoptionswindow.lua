@@ -46,6 +46,7 @@ function BattleOptionsWindow:showIndexUI(ar)
 	for j=0,battleEntries.dim-1 do
 		ig.igPushID_Str('battleEntries '..self.name)
 		ig.igPushID_Int(j)
+
 		local formationEntry = battleEntries.s[j]
 
 		if self.gameField == 'monsterRandomBattles' then
@@ -56,14 +57,16 @@ function BattleOptionsWindow:showIndexUI(ar)
 			ig.igSameLine()
 		end
 
-		self.app.battleFormationWindow:popupButton(formationEntry.formation)
-		if formationEntry.chooseFromNextFour ~= 0 then
-			ig.igSameLine()
-			ig.igText'... choose from next four'
-		end
+		--self.app.battleFormationWindow:popupButton(formationEntry.formation)
+		self:editRef(self.app.battleFormationWindow, formationEntry, 'formation')
+
+		ig.luatableCheckbox('choose from next four', formationEntry, 'chooseFromNextFour')
+
 		ig.igPopID()
 		ig.igPopID()
 	end
+
+	-- reverse-references:
 
 	if self.gameField == 'monsterRandomBattles' then
 

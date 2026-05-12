@@ -32,14 +32,17 @@ function ItemWindow:showIndexUI(ar)
 		ig.igText(' desc = "'..game.gamezstr(game.itemDescBase + game.itemDescOffsets[self.index])..'"')
 		for fieldname, ctype, field in item:fielditer() do
 			if fieldname == 'spellLearn' then
-				if item.spellLearn.rate > 0 then
-					app.spellWindow:popupButton(item.spellLearn.spell.i)
-				end
-				ig.igText(' spell learn rate = '..item.spellLearn.rate)
+				--if item.spellLearn.rate > 0 then
+					--app.spellWindow:popupButton(item.spellLearn.spell.i)
+					self:editSpellRef(item.spellLearn.spell, 'i', 'uint8_t')
+				--end
+				--ig.igText(' spell learn rate = '..item.spellLearn.rate)
+				--self:editField(item, fieldname, ctype, field)
 			elseif fieldname == 'spellCast' then
 				-- is this the right condition?
 				--if item.castOnAttack ~= 0 or item.castOnItemUse ~= 0 then
-					app.spellWindow:popupButton(item.spellCast)
+					--app.spellWindow:popupButton(item.spellCast)
+					self:editSpellRef(item, fieldname, ctype, field)
 				--end
 			else
 				self:editField(item, fieldname, ctype, field)
@@ -52,17 +55,26 @@ function ItemWindow:showIndexUI(ar)
 	ig.igText' colosseum info:'
 	local colinfo = game.itemColosseumInfos[self.index]
 
+	ig.igPushID_Str'monster fought'
 	ig.igText('  monster fought =')
 	ig.igSameLine()
-	app.monsterWindow:popupButton(colinfo.monster.i)
+	--app.monsterWindow:popupButton(colinfo.monster.i)
+	self:editSpellRef(colinfo.monster, 'i', 'uint8_t')
+	ig.igPopID()
 
+	ig.igPushID_Str'item won'
 	ig.igText('  item won =')
 	ig.igSameLine()
-	app.itemWindow:popupButton(colinfo.itemWon.i)
+	--app.itemWindow:popupButton(colinfo.itemWon.i)
+	self:editItemRef(colinfo.itemWon, 'i', 'uint8_t')
+	ig.igPopID()
 
-	ig.igText('  unknown = '..colinfo.unknown)
-	ig.igText('  hideName = '..colinfo.hideName)
+	--ig.igText('  unknown = '..colinfo.unknown)
+	self:editField(colinfo, 'unknown', 'uint8_t')
+	--ig.igText('  hideName = '..colinfo.hideName)
+	self:editField(colinfo, 'hideName', 'uint8_t')
 
+	-- reverse-references:
 
 	if self.colosseumBetsWithThis == nil then
 		self.colosseumBetsWithThis = table()
