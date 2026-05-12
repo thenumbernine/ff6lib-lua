@@ -72,7 +72,8 @@ function BattleOptionsWindow:showIndexUI(ar)
 
 		if self.mapsWithThis == nil then
 			self.mapsWithThis = table()
-			for i=0,game.countof(game.maps)-1 do
+			-- skip the first 3 maps for monsterRandomBattleOptionIndex
+			for i=2,game.countof(game.maps)-1 do
 				local mapInfo = game.getMap(i)		-- this wont bloat mem too much right?
 				if mapInfo.monsterRandomBattleOptionIndex == self.index then
 					self.mapsWithThis:insert(i)

@@ -44,6 +44,8 @@ end
 
 function MapWindow:showIndexUI(ar)
 	local app = self.app
+	local game = app.game
+
 	local mapInfo = self:getMapInfo()
 	if not mapInfo then return end
 
@@ -51,6 +53,7 @@ function MapWindow:showIndexUI(ar)
 	if map then
 		ig.luatableTooltipCheckbox('useBlend', app, 'useBlend')
 
+		ig.igSameLine()
 		ig.luatableTooltipCheckbox('showAnimTexs', app, 'showAnimTexs')
 		-- hmm, i've got dif flags for anim layers and non-anim layers, why?
 		if app.layerAnimTexs then
@@ -70,9 +73,7 @@ function MapWindow:showIndexUI(ar)
 			end
 		elseif app.layerTexs then
 			for i=1,#app.layerTexs do
-				if i > 1 then
-					ig.igSameLine()
-				end
+				ig.igSameLine()
 				local k = 'drawLayer'..i
 				if app[k] == nil then app[k] = true end
 				ig.luatableTooltipCheckbox('tex '..i, app, k)
@@ -130,7 +131,12 @@ function MapWindow:showIndexUI(ar)
 		ig.igSameLine()
 		app.worldEncounterSectorWindow:popupButton()
 	else
-		app.randomBattleOptionsWindow:popupButton(mapInfo.monsterRandomBattleOptionIndex)
+		--app.randomBattleOptionsWindow:popupButton(mapInfo.monsterRandomBattleOptionIndex)
+		--self:editRef(app.randomBattleOptionsWindow, game.mapRandomBattleOptions, self.index, 'uint8_t')
+		local tmp = {mapIndex=game.mapRandomBattleOptions[self.index]}
+		if self:editRef(app.randomBattleOptionsWindow, tmp, 'mapIndex', 'uint8_t') then
+			game.mapRandomBattleOptions[self.index] = tmp.mapIndex
+		end
 	end
 
 	-- [[ here or in TileWindow?
@@ -212,7 +218,6 @@ function MapWindow:setIndex(newIndex, pushStack)
 	else
 		app.randomBattleOptionsWindow:setIndex(mapInfo.monsterRandomBattleOptionIndex)
 	end
-
 
 
 	local map = mapInfo.map

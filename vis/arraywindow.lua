@@ -75,31 +75,34 @@ function ArrayWindow:update()
 		end
 
 
-		local name = self:getIndexName(self.index) or ''
-		ig.igText('name = '..name)
-		if not self.searchText then
-			ig.igSameLine()
-			if ig.igButton'find' then
-				self.searchText = name
-			end
-		else
-			ig.igSeparator()
-			ig.luatableInputText('find', self, 'searchText')
-			if ig.igButton'go' then
-				-- TODO also count initially and cahce and cycle and show 1/40 or whatever
-				for d=1,#self:getArray() do
-					local i = (self.index + d) % #self:getArray()
-					local n = tostring(self:getIndexName(i))
-					if n:lower():find(self.searchText:lower(), 1, true) then
-						self:setIndex(i)
+		-- no name on any <-> no name on all
+		local name = self:getIndexName(self.index)
+		if name then
+			ig.igText('name = '..name)
+			if not self.searchText then
+				ig.igSameLine()
+				if ig.igButton'find' then
+					self.searchText = name
+				end
+			else
+				ig.igSeparator()
+				ig.luatableInputText('find', self, 'searchText')
+				if ig.igButton'go' then
+					-- TODO also count initially and cahce and cycle and show 1/40 or whatever
+					for d=1,#self:getArray() do
+						local i = (self.index + d) % #self:getArray()
+						local n = tostring(self:getIndexName(i))
+						if n:lower():find(self.searchText:lower(), 1, true) then
+							self:setIndex(i)
+						end
 					end
 				end
+				ig.igSameLine()
+				if ig.igButton'close' then
+					self.searchText = nil
+				end
+				ig.igSeparator()
 			end
-			ig.igSameLine()
-			if ig.igButton'close' then
-				self.searchText = nil
-			end
-			ig.igSeparator()
 		end
 
 		self:showIndexUI(ar)
@@ -161,10 +164,21 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 	--]]
 end
 
+local tmpvec = ig.ImVec2()
+-- static method
+function ArrayWindow:igSetNextWidthProp(x)
+	ig.igGetContentRegionAvail(tmpvec)
+	ig.igSetNextItemWidth(tmpvec.x * x)
+end
+
 function ArrayWindow:editRef(win, obj, fieldname)
 	local app = self.app
 	local modified
 -- [[ regular
+
+	--self:igSetNextWidthProp(.5)
+	ig.igSetNextItemWidth(100)
+
 	modified = ig.luatableInputInt(fieldname, obj, fieldname)
 	--obj[fieldname] = obj[field] % #win:getArray()
 	-- but maps, 511 is previous-map and is oob, so ... allow for now?

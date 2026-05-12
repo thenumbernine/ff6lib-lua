@@ -12,10 +12,13 @@ function TouchTriggerWindow:getArray()
 end
 
 function TouchTriggerWindow:showIndexUI(ar)
+	local app = self.app
+	local game = app.game
+
 	local e = ar[1+self.index]
 	if not e then return end
 
-	self:editField(e, 'pos')
+	self:editField(e, 'pos', game.XY8b)
 	self.app.scriptWindow:popupButtonForAddr(e:getScriptAddr())
 end
 
