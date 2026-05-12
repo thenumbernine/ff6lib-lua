@@ -4,6 +4,7 @@
 
 name = "ff6"
 luaArgs = "vis.lua"	-- default execution will be the visualizer
+git = "https://github.com/thenumbernine/ff6lib-lua"
 
 files = {
 	"README.md",
