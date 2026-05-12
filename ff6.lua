@@ -43,6 +43,24 @@ for _,size in ipairs{8, 16, 32} do
 	end
 end
 
+-- define types here that you don't want defined more than once ...
+
+local uint24_t = ff6struct{
+	name = 'uint24_t',
+	fields = {
+		{lo = uint16_t},
+		{hi = uint8_t},
+	},
+	metatable = function(mt)
+		mt.value = function(self)
+			return bit.bor(self.lo, bit.lshift(self.hi, 16))
+		end
+	end,
+}
+assert.eq(ffi.sizeof(uint24_t), 3)
+
+
+
 local romsize = 0x300000
 
 -- you must pass this a string
@@ -538,19 +556,6 @@ assert.eq(ffi.sizeof(MapColorMathProps), 3)
 
 ---------------- AUDIO ----------------
 
-local uint24_t = ff6struct{
-	name = 'uint24_t',
-	fields = {
-		{lo = uint16_t},
-		{hi = uint8_t},
-	},
-	metatable = function(mt)
-		mt.value = function(self)
-			return bit.bor(self.lo, bit.lshift(self.hi, 16))
-		end
-	end,
-}
-assert.eq(ffi.sizeof(uint24_t), 3)
 local numBRRSamples = 63
 
 ---------------- SPELLS ----------------
@@ -2287,8 +2292,8 @@ Game = struct{
 		{name = 'unknown_051ec7', type = arrayType(uint8_t, -(0x051ec7 - 0x053c5f))},							-- 0x051ec7 - 0x053c5f
 
 		{name = 'brrSamplePtrs', type = arrayType(uint24_t, numBRRSamples)},									-- 0x053c5f - 0x053d1c -- BRR sample pointers (x63, 3 bytes each)
-		{name = 'loopStartOfs', type = arrayType(uint16_t, numBRRSamples)},										-- 0x053d1c - 0x053d9a -- loop start pointers (x63, 2 bytes each)
-		{name = 'pitchMults', type = arrayType(uint16_t, numBRRSamples)},										-- 0x053d9a - 0x053e18 -- pitch multipliers (x63, 2 bytes each)
+		{name = 'brrLoopStartOfs', type = arrayType(uint16_t, numBRRSamples)},										-- 0x053d1c - 0x053d9a -- loop start pointers (x63, 2 bytes each)
+		{name = 'brrPitchMults', type = arrayType(uint16_t, numBRRSamples)},										-- 0x053d9a - 0x053e18 -- pitch multipliers (x63, 2 bytes each)
 		{name = 'adsrData', type = arrayType(uint16_t, numBRRSamples)},											-- 0x053e18 - 0x053e96 -- ADSR data (x63, 2 bytes each)
 
 		{name = 'unknown_053e96', type = arrayType(uint8_t, -(0x053e96 - 0x054a35))},							-- 0x053e96 - 0x054a35
@@ -2559,8 +2564,8 @@ assertOffset('font16_20_to_7f', 0x0490c0)
 assertOffset('spcMainCodeLoopLen', 0x05070e)
 assertOffset('spcMainCode', 0x050710)
 assertOffset('brrSamplePtrs', 0x053c5f)
-assertOffset('loopStartOfs', 0x053d1c)
-assertOffset('pitchMults', 0x053d9a)
+assertOffset('brrLoopStartOfs', 0x053d1c)
+assertOffset('brrPitchMults', 0x053d9a)
 assertOffset('adsrData', 0x053e18)
 assertOffset('brrSamples', 0x054a35)
 assertOffset('dialogOffsets', 0x0ce600)

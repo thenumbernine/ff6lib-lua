@@ -29,9 +29,9 @@ for i=0,game.numBRRSamples-1 do
 
 	-- if loopStartPtr is only 16bit then it can't span the full range of the brrSample data, which covers 0x31245 bytes
 	-- so it must be an offset into the structure
-	assert.eq(game.loopStartOfs[i] % 9, 0, "why isn't the brr loop aligned to brr frames?")
-	io.write(' loopStartPtr: '..('0x%04x'):format(tonumber(game.loopStartOfs[i])))
-	io.write(' pitchMults: '..('0x%04x'):format(tonumber(game.pitchMults[i])))
+	assert.eq(game.brrLoopStartOfs[i] % 9, 0, "why isn't the brr loop aligned to brr frames?")
+	io.write(' loopStartPtr: '..('0x%04x'):format(tonumber(game.brrLoopStartOfs[i])))
+	io.write(' brrPitchMults: '..('0x%04x'):format(tonumber(game.brrPitchMults[i])))
 	io.write(' adsrData: '..('0x%04x'):format(tonumber(game.adsrData[i])))
 
 	print()
@@ -185,8 +185,8 @@ for i=0,game.numBRRSamples-1 do
 	-- and its associated info
 	wavpath(basename..'.txt'):write(table{
 		('adsr=0x%04X'):format(tonumber(game.adsrData[i])),
-		('pitch=0x%04X'):format(tonumber(game.pitchMults[i])),
-		('loopOffset=0x%04X/9*32'):format(tonumber(game.loopStartOfs[i])),
+		('pitch=0x%04X'):format(tonumber(game.brrPitchMults[i])),
+		('loopOffset=0x%04X/9*32'):format(tonumber(game.brrLoopStartOfs[i])),
 	}:concat'\n'..'\n')
 	--[[ debug plot it so i can see the waveform.
 	require'gnuplot'{
@@ -202,7 +202,7 @@ for i=0,game.numBRRSamples-1 do
 			range(0,numSamples-1):mapi(function(j) return tonumber(wavData[j])/32768 end),
 			range(0,numSamples-1):mapi(function(j)
 				local brraddr = j/16*9
-				return brraddr >= game.loopStartOfs[i] and .5 or 0
+				return brraddr >= game.brrLoopStartOfs[i] and .5 or 0
 			end)
 		},
 		{using='1:2:3', notitle=true, palette=true},

@@ -918,8 +918,8 @@ output audio ...
 	spcMainCode
 	spcMainCode
 	brrSamplePtrs
-	loopStartOfs
-	pitchMults
+	brrLoopStartOfs
+	brrPitchMults
 	adsrData
 	brrSamples
 --]]

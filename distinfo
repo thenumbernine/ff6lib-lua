@@ -3,6 +3,8 @@
 --------------------------------------------
 
 name = "ff6"
+luaArgs = "vis.lua"	-- default execution will be the visualizer
+
 files = {
 	"README.md",
 	"battleanim.lua",

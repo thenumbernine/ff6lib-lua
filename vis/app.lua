@@ -814,7 +814,7 @@ function App:updateGUI()
 						print(err..'\n'..debug.traceback())
 					end)
 				end
-				self.sdlOpenFileDialogClosure = ffi.cast('SDL_DialogFileCallback', sdlOpenFileDialogCallback)
+				self.sdlOpenFileDialogClosure = ffi.cast('SDL_DialogFileCallback', self.sdlOpenFileDialogCallback)
 
 				sdl.SDL_ShowOpenFileDialog(
 					self.sdlOpenFileDialogClosure,	-- callback
