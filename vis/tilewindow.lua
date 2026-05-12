@@ -290,6 +290,7 @@ function TileWindow:showIndexUI(ar)
 						print(err..'\n'..debug.traceback())
 					end)
 				end
+				jit.off(self.sdlSaveFileDialog_chooseOutputFilenameFunction)
 				self.sdlSaveFileDialog_chooseOutputFilenameClosure = ffi.cast('SDL_DialogFileCallback', self.sdlSaveFileDialog_chooseOutputFilenameFunction)
 
 				-- TODO do a SDL open file dialog here

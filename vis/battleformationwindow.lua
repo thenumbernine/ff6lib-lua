@@ -44,15 +44,24 @@ end
 function BattleFormationWindow:showIndexUI(ar)
 	local game = self.app.game
 	if self.index < game.countof(game.formationMPs) then
-		ig.igText(' mp gained = '..tostring(game.formationMPs[self.index]))
+		local tmp = {tonumber(game.formationMPs[self.index])}
+		if ig.luatableInputFloatAsText('mp gained', tmp, 1) then
+			game.formationMPs[self.index] = tmp[1]
+		end
 	end
 	local formation = game.formations + self.index
 	for i=1,6 do
 		ig.igPushID_Str('BattleFormationWindow')
 		ig.igPushID_Int(i)
 		ig.igText(' #'..i)
-		local active = formation:getMonsterActive(i)
-		ig.igText('  active = '..tostring(active))
+
+		local tmp = {}
+		tmp[1] = formation:getMonsterActive(i)
+		if ig.luatableCheckbox('active', tmp, 1) then
+			formation['active'..i] = tmp[1] and 1 or 0
+		end
+		local active = tmp[1]
+
 		if active then
 			self.app.monsterWindow:popupButton(formation:getMonsterIndex(i))
 			-- pointer into another table I think?
@@ -63,8 +72,8 @@ function BattleFormationWindow:showIndexUI(ar)
 		ig.igPopID()
 	end
 	local formation2 = game.formation2s[self.index]
-	for name in formation2:fielditer() do
-		ig.igText(' '..name..' = '..formation2[name])
+	for fieldname, ctype, field in formation2:fielditer() do
+		self:editField(formation2, fieldname, ctype, field)
 	end
 
 	if not self.battlesWithThis then

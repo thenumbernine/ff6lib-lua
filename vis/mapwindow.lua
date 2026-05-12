@@ -14,9 +14,9 @@ local vis_util = require 'ff6.vis.util'
 local zAndLayersWithoutLayer3Priority = vis_util.zAndLayersWithoutLayer3Priority
 local zAndLayersWithLayer3Priority = vis_util.zAndLayersWithLayer3Priority
 local numTilePropsBits = vis_util.numTilePropsBits
-local worldTilePropsNames = vis_util.worldTilePropsNames 
+local worldTilePropsNames = vis_util.worldTilePropsNames
 local mapTilePropsFlagForName = vis_util.mapTilePropsFlagForName
-local mapTilePropsNames = vis_util.mapTilePropsNames 
+local mapTilePropsNames = vis_util.mapTilePropsNames
 
 
 local MapWindow = ArrayWindow:subclass()
@@ -149,8 +149,8 @@ function MapWindow:showIndexUI(ar)
 
 	local map = mapInfo.map
 	if map then
-		for name in map[0]:fielditer() do
-			ig.igText(' '..name..' = '..tostring(map[0][name]))
+		for fieldname, ctype, field in map[0]:fielditer() do
+			self:editField(map[0], fieldname, ctype, field)
 		end
 	end
 end
@@ -358,7 +358,7 @@ function MapWindow:setIndex(newIndex, pushStack)
 		end
 		app.map16x16tileTexs = nil
 	end
-	
+
 
 
 	if map then
@@ -412,7 +412,7 @@ function MapWindow:setIndex(newIndex, pushStack)
 					local y = bit.lshift(j, 4)
 					for i=0,size.x-1 do
 						local x = bit.lshift(i, 4)
-						
+
 						if worldInfo then
 							game.layer1worlddrawtile16x16(
 								--layerImg, x, y,
@@ -474,4 +474,4 @@ function MapWindow:setIndex(newIndex, pushStack)
 	end
 end
 
-return MapWindow 
+return MapWindow

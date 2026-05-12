@@ -29,11 +29,11 @@ function MonsterWindow:showIndexUI(ar)
 	if ig.igCollapsingHeader'fields' then
 		ig.igText(' attack name = "'..game.monsterAttackNames[self.index]..'"')
 		local monster = game.monsters[self.index]
-		for field in monster:fielditer() do
-			if field == 'metamorphSet' then
-				app.metamorphWindow:popupButton(monster.metamorphSet)
+		for fieldname, ctype, field in monster:fielditer() do
+			if fieldname == 'metamorphSet' then
+				self:editMetamorphRef(monster, 'metamorphSet')
 			else
-				ig.igText(' '..field..' = '..tostring(monster[field]))
+				self:editField(monster, fieldname, ctype, field)
 			end
 		end
 	end
@@ -50,11 +50,11 @@ function MonsterWindow:showIndexUI(ar)
 	end
 	ig.igText'items:'
 	local monsterItem = game.monsterItems[self.index]
-	for field in monsterItem:fielditer() do
-		ig.igPushID_Str(field)
-		ig.igText('  '..field..' = ')
+	for fieldname, ctype, field in monsterItem:fielditer() do
+		ig.igPushID_Str(fieldname)
+		ig.igText('  '..fieldname..' = ')
 		ig.igSameLine()
-		app.itemWindow:popupButton(monsterItem[field].i)
+		app.itemWindow:popupButton(monsterItem[fieldname].i)
 		ig.igPopID()
 	end
 	local monsterSketches = game.monsterSketches[self.index]

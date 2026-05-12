@@ -11,6 +11,7 @@ local vec3d = require 'vec-ffi.vec3d'
 local vec4x4fcol = require 'vec-ffi.vec4x4fcol'
 local box2i = require 'vec-ffi.box2i'
 local sdl = require 'sdl'
+local sdlAssertNonNull = require 'sdl.assert'.nonnull
 local gl = require 'gl'
 local Image = require 'image'
 local GLTex2D = require 'gl.tex2d'
@@ -807,15 +808,15 @@ function App:updateGUI()
 				self.sdlOpenFileDialogCallback = function(userdata, filelist, filter)
 					xpcall(function()
 						-- filelist is `char const * const *`, so a list-of-pointers-to-strings
-						require 'sdl.assert'.nonnull(filelist)	-- error
+						sdlAssertNonNull(filelist)	-- error
 						if filelist[0] == nil then return end	-- no file picked
 						self:onLoadROM(ffi.string(filelist[0]))
 					end, function(err)
 						print(err..'\n'..debug.traceback())
 					end)
 				end
+				jit.off(self.sdlOpenFileDialogCallback)
 				self.sdlOpenFileDialogClosure = ffi.cast('SDL_DialogFileCallback', self.sdlOpenFileDialogCallback)
-
 				sdl.SDL_ShowOpenFileDialog(
 					self.sdlOpenFileDialogClosure,	-- callback
 					nil,							-- userdata
@@ -827,10 +828,41 @@ function App:updateGUI()
 				)
 			end
 
+			if game then
+				if ig.igButton'Save...' then
+					if self.sdlSaveFileDialogClosure then
+						self.sdlSaveFileDialogClosure:free()
+					end
+					self.sdlSaveFileDialogCallback = function(userdata, filelist, filter)
+						xpcall(function()
+							sdlAssertNonNull(filelist)	-- error
+							if filelist[0] == nil then return end	-- no file picked
+							local fn = ffi.string(filelist[0])
+							assert(path(fn):write(
+								-- no header for now
+								game.romvec:dataToStr()
+							))
+						end, function(err)
+							print(err..'\n'..debug.traceback())
+						end)
+					end
+					jit.off(self.sdlSaveFileDialogCallback)
+					self.sdlSaveFileDialogClosure = ffi.cast('SDL_DialogFileCallback', self.sdlSaveFileDialogCallback)
+					sdl.SDL_ShowSaveFileDialog(
+						self.sdlSaveFileDialogClosure,	-- callback
+						nil,							-- userdata
+						self.window,					-- window
+						nil,							-- filters
+						0,								-- nfilters
+						path:cwd().path					-- default_location
+					)
+				end
+			end
+
 			ig.igEndMenu()
 		end
 
-		if ig.igBeginMenu'View' then
+		if ig.igBeginMenu'Window' then
 			if self.baseWindows then
 				for _,w in ipairs(self.baseWindows) do
 					if ig.igButton(w.name) then
@@ -839,7 +871,12 @@ function App:updateGUI()
 				end
 			end
 
-			if ig.igButton'reset view' then
+			ig.igEndMenu()
+		end
+
+		if ig.igBeginMenu'Map' then
+
+			if ig.igButton'Reset View' then
 				self.view.ortho = true
 				self.view.orthoSize = 256
 				self.view.pos:set(0,0,10)
@@ -847,126 +884,121 @@ function App:updateGUI()
 				self.view.angle:set(0,0,0,1)
 			end
 
-			ig.igEndMenu()
-		end
+			ig.luatableInputFloat('animSpeed', self, 'animSpeed')
 
-		if map
-		and ig.igBeginMenu'Map' then
-			if self.layerAnimTexs then
-				local doSaveLayerPNGs = ig.igButton'save layer pngs'
-				local doSaveGIF = ig.igButton'save animated gif'
-				if doSaveLayerPNGs
-				or doSaveGIF
-				then
-					local animScreenshotPath = path'vis-map-animframes'
-					animScreenshotPath:mkdir(true)
+			if map then
+				if self.layerAnimTexs then
+					local doSaveLayerPNGs = ig.igButton'save layer pngs'
+					local doSaveGIF = ig.igButton'save animated gif'
+					if doSaveLayerPNGs
+					or doSaveGIF
+					then
+						local animScreenshotPath = path'vis-map-animframes'
+						animScreenshotPath:mkdir(true)
 
-					local numFrames = 1
-					local zAndLayers = map.layer3Priority == 0
-						and zAndLayersWithoutLayer3Priority
-						or zAndLayersWithLayer3Priority
-					for _,zAndLayer in ipairs(zAndLayers) do
-						local z, layer = table.unpack(zAndLayer)
-						if self.layerAnimTexs[z]
-						and self.layerAnimTexs[z][layer]
-						then
-							numFrames = math.max(numFrames, #self.layerAnimTexs[z][layer])
-							if doSaveLayerPNGs then
-								for frameIndex,frameTex in ipairs(self.layerAnimTexs[z][layer]) do
-									frameTex.image:save((animScreenshotPath/(
-										'map'..self.mapWindow.index
-										..'_z='..z
-										..'_layer='..layer
-										..'_frame='..frameIndex
-										..'.png'
-									)).path)
+						local numFrames = 1
+						local zAndLayers = map.layer3Priority == 0
+							and zAndLayersWithoutLayer3Priority
+							or zAndLayersWithLayer3Priority
+						for _,zAndLayer in ipairs(zAndLayers) do
+							local z, layer = table.unpack(zAndLayer)
+							if self.layerAnimTexs[z]
+							and self.layerAnimTexs[z][layer]
+							then
+								numFrames = math.max(numFrames, #self.layerAnimTexs[z][layer])
+								if doSaveLayerPNGs then
+									for frameIndex,frameTex in ipairs(self.layerAnimTexs[z][layer]) do
+										frameTex.image:save((animScreenshotPath/(
+											'map'..self.mapWindow.index
+											..'_z='..z
+											..'_layer='..layer
+											..'_frame='..frameIndex
+											..'.png'
+										)).path)
+									end
 								end
 							end
 						end
-					end
 
-					-- save a composite image while we're here
-					local GLPingPong = require 'gl.pingpong'
-					local pp = GLPingPong{
-						numBuffers = 1,
-						width = tonumber(self.mapSize.x),
-						height = tonumber(self.mapSize.y),
-						internalFormat = gl.GL_RGBA,
-						minFilter = gl.GL_NEAREST,
-						magFilter = gl.GL_NEAREST,
-					}
-					local fboTex = pp:cur()
+						-- save a composite image while we're here
+						local GLPingPong = require 'gl.pingpong'
+						local pp = GLPingPong{
+							numBuffers = 1,
+							width = tonumber(self.mapSize.x),
+							height = tonumber(self.mapSize.y),
+							internalFormat = gl.GL_RGBA,
+							minFilter = gl.GL_NEAREST,
+							magFilter = gl.GL_NEAREST,
+						}
+						local fboTex = pp:cur()
 
 
-					local pushMvMat = self.view.mvMat:clone()
-					local pushProjMat = self.view.projMat:clone()
-					local view = self.view
-					view.mvMat
-						:setIdent()
-						:applyScale(1, -1)
-						:applyScale(fboTex.width / 16, fboTex.height / 16, 1)
-					view.projMat:setOrtho(0, fboTex.width / 16, -fboTex.height / 16, 0, -1000, 1000)
-					view.mvProjMat:mul4x4(view.projMat, view.mvMat)
+						local pushMvMat = self.view.mvMat:clone()
+						local pushProjMat = self.view.projMat:clone()
+						local view = self.view
+						view.mvMat
+							:setIdent()
+							:applyScale(1, -1)
+							:applyScale(fboTex.width / 16, fboTex.height / 16, 1)
+						view.projMat:setOrtho(0, fboTex.width / 16, -fboTex.height / 16, 0, -1000, 1000)
+						view.mvProjMat:mul4x4(view.projMat, view.mvMat)
 
-					gl.glViewport(0, 0, fboTex.width, fboTex.height)
+						gl.glViewport(0, 0, fboTex.width, fboTex.height)
 
-					local compositeImgs = table()
-					for frameIndex=1,numFrames do
-						local fbo = pp.fbo
-						fbo:bind()
-							:setColorAttachmentTex2D(fboTex.id, 0)
-							:drawBuffers(gl.GL_COLOR_ATTACHMENT0)
-						assert(fbo:check())
+						local compositeImgs = table()
+						for frameIndex=1,numFrames do
+							local fbo = pp.fbo
+							fbo:bind()
+								:setColorAttachmentTex2D(fboTex.id, 0)
+								:drawBuffers(gl.GL_COLOR_ATTACHMENT0)
+							assert(fbo:check())
 
-						gl.glClearColor(0,0,0,1)
-						gl.glClear(gl.GL_COLOR_BUFFER_BIT)
+							gl.glClearColor(0,0,0,1)
+							gl.glClear(gl.GL_COLOR_BUFFER_BIT)
 
-						self:draw(frameIndex-1)
+							self:draw(frameIndex-1)
 
-						-- readpixels while we're here ...
-						local image = Image(fboTex.width, fboTex.height, 4, 'uint8_t')	-- TODO tex :getChannels() :getCType()
-						gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT0)
-						gl.glReadPixels(
-							0, 0, fboTex.width, fboTex.height,
-							gl.GL_RGBA, --fboTex.format,
-							gl.GL_UNSIGNED_BYTE, --fboTex.type,
-							image.buffer
-						)
-						gl.glReadBuffer(gl.GL_BACK)
+							-- readpixels while we're here ...
+							local image = Image(fboTex.width, fboTex.height, 4, 'uint8_t')	-- TODO tex :getChannels() :getCType()
+							gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT0)
+							gl.glReadPixels(
+								0, 0, fboTex.width, fboTex.height,
+								gl.GL_RGBA, --fboTex.format,
+								gl.GL_UNSIGNED_BYTE, --fboTex.type,
+								image.buffer
+							)
+							gl.glReadBuffer(gl.GL_BACK)
 
-						image = image:flip()
-						compositeImgs:insert(image)
-						if doSaveLayerPNGs then
-							image:save((animScreenshotPath/(
-								'map'..self.mapWindow.index
-								..'_composite'
-								..'_frame='..frameIndex
-								..'.png'
-							)).path)
+							image = image:flip()
+							compositeImgs:insert(image)
+							if doSaveLayerPNGs then
+								image:save((animScreenshotPath/(
+									'map'..self.mapWindow.index
+									..'_composite'
+									..'_frame='..frameIndex
+									..'.png'
+								)).path)
+							end
+
+							fbo:unbind()
 						end
 
-						fbo:unbind()
+						-- save the whole as an animation
+						if doSaveGIF then
+							compositeImgs[1]:save(
+								(animScreenshotPath/('map'..self.mapWindow.index..'_animated.gif')).path,
+								compositeImgs:unpack(2)
+							)
+						end
+
+						gl.glViewport(0, 0, self.width, self.height)
+
+						self.view.mvMat:copy(pushMvMat)
+						self.view.projMat:copy(pushProjMat)
+						self.view.mvProjMat:mul4x4(self.view.projMat, self.view.mvMat)
 					end
-
-					-- save the whole as an animation
-					if doSaveGIF then
-						compositeImgs[1]:save(
-							(animScreenshotPath/('map'..self.mapWindow.index..'_animated.gif')).path,
-							compositeImgs:unpack(2)
-						)
-					end
-
-					gl.glViewport(0, 0, self.width, self.height)
-
-					self.view.mvMat:copy(pushMvMat)
-					self.view.projMat:copy(pushProjMat)
-					self.view.mvProjMat:mul4x4(self.view.projMat, self.view.mvMat)
 				end
 			end
-
-			ig.luatableInputFloat('animSpeed', self, 'animSpeed')
-
-			local mapInfo = game.getMap(self.mapWindow.index)
 
 			ig.igEndMenu()
 		end

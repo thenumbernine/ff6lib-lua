@@ -30,19 +30,19 @@ function ItemWindow:showIndexUI(ar)
 
 	if ig.igCollapsingHeader'fields' then
 		ig.igText(' desc = "'..game.gamezstr(game.itemDescBase + game.itemDescOffsets[self.index])..'"')
-		for field in item:fielditer() do
-			if field == 'spellLearn' then
+		for fieldname, ctype, field in item:fielditer() do
+			if fieldname == 'spellLearn' then
 				if item.spellLearn.rate > 0 then
 					app.spellWindow:popupButton(item.spellLearn.spell.i)
 				end
 				ig.igText(' spell learn rate = '..item.spellLearn.rate)
-			elseif field == 'spellCast' then
+			elseif fieldname == 'spellCast' then
 				-- is this the right condition?
 				--if item.castOnAttack ~= 0 or item.castOnItemUse ~= 0 then
 					app.spellWindow:popupButton(item.spellCast)
 				--end
 			else
-				ig.igText(' '..field..' = '..tostring(item[field]))
+				self:editField(item, fieldname, ctype, field)
 			end
 		end
 	end
@@ -92,9 +92,9 @@ function ItemWindow:showIndexUI(ar)
 		self.monstersWithThis = table()
 		for i=0,game.countof(game.monsterItems)-1 do
 			local monsterItem = game.monsterItems + i
-			for field in monsterItem:fielditer() do
-				if monsterItem[field].i == self.index then
-					self.monstersWithThis:insert{monsterIndex=i, field=field}
+			for fieldname in monsterItem:fielditer() do
+				if monsterItem[fieldname].i == self.index then
+					self.monstersWithThis:insert{monsterIndex=i, fieldname=fieldname}
 				end
 			end
 		end
@@ -107,7 +107,7 @@ function ItemWindow:showIndexUI(ar)
 		ig.igPushID_Str'itemWindow-monstersWithThis'
 		for j,info in ipairs(self.monstersWithThis) do
 			ig.igPushID_Int(j)
-			app.monsterWindow:popupButton(info.monsterIndex, info.field)
+			app.monsterWindow:popupButton(info.monsterIndex, info.fieldname)
 			ig.igPopID()
 		end
 		ig.igPopID()

@@ -31,8 +31,8 @@ function SpellWindow:showIndexUI(ar)
 		-- should I put esper descs here, or in the esper output, or both?
 	end
 	local spell = game.spells[self.index]
-	for name in spell:fielditer() do
-		ig.igText(' '..name..' = '..tostring(spell[name]))
+	for fieldname, ctype, field in spell:fielditer() do
+		self:editField(spell, fieldname, ctype, field)
 	end
 end
 

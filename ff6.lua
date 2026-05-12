@@ -6,6 +6,7 @@ local number = require 'ext.number'
 local assert = require 'ext.assert'
 local struct = require 'struct'
 local createVec = require 'vec-ffi.create_vec'
+local vector = require 'stl.vector-lua'
 local ff6struct = require 'ff6.ff6struct'
 local reftype = require 'ff6.reftype'
 
@@ -74,8 +75,11 @@ end
 assert.len(romstr, romsize)
 -- TODO checksum
 
-
-local rom = ffi.cast(uint8_t_p, romstr)
+-- hmm to not deal with string internal data issues ... copy this into a vector first, and don't save the string
+local romvec = vector(uint8_t, romsize)
+assert.len(romvec, romsize)
+ffi.copy(romvec.v, romstr, romsize)
+local rom = romvec.v + 0
 
 -- compstr uses game
 local gameC	-- C object / ffi metatype
@@ -1690,7 +1694,7 @@ local Map = struct{
 	tostringOmitEmpty = true,
 	packed = true,
 	fields = {
-		{name='name', type=MapNameRef},						-- 0
+		{name='name', type=MapNameRef},							-- 0
 		{name='enableXZone', type='uint8_t:1'},					-- 1.0
 		{name='enableWarp', type='uint8_t:1'},					-- 1.1
 		{name='wavyLayer3', type='uint8_t:1'},					-- 1.2
@@ -1899,7 +1903,7 @@ tostringOmitNil = true,
 tostringOmitEmpty = true,
 	metatable = function(mt)
 		mt.typeToString = fieldsToHex
-	
+
 		mt.getScriptAddr = function(self)
 			--if self.vehicle == 0 and and self.showRider_or_specialGraphics ~= 0 then return end
 			return self.script + ffi.offsetof(Game, 'eventScript')
@@ -2001,7 +2005,7 @@ assert.eq(ffi.sizeof(NPC), 9)
 
 
 --[=[
--- this is in Door, maybe in BigDoor, but also in the 
+-- this is in Door, maybe in BigDoor, but also in the
 local MapDest = ff6struct{
 	ctypeOnly = true,
 	fields = {
@@ -2061,7 +2065,7 @@ local BigDoor = struct{
 		{name='pos', type=XY8b},					-- 0-1
 		{name='length', type='uint8_t:7'},			-- 2.0-2.6
 		{name='vertical', type='uint8_t:1'},		-- 2.7
-	
+
 		-- TODO everything below is also MapDest ... anonymous inline?
 		{
 			type = struct{
@@ -2186,7 +2190,7 @@ Game = struct{
 	tostringOmitFalse = true,
 	tostringOmitNil = true,
 	tostringOmitEmpty = true,
-		
+
 	metatable = function(m)
 		-- default output to hex
 		m.__index.typeToString = {
@@ -2641,7 +2645,7 @@ game = setmetatable({}, {
 })
 
 game.rom = rom
-game.romstr = romstr
+game.romvec = romvec
 game.romsize = romsize
 
 game.numEsperBonuses = numEsperBonuses
@@ -2741,6 +2745,9 @@ game.positionedText = StringList{
 
 
 game.uint24_t = uint24_t
+game.XY4b = XY4b
+game.XY8sb = XY8sb
+game.XY8b = XY8b
 game.RGBA5551 = RGBA5551
 game.Palette4 = Palette4
 game.Palette8 = Palette8
@@ -2781,7 +2788,7 @@ game.MapAnimProps = MapAnimProps
 game.MapAnimPropsLayer3 = MapAnimPropsLayer3
 game.MapPalAnim = MapPalAnim
 game.NPC = NPC
-game.Door = Door 
+game.Door = Door
 game.BigDoor = BigDoor
 game.TouchTrigger = TouchTrigger
 game.WorldTileProps = WorldTileProps
@@ -2789,7 +2796,7 @@ game.BattleBgProps = BattleBgProps
 game.Treasure = Treasure
 game.BattleAnimSet = BattleAnimSet
 game.BattleAnimEffect = BattleAnimEffect
-game.BattleAnim16x16Tile = BattleAnim16x16Tile 
+game.BattleAnim16x16Tile = BattleAnim16x16Tile
 game.BattleAnim8x8Tile = BattleAnim8x8Tile
 game.terrainTypes = terrainTypes
 game.encounterNames = encounterNames

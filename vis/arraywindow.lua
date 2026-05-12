@@ -79,10 +79,11 @@ function ArrayWindow:update()
 		ig.igText('name = '..name)
 		if not self.searchText then
 			ig.igSameLine()
-			if ig.igButton'...' then
+			if ig.igButton'find' then
 				self.searchText = name
 			end
 		else
+			ig.igSeparator()
 			ig.luatableInputText('find', self, 'searchText')
 			if ig.igButton'go' then
 				-- TODO also count initially and cahce and cycle and show 1/40 or whatever
@@ -95,15 +96,79 @@ function ArrayWindow:update()
 				end
 			end
 			ig.igSameLine()
-			if ig.igButton'cancel' then
+			if ig.igButton'close' then
 				self.searchText = nil
 			end
+			ig.igSeparator()
 		end
 
 		self:showIndexUI(ar)
 	end
 	ig.igEnd()
 	ig.igPopID()
+end
+
+-- ctype is probably a ffi ctype object, unless it's a bitfield, then no such object exists (right?) and it's just a string
+function ArrayWindow:editField(obj, fieldname, ctype, field)
+	local app = self.app
+	local game = app.game
+
+	--[[ view only:
+	ig.igText(' '..fieldname..' = '..tostring(obj[fieldname]))
+	--]]
+	-- [[ edit:
+	local ctypeobj = require 'ext.op'.land(pcall(function() return ffi.typeof(ctype) end))
+
+	-- checkboxes:
+	if type(ctype) == 'string'
+	and ctype:match':1$'
+	then
+		ig.luatableCheckbox(fieldname, obj, fieldname)
+
+	-- TODO maybe also for Ref's, dropdowns from lists for their windows?  and auto popup buttons?
+
+	-- structs with sub-fields (esp vectors)
+	elseif ctypeobj == game.XY4b
+	or ctypeobj == game.XY8sb
+	or ctypeobj == game.XY8b
+	then
+		-- i think imgui has vector inputs... hmmm
+		do--if ig.igCollapsingHeader(fieldname) then
+			ig.igText(fieldname)
+
+			ig.igPushID_Str(fieldname)
+			local subobj = obj[fieldname]
+			for subfieldname, subctype, subfield in subobj:fielditer() do
+				-- TOOD is there left tab padding margin whatever support in imgui?
+				ig.igText(' ')
+				ig.igSameLine()
+				self:editField(subobj, subfieldname, subctype, subfield)
+			end
+			ig.igPopID()
+		end
+
+	-- default:
+	else
+		ig.luatableInputFloatAsText(fieldname, obj, fieldname)
+	end
+	--]]
+end
+
+function ArrayWindow:editMetamorphRef(obj, fieldname)
+	local app = self.app
+
+--[[ regular
+	ig.luatableInputInt(fieldname, obj, fieldname)
+	--obj[fieldname] = obj[field] % #app.metamorphWindow:getArray()
+--]]
+-- [[ don't ref past end of morph set
+-- but then you have to modulo the number before reassignment or else it'll cast to the bitfield size and the modulo will be way off
+	local tmp = {tonumber(obj[fieldname])}
+	ig.luatableInputInt(fieldname, tmp, 1)
+	obj[fieldname] = tmp[1] % #app.metamorphWindow:getArray()
+--]]
+	ig.igSameLine()
+	app.metamorphWindow:popupButton(obj[fieldname])
 end
 
 return ArrayWindow
