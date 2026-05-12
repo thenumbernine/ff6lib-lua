@@ -120,14 +120,14 @@ function MonsterWindow:showIndexUI(ar)
 		end
 	end
 	ig.igSeparator()
-	ig.igText"colosseum bets that give this item..."
+	ig.igText"colosseum bets where you fight this monster..."
 	if #self.colosseumBetsWithThis == 0 then
 		ig.igText'...none'
 	else
 		ig.igPushID_Str'monsterWindow-colosseumBetsWithThis'
 		for j,i in ipairs(self.colosseumBetsWithThis) do
 			ig.igPushID_Int(j)
-			self:popupButton(i)
+			app.itemWindow:popupButton(i)
 			ig.igPopID()
 		end
 		ig.igPopID()
