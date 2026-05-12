@@ -791,6 +791,75 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 	App.super.update(self)
 end
 
+
+-- I had these as object-scope fields that only were allocated once i needed them
+-- but i kept getting panic errors upon save
+-- so here they are at global scope
+
+-- do I have to save the function? I would think it being in the closure is enough that it doesn't __gc...
+_G.sdlOpenFileDialogCallback = function(userdata, filelist, filter)
+print"does print kill jit, and why doesn't jit.off work?"
+	xpcall(function()
+		-- filelist is `char const * const *`, so a list-of-pointers-to-strings
+		sdlAssertNonNull(filelist)	-- error
+		if filelist[0] == nil then return end	-- no file picked
+		app:onLoadROM(ffi.string(filelist[0]))
+	end, function(err)
+		print(err..'\n'..debug.traceback())
+	end)
+end
+jit.off(_G.sdlOpenFileDialogCallback)	-- not working?
+_G.sdlOpenFileDialogClosure = ffi.cast('SDL_DialogFileCallback', _G.sdlOpenFileDialogCallback)
+
+--[=[ this is erroring a lot ...
+_G.sdlSaveFileDialogCallback = function(userdata, filelist, filter)
+print"does print kill jit, and why doesn't jit.off work?"
+	xpcall(function()
+		sdlAssertNonNull(filelist)	-- error
+		if filelist[0] == nil then return end	-- no file picked
+		local fn = ffi.string(filelist[0])
+		assert(path(fn):write(
+			-- no header for now
+			app.game.romvec:dataToStr()
+		))
+	end, function(err)
+		print(err..'\n'..debug.traceback())
+	end)
+end
+jit.off(_G.sdlSaveFileDialogCallback)	-- not working?
+_G.sdlSaveFileDialogClosure = ffi.cast('SDL_DialogFileCallback', _G.sdlSaveFileDialogCallback)
+--]=]
+-- [=[ will putting it in a separate lua state fix anything?
+local LiteThread = require 'thread.lite'
+_G.sdlSaveFileDialogThread = LiteThread{
+	init = function(thread)
+		thread.lua[[
+-- set required modules as globals
+ffi = require 'ffi'
+path = require 'ext.path'
+require 'sdl'	-- load SDL_DialogFileCallback
+sdlAssertNonNull = require 'sdl.assert'.nonnull
+]]
+	end,
+	threadFuncTypeName = 'SDL_DialogFileCallback',
+	code = [[
+local userdata, filelist, filter = ...
+xpcall(function()
+	sdlAssertNonNull(filelist)	-- error
+	if filelist[0] == nil then return end	-- no file picked
+	local fn = ffi.string(filelist[0])
+	assert(path(fn):write(
+		romstr --app.game.romvec:dataToStr()
+	))
+end, function(err)
+	print(err..'\n'..debug.traceback())
+end)
+]],
+}
+-- now we can use sdlSaveFileDialogThread.funcptr
+-- be sure to set sdlSaveFileDialogThread's _G.app
+--]=]
+
 function App:updateGUI()
 	local game = self.game
 
@@ -800,25 +869,8 @@ function App:updateGUI()
 
 		if ig.igBeginMenu'File' then
 			if ig.igButton'Open...' then
-				if self.sdlOpenFileDialogClosure then
-					self.sdlOpenFileDialogClosure:free()
-				end
-
-				-- do I have to save the function? I would think it being in the closure is enough that it doesn't __gc...
-				self.sdlOpenFileDialogCallback = function(userdata, filelist, filter)
-					xpcall(function()
-						-- filelist is `char const * const *`, so a list-of-pointers-to-strings
-						sdlAssertNonNull(filelist)	-- error
-						if filelist[0] == nil then return end	-- no file picked
-						self:onLoadROM(ffi.string(filelist[0]))
-					end, function(err)
-						print(err..'\n'..debug.traceback())
-					end)
-				end
-				jit.off(self.sdlOpenFileDialogCallback)
-				self.sdlOpenFileDialogClosure = ffi.cast('SDL_DialogFileCallback', self.sdlOpenFileDialogCallback)
 				sdl.SDL_ShowOpenFileDialog(
-					self.sdlOpenFileDialogClosure,	-- callback
+					_G.sdlOpenFileDialogClosure,	-- callback
 					nil,							-- userdata
 					self.window,					-- window
 					nil,							-- filters
@@ -830,26 +882,11 @@ function App:updateGUI()
 
 			if game then
 				if ig.igButton'Save...' then
-					if self.sdlSaveFileDialogClosure then
-						self.sdlSaveFileDialogClosure:free()
-					end
-					self.sdlSaveFileDialogCallback = function(userdata, filelist, filter)
-						xpcall(function()
-							sdlAssertNonNull(filelist)	-- error
-							if filelist[0] == nil then return end	-- no file picked
-							local fn = ffi.string(filelist[0])
-							assert(path(fn):write(
-								-- no header for now
-								game.romvec:dataToStr()
-							))
-						end, function(err)
-							print(err..'\n'..debug.traceback())
-						end)
-					end
-					jit.off(self.sdlSaveFileDialogCallback)
-					self.sdlSaveFileDialogClosure = ffi.cast('SDL_DialogFileCallback', self.sdlSaveFileDialogCallback)
+					-- no header for now
+					sdlSaveFileDialogThread.lua('romstr = ...', self.game.romvec:dataToStr())
 					sdl.SDL_ShowSaveFileDialog(
-						self.sdlSaveFileDialogClosure,	-- callback
+						--_G.sdlSaveFileDialogClosure,	-- callback
+						sdlSaveFileDialogThread.funcptr,
 						nil,							-- userdata
 						self.window,					-- window
 						nil,							-- filters

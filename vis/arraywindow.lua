@@ -123,7 +123,7 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 	if type(ctype) == 'string'
 	and ctype:match':1$'
 	then
-		ig.luatableCheckbox(fieldname, obj, fieldname)
+		return ig.luatableCheckbox(fieldname, obj, fieldname)
 
 	-- TODO maybe also for Ref's, dropdowns from lists for their windows?  and auto popup buttons?
 
@@ -133,42 +133,49 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 	or ctypeobj == game.XY8b
 	then
 		-- i think imgui has vector inputs... hmmm
-		do--if ig.igCollapsingHeader(fieldname) then
-			ig.igText(fieldname)
+		local modified
+		ig.igText(fieldname)
 
-			ig.igPushID_Str(fieldname)
-			local subobj = obj[fieldname]
-			for subfieldname, subctype, subfield in subobj:fielditer() do
-				-- TOOD is there left tab padding margin whatever support in imgui?
-				ig.igText(' ')
-				ig.igSameLine()
-				self:editField(subobj, subfieldname, subctype, subfield)
-			end
-			ig.igPopID()
+		ig.igPushID_Str(fieldname)
+		local subobj = obj[fieldname]
+		for subfieldname, subctype, subfield in subobj:fielditer() do
+			-- TOOD is there left tab padding margin whatever support in imgui?
+			ig.igText(' ')
+			ig.igSameLine()
+			modified = self:editField(subobj, subfieldname, subctype, subfield) or modified
 		end
+		ig.igPopID()
+		return modified
 
 	-- default:
 	else
-		ig.luatableInputFloatAsText(fieldname, obj, fieldname)
+		return ig.luatableInputFloatAsText(fieldname, obj, fieldname)
 	end
 	--]]
 end
 
-function ArrayWindow:editMetamorphRef(obj, fieldname)
+function ArrayWindow:editRef(win, obj, fieldname)
 	local app = self.app
 
 --[[ regular
 	ig.luatableInputInt(fieldname, obj, fieldname)
-	--obj[fieldname] = obj[field] % #app.metamorphWindow:getArray()
+	--obj[fieldname] = obj[field] % #win:getArray()
 --]]
 -- [[ don't ref past end of morph set
 -- but then you have to modulo the number before reassignment or else it'll cast to the bitfield size and the modulo will be way off
 	local tmp = {tonumber(obj[fieldname])}
 	ig.luatableInputInt(fieldname, tmp, 1)
-	obj[fieldname] = tmp[1] % #app.metamorphWindow:getArray()
+	obj[fieldname] = tmp[1] % #win:getArray()
 --]]
 	ig.igSameLine()
-	app.metamorphWindow:popupButton(obj[fieldname])
+	win:popupButton(obj[fieldname])
+end
+
+function ArrayWindow:editMetamorphRef(...)
+	return self:editRef(self.app.metamorphWindow, ...)
+end
+function ArrayWindow:editMonsterRef(...)
+	return self:editRef(self.app.monsterWindow, ...)
 end
 
 return ArrayWindow

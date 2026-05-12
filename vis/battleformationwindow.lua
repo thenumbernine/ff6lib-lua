@@ -55,18 +55,22 @@ function BattleFormationWindow:showIndexUI(ar)
 		ig.igPushID_Int(i)
 		ig.igText(' #'..i)
 
-		local tmp = {}
-		tmp[1] = formation:getMonsterActive(i)
-		if ig.luatableCheckbox('active', tmp, 1) then
-			formation['active'..i] = tmp[1] and 1 or 0
+		local tmp = formation:getMonsterInfo(i)
+		if ig.luatableCheckbox('active', tmp, 'active') then
+			formation['active'..i] = tmp.active and 1 or 0
 		end
-		local active = tmp[1]
+		if tmp.active then
+			if self:editMonsterRef(tmp, 'monster') then
+				formation['monster'..i] = tmp.monster
+			end
 
-		if active then
-			self.app.monsterWindow:popupButton(formation:getMonsterIndex(i))
 			-- pointer into another table I think?
-			ig.igText('  pos = '..tostring(formation:getMonsterPos(i)))
-			ig.igText('  size = '..tostring(formation:getFormationSize(i)))
+			if self:editField(tmp, 'pos') then
+				formation['pos'..i] = tmp.pos
+			end
+
+			-- this is in a whole other struct , so i'm not making it editable yet
+			ig.igText(' size = '..formation:getFormationSize(i))
 		end
 		ig.igPopID()
 		ig.igPopID()

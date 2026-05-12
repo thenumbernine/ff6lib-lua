@@ -46,6 +46,23 @@ function TileWindow:getArray()
 	return vol and range(vol)
 end
 
+
+-- goes with the floodfill stuff
+-- maybe that belongs in its own window...
+_G.sdlSaveFileDialog_chooseOutputFilenameFunction = function(userdata, filelist, filter)
+print"does print kill jit, and why doesn't jit.off work?"
+	xpcall(function()
+		require 'sdl.assert'.nonnull(filelist)	-- error
+		if filelist[0] == nil then return end	-- no file picked
+		ffInfo.destFilename = ffi.string(filelist[0])
+	end, function(err)
+		print(err..'\n'..debug.traceback())
+	end)
+end
+jit.off(_G.sdlSaveFileDialog_chooseOutputFilenameFunction)	-- not working?
+_G.sdlSaveFileDialog_chooseOutputFilenameClosure = ffi.cast('SDL_DialogFileCallback', _G.sdlSaveFileDialog_chooseOutputFilenameFunction)
+
+
 function TileWindow:showIndexUI(ar)
 	local app = self.app
 	local game = app.game
@@ -277,26 +294,10 @@ function TileWindow:showIndexUI(ar)
 			ig.luatableTooltipInputText('output filename', ffInfo, 'destFilename')
 			ig.igSameLine()
 			if ig.igButton'...' then
-
-				if self.sdlSaveFileDialog_chooseOutputFilenameClosure then
-					self.sdlSaveFileDialog_chooseOutputFilenameClosure:free()
-				end
-				self.sdlSaveFileDialog_chooseOutputFilenameFunction = function(userdata, filelist, filter)
-					xpcall(function()
-						require 'sdl.assert'.nonnull(filelist)	-- error
-						if filelist[0] == nil then return end	-- no file picked
-						ffInfo.destFilename = ffi.string(filelist[0])
-					end, function(err)
-						print(err..'\n'..debug.traceback())
-					end)
-				end
-				jit.off(self.sdlSaveFileDialog_chooseOutputFilenameFunction)
-				self.sdlSaveFileDialog_chooseOutputFilenameClosure = ffi.cast('SDL_DialogFileCallback', self.sdlSaveFileDialog_chooseOutputFilenameFunction)
-
 				-- TODO do a SDL open file dialog here
 				-- and save the resutl as our output location
 				sdl.SDL_ShowSaveFileDialog(
-					self.sdlSaveFileDialog_chooseOutputFilenameClosure,
+					_G.sdlSaveFileDialog_chooseOutputFilenameClosure,
 					nil,				-- userdata
 					self.app.window,	-- window
 					nil,				-- filters
