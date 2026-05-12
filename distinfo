@@ -30,6 +30,7 @@ files = {
 	"vis/doorwindow.lua",
 	"vis/itemwindow.lua",
 	"vis/mapwindow.lua",
+	"vis/metamorphwindow.lua",
 	"vis/monsterwindow.lua",
 	"vis/npcwindow.lua",
 	"vis/scriptwindow.lua",
