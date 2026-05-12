@@ -16,10 +16,7 @@ function NPCWindow:showIndexUI(ar)
 	if not n then return end
 	ig.igText(' pos = '..n.x..', '..n.y)
 
-	local scriptAddr = n:getScriptAddr()
-	if ig.igButton((' script $%06x'):format(scriptAddr)) then
-		self.app.scriptWindow:openScriptAddr(scriptAddr)
-	end
+	self.app.scriptWindow:popupButtonForAddr(n:getScriptAddr())
 	ig.igText(' movement = '..n.movement)
 	ig.igText(' speed = '..n.speed)
 

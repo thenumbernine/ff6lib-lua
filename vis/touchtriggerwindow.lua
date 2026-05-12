@@ -15,11 +15,7 @@ function TouchTriggerWindow:showIndexUI(ar)
 	local e = ar[1+self.index]
 	if not e then return end
 	ig.igText(' pos = '..e.pos)
-	-- absolute?
-	local scriptAddr = e:getScriptAddr()
-	if ig.igButton((' event script = $%06x'):format(scriptAddr)) then
-		self.app.scriptWindow:openScriptAddr(scriptAddr)
-	end
+	self.app.scriptWindow:popupButtonForAddr(e:getScriptAddr())
 end
 
 return TouchTriggerWindow

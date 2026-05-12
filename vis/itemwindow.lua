@@ -173,7 +173,6 @@ function ItemWindow:showIndexUI(ar)
 			end
 		end
 	end
-
 	ig.igSeparator()
 	ig.igText'found in metamorph sets ...'
 	if #self.metamorphsWithThis == 0 then
@@ -185,6 +184,32 @@ function ItemWindow:showIndexUI(ar)
 		end
 		ig.igPopID()
 	end
+
+	if not self.eventScriptCmdsWithThis then
+		self.eventScriptCmdsWithThis = table()
+		for _,cmd in ipairs(game.eventScriptCmds) do
+			local cmdname
+			for _,checkcmdname in ipairs{'GiveItem', 'TakeItem'} do
+				if game.ScriptCmds[checkcmdname]:isa(cmd) then
+					cmdname = checkcmdname
+					break
+				end
+			end
+			if cmdname and cmd.itemIndex == self.index then
+				self.eventScriptCmdsWithThis:insert{addr=cmd.addr, cmdname=cmdname}
+			end
+		end
+	end
+	ig.igSeparator()
+	ig.igText'event scripts ...'
+	if #self.eventScriptCmdsWithThis == 0 then
+		ig.igText'...none'
+	else
+		for _,info in ipairs(self.eventScriptCmdsWithThis) do
+			app.scriptWindow:popupButtonForAddr(info.addr, info.cmdname)
+		end
+	end
+	-- TODO I guess there's events, monsters, objects, vehicles, world scripts ... this is just events ...
 end
 
 function ItemWindow:setIndex(...)
@@ -195,6 +220,7 @@ function ItemWindow:setIndex(...)
 	self.monstersWithThis = nil
 	self.treasuresWithThis = nil
 	self.metamorphsWithThis = nil
+	self.eventScriptCmdsWithThis = nil
 end
 
 return ItemWindow

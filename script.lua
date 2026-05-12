@@ -22,7 +22,7 @@ return function(game)
 	local romsize = game.romsize
 	local countof = game.countof
 
-	local uint24_t = game.uint24_t 
+	local uint24_t = game.uint24_t
 
 	-- event code, pointed into by NPCs and maybe other things
 
@@ -91,6 +91,10 @@ return function(game)
 		--]]
 	end
 	ScriptCmds.Cmd = Cmd
+	-- only for template env
+	Cmd.game = game
+	Cmd.startaddr = startaddr
+
 
 	ScriptCmds.RunObject = Cmd:subclass{
 		argtypes = {uint8_t, uint8_t},
@@ -535,8 +539,8 @@ return function(game)
 	ScriptCmds.ChangeObjectEvent = Cmd:subclass{
 		cmd = 0x7a,
 		argtypes = {uint8_t, uint24_t},
-		argnames = {'objectIndex', 'newScriptAddr'},
-		desc = "objs[<?=objectIndex?>].script = <?=('$%06x'):format(0xa0000 + newScriptAddr:value())?>",
+		argnames = {'objectIndex', 'newScriptAddrOfs'},
+		desc = "objs[<?=objectIndex?>].script = <?=('$%06x'):format(startaddr + newScriptAddrOfs)?>",
 	}
 
 	ScriptCmds.RestorePreviousParty = Cmd:subclass{
@@ -575,13 +579,15 @@ return function(game)
 	ScriptCmds.GiveItem = Cmd:subclass{
 		cmd = 0x80,
 		argtypes = {uint8_t},
-		desc = 'giveItem(<?=args[1]?>)',
+		argnames = {'itemIndex'},
+		desc = 'giveItem(<?=("%q"):format(tostring(game.itemNames[itemIndex]))?>)',
 	}
 
 	ScriptCmds.TakeItem = Cmd:subclass{
 		cmd = 0x81,
 		argtypes = {uint8_t},
-		desc = 'takeItem(<?=args[1]?>)',
+		argnames = {'itemIndex'},
+		desc = 'takeItem(<?=("%q"):format(tostring(game.itemNames[itemIndex]))?>)',
 	}
 
 	ScriptCmds.ResetPreviousParty = Cmd:subclass {
@@ -749,8 +755,8 @@ return function(game)
 		argnames = {'duration', 'arg'},
 		desc = 'startTimer{'
 			..'duration=<?=duration?>'
-			..', addr=<?=0xa0000 + bit.band(0x3ffff, arg:value())?>'
-			..', flags=<?=bit.rshift(arg:value(), 20)?>'
+			..', addr=<?=startaddr + bit.band(0x3ffff, arg)?>'
+			..', flags=<?=bit.rshift(arg, 20)?>'
 		..'}',
 	}
 
@@ -820,8 +826,8 @@ return function(game)
 	ScriptCmds.Call = Cmd:subclass{
 		cmd = 0xb2,
 		argtypes = {uint24_t},
-		getargs = function(self, destAddr)
-			self.destAddr = startaddr + destAddr:value()
+		getargs = function(self, destAddrOfs)
+			self.destAddr = startaddr + destAddrOfs
 		end,
 		__tostring = function(self)
 			return ('call $%06x'):format(self.destAddr)
@@ -831,8 +837,8 @@ return function(game)
 	ScriptCmds.CallRepeat = Cmd:subclass{
 		cmd = 0xb3,
 		argtypes = {uint24_t, uint8_t},
-		getargs = function(self, destAddr, count)
-			self.destAddr = startaddr + destAddr:value()
+		getargs = function(self, destAddrOfs, count)
+			self.destAddr = startaddr + destAddrOfs
 			self.count = count
 		end,
 		__tostring = function(self)
@@ -862,7 +868,7 @@ return function(game)
 			self.addrs = table()
 			local choices = 2	-- TODO depends on previous dialog text prompt count
 			for i=1,choices do
-				self.addrs:insert(startaddr + read(uint24_t):value())
+				self.addrs:insert(startaddr + read(uint24_t))
 			end
 		end,
 		__tostring = function(self)
@@ -880,7 +886,7 @@ return function(game)
 		cmd = 0xb7,
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'flagIndex', 'destAddrOfs'},
-		desc = 'if gameState.battleFlag<?=flagIndex?> then goto <?=("$%06x"):format(0x0a0000 + destAddrOfs:value())?>',
+		desc = 'if gameState.battleFlag<?=flagIndex?> then goto <?=("$%06x"):format(0x0a0000 + destAddrOfs)?>',
 	}
 
 	local SetFlagCmd = Cmd:subclass{
@@ -924,7 +930,7 @@ return function(game)
 		cmd = 0xbd,
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
-		desc = 'if math.random() < .5 then goto <?=("$%06x"):format(0xa0000 + destAddrOfs:value())?>',
+		desc = 'if math.random() < .5 then goto <?=("$%06x"):format(startaddr + destAddrOfs)?>',
 	}
 
 	ScriptCmds.JumpBasedOnCharacterSwitch = Cmd:subclass{
@@ -933,7 +939,7 @@ return function(game)
 			local count = bit.band(0xf, read(uint8_t))
 			self.addrs = table()
 			for i=1,count do
-				self.addrs:insert(read(uint24_t):value())
+				self.addrs:insert(read(uint24_t))
 			end
 		end,
 		__tostring = function(self)
@@ -961,7 +967,7 @@ return function(game)
 					value = bit.rshift(arg, 15),
 				}
 			end
-			self.destAddr = startaddr + read(uint24_t):value()
+			self.destAddr = startaddr + read(uint24_t)
 		end,
 		__tostring = function(self)
 			return "if "
@@ -1077,7 +1083,7 @@ return function(game)
 		cmd = 0xf6,
 		argtypes = {uint24_t},
 		argnames = {'destAddr'},
-		desc = 'spcInterrupt <?=destAddr:value()?>',
+		desc = 'spcInterrupt <?=destAddr?>',
 	}
 
 	ScriptCmds.WaitForSPC = Cmd:subclass{
@@ -1159,6 +1165,8 @@ game.oobEventScriptAddrs = table()	-- TODO handle these too
 				or ctype == double
 				then
 					o = tonumber(o)
+				elseif ctype == uint24_t then
+					o = o:value()
 				else
 					o = ctype(o)
 				end

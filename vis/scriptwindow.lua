@@ -2,23 +2,28 @@ local ig = require 'imgui'
 local ArrayWindow = require 'ff6.vis.arraywindow'
 
 
-local ScriptWindow = ArrayWindow:subclass()
+local EventScriptWindow = ArrayWindow:subclass()
 
-function ScriptWindow:init(...)
-	ScriptWindow.super.init(self, ...)
+function EventScriptWindow:init(...)
+	EventScriptWindow.super.init(self, ...)
 	self.clipper = ig.ImGuiListClipper_ImGuiListClipper()
 	self.availableSpace = ig.ImVec2()
 	-- on gc, but only before app shutdown:
 	--ig.ImGuiListClipper_destroy(self.clipper)
 end
 
-ScriptWindow.name = 'script'
+EventScriptWindow.name = 'event script'
 
-function ScriptWindow:getArray()
+function EventScriptWindow:getArray()
 	return self.app.game.eventScriptCmds
 end
 
-function ScriptWindow:showIndexUI(ar)
+-- used for buttons, index is 0-based
+function EventScriptWindow:getIndexName(i)
+	return ('event $%06x'):format(self.app.game.eventScriptCmds[1+i].addr)
+end
+
+function EventScriptWindow:showIndexUI(ar)
 	-- TODO index isn't necessary for this window
 	-- tho better TODO is to fix the scroll area of the clipper and make it jump correctly
 	--if ig.igBeginChild('ScriptWindowEvents', ig.ImVec2(0, #ar), true) then
@@ -60,15 +65,15 @@ function ScriptWindow:showIndexUI(ar)
 	ig.igEndChild()
 end
 
-function ScriptWindow:setIndex(newIndex)
-	if ScriptWindow.super.setIndex(self, newIndex) == false then return false end
+function EventScriptWindow:setIndex(newIndex)
+	if EventScriptWindow.super.setIndex(self, newIndex) == false then return false end
 	local cmd = self:getArray()[1+self.index]
 	if cmd then
 		self:openScriptAddr(cmd.addr)
 	end
 end
 
-function ScriptWindow:openScriptAddr(scriptAddr)
+function EventScriptWindow:openScriptAddr(scriptAddr)
 	self.index = self.app.game.eventScriptCmdIndexForAddr[scriptAddr]
 	if not self.index then
 		print(("couldn't find event script command at address $%06x"):format(scriptAddr))
@@ -85,4 +90,14 @@ function ScriptWindow:openScriptAddr(scriptAddr)
 	--]]
 end
 
-return ScriptWindow 
+-- popupButton is based on index, so this is based on address
+function EventScriptWindow:popupButtonForAddr(addr, extraText)
+	local text = ('event $%06x'):format(addr)
+	if extraText then text = text .. ' ' .. extraText end
+	if ig.igButton(text) then
+		self:openScriptAddr(addr)
+		return true
+	end
+end
+
+return EventScriptWindow
