@@ -44,7 +44,7 @@ files = {
 	"vis/worldencountersectorwindow.lua",
 }
 deps = {
-	"autoupdate",	-- testing this ...
+	--"autoupdate",	-- testing this ...
 	"audio",
 	"ext",
 	"gl",
