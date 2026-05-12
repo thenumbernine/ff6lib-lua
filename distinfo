@@ -55,5 +55,6 @@ deps = {
 	"stl",
 	"struct",
 	"template",
+	"thread",
 	"vec-ffi",
 }
