@@ -3,8 +3,8 @@ local table = require 'ext.table'
 local gl = require 'gl'
 local GLTex2D = require 'gl.tex2d'
 local ig = require 'imgui'
-local readMonsterSprite = require 'ff6.monstersprite'
 local ArrayWindow = require 'ff6.vis.arraywindow'
+local readMonsterSprite = require 'ff6.monstersprite'
 
 
 
@@ -37,7 +37,7 @@ function MonsterWindow:showIndexUI(ar)
 		ig.igGetContentRegionAvail(avail)
 		local desiredX = ig.igGetCursorPosX() + avail.x - self.monsterSpriteTex.width
 		ig.igSetCursorPosX(desiredX)
-		ig.igImage(self.monsterSpriteTex.id, ig.ImVec2(self.monsterSpriteTex.width, self.monsterSpriteTex.height))
+		ig.igImage(self.monsterSpriteTex.id, self.monsterSpriteTex.imsize)
 		ig.igSetCursorPosY(y)
 	end
 
@@ -156,12 +156,13 @@ function MonsterWindow:setIndex(...)
 	if self.monsterSpriteTex then
 		self.monsterSpriteTex:delete()
 	end
-	local img = readMonsterSprite(self.app.game, self.index)
 	self.monsterSpriteTex = GLTex2D{
-		image = img:rgba(),
+		image = readMonsterSprite(self.app.game, self.index):rgba(),
 		minFilter = gl.GL_NEAREST,
 		magFilter = gl.GL_NEAREST,
 	}
+	-- so I don't have to keep dynamically allocating for the imgui api ...
+	self.monsterSpriteTex.imsize = ig.ImVec2(self.monsterSpriteTex.width, self.monsterSpriteTex.height)
 end
 
 return MonsterWindow

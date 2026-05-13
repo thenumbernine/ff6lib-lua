@@ -1,7 +1,10 @@
 local table = require 'ext.table'
 local range = require 'ext.range'
+local gl = require 'gl'
+local GLTex2D = require 'gl.tex2d'
 local ig = require 'imgui'
 local ArrayWindow = require 'ff6.vis.arraywindow'
+local readMonsterSprite = require 'ff6.monstersprite'
 
 
 local BattleFormationWindow = ArrayWindow:subclass()
@@ -42,6 +45,23 @@ function BattleFormationWindow:getIndexName(i)
 end
 
 function BattleFormationWindow:showIndexUI(ar)
+
+	do
+		local x = ig.igGetCursorPosX()
+		local y = ig.igGetCursorPosY()
+		ig.igSetCursorPosX(0)
+		if self.monsterSpriteTexs then
+			-- key is number index 1-6
+			for k,info in pairs(self.monsterSpriteTexs) do
+				ig.igSetCursorPosX(x + 8 * info.pos.x)
+				ig.igSetCursorPosY(y + 8 * info.pos.y)
+				ig.igImage(info.tex.id, info.imsize)
+			end
+		end
+		ig.igSetCursorPosX(x)
+		ig.igSetCursorPosY(y + 224)
+	end
+
 	local game = self.app.game
 	if self.index < game.countof(game.formationMPs) then
 		local tmp = {tonumber(game.formationMPs[self.index])}
@@ -49,24 +69,25 @@ function BattleFormationWindow:showIndexUI(ar)
 			game.formationMPs[self.index] = tmp[1]
 		end
 	end
+
 	local formation = game.formations + self.index
 	for i=1,6 do
 		ig.igPushID_Str('BattleFormationWindow')
 		ig.igPushID_Int(i)
 		ig.igText(' #'..i)
 
-		local tmp = formation:getMonsterInfo(i)
-		if ig.luatableCheckbox('active', tmp, 'active') then
-			formation['active'..i] = tmp.active and 1 or 0
+		local info = formation:getMonsterInfo(i)
+		if ig.luatableCheckbox('active', info, 'active') then
+			formation['active'..i] = info.active and 1 or 0
 		end
-		if tmp.active then
-			if self:editMonsterRef(tmp, 'monster') then
-				formation['monster'..i] = tmp.monster
+		if info.active then
+			if self:editMonsterRef(info, 'monster') then
+				formation['monster'..i] = info.monster
 			end
 
 			-- pointer into another table I think?
-			if self:editField(tmp, 'pos') then
-				formation['pos'..i] = tmp.pos
+			if self:editField(info, 'pos', game.XY4b) then
+				formation['pos'..i] = info.pos
 			end
 
 			-- this is in a whole other struct , so i'm not making it editable yet
@@ -125,10 +146,41 @@ function BattleFormationWindow:showIndexUI(ar)
 end
 
 function BattleFormationWindow:setIndex(...)
+	local app = self.app
+	local game = app.game
+
 	BattleFormationWindow.super.setIndex(self, ...)
 
 	-- clear cache
 	self.battlesWithThis = nil
+
+	-- get monster sprites
+	if self.monsterSpriteTexs then
+		for _,k in ipairs(table.keys(self.monsterSpriteTexs)) do
+			self.monsterSpriteTexs[k].tex:delete()
+		end
+	end
+	self.monsterSpriteTexs = {}
+
+	local formation = game.formations + self.index
+	for i=1,6 do
+		-- tempting to just cache the whole info struct here ... hmm...
+		local info = formation:getMonsterInfo(i)
+		if info.active then
+			local tex = GLTex2D{
+				image = readMonsterSprite(game, info.monster):rgba(),
+				minFilter = gl.GL_NEAREST,
+				magFilter = gl.GL_NEAREST,
+			}
+			self.monsterSpriteTexs[i] = {
+				-- TODO NOTICE, this is YX, not XY
+				-- should I change it in ff6.lua?
+				pos = {x=tonumber(info.pos.y), y=tonumber(info.pos.x)},
+				tex = tex,
+			}
+			self.monsterSpriteTexs[i].imsize = ig.ImVec2(tex.width, tex.height)
+		end
+	end
 end
 
 return BattleFormationWindow
