@@ -44,6 +44,8 @@ end
 
 local availSize = ig.ImVec2()
 local drawSize = ig.ImVec2()
+local uv0 = ig.ImVec2(0,0)
+local uv1 = ig.ImVec2(1,1)
 function BattleFormationWindow:showIndexUI(ar)
 	local app = self.app
 	local game = app.game
@@ -54,7 +56,8 @@ function BattleFormationWindow:showIndexUI(ar)
 
 		-- same as in TileSheetWindow:showIndexUI
 		local viewWidth = 256
-		local viewHeight = 224
+		--local viewHeight = 224	-- full screen
+		local viewHeight = 152		-- ... minus the bottom menu?
 		ig.igGetContentRegionAvail(availSize)
 		availSize.x = availSize.x - 16	-- make room for scrollbar
 		availSize.y = availSize.y - 4
@@ -62,10 +65,10 @@ function BattleFormationWindow:showIndexUI(ar)
 
 		local battleBgTex = app.mapWindow.battleBgTex
 		if battleBgTex then
+			uv1.y = viewHeight / battleBgTex.height
 			drawSize.x = math.ceil(scale * battleBgTex.width)
-			drawSize.y = math.ceil(scale * battleBgTex.height)
-			-- TODO use uv1 to be 224/256, and drawSize accordingly ...
-			ig.igImage(battleBgTex.id, drawSize)
+			drawSize.y = math.ceil(scale * viewHeight)
+			ig.igImage(battleBgTex.id, drawSize, uv0, uv1)
 		end
 		if self.monsterSpriteTexs then
 			-- key is number index 1-6
@@ -78,7 +81,7 @@ function BattleFormationWindow:showIndexUI(ar)
 			end
 		end
 		ig.igSetCursorPosX(x)
-		ig.igSetCursorPosY(y + math.ceil(viewHeight * scale))
+		ig.igSetCursorPosY(y + math.ceil(viewHeight * scale) + 4)
 	end
 
 	if self.index < game.countof(game.formationMPs) then

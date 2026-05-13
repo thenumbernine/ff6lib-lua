@@ -7,6 +7,8 @@ local fromlua = require 'ext.fromlua'
 local vec2i = require 'vec-ffi.vec2i'
 local vec3i = require 'vec-ffi.vec3i'
 local box2i = require 'vec-ffi.box2i'
+local LiteThread = require 'thread.lite'
+local Semaphore = require 'thread.semaphore'
 local sdl = require 'sdl'
 local ig = require 'imgui'
 local ArrayWindow = require 'ff6.vis.arraywindow'
@@ -15,6 +17,7 @@ local mapTilePropsFlagForName = require 'ff6.vis.util'.mapTilePropsFlagForName
 
 local uint8_t_p = ffi.typeof'uint8_t*'
 local uint16_t_p = ffi.typeof'uint16_t*'
+local intptr_t = ffi.typeof'intptr_t'
 
 
 -- convert from 4-bit xy ff6 16x16 tilemap index to numo9 5-bit xy 8x8 tilemap index
@@ -31,6 +34,44 @@ local ArrayWindow = require 'ff6.vis.arraywindow'
 local TileWindow = ArrayWindow:subclass()
 
 TileWindow.name = 'tile'
+
+function TileWindow:init(...)
+	TileWindow.super.init(self, ...)
+
+	self.semOpen = Semaphore()
+	self.sdlSaveFileDialog_chooseOutputFilenameThread = LiteThread{
+		init = function(thread)
+			thread.lua[[
+-- set required modules as globals
+ffi = require 'ffi'
+path = require 'ext.path'
+Semaphore = require 'thread.semaphore'
+require 'sdl'	-- load SDL_DialogFileCallback
+sdlAssertNonNull = require 'sdl.assert'.nonnull
+]]
+			thread.lua([[
+local semOpenID = ffi.cast('void*', ...)
+semOpen = Semaphore:wrap(semOpenID)
+]], ffi.cast(intptr_t, self.semOpen.id+0))
+		end,
+		threadFuncTypeName = 'SDL_DialogFileCallback',
+		code = [[
+local userdata, filelist, filter = ...
+xpcall(function()
+	sdlAssertNonNull(filelist)	-- error
+	if filelist[0] == nil then return end	-- no file picked
+
+	-- set a global for the app to read
+	_G.openfilename  = ffi.string(filelist[0])
+
+	-- tell the app to record it
+	semOpen:post()
+end, function(err)
+	print(err..'\n'..debug.traceback())
+end)
+]],
+	}
+end
 
 function TileWindow:getMapSize()
 	local mapInfo = self.app.game.getMap(self.app.mapWindow.index)
@@ -49,23 +90,6 @@ function TileWindow:getArray()
 	local vol = self:getMapVolume()
 	return vol and range(vol)
 end
-
-
--- goes with the floodfill stuff
--- maybe that belongs in its own window...
-_G.sdlSaveFileDialog_chooseOutputFilenameFunction = function(userdata, filelist, filter)
-print"does print kill jit, and why doesn't jit.off work?"
-	xpcall(function()
-		require 'sdl.assert'.nonnull(filelist)	-- error
-		if filelist[0] == nil then return end	-- no file picked
-		ffInfo.destFilename = ffi.string(filelist[0])
-	end, function(err)
-		print(err..'\n'..debug.traceback())
-	end)
-end
-jit.off(_G.sdlSaveFileDialog_chooseOutputFilenameFunction)	-- not working?
-_G.sdlSaveFileDialog_chooseOutputFilenameClosure = ffi.cast('SDL_DialogFileCallback', _G.sdlSaveFileDialog_chooseOutputFilenameFunction)
-
 
 function TileWindow:showIndexUI(ar)
 	local app = self.app
@@ -302,7 +326,7 @@ function TileWindow:showIndexUI(ar)
 				-- TODO do a SDL open file dialog here
 				-- and save the resutl as our output location
 				sdl.SDL_ShowSaveFileDialog(
-					_G.sdlSaveFileDialog_chooseOutputFilenameClosure,
+					self.sdlSaveFileDialog_chooseOutputFilenameThread.funcptr,	-- callback
 					nil,				-- userdata
 					self.app.window,	-- window
 					nil,				-- filters
@@ -312,6 +336,12 @@ function TileWindow:showIndexUI(ar)
 						or path:cwd().path		-- default_location
 				)
 			end
+			-- if we do the save then whatever ffInfo is open gets it, so don't change ffInfo's until you pick your file!
+			if self.semOpen:trywait() then
+				ffInfo.destFilename = self.sdlSaveFileDialog_chooseOutputFilenameThread.lua.global.openfilename
+			end
+
+
 
 			-- text here, or tolua/fromlua here to verify syntax?
 			ig.luatableInputText('tile remapping', ffInfo, 'tileRemapping')

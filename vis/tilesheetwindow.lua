@@ -49,7 +49,7 @@ function TileSheetWindow:showIndexUI(ar)
 	local x = math.clamp(math.floor(cursorX / tonumber(drawSize.x) * 16), 0, 15)
 	local y = math.clamp(math.floor(cursorY / tonumber(drawSize.y) * 16), 0, 15)
 	--]=]
-	if ig.igImageButton(self.name, ffi.cast('ImTextureID', tex.id), drawSize) then
+	if ig.igImageButton(self.name, tex.id, drawSize) then
 		self.index = bit.bor(x, bit.lshift(y, 4))
 	end
 

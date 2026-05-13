@@ -26,6 +26,8 @@ local zAndLayersWithLayer3Priority = vis_util.zAndLayersWithLayer3Priority
 local numTilePropsBits = vis_util.numTilePropsBits
 
 
+local intptr_t = ffi.typeof'intptr_t'
+
 
 local function settableindex(t, i, ...)
 	if select('#', ...) == 0 then return end
@@ -291,7 +293,7 @@ sdlAssertNonNull = require 'sdl.assert'.nonnull
 			thread.lua([[
 local semOpenID = ffi.cast('void*', ...)
 semOpen = Semaphore:wrap(semOpenID)
-]], ffi.cast('intptr_t', self.semOpen.id+0))
+]], ffi.cast(intptr_t, self.semOpen.id+0))
 
 		end,
 		threadFuncTypeName = 'SDL_DialogFileCallback',
