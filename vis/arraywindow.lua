@@ -97,20 +97,42 @@ function ArrayWindow:update()
 				end
 			else
 				ig.igSeparator()
-				ig.luatableInputText('find', self, 'searchText')
-				if ig.igButton'go' then
-					-- TODO also count initially and cahce and cycle and show 1/40 or whatever
-					for d=1,self:getCount() do
-						local i = (self.index + d) % self:getCount()
+				if ig.luatableInputText('find', self, 'searchText') then
+					-- on change:
+					self.searchOccurrences = table()
+					for i=0,self:getCount()-1 do
 						local n = tostring(self:getIndexName(i))
 						if n:lower():find(self.searchText:lower(), 1, true) then
-							self:setIndex(i)
+							self.searchOccurrences:insert(i)
+						end
+					end
+				end
+
+				if self.searchOccurrences then
+					local currentIndex = self.searchOccurrences:find(self.index)
+					ig.igSameLine()
+					ig.igText((currentIndex or '')..'/'..#self.searchOccurrences)
+				end
+
+				if ig.igButton'next' then
+					if self.searchOccurrences
+					and #self.searchOccurrences > 0 then
+						if self.index >= self.searchOccurrences:last() then
+							self:setIndex(self.searchOccurrences[1])
+						else
+							for j,i in ipairs(self.searchOccurrences) do
+								if i > self.index then
+									self:setIndex(i)
+									break
+								end
+							end
 						end
 					end
 				end
 				ig.igSameLine()
 				if ig.igButton'close' then
 					self.searchText = nil
+					self.searchOccurrences = nil
 				end
 				ig.igSeparator()
 			end
