@@ -47,8 +47,16 @@ return function(game)
 		end
 	end
 
+	-- should I even bounds check?
 	local startaddr = ffi.offsetof(Game, 'eventScript')	-- 0xa0000
 	local endaddr = ffi.offsetof(Game, 'eventScript') + ffi.sizeof(game.eventScript)
+
+	local startaddr2 = ffi.offsetof(Game, 'dialogBase')
+	local endaddr2 = ffi.offsetof(Game, 'dialogBase') + ffi.sizeof(game.dialogBase)
+
+print('event script ranges:')
+print(('$%06x-$%06x'):format(startaddr, endaddr))
+print(('$%06x-$%06x'):format(startaddr2, endaddr2))
 
 	-- how to generate this in a modular way that both outputs and is reusable later
 	-- for now I will insert in-order and provide an address lookup table to the index in this table
@@ -1139,8 +1147,9 @@ game.oobEventScriptAddrs = table()	-- TODO handle these too
 	local addrsInOrder = table.keys(game.eventScriptAddrs):sort()
 		:filteri(function(addr)
 			if addr >= startaddr and addr < endaddr then return true end
+			if addr >= startaddr2 and addr < endaddr2 then return true end
 			game.oobEventScriptAddrs:insert(addr)
-			--print('TODO addr', number.hex(addr), 'oob!')
+print('TODO addr', number.hex(addr), 'oob!')	-- nothing found anymore, I guess that's good? does it matter?
 		end)
 
 	for i,addr in ipairs(addrsInOrder) do

@@ -240,11 +240,12 @@ function EventBattleOptionsWindow:showIndexUI(ar)
 			local cmdname
 			for _,checkcmdname in ipairs{'Battle', 'CollisionBattle'} do
 				if game.ScriptCmds[checkcmdname]:isa(cmd) then
+--DEBUG:print(('battle at $%06x with eventBattleOptionsIndex %d'):format(cmd.addr, cmd.eventBattleOptionsIndex))
 					cmdname = checkcmdname
 					break
 				end
 			end
-			if cmdname and cmd.eventBattleOptionIndex == self.index then
+			if cmdname and cmd.eventBattleOptionsIndex == self.index then
 				self.eventScriptCmdsWithThis:insert{addr=cmd.addr, cmdname=cmdname}
 			end
 		end
