@@ -139,14 +139,9 @@ function TileWindow:showIndexUI(ar)
 				-- MapTileProps:
 				or mapTilePropsNames
 			assert.len(tilePropsNames, numTilePropsBits)
-			--[[
-			for ip1,name in ipairs(tilePropsNames) do
-				local i = ip1-1
-			--]]
-			-- [[ only show real flags, not my extra custom ones for the shader
+			-- only show real flags, not my extra custom ones for the shader
 			for i=0,15 do
 				local name = tilePropsNames[i+1]
-			--]]
 				local mask = bit.lshift(1, i)
 				self.__tmp = 0 ~= bit.band(flags, mask)
 				if bit.band(i, 7) ~= 0 then ig.igSameLine() end

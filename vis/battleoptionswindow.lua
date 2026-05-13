@@ -112,16 +112,24 @@ function BattleOptionsWindow:showIndexUI(ar)
 			ig.igText'...none'
 		else
 			ig.igPushID_Str'battleOptionsWindow-worldSectorsWithThis'
+			local lastSectorIndex
 			for j,info in ipairs(self.worldSectorsWithThis) do
 				ig.igPushID_Int(j)
+
 				local mapIndex = bit.rshift(info.sectorIndex, 6)
 				local x = bit.lshift(bit.band(info.sectorIndex, 7), 5) + 16
 				local y = bit.lshift(bit.band(bit.rshift(info.sectorIndex, 3), 7), 5) + 16
 
-				if self.app.mapWindow:popupButton(
-					mapIndex,
-					'sector='..x..','..y..' terrain='..info.terrain
-				) then
+				if lastSectorIndex ~= info.sectorIndex then
+					lastSectorIndex = info.sectorIndex
+					ig.igText('map='..mapIndex..' sector='..x..','..y)
+				end
+
+				ig.igSameLine()
+				if ig.igButton(info.terrain) then
+					self.app.mapWindow.show[0] = true
+					self.app.mapWindow:setIndex(mapIndex)
+
 					-- just like doorWindow...
 					-- and treasureWindow below ...
 					self.app.worldEncounterSectorWindow.show[0] = true

@@ -33,29 +33,14 @@ function WorldEncounterSectorWindow:showIndexUI(ar)
 		ig.igPushID_Str(terrain)
 
 		local encounterRate = encounterRatePerTerrain[terrain]
-		--[=[
-		--[[
-		self:editField(encounterRatePerTerrain, terrain, 'uint8_t:2')
-		--]]
-		-- [[
-		ig.igSetNextItemWidth(100)
-		ig.luatableInputInt(terrain..' encounter rate', encounterRatePerTerrain, terrain)
-		--]]
-		local encounterRateName = game.encounterRateNames[encounterRate+1]
-		ig.igSameLine()
-		ig.igText(tostring(encounterRateName))
-		--]=]
-		-- [=[
 		ig.igSetNextItemWidth(100)
 		-- luatableCombo is 1-based so ...
-		--ig.luatableCombo('', encounterRatePerTerrain, terrain, game.encounterRateNames)
 		self.tmpInt = self.tmpInt or ffi.new('int[1]')
 		self.tmpInt[0] = encounterRatePerTerrain[terrain]
 		if ig.igCombo('', self.tmpInt, game.encounterRateNames) then
 			encounterRatePerTerrain[terrain] = self.tmpInt[0]
 		end
 		ig.igSameLine()
-		--]=]
 
 		self:editRef(app.randomBattleOptionsWindow, randomBattlesPerTerrain, terrain)
 		ig.igPopID()
