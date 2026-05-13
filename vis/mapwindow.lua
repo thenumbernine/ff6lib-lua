@@ -449,11 +449,7 @@ function MapWindow:setIndex(newIndex, pushStack)
 					end
 				end
 				img.palette = palette
-				app.map16x16tileTexs[layer]:insert(GLTex2D{
-					image = img:rgba(),	-- bake palette so imgui can use it
-					minFilter = gl.GL_NEAREST,
-					magFilter = gl.GL_NEAREST,
-				})
+				app.map16x16tileTexs[layer]:insert(self:makeTex(img))
 			end
 		end
 	end
@@ -465,6 +461,23 @@ function MapWindow:setIndex(newIndex, pushStack)
 		if e then
 			app:centerView(e.pos.x, e.pos.y)
 		end
+	end
+
+
+
+	-- battle background while we're here?
+	-- for worlds 0-2 it is in WOrldTileProps' battleBG, right?
+	-- otherwise ...
+	-- is this an index into battleBgProps?
+	if self.battleBgTex then
+		self.battleBgTex:delete()
+		self.battleBgTex = nil
+	end
+	local battleBgIndex = map.battleBG
+	if battleBgIndex < game.countof(game.battleBgProps) then
+		self.battleBgTex = self:makeTex(
+			game.getBattleBgImage(battleBgIndex)
+		)
 	end
 end
 

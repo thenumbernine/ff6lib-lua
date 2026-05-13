@@ -1,7 +1,5 @@
 local table = require 'ext.table'
 local range = require 'ext.range'
-local gl = require 'gl'
-local GLTex2D = require 'gl.tex2d'
 local ig = require 'imgui'
 local ArrayWindow = require 'ff6.vis.arraywindow'
 local readMonsterSprite = require 'ff6.monstersprite'
@@ -45,24 +43,28 @@ function BattleFormationWindow:getIndexName(i)
 end
 
 function BattleFormationWindow:showIndexUI(ar)
+	local app = self.app
+	local game = app.game
 
 	do
 		local x = ig.igGetCursorPosX()
 		local y = ig.igGetCursorPosY()
-		ig.igSetCursorPosX(0)
+		local battleBgTex = app.mapWindow.battleBgTex
+		if battleBgTex then
+			ig.igImage(battleBgTex.id, battleBgTex.imsize)
+		end
 		if self.monsterSpriteTexs then
 			-- key is number index 1-6
 			for k,info in pairs(self.monsterSpriteTexs) do
 				ig.igSetCursorPosX(x + 8 * info.pos.x)
 				ig.igSetCursorPosY(y + 8 * info.pos.y)
-				ig.igImage(info.tex.id, info.imsize)
+				ig.igImage(info.tex.id, info.tex.imsize)
 			end
 		end
 		ig.igSetCursorPosX(x)
 		ig.igSetCursorPosY(y + 224)
 	end
 
-	local game = self.app.game
 	if self.index < game.countof(game.formationMPs) then
 		local tmp = {tonumber(game.formationMPs[self.index])}
 		if ig.luatableInputFloatAsText('mp gained', tmp, 1) then
@@ -167,18 +169,14 @@ function BattleFormationWindow:setIndex(...)
 		-- tempting to just cache the whole info struct here ... hmm...
 		local info = formation:getMonsterInfo(i)
 		if info.active then
-			local tex = GLTex2D{
-				image = readMonsterSprite(game, info.monster):rgba(),
-				minFilter = gl.GL_NEAREST,
-				magFilter = gl.GL_NEAREST,
-			}
 			self.monsterSpriteTexs[i] = {
 				-- TODO NOTICE, this is YX, not XY
 				-- should I change it in ff6.lua?
 				pos = {x=tonumber(info.pos.y), y=tonumber(info.pos.x)},
-				tex = tex,
+				tex = self:makeTex(
+					readMonsterSprite(game, info.monster)
+				),
 			}
-			self.monsterSpriteTexs[i].imsize = ig.ImVec2(tex.width, tex.height)
 		end
 	end
 end

@@ -2167,8 +2167,8 @@ local BattleBgProps = struct{
 		},
 		{name='graphics2', type=uint8_t},					-- 1: 0xff = none.
 		{name='graphics3', type=uint8_t},					-- 2: 0xff = none.
-		{name='layout1', type=uint8_t},					-- 3: battleBgLayout[]
-		{name='layout2', type=uint8_t},					-- 4:
+		{name='layout1', type=uint8_t},						-- 3: battleBgLayout[]
+		{name='layout2', type=uint8_t},						-- 4:
 		{name='palette', type='uint8_t:7'},					-- 5.0-5.6
 		{name='wavy', type='uint8_t:1'},					-- 5.7
 	},
@@ -2475,7 +2475,7 @@ Game = struct{
 		{name = 'esperAttackNames', type = arrayType(Str10, numEspers)},										-- 0x26fe8f - 0x26ff9d
 		{name = 'mogDanceNames', type = arrayType(MogDanceName, numMogDances)},									-- 0x26ff9d - 0x26fffd
 		{name = 'padding_26fffd', type = arrayType(uint8_t, 3)},												-- 0x26fffd - 0x270000
-		{name = 'battleBgProperties', type = arrayType(BattleBgProps, 56)},										-- 0x270000 - 0x270150 = 56*6
+		{name = 'battleBgProps', type = arrayType(BattleBgProps, 56)},											-- 0x270000 - 0x270150 = 56*6
 		{name = 'battleBgPalettes', type = arrayType(RGBA5551, 0xa80)},											-- 0x270150 - 0x271650 ... everything's says 56 or 96? max index is 0x34 = 52
 		{name = 'battleBgGfxAddrs', type = arrayType(uint24_t, 0xa8)},											-- 0x271650 - 0x271848 = 75 used, the rest are 0's, most points into battleBgGfxCompressed
 		{name = 'battleBgLayoutOffsets', type = arrayType(uint16_t, 0x70)},										-- 0x271848 - 0x271928 = +0x270000 .  49 are valid. invalid contain 0x1928.  points into battleBgLayoutCompressed

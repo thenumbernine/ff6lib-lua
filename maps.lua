@@ -893,4 +893,197 @@ data = ffi.string(dest, #data)
 		game.mapInfoCache[mapIndex] = mapInfo
 		return mapInfo
 	end
+
+	-- 0-based from 0 to countof(game.battleBgGfxAddrs)-1
+	local battleBgGfxCache = {}
+	game.battleBgGfxCache = battleBgGfxCache
+	function game.getBattleBgGfx(i)
+		if game.battleBgGfxCache[i] then
+			return game.battleBgGfxCache[i]
+		end
+
+		if i < 0
+		or i >= countof(game.battleBgGfxAddrs)
+		then
+			return
+		end
+
+		local addr = game.battleBgGfxAddrs[i]:value()
+		if addr ~= 0 then
+			addr = addr - 0xc00000
+			assert.ge(addr, 0)
+			assert.lt(addr, romsize)
+
+			-- some addrs point into battleBgGfxCompressed, and those need to be decompressed
+			-- some point into mapTileGraphics and those don't need to be decompressed
+			local isBattleBgGfxCompressed = addr >= ffi.offsetof(Game, 'battleBgGfxCompressed')
+				and addr < ffi.offsetof(Game, 'battleBgGfxCompressed') + ffi.sizeof(game.battleBgGfxCompressed)
+
+			if isBattleBgGfxCompressed then
+				local pstart = rom + addr
+				local data, pend = decompress(pstart, romsize)
+				if not data then
+					print('battleBgGfxs[0x'..bin.tohex(i)..'] = 0x'..bin.tohex(addr, 6)..' failed to decompress')
+				else
+					game.battleBgGfxCache[i] = {
+						index = i,
+						addr = addr,
+						data = data,
+						isCompressed = isBattleBgGfxCompressed,
+					}
+				end
+			else
+				game.battleBgGfxCache[i] = {
+					index = i,
+					addr = addr,
+					data = rom + addr,
+					isCompressed = isBattleBgGfxCompressed,
+				}
+			end
+		end
+
+		return game.battleBgGfxCache[i]
+	end
+
+	-- 0-based from 0 to countof(game.battleBgLayoutOffsets)-1
+	local battleBgLayoutCache = {}
+	game.battleBgLayoutCache = battleBgLayoutCache
+	function game.getBattleBgLayout(i)
+		if game.battleBgLayoutCache[i] then
+			return game.battleBgLayoutCache[i]
+		end
+
+		if i < 0
+		or i >= countof(game.battleBgLayoutOffsets)
+		then
+			return
+		end
+
+		local offset = game.battleBgLayoutOffsets[i]
+		local addr = offset + 0x270000
+		assert.ge(addr, ffi.offsetof(Game, 'battleBgLayoutCompressed'))
+		assert.lt(addr, ffi.offsetof(Game, 'battleBgLayoutCompressed') + ffi.sizeof(game.battleBgLayoutCompressed))
+		local data = decompress(rom + addr, ffi.sizeof(game.battleBgLayoutCompressed))
+
+		game.battleBgLayoutCache[i] = {
+			index = i,
+			offset = offset,
+			addr = addr,
+			data = data,
+		}
+
+		return game.battleBgLayoutCache[i]
+	end
+
+	-- index = 0 to countof(game.battleBgProps)-1
+	local drawTile = require 'ff6.graphics'.drawTile
+	local emptyGfx = {data=('\0'):rep(0x1000)}
+	function game.getBattleBgImage(battleBgIndex)
+		if battleBgIndex < 0
+		or battleBgIndex >= countof(game.battleBgProps)-1
+		then
+			return
+		end
+
+		local props = game.battleBgProps + battleBgIndex
+
+		-- same rendering as with maps?
+		-- but use what sizes
+		local layout1 = game.getBattleBgLayout(props.layout1)
+		local layout1Data = layout1 and layout1.data
+		local layout2 = game.getBattleBgLayout(props.layout2)
+		local layout2Data = layout2 and layout2.data
+		local layouts = table{layout1, layout2}
+		local layoutDatas = table{layout1Data, layout2Data}
+
+		--local gfx1 = props.graphics1combined < 0xff and battleBgGfxs[props.graphics1] or nil
+		local gfx1 = game.getBattleBgGfx(props.graphics1)	-- 0x7f max, 0x4a present, no need to test for 'none'
+		local gfx2 = game.getBattleBgGfx(props.graphics2)
+		local gfx3 = game.getBattleBgGfx(props.graphics3)
+		local doubleSized = props.graphics1doubleSized ~= 0 and props.graphics1combined ~= 0xff
+
+		if doubleSized then
+			assert.eq(gfx2, nil)
+			assert(gfx1)
+			assert.type(gfx1.data, 'cdata')	-- uint8_t* and not 'string'
+			gfx2 = {
+				data = gfx1.data + 0x1000
+			}
+		end
+		local gfxs = table{
+			[0]=gfx1 or emptyGfx,	-- battle bg 8 points to gfx1 which is empty
+			[1]=gfx2,
+			[3]=gfx3,
+			[4]=emptyGfx,
+			[6]=emptyGfx,			-- battle bg 0 etc 2nd half has gfx==6 always for empty tiles?
+			[7]=gfx3 or emptyGfx,
+		}
+
+		-- 177f = 000 101 110 1111111
+
+		local paletteIndex = props.palette
+		-- first 0x50 palette entries are zero
+		local palette = range(0,0x4f):mapi(function(i)
+			if bit.band(i, 0xf) == 0 then return {0,0,0,0} end
+			return {0,0,0,255}
+		end):append(
+			makePalette(game, game.battleBgPalettes + paletteIndex * 16*3, 4, 16*3)
+		)
+
+		local layoutSize = vec2i(32, 32)
+		local img = Image(layoutSize.x * 8, layoutSize.y * 8, 1, 'uint8_t'):clear()
+		local bpp = 4
+		local tile8size = 8 * bpp
+		for layoutIndex=1,0,-1 do
+			local layoutData = layoutDatas[layoutIndex+1]
+			if layoutData then
+				local layoutPtr = ffi.cast('uint16_t*', layoutData)
+				for y=0,layoutSize.y-1 do
+					for x=0,layoutSize.x-1 do
+						local tileIndex = layoutPtr[x + layoutSize.x * y]
+						local vflip = 0 ~= bit.band(0x8000, tileIndex)			-- bit 15
+						local hflip = 0 ~= bit.band(0x4000, tileIndex)			-- bit 14
+						local priority = 0 ~= bit.band(0x2000, tileIndex)		-- bit 13
+						local palhi = bit.band(7, bit.rshift(tileIndex, 10))	-- bits 10-12
+
+						local gfxIndex, tile8index
+						gfxIndex = bit.band(7, bit.rshift(tileIndex, 7))	-- bits 7-9
+						tile8index = bit.band(0x7f, tileIndex)				-- bits 0-6
+						local gfx = gfxs[gfxIndex]
+						local gfxData = gfx and gfx.data
+						local gfxDataLen = type(gfxData) == 'string' and #gfxData or nil
+
+						if not gfxData then
+							--print('tried to use gfx', gfxIndex,' with no data')
+						else
+							local tileOffset = tile8index * tile8size
+
+							if not gfxDataLen	-- is not compressed
+							or tileOffset < gfxDataLen + tile8size	-- is compressed and in data range
+							then
+								local tilePtr =  ffi.cast('uint8_t*', gfxData) + tileOffset
+								drawTile(
+									img,
+									x * 8,
+									y * 8,
+									tilePtr,
+									bpp,
+									hflip,
+									vflip,
+									bit.lshift(palhi, 4),
+									palette
+								)
+							else
+								-- fails a lot on bg 49 which is garbage
+								--print('tried to write tile8index', tile8index:hex(), 'tileIndex', tileIndex:hex(), 'that was oob compressed range', gfxDataLen:hex())
+							end
+						end
+					end
+				end
+			end
+			--if layout1 == layout2 then break end
+		end
+		img.palette = palette
+		return img
+	end
 end

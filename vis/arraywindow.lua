@@ -2,6 +2,8 @@ local ffi = require 'ffi'
 local assert = require 'ext.assert'
 local table = require 'ext.table'
 local class = require 'ext.class'
+local gl = require 'gl'
+local GLTex2D = require 'gl.tex2d'
 local ig = require 'imgui'
 
 
@@ -281,6 +283,19 @@ function ArrayWindow:editSpellRef(...)
 end
 function ArrayWindow:editItemRef(...)
 	return self:editRef(self.app.itemWindow, ...)
+end
+
+-- helper for our textures and imgui ...
+function ArrayWindow:makeTex(image)
+	local tex = GLTex2D{
+		image = image:rgba(),	-- bake palette so imgui can use it
+		minFilter = gl.GL_NEAREST,
+		magFilter = gl.GL_NEAREST,
+	}
+	tex.image = image	-- tempted to do this in gl...
+	-- so I don't have to keep dynamically allocating for the imgui api ...
+	tex.imsize = ig.ImVec2(tex.width, tex.height)
+	return tex
 end
 
 return ArrayWindow

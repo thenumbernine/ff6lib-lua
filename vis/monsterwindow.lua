@@ -1,7 +1,5 @@
 local range = require 'ext.range'
 local table = require 'ext.table'
-local gl = require 'gl'
-local GLTex2D = require 'gl.tex2d'
 local ig = require 'imgui'
 local ArrayWindow = require 'ff6.vis.arraywindow'
 local readMonsterSprite = require 'ff6.monstersprite'
@@ -156,13 +154,9 @@ function MonsterWindow:setIndex(...)
 	if self.monsterSpriteTex then
 		self.monsterSpriteTex:delete()
 	end
-	self.monsterSpriteTex = GLTex2D{
-		image = readMonsterSprite(self.app.game, self.index):rgba(),
-		minFilter = gl.GL_NEAREST,
-		magFilter = gl.GL_NEAREST,
-	}
-	-- so I don't have to keep dynamically allocating for the imgui api ...
-	self.monsterSpriteTex.imsize = ig.ImVec2(self.monsterSpriteTex.width, self.monsterSpriteTex.height)
+	self.monsterSpriteTex = self:makeTex(
+		readMonsterSprite(self.app.game, self.index)
+	)
 end
 
 return MonsterWindow
