@@ -32,7 +32,7 @@ function BigDoorWindow:showIndexUI(ar)
 end
 
 function BigDoorWindow:goThruDoor()
-	local e = self:getArray()[1+self.index]
+	local e = self:getIndex(self.index)
 	if not e then return end
 
 	self.app.mapWindow:setIndex(e.mapIndex, 0 ~= e.setParentMap)

@@ -1,7 +1,11 @@
 local range = require 'ext.range'
 local table = require 'ext.table'
+local gl = require 'gl'
+local GLTex2D = require 'gl.tex2d'
 local ig = require 'imgui'
+local readMonsterSprite = require 'ff6.monstersprite'
 local ArrayWindow = require 'ff6.vis.arraywindow'
+
 
 
 local MonsterWindow = ArrayWindow:subclass()
@@ -25,6 +29,17 @@ end
 function MonsterWindow:showIndexUI(ar)
 	local app = self.app
 	local game = app.game
+
+	if self.monsterSpriteTex then
+		local y = ig.igGetCursorPosY()
+		ig.igSetCursorPosY(32)	-- or wherever y should be after the title bar
+		local avail = ig.ImVec2()
+		ig.igGetContentRegionAvail(avail)
+		local desiredX = ig.igGetCursorPosX() + avail.x - self.monsterSpriteTex.width
+		ig.igSetCursorPosX(desiredX)
+		ig.igImage(self.monsterSpriteTex.id, ig.ImVec2(self.monsterSpriteTex.width, self.monsterSpriteTex.height))
+		ig.igSetCursorPosY(y)
+	end
 
 	if ig.igCollapsingHeader'fields' then
 		ig.igText(' attack name = "'..game.monsterAttackNames[self.index]..'"')
@@ -136,6 +151,17 @@ function MonsterWindow:setIndex(...)
 	-- clear cache
 	self.battleFormationsWithThis = nil
 	self.colosseumBetsWithThis = nil
+
+	-- refresh monster sprite
+	if self.monsterSpriteTex then
+		self.monsterSpriteTex:delete()
+	end
+	local img = readMonsterSprite(self.app.game, self.index)
+	self.monsterSpriteTex = GLTex2D{
+		image = img:rgba(),
+		minFilter = gl.GL_NEAREST,
+		magFilter = gl.GL_NEAREST,
+	}
 end
 
 return MonsterWindow

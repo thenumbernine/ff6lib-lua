@@ -19,6 +19,14 @@ local mapTilePropsFlagForName = vis_util.mapTilePropsFlagForName
 local mapTilePropsNames = vis_util.mapTilePropsNames
 
 
+local uint8_t = ffi.typeof'uint8_t'
+local uint8_t_p = ffi.typeof'uint8_t*'
+local uint8_t_ar = ffi.typeof'uint8_t[?]'
+local uint16_t_p = ffi.typeof'uint16_t*'
+local uint32_t = ffi.typeof'uint32_t'
+local uint32_t_ar = ffi.typeof'uint32_t[?]'
+
+
 local MapWindow = ArrayWindow:subclass()
 
 MapWindow.name = 'map'
@@ -132,9 +140,9 @@ function MapWindow:showIndexUI(ar)
 		app.worldEncounterSectorWindow:popupButton()
 	else
 		--app.randomBattleOptionsWindow:popupButton(mapInfo.monsterRandomBattleOptionIndex)
-		--self:editRef(app.randomBattleOptionsWindow, game.mapRandomBattleOptions, self.index, 'uint8_t')
+		--self:editRef(app.randomBattleOptionsWindow, game.mapRandomBattleOptions, self.index, uint8_t)
 		local tmp = {mapIndex=game.mapRandomBattleOptions[self.index]}
-		if self:editRef(app.randomBattleOptionsWindow, tmp, 'mapIndex', 'uint8_t') then
+		if self:editRef(app.randomBattleOptionsWindow, tmp, 'mapIndex', uint8_t) then
 			game.mapRandomBattleOptions[self.index] = tmp.mapIndex
 		end
 	end
@@ -156,8 +164,6 @@ function MapWindow:showIndexUI(ar)
 	local map = mapInfo.map
 	if map then
 		-- fields:
-		ig.igSameLine()
-
 		for fieldname, ctype, field in map[0]:fielditer() do
 			self:editField(map[0], fieldname, ctype, field)
 		end
@@ -209,7 +215,7 @@ function MapWindow:setIndex(newIndex, pushStack)
 		local sectorIndex = app.worldEncounterSectorWindow.index
 		print('sectorIndex', app.worldEncounterSectorWindow.index)
 		--[[ segfaulting
-		if sectorIndex >= 0 and sectorIndex < #app.worldEncounterSectorWindow:getArray() then
+		if sectorIndex >= 0 and sectorIndex < app.worldEncounterSectorWindow:getCount() then
 			local randomBattlesPerTerrain = game.worldSectorRandomBattlesPerTerrain + sectorIndex
 			local battleIndex = randomBattlesPerTerrain.grass
 			app.randomBattleOptionsWindow:popupButton(battleIndex)
@@ -231,7 +237,7 @@ function MapWindow:setIndex(newIndex, pushStack)
 	local tilePropsData = mapInfo.tilePropsData
 
 	print('maps[0x'..number.hex(mapIndex)..'] addr '
-		..'0x'..number.hex(ffi.cast('uint8_t*', map) - game.rom)
+		..'0x'..number.hex(ffi.cast(uint8_t_p, map) - game.rom)
 		..' = '..map[0])
 
 	local gfxstr = mapInfo.gfxIndexes:mapi(tostring):concat'/'
@@ -253,7 +259,7 @@ function MapWindow:setIndex(newIndex, pushStack)
 		return
 	end
 
-	local palData = ffi.new'uint8_t[128*4]'
+	local palData = uint8_t_ar(128*4)
 	ffi.fill(palData, ffi.sizeof(palData))
 	for i=0,127 do
 		for j=0,3 do
@@ -325,11 +331,11 @@ function MapWindow:setIndex(newIndex, pushStack)
 	and tilePropsData
 	then
 		-- uint8_t into the tilePropsPtr table, which is a table of 2-byte-sized either WorldTileProps or MapTileProps
-		local layoutptr = ffi.cast('uint8_t*', layout1Data)
-		local tilePropsPtr = ffi.cast('uint16_t*', tilePropsData)
+		local layoutptr = ffi.cast(uint8_t_p, layout1Data)
+		local tilePropsPtr = ffi.cast(uint16_t_p, tilePropsData)
 		local volume = layerSizes[1].x * layerSizes[1].y
-		local data = ffi.new('uint32_t[?]', volume)
-		ffi.fill(data, 0, volume * ffi.sizeof'uint32_t')
+		local data = uint32_t_ar(volume)
+		ffi.fill(data, 0, volume * ffi.sizeof(uint32_t))
 		for i=0,volume-1 do
 			-- for non-world-maps,
 			-- two special values:
@@ -366,7 +372,6 @@ function MapWindow:setIndex(newIndex, pushStack)
 		end
 		app.map16x16tileTexs = nil
 	end
-
 
 
 	if map then
@@ -412,8 +417,7 @@ function MapWindow:setIndex(newIndex, pushStack)
 				local paletteIndex = tonumber(map.palette)
 
 				local size = vec2d(16, 16)
-				local tileImg = Image(16, 16, 1, 'uint8_t'):clear()
-				local img = Image(16 * size.x, 16 * size.y, 4, 'uint8_t'):clear()
+				local img = Image(16 * size.x, 16 * size.y, 1, uint8_t):clear()
 				-- what is its format?
 				local tile16x16 = 0
 				for j=0,size.y-1 do
@@ -423,8 +427,7 @@ function MapWindow:setIndex(newIndex, pushStack)
 
 						if worldInfo then
 							game.layer1worlddrawtile16x16(
-								--layerImg, x, y,
-								tileImg, 0, 0,
+								img, x, y,
 								tile16x16,
 								worldInfo.tilesetdata,	--game.tilesetDatas[layer],
 											--game.mapTilesetCache[tilesetIndex].data,
@@ -432,8 +435,7 @@ function MapWindow:setIndex(newIndex, pushStack)
 							)
 						else
 							game.layer1and2drawtile16x16(
-								--img, x, y,
-								tileImg, 0, 0,
+								img, x, y,
 								tile16x16,
 								--map.tilesetDatas[layer]
 								game.mapTilesetCache[tilesetIndex].data,
@@ -443,28 +445,12 @@ function MapWindow:setIndex(newIndex, pushStack)
 							)
 						end
 
-						-- bake palette into rgba (so imgui can use it)
-						for srcy=0,15 do
-							for srcx=0,15 do
-								for ch=0,img.channels-1 do
-									local palIndex = tileImg.buffer[bit.bor(srcx, bit.lshift(srcy, 4))]
-									local dstp = img.buffer + img.channels * (x + srcx + bit.lshift(size.x, 4) * (y + srcy))
-									dstp[0], dstp[1], dstp[2], dstp[3] = table.unpack(palette[palIndex+1])
-								end
-							end
-						end
-
 						tile16x16 = tile16x16 + 1
 					end
 				end
+				img.palette = palette
 				app.map16x16tileTexs[layer]:insert(GLTex2D{
-					--image = img,
-					data = img.buffer,
-					width = img.width,
-					height = img.height,
-					--internalFormat = gl.GL_R8UI,
-					internalFormat = gl.GL_RGBA,
-
+					image = img:rgba(),	-- bake palette so imgui can use it
 					minFilter = gl.GL_NEAREST,
 					magFilter = gl.GL_NEAREST,
 				})

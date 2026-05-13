@@ -67,7 +67,7 @@ end
 
 function EventScriptWindow:setIndex(newIndex)
 	if EventScriptWindow.super.setIndex(self, newIndex) == false then return false end
-	local cmd = self:getArray()[1+self.index]
+	local cmd = self:getIndex(self.index)
 	if cmd then
 		self:openScriptAddr(cmd.addr)
 	end

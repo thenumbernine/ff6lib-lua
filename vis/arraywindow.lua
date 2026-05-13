@@ -18,8 +18,14 @@ function ArrayWindow:init(args)
 	self:setIndex(args.index or 0)
 end
 
-function ArrayWindow:getCount() return #self:getArray() end
-function ArrayWindow:getIndex(index) return self:getArray()[1+index] end
+function ArrayWindow:getCount()
+	return #self:getArray()
+end
+
+-- 0-based index
+function ArrayWindow:getIndex(index)
+	return self:getArray()[1+index]
+end
 
 -- TODO rename to "showIndex"
 function ArrayWindow:setIndex(index)
@@ -92,8 +98,8 @@ function ArrayWindow:update()
 				ig.luatableInputText('find', self, 'searchText')
 				if ig.igButton'go' then
 					-- TODO also count initially and cahce and cycle and show 1/40 or whatever
-					for d=1,#self:getArray() do
-						local i = (self.index + d) % #self:getArray()
+					for d=1,self:getCount() do
+						local i = (self.index + d) % self:getCount()
 						local n = tostring(self:getIndexName(i))
 						if n:lower():find(self.searchText:lower(), 1, true) then
 							self:setIndex(i)
@@ -234,7 +240,7 @@ function ArrayWindow:editRef(win, obj, fieldname)
 	ig.igSetNextItemWidth(100)
 
 	modified = ig.luatableInputInt(fieldname, obj, fieldname)
-	--obj[fieldname] = obj[field] % #win:getArray()
+	--obj[fieldname] = obj[field] % win:getCount()
 	-- but maps, 511 is previous-map and is oob, so ... allow for now?
 	--	or make that / other special-values into checkboxes...
 --]]
@@ -242,7 +248,7 @@ function ArrayWindow:editRef(win, obj, fieldname)
 -- but then you have to modulo the number before reassignment or else it'll cast to the bitfield size and the modulo will be way off
 	local tmp = {tonumber(obj[fieldname])}
 	ig.luatableInputInt(fieldname, tmp, 1)
-	obj[fieldname] = tmp[1] % #win:getArray()
+	obj[fieldname] = tmp[1] % win:getCount()
 --]]
 	ig.igSameLine()
 	--[=[
