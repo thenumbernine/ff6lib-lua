@@ -285,7 +285,6 @@ void main() {
 			thread.lua[[
 -- set required modules as globals
 ffi = require 'ffi'
-path = require 'ext.path'
 Semaphore = require 'thread.semaphore'
 require 'sdl'	-- load SDL_DialogFileCallback
 sdlAssertNonNull = require 'sdl.assert'.nonnull

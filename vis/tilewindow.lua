@@ -1,5 +1,6 @@
 local ffi = require 'ffi'
 local table = require 'ext.table'
+local assert = require 'ext.assert'
 local string = require 'ext.string'
 local range = require 'ext.range'
 local path = require 'ext.path'
@@ -12,7 +13,13 @@ local Semaphore = require 'thread.semaphore'
 local sdl = require 'sdl'
 local ig = require 'imgui'
 local ArrayWindow = require 'ff6.vis.arraywindow'
-local mapTilePropsFlagForName = require 'ff6.vis.util'.mapTilePropsFlagForName
+
+local vis_util = require 'ff6.vis.util'
+local mapTilePropsFlagForName = vis_util.mapTilePropsFlagForName
+local worldTilePropsFlagForName = vis_util.worldTilePropsFlagForName
+local mapTilePropsNames = vis_util.mapTilePropsNames
+local worldTilePropsNames = vis_util.worldTilePropsNames
+local numTilePropsBits = vis_util.numTilePropsBits
 
 
 local uint8_t_p = ffi.typeof'uint8_t*'
@@ -44,7 +51,6 @@ function TileWindow:init(...)
 			thread.lua[[
 -- set required modules as globals
 ffi = require 'ffi'
-path = require 'ext.path'
 Semaphore = require 'thread.semaphore'
 require 'sdl'	-- load SDL_DialogFileCallback
 sdlAssertNonNull = require 'sdl.assert'.nonnull
@@ -66,6 +72,7 @@ xpcall(function()
 
 	-- tell the app to record it
 	semOpen:post()
+
 end, function(err)
 	print(err..'\n'..debug.traceback())
 end)
@@ -119,9 +126,41 @@ function TileWindow:showIndexUI(ar)
 		local layoutptr = ffi.cast(uint8_t_p, layout1Data)
 		if tilePropsData then
 			local tilePropsPtr = ffi.cast(uint16_t_p, tilePropsData)
-			local flags = tilePropsPtr[layoutptr[self.index]]
 
-			ig.igText(('tile props = 0x%04x'):format(flags))
+			local tilePropsIndex = layoutptr[self.index]
+			local flags = tilePropsPtr[tilePropsIndex]
+			--ig.igText(('tile props = 0x%04x'):format(flags))
+
+
+			-- based on MapTileProps:
+			local tilePropsNames = mapIndex < 3
+				-- WorldTileProps:
+				and worldTilePropsNames
+				-- MapTileProps:
+				or mapTilePropsNames
+			assert.len(tilePropsNames, numTilePropsBits)
+			--[[
+			for ip1,name in ipairs(tilePropsNames) do
+				local i = ip1-1
+			--]]
+			-- [[ only show real flags, not my extra custom ones for the shader
+			for i=0,15 do
+				local name = tilePropsNames[i+1]
+			--]]
+				local mask = bit.lshift(1, i)
+				self.__tmp = 0 ~= bit.band(flags, mask)
+				if bit.band(i, 7) ~= 0 then ig.igSameLine() end
+				if ig.luatableTooltipCheckbox('tileProp '..i..': '..name, self, '__tmp') then
+					flags = bit.bxor(mask, flags)
+					tilePropsPtr[tilePropsIndex] = flags
+
+					if mapIndex < 2
+					-- TODO and if we change a background bit ...
+					then
+						app.mapWindow:refreshBattleBgTex()
+					end
+				end
+			end
 		end
 	end
 	for layer=1,3 do
@@ -258,7 +297,12 @@ function TileWindow:showIndexUI(ar)
 					filled[i] = value
 				end
 				local function canTraverse(x,y)
-					return 0 == bit.band(mapTilePropsFlagForName.impassible, data[x + mapWidth * y])
+					local flags = data[x + mapWidth * y]
+					if mapIndex < 2 then
+						return 0 == bit.band(worldTilePropsFlagForName.blocksWalking, flags)
+					else
+						return 0 == bit.band(mapTilePropsFlagForName.impassible, flags)
+					end
 				end
 				if canTraverse(x,y) then
 					writeFilled(x, y)
@@ -340,7 +384,6 @@ function TileWindow:showIndexUI(ar)
 			if self.semOpen:trywait() then
 				ffInfo.destFilename = self.sdlSaveFileDialog_chooseOutputFilenameThread.lua.global.openfilename
 			end
-
 
 
 			-- text here, or tolua/fromlua here to verify syntax?

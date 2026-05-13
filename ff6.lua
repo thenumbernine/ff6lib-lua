@@ -1083,10 +1083,10 @@ local MonsterRandomBattleEntry4 = createVec{
 }
 
 local terrainTypes = {'grass', 'forest', 'desert', 'dirt'}
-local encounterNames = {'normal', 'low', 'high', 'none'}
 local WorldSectorRandomBattlesPerTerrain = ff6struct{
 	ctypeOnly = true,
 	fields = {
+		-- fields match terrainTypes
 		-- each is a ref to monsterRandomBattles[]
 		{grass = uint8_t},
 		{forest = uint8_t},
@@ -1094,6 +1094,20 @@ local WorldSectorRandomBattlesPerTerrain = ff6struct{
 		{dirt = uint8_t},
 	},
 }
+
+local encounterRateNames = {'normal', 'low', 'high', 'none'}
+local WorldSectorRandomBattleEncounterRates = ff6struct{
+	ctypeOnly = true,
+	fields = {
+		-- fields match terrainTypes
+		-- indexes are into encounterRateNames[]
+		{grass = 'uint8_t:2'},
+		{forest = 'uint8_t:2'},
+		{desert = 'uint8_t:2'},
+		{dirt = 'uint8_t:2'},
+	},
+}
+assert.eq(ffi.sizeof(WorldSectorRandomBattleEncounterRates), 1)
 
 -- the first 'numMonsters' overlaps
 -- then there's 32 more
@@ -2340,7 +2354,7 @@ Game = struct{
 		{name = 'monsterEventBattles', type = arrayType(MonsterRandomBattleEntry2, 0x100)},						-- 0x0f5000 - 0x0f5400
 		{name = 'worldSectorRandomBattlesPerTerrain', type = arrayType(WorldSectorRandomBattlesPerTerrain, 0x80)},-- 0x0f5400 - 0x0f5600 = [world][sectorx][sectory]  ... 64 sectors (32x32 chunks of 256x256 world map) per WoB, 64 for WoR
 		{name = 'mapRandomBattleOptions', type = arrayType(uint8_t, 0x200)},									-- 0x0f5600 - 0x0f5800 = one per map, index into monsterRandomBattles
-		{name = 'worldSectorRandomBattleEncounterRatesPerTerrain', type = arrayType(uint8_t, 0x80)},			-- 0x0f5800 - 0x0f5880 = 2 bits used ... 64 sectors per WoB, 64 per WoR ... 8 items per sector, 2bpp each ( https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:rom_map )
+		{name = 'worldSectorRandomBattleEncounterRatesPerTerrain', type = arrayType(WorldSectorRandomBattleEncounterRates, 0x80)},			-- 0x0f5800 - 0x0f5880 = 2 bits used ... 64 sectors per WoB, 64 per WoR ... 8 items per sector, 2bpp each ( https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:rom_map )
 		{name = 'mapBattleProbability', type = arrayType(uint8_t, 0x80)},										-- 0x0f5880 - 0x0f5900 = 2 bits used
 		{name = 'formation2s', type = arrayType(Formation2, numFormations)},									-- 0x0f5900 - 0x0f6200
 		{name = 'formations', type = arrayType(Formation, numFormations)},										-- 0x0f6200 - 0x0f83c0
@@ -2806,8 +2820,9 @@ game.BattleAnimEffect = BattleAnimEffect
 game.BattleAnim16x16Tile = BattleAnim16x16Tile
 game.BattleAnim8x8Tile = BattleAnim8x8Tile
 game.terrainTypes = terrainTypes
-game.encounterNames = encounterNames
+game.encounterRateNames = encounterRateNames
 game.WorldSectorRandomBattlesPerTerrain = WorldSectorRandomBattlesPerTerrain
+game.WorldSectorRandomBattleEncounterRates = WorldSectorRandomBattleEncounterRates
 game.Game = Game
 
 require 'ff6.maps'(game)
