@@ -23,10 +23,7 @@ function MetamorphWindow:showIndexUI(ar)
 	local mmset = game.metamorphSets + self.index
 
 	for i=0,mmset.dim-1 do
-		ig.igPushID_Int(i)
-		self:editItemRef(mmset.s[i], 'i')
-		--app.itemWindow:popupButton(mmset.s[i].i)
-		ig.igPopID()
+		self:editField(mmset.s, i, mmset.ctype)
 	end
 
 	-- reverse-references:

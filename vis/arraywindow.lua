@@ -15,16 +15,19 @@ function ArrayWindow:init(args)
 	self.children = table(args.children)
 	self.show = ffi.new('bool[1]', not not args.show)
 	self.app = assert.index(args, 'app')
-	self.getArray = args.getArray
 	self:setIndex(args.index or 0)
 end
 
+function ArrayWindow:getCount() return #self:getArray() end
+function ArrayWindow:getIndex(index) return self:getArray()[1+index] end
+
+-- TODO rename to "showIndex"
 function ArrayWindow:setIndex(index)
 	if index == self.index then return false end
 	self.index = index
 end
 
-function ArrayWindow:getIndexName() end
+function ArrayWindow:getIndexName(i) end
 
 function ArrayWindow:popupButton(targetIndex, extraText)
 	if targetIndex ~= nil then
@@ -115,6 +118,15 @@ end
 function ArrayWindow:editField(obj, fieldname, ctype, field)
 	local app = self.app
 	local game = app.game
+	local modified
+
+	if type(fieldname) == 'string' then
+		ig.igPushID_Str(fieldname)
+	elseif type(fieldname) == 'number' then
+		ig.igPushID_Int(fieldname)
+	else
+		error("unknown fieldname type "..type(fieldname))
+	end
 
 	--[[ view only:
 	ig.igText(' '..fieldname..' = '..tostring(obj[fieldname]))
@@ -127,7 +139,7 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 	if type(ctype) == 'string'
 	and ctype:match':1$'
 	then
-		return ig.luatableCheckbox(fieldname, obj, fieldname)
+		modified = ig.luatableCheckbox(fieldname, obj, fieldname)
 
 	-- TODO maybe also for Ref's, dropdowns from lists for their windows?  and auto popup buttons?
 
@@ -141,12 +153,11 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 	or ctypeobj == game.Effect3
 	or ctypeobj == game.Element
 	or ctypeobj == game.Targetting
+	or ctypeobj == game.SpellLearn
 	then
 		-- i think imgui has vector inputs... hmmm
-		local modified
 		ig.igText(fieldname)
 
-		ig.igPushID_Str(fieldname)
 		local subobj = obj[fieldname]
 		for subfieldname, subctype, subfield in subobj:fielditer() do
 			-- TOOD is there left tab padding margin whatever support in imgui?
@@ -154,14 +165,57 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 			ig.igSameLine()
 			modified = self:editField(subobj, subfieldname, subctype, subfield) or modified
 		end
-		ig.igPopID()
-		return modified
+
+	-- refs?
+	elseif ctypeobj == game.SpellRef
+	or ctypeobj == game.ItemRef
+	or ctypeobj == game.MonsterRef
+	then
+		local win
+		if ctypeobj == game.SpellRef then
+			win = app.spellWindow
+		elseif ctypeobj == game.ItemRef then
+			win = app.itemWindow
+		elseif ctypeobj == game.MonsterRef then
+			win = app.monsterWindow
+		else
+			error("idk what win to use")
+		end
+
+		--[=[
+		self:editSpellRef(obj[fieldname], 'i')
+		--]=]
+		-- [=[ editSpellRef contents:
+		ig.igSetNextItemWidth(100)
+		modified = ig.luatableInputInt(tostring(fieldname), obj[fieldname], 'i')
+		ig.igSameLine()
+		local targetIndex = obj[fieldname].i
+		--[==[
+		modified = win:popupButton(targetIndex) or modified
+		--]==]
+		-- [==[ popupButton contents:
+		local k = '>'
+		local name = win:getIndexName(targetIndex)
+		if name then
+			k = name..' '..k
+		end
+		if ig.igButton(k) then
+			win.show[0] = true
+			print('setting', win.name, 'to', targetIndex)
+			win:setIndex(targetIndex)
+		end
+		--]==]
+		--]=]
 
 	-- default:
 	else
-		return ig.luatableInputFloatAsText(fieldname, obj, fieldname)
+		modified = ig.luatableInputFloatAsText(fieldname, obj, fieldname)
 	end
 	--]]
+
+	ig.igPopID()
+
+	return modified
 end
 
 local tmpvec = ig.ImVec2()
@@ -191,7 +245,22 @@ function ArrayWindow:editRef(win, obj, fieldname)
 	obj[fieldname] = tmp[1] % #win:getArray()
 --]]
 	ig.igSameLine()
+	--[=[
 	modified = win:popupButton(obj[fieldname]) or modified
+	--]=]
+	-- [=[
+	local targetIndex = obj[fieldname]
+	local k = '>'
+	local name = win:getIndexName(targetIndex)
+	if name then
+		k = name..' '..k
+	end
+	if ig.igButton(k) then
+		win.show[0] = true
+		print('setting', win.name, 'to', targetIndex)
+		win:setIndex(targetIndex)
+	end
+	--]=]
 	return modified
 end
 

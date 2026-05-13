@@ -34,7 +34,7 @@ function ItemWindow:showIndexUI(ar)
 			if fieldname == 'spellLearn' then
 				--if item.spellLearn.rate > 0 then
 					--app.spellWindow:popupButton(item.spellLearn.spell.i)
-					self:editSpellRef(item.spellLearn.spell, 'i', 'uint8_t')
+					self:editField(item, fieldname, ctype, field)
 				--end
 				--ig.igText(' spell learn rate = '..item.spellLearn.rate)
 				--self:editField(item, fieldname, ctype, field)
@@ -51,28 +51,13 @@ function ItemWindow:showIndexUI(ar)
 	end
 
 	ig.igSeparator()
-
 	ig.igText' colosseum info:'
+	ig.igPushID_Str'itemColosseumInfos'
 	local colinfo = game.itemColosseumInfos[self.index]
-
-	ig.igPushID_Str'monster fought'
-	ig.igText('  monster fought =')
-	ig.igSameLine()
-	--app.monsterWindow:popupButton(colinfo.monster.i)
-	self:editSpellRef(colinfo.monster, 'i', 'uint8_t')
+	for fieldname, ctype, field in colinfo:fielditer() do
+		self:editField(colinfo, fieldname, ctype, field)
+	end
 	ig.igPopID()
-
-	ig.igPushID_Str'item won'
-	ig.igText('  item won =')
-	ig.igSameLine()
-	--app.itemWindow:popupButton(colinfo.itemWon.i)
-	self:editItemRef(colinfo.itemWon, 'i', 'uint8_t')
-	ig.igPopID()
-
-	--ig.igText('  unknown = '..colinfo.unknown)
-	self:editField(colinfo, 'unknown', 'uint8_t')
-	--ig.igText('  hideName = '..colinfo.hideName)
-	self:editField(colinfo, 'hideName', 'uint8_t')
 
 	-- reverse-references:
 

@@ -2776,6 +2776,7 @@ game.ItemRef4 = ItemRef4
 game.ItemColosseumInfo = ItemColosseumInfo
 game.RareItemName = RareItemName
 game.MonsterName = MonsterName
+game.MonsterRef = MonsterRef
 game.Monster = Monster
 game.MonsterItem = MonsterItem
 game.Formation = Formation

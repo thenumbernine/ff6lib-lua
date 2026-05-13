@@ -44,20 +44,15 @@ function MonsterWindow:showIndexUI(ar)
 	ig.igPushID_Str'monsterSpells'
 	local monsterSpells = game.monsterSpells[self.index]
 	for i=0,monsterSpells.dim-1 do
-		ig.igPushID_Int(i)
-		self:editSpellRef(monsterSpells.s[i], 'i')
-		ig.igPopID()
+		self:editField(monsterSpells.s, i, monsterSpells.ctype)
 	end
 	ig.igPopID()
 
 	ig.igText'items:'
-	ig.igPushID_Str'items'
+	ig.igPushID_Str'monsterItems'
 	local monsterItem = game.monsterItems[self.index]
 	for fieldname, ctype, field in monsterItem:fielditer() do
-		ig.igPushID_Str(fieldname)
-		-- TODO pass the *Ref into edit*Ref
-		self:editItemRef(monsterItem[fieldname], 'i')
-		ig.igPopID()
+		self:editField(monsterItem, fieldname, ctype, field)
 	end
 	ig.igPopID()
 
@@ -65,9 +60,7 @@ function MonsterWindow:showIndexUI(ar)
 	ig.igText'sketches:'
 	ig.igPushID_Str'monsterSketches'
 	for i=0,monsterSketches.dim-1 do
-		ig.igPushID_Int(i)
-		self:editSpellRef(monsterSketches.s[i], 'i')
-		ig.igPopID()
+		self:editField(monsterSketches.s, i, monsterSketches.ctype)
 	end
 	ig.igPopID()
 
@@ -76,9 +69,7 @@ function MonsterWindow:showIndexUI(ar)
 		ig.igPushID_Str'monsterRages'
 		local monsterRages = game.monsterRages[self.index]
 		for i=0,monsterRages.dim-1 do
-			ig.igPushID_Int(i)
-			self:editSpellRef(monsterRages.s[i], 'i')
-			ig.igPopID()
+			self:editField(monsterRages.s, i, monsterRages.ctype)
 		end
 		ig.igPopID()
 	end
