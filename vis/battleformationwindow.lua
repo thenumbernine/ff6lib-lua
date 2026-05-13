@@ -50,7 +50,7 @@ function BattleFormationWindow:showIndexUI(ar)
 	local app = self.app
 	local game = app.game
 
-	do
+	if ig.igCollapsingHeader_TreeNodeFlags('preview', ig.ImGuiTreeNodeFlags_DefaultOpen) then
 		local x = ig.igGetCursorPosX()
 		local y = ig.igGetCursorPosY()
 
@@ -84,42 +84,45 @@ function BattleFormationWindow:showIndexUI(ar)
 		ig.igSetCursorPosY(y + math.ceil(viewHeight * scale) + 4)
 	end
 
-	if self.index < game.countof(game.formationMPs) then
-		local tmp = {tonumber(game.formationMPs[self.index])}
-		if ig.luatableInputFloatAsText('mp gained', tmp, 1) then
-			game.formationMPs[self.index] = tmp[1]
-		end
-	end
+	if ig.igCollapsingHeader'fields' then
 
-	local formation = game.formations + self.index
-	for i=1,6 do
-		ig.igPushID_Str('BattleFormationWindow')
-		ig.igPushID_Int(i)
-		ig.igText(' #'..i)
-
-		local info = formation:getMonsterInfo(i)
-		if ig.luatableCheckbox('active', info, 'active') then
-			formation['active'..i] = info.active and 1 or 0
-		end
-		if info.active then
-			if self:editMonsterRef(info, 'monster') then
-				formation['monster'..i] = info.monster
+		if self.index < game.countof(game.formationMPs) then
+			local tmp = {tonumber(game.formationMPs[self.index])}
+			if ig.luatableInputFloatAsText('mp gained', tmp, 1) then
+				game.formationMPs[self.index] = tmp[1]
 			end
-
-			-- pointer into another table I think?
-			if self:editField(info, 'pos', game.XY4b) then
-				formation['pos'..i] = info.pos
-			end
-
-			-- this is in a whole other struct , so i'm not making it editable yet
-			ig.igText(' size = '..formation:getFormationSize(i))
 		end
-		ig.igPopID()
-		ig.igPopID()
-	end
-	local formation2 = game.formation2s[self.index]
-	for fieldname, ctype, field in formation2:fielditer() do
-		self:editField(formation2, fieldname, ctype, field)
+
+		local formation = game.formations + self.index
+		for i=1,6 do
+			ig.igPushID_Str('BattleFormationWindow')
+			ig.igPushID_Int(i)
+			ig.igText(' #'..i)
+
+			local info = formation:getMonsterInfo(i)
+			if ig.luatableCheckbox('active', info, 'active') then
+				formation['active'..i] = info.active and 1 or 0
+			end
+			if info.active then
+				if self:editMonsterRef(info, 'monster') then
+					formation['monster'..i] = info.monster
+				end
+
+				-- pointer into another table I think?
+				if self:editField(info, 'pos', game.XY4b) then
+					formation['pos'..i] = info.pos
+				end
+
+				-- this is in a whole other struct , so i'm not making it editable yet
+				ig.igText(' size = '..formation:getFormationSize(i))
+			end
+			ig.igPopID()
+			ig.igPopID()
+		end
+		local formation2 = game.formation2s[self.index]
+		for fieldname, ctype, field in formation2:fielditer() do
+			self:editField(formation2, fieldname, ctype, field)
+		end
 	end
 
 	-- reverse-references:

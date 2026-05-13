@@ -292,16 +292,16 @@ return function(game)
 	ScriptCmds.Battle = Cmd:subclass{
 		cmd = 0x4d,
 		argtypes = {uint8_t, uint8_t},
-		getargs = function(self, group, arg)
-			self.group = group
-			self.bg = bit.band(0x3f, arg)
+		getargs = function(self, eventBattleOptionsIndex, arg)
+			self.eventBattleOptionsIndex = eventBattleOptionsIndex	-- index into game.monsterEventBattles[]
+			self.battleBG = bit.band(0x3f, arg)
 			self.noSound = 0 ~= bit.band(0x40, arg)
 			self.noBlur = 0 ~= bit.band(0x80, arg)
 		end,
 		__tostring = function(self)
 			return (self.collisionBattle and 'collision battle' or 'normal battle')
-				..' group='..self.group
-				..' background='..bit.band(0x3f, self.bg)
+				..' eventBattleOptionsIndex='..self.eventBattleOptionsIndex
+				..' background='..bit.band(0x3f, self.battleBG)
 				..(self.noSound and ' no sound' or '')
 				..(self.noBlur and ' no blur' or '')
 		end,
@@ -687,17 +687,17 @@ return function(game)
 
 	ScriptCmds.Sleep15 = Cmd:subclass{
 		cmd = 0x91,
-		desc = 'sleep(.25)',
+		desc = 'sleep(1/4)',
 	}
 
 	ScriptCmds.Sleep30 = Cmd:subclass{
 		cmd = 0x92,
-		desc = 'sleep(.5)',
+		desc = 'sleep(1/2)',
 	}
 
 	ScriptCmds.Sleep45 = Cmd:subclass{
 		cmd = 0x93,
-		desc = 'sleep(.75)',
+		desc = 'sleep(3/4)',
 	}
 
 	ScriptCmds.Sleep60 = Cmd:subclass{
@@ -849,17 +849,18 @@ return function(game)
 	ScriptCmds.Sleep = Cmd:subclass{
 		cmd = 0xb4,
 		argtypes = {uint8_t},
-		getargs = function(self, dt)
-			self.dt = dt / 60
+		getargs = function(self, frames)
+			self.frames = frames
+			self.seconds = frames / 60
 		end,
-		desc = 'sleep(<?=dt?>)'
+		desc = 'sleep(<?=frames?>/60)'
 	}
 
 	ScriptCmds.SleepSeconds = Cmd:subclass{
 		cmd = 0xb5,
 		argtypes = {uint8_t},
-		argnames = {'dt'},
-		desc = 'sleep(<?=dt?>)'
+		argnames = {'seconds'},
+		desc = 'sleep(<?=seconds?>)'
 	}
 
 	ScriptCmds.CallBasedOnDialogChoice = Cmd:subclass{
