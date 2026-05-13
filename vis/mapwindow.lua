@@ -463,7 +463,13 @@ function MapWindow:setIndex(newIndex, pushStack)
 		end
 	end
 
+	self:refreshBattleBgTex()
+end
 
+-- refresh upon map index change, or for world maps, upon tile index change
+function MapWindow:refreshBattleBgTex()
+	local app = self.app
+	local game = app.game
 
 	-- battle background while we're here?
 	-- for worlds 0-2 it is in WOrldTileProps' battleBG, right?
@@ -473,8 +479,35 @@ function MapWindow:setIndex(newIndex, pushStack)
 		self.battleBgTex:delete()
 		self.battleBgTex = nil
 	end
-	local battleBgIndex = map.battleBG
-	if battleBgIndex < game.countof(game.battleBgProps) then
+
+	local battleBgIndex
+	local mapIndex = self.index
+	local mapInfo = game.getMap(mapIndex)
+
+	if mapIndex < 2 then
+		-- then we have to refresh this every time the tile window changes tiles ...
+		local tilePropsData = mapInfo.tilePropsData
+		local layouts = mapInfo.layouts
+
+		-- index into the map 16x16 tile-"layout" data
+		local tileIndex = app.tileWindow.index
+
+		local layout1Data = layouts[1] and layouts[1].data
+		if layout1Data then
+			local layoutptr = ffi.cast(uint8_t_p, layout1Data)
+			if tilePropsData then
+				local tilePropsPtr = ffi.cast(ffi.typeof('$*', game.WorldTileProps), tilePropsData)
+				battleBgIndex = tilePropsPtr[layoutptr[tileIndex]].battleBG
+			end
+		end
+
+	else
+		local map = mapInfo.map
+		battleBgIndex = map.battleBG
+	end
+	if battleBgIndex
+	and battleBgIndex < game.countof(game.battleBgProps)
+	then
 		self.battleBgTex = self:makeTex(
 			game.getBattleBgImage(battleBgIndex)
 		)

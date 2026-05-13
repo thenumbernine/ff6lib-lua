@@ -22,6 +22,8 @@ end
 
 local min = ig.ImVec2()
 local max = ig.ImVec2()
+local availSize = ig.ImVec2()
+local drawSize = ig.ImVec2()
 function TileSheetWindow:showIndexUI(ar)
 	local layerTexs = self.app.map16x16tileTexs
 	if not layerTexs then return end
@@ -30,13 +32,13 @@ function TileSheetWindow:showIndexUI(ar)
 	-- TODO pick this based on animation frame...
 	local tex = texs[(self.app.frameIndex % #texs) + 1]
 
-	local availSize = ig.ImVec2()
+	-- same as in BattleFormationWindow:showIndexUI
 	ig.igGetContentRegionAvail(availSize)
 	availSize.x = availSize.x - 16	-- make room for scrollbar
 	availSize.y = availSize.y - 4
 	local scale = math.max(1, availSize.x / tex.width, availSize.y / tex.height)
-	local sizeX = math.ceil(scale * tex.width)
-	local sizeY = math.ceil(scale * tex.height)
+	drawSize.x = math.ceil(scale * tex.width)
+	drawSize.y = math.ceil(scale * tex.height)
 
 	-- ... and handle clicks ...
 	-- [=[ how to handle click location:
@@ -44,14 +46,10 @@ function TileSheetWindow:showIndexUI(ar)
 	local mousePos = ig.igGetMousePos()
 	local cursorX = mousePos.x - texScreenPos.x - 4
 	local cursorY = mousePos.y - texScreenPos.y - 4
-	local x = math.clamp(math.floor(cursorX / sizeX * 16), 0, 15)
-	local y = math.clamp(math.floor(cursorY / sizeY * 16), 0, 15)
+	local x = math.clamp(math.floor(cursorX / tonumber(drawSize.x) * 16), 0, 15)
+	local y = math.clamp(math.floor(cursorY / tonumber(drawSize.y) * 16), 0, 15)
 	--]=]
-	if ig.igImageButton(
-		self.name,
-		ffi.cast('ImTextureID', tex.id),
-		ig.ImVec2(sizeX, sizeY)
-	) then
+	if ig.igImageButton(self.name, ffi.cast('ImTextureID', tex.id), drawSize) then
 		self.index = bit.bor(x, bit.lshift(y, 4))
 	end
 

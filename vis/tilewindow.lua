@@ -13,6 +13,10 @@ local ArrayWindow = require 'ff6.vis.arraywindow'
 local mapTilePropsFlagForName = require 'ff6.vis.util'.mapTilePropsFlagForName
 
 
+local uint8_t_p = ffi.typeof'uint8_t*'
+local uint16_t_p = ffi.typeof'uint16_t*'
+
+
 -- convert from 4-bit xy ff6 16x16 tilemap index to numo9 5-bit xy 8x8 tilemap index
 local function tile44to55(index)
 	return bit.bor(
@@ -88,10 +92,11 @@ function TileWindow:showIndexUI(ar)
 
 	local layout1Data = layouts[1] and layouts[1].data
 	if layout1Data then
-		local layoutptr = ffi.cast('uint8_t*', layout1Data)
+		local layoutptr = ffi.cast(uint8_t_p, layout1Data)
 		if tilePropsData then
-			local tilePropsPtr = ffi.cast('uint16_t*', tilePropsData)
+			local tilePropsPtr = ffi.cast(uint16_t_p, tilePropsData)
 			local flags = tilePropsPtr[layoutptr[self.index]]
+
 			ig.igText(('tile props = 0x%04x'):format(flags))
 		end
 	end
@@ -109,7 +114,7 @@ function TileWindow:showIndexUI(ar)
 				posx, posy = layerPos[layer]:unpack()
 			end
 
-			local layoutptr = ffi.cast('uint8_t*', layoutData)
+			local layoutptr = ffi.cast(uint8_t_p, layoutData)
 			local srcX = (x - posx) % layerSize.x
 			local srcY = (y - posy) % layerSize.y
 			local tile16x16 = layoutptr[((srcX + layerSize.x * srcY) % #layoutData)]
@@ -139,7 +144,7 @@ function TileWindow:showIndexUI(ar)
 			posx, posy = layerPos[layer]:unpack()
 		end
 
-		local layoutptr = ffi.cast('uint8_t*', layoutData)
+		local layoutptr = ffi.cast(uint8_t_p, layoutData)
 		local layerSize = layerSizes[layer]
 		local srcX = (x - posx) % layerSize.x
 		local srcY = (y - posy) % layerSize.y
@@ -149,8 +154,8 @@ function TileWindow:showIndexUI(ar)
 	local function getTileProps(x,y)
 		if not layout1Data then return end
 		if not tilePropsData then return end
-		local layoutptr = ffi.cast('uint8_t*', layout1Data)
-		local tilePropsPtr = ffi.cast('uint16_t*', tilePropsData)
+		local layoutptr = ffi.cast(uint8_t_p, layout1Data)
+		local tilePropsPtr = ffi.cast(uint16_t_p, tilePropsData)
 		return tilePropsPtr[layoutptr[x + mapWidth * y]]
 	end
 
@@ -469,13 +474,17 @@ function TileWindow:setIndex(index, ...)
 				then
 					posx, posy = layerPos[layer]:unpack()
 				end
-				local layoutptr = ffi.cast('uint8_t*', layoutData)
+				local layoutptr = ffi.cast(uint8_t_p, layoutData)
 				local srcX = (x - posx) % layerSize.x
 				local srcY = (y - posy) % layerSize.y
 				local tile16x16 = layoutptr[((srcX + layerSize.x * srcY) % #layoutData)]
 				tileSheetWin:setIndex(tile16x16)
 			end
 		end
+	end
+
+	if app.mapWindow.index < 2 then
+		app.mapWindow:refreshBattleBgTex()
 	end
 end
 

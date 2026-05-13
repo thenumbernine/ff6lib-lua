@@ -42,6 +42,8 @@ function BattleFormationWindow:getIndexName(i)
 	end):concat', '
 end
 
+local availSize = ig.ImVec2()
+local drawSize = ig.ImVec2()
 function BattleFormationWindow:showIndexUI(ar)
 	local app = self.app
 	local game = app.game
@@ -49,20 +51,34 @@ function BattleFormationWindow:showIndexUI(ar)
 	do
 		local x = ig.igGetCursorPosX()
 		local y = ig.igGetCursorPosY()
+
+		-- same as in TileSheetWindow:showIndexUI
+		local viewWidth = 256
+		local viewHeight = 224
+		ig.igGetContentRegionAvail(availSize)
+		availSize.x = availSize.x - 16	-- make room for scrollbar
+		availSize.y = availSize.y - 4
+		local scale = math.max(1, availSize.x / viewWidth)--, availSize.y / viewHeight)
+
 		local battleBgTex = app.mapWindow.battleBgTex
 		if battleBgTex then
-			ig.igImage(battleBgTex.id, battleBgTex.imsize)
+			drawSize.x = math.ceil(scale * battleBgTex.width)
+			drawSize.y = math.ceil(scale * battleBgTex.height)
+			-- TODO use uv1 to be 224/256, and drawSize accordingly ...
+			ig.igImage(battleBgTex.id, drawSize)
 		end
 		if self.monsterSpriteTexs then
 			-- key is number index 1-6
 			for k,info in pairs(self.monsterSpriteTexs) do
-				ig.igSetCursorPosX(x + 8 * info.pos.x)
-				ig.igSetCursorPosY(y + 8 * info.pos.y)
-				ig.igImage(info.tex.id, info.tex.imsize)
+				ig.igSetCursorPosX(math.ceil(x + 8 * info.pos.x * scale))
+				ig.igSetCursorPosY(math.ceil(y + 8 * info.pos.y * scale))
+				drawSize.x = math.ceil(scale * info.tex.width)
+				drawSize.y = math.ceil(scale * info.tex.height)
+				ig.igImage(info.tex.id, drawSize)
 			end
 		end
 		ig.igSetCursorPosX(x)
-		ig.igSetCursorPosY(y + 224)
+		ig.igSetCursorPosY(y + math.ceil(viewHeight * scale))
 	end
 
 	if self.index < game.countof(game.formationMPs) then
