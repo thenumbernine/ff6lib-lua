@@ -22,12 +22,16 @@ function ArrayWindow:init(args)
 end
 
 function ArrayWindow:getCount()
-	return #self:getArray()
+	local ar = self:getArray()
+	if not ar then return end	-- return 0?
+	return #ar
 end
 
 -- 0-based index
 function ArrayWindow:getIndex(index)
-	return self:getArray()[1+index]
+	local ar = self:getArray()
+	if not ar then return end
+	return ar[1+index]
 end
 
 -- TODO rename to "showIndex"
@@ -45,12 +49,13 @@ function ArrayWindow:popupButton(targetIndex, extraText)
 	local result
 	ig.igPushID_Str(self.name)
 	ig.igPushID_Str'popup button'
-	local ar = self:getArray()
-	local has = ar and #ar > 0
+
+	local count = self:getCount()
+	local has = count > 0
 	local indexName = has and targetIndex and self:getIndexName(targetIndex)
 	local k = self.name..': '
 		..(targetIndex and '#'..targetIndex..'/' or '')
-		..(has and #ar or 'none')
+		..(has and count or 'none')
 		..(indexName and ' '..indexName or '')
 	if extraText then k = k .. ' '.. extraText end
 	if not has then
@@ -73,15 +78,15 @@ end
 
 function ArrayWindow:update()
 	if not self.show[0] then return end
-	local ar = self:getArray()
-	if not (ar and #ar > 0) then return end
+	local count = self:getCount()
+	if count == 0 then return end
 	ig.igPushID_Str(self.name)
 	if ig.igBegin(self.name, self.show, 0) then
-		ig.igText(self.name..' #'..self.index..'/'..#ar)
+		ig.igText(self.name..' #'..self.index..'/'..count)
 
 		local pushIndex = self.index
 		if ig.luatableInputInt('index', self, 'index') then
-			local newIndex = self.index % #ar
+			local newIndex = self.index % count
 			self.index = pushIndex	-- so setIndex registers a change
 			self:setIndex(newIndex)
 		end
@@ -139,7 +144,7 @@ function ArrayWindow:update()
 			end
 		end
 
-		self:showIndexUI(ar)
+		self:showIndexUI()
 	end
 	ig.igEnd()
 	ig.igPopID()
@@ -244,7 +249,7 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 
 		self.tmpInt = self.tmpInt or ffi.new('int[1]')
 		self.tmpInt[0] = obj[fieldname].i
-		if ig.igCombo('', self.tmpInt, range(0,game.countof(game.menuNames)-1):mapi(function(i)
+		if ig.igCombo('', self.tmpInt, range(0, game.countof(game.menuNames)-1):mapi(function(i)
 			return tostring(game.menuNames[i])
 		end)) then
 			obj[fieldname].i = self.tmpInt[0]

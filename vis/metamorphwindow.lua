@@ -1,5 +1,4 @@
 local table = require 'ext.table'
-local range = require 'ext.range'
 local ig = require 'imgui'
 local ArrayWindow = require 'ff6.vis.arraywindow'
 
@@ -7,17 +6,12 @@ local MetamorphWindow = ArrayWindow:subclass()
 
 MetamorphWindow.name = 'metamorph sets'
 
-function MetamorphWindow:init(...)
-	MetamorphWindow.super.init(self, ...)
+function MetamorphWindow:getCount()
 	local game = self.app.game
-	self.array = range(game.countof(game.metamorphSets))
+	return game.countof(game.metamorphSets)
 end
 
-function MetamorphWindow:getArray()
-	return self.array
-end
-
-function MetamorphWindow:showIndexUI(ar)
+function MetamorphWindow:showIndexUI()
 	local app = self.app
 	local game = app.game
 	local mmset = game.metamorphSets + self.index

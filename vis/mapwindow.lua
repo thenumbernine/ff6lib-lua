@@ -34,11 +34,7 @@ MapWindow.name = 'map'
 function MapWindow:init(...)
 	MapWindow.super.init(self, ...)
 
-	local game = self.app.game
-
-	-- 'game.getMap' doensn't work so well since it has cache stuff like the texture layers ...
-	self.array = range(game.countof(game.maps))
-
+	-- for door #511 ...
 	self.mapIndexStack = table()
 end
 
@@ -46,11 +42,12 @@ function MapWindow:getMapInfo()
 	return self.app.game.getMap(self.index)
 end
 
-function MapWindow:getArray()
-	return self.array
+function MapWindow:getCount()
+	local game = self.app.game
+	return game.countof(game.maps)
 end
 
-function MapWindow:showIndexUI(ar)
+function MapWindow:showIndexUI()
 	local app = self.app
 	local game = app.game
 

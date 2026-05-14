@@ -10,11 +10,11 @@ local BattleOptionsWindow = ArrayWindow:subclass()
 function BattleOptionsWindow:init(...)
 	BattleOptionsWindow.super.init(self, ...)
 	local game = self.app.game
-	self.array = range((game.countof((assert.index(game, self.gameField)))))
 end
 
-function BattleOptionsWindow:getArray()
-	return self.array
+function BattleOptionsWindow:getCount()
+	local game = self.app.game
+	return game.countof((assert.index(game, self.gameField)))
 end
 
 function BattleOptionsWindow:getIndexName(i)
@@ -39,7 +39,7 @@ function BattleOptionsWindow:getIndexName(i)
 	end):concat', '
 end
 
-function BattleOptionsWindow:showIndexUI(ar)
+function BattleOptionsWindow:showIndexUI()
 	local game = self.app.game
 	local battleEntries = game[self.gameField] + self.index
 	local formationCounts = {}
@@ -74,11 +74,11 @@ function RandomBattleOptionsWindow:getProbStr(j)
 	return j == 3 and '1/16' or '5/16'
 end
 
-function RandomBattleOptionsWindow:showIndexUI(ar)
+function RandomBattleOptionsWindow:showIndexUI(...)
 	local app = self.app
 	local game = app.game
 
-	RandomBattleOptionsWindow.super.showIndexUI(self, ar)
+	RandomBattleOptionsWindow.super.showIndexUI(self, ...)
 
 	-- reverse-references:
 
@@ -180,11 +180,11 @@ function EventBattleOptionsWindow:getProbStr(j)
 	return '1/2'
 end
 
-function EventBattleOptionsWindow:showIndexUI(ar)
+function EventBattleOptionsWindow:showIndexUI(...)
 	local app = self.app
 	local game = app.game
 
-	EventBattleOptionsWindow.super.showIndexUI(self, ar)
+	EventBattleOptionsWindow.super.showIndexUI(self, ...)
 
 	-- reverse-references:
 

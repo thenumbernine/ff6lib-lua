@@ -8,16 +8,11 @@ local WorldEncounterSectorWindow = ArrayWindow:subclass()
 
 WorldEncounterSectorWindow.name = 'world encounter sectors'
 
-function WorldEncounterSectorWindow:init(...)
-	WorldEncounterSectorWindow.super.init(self, ...)
-	self.array = range(0, bit.lshift(1, 7)-1)
+function WorldEncounterSectorWindow:getCount()
+	return bit.lshift(1, 7)
 end
 
-function WorldEncounterSectorWindow:getArray()
-	return self.array
-end
-
-function WorldEncounterSectorWindow:showIndexUI(ar)
+function WorldEncounterSectorWindow:showIndexUI()
 	local app = self.app
 	local game = app.game
 

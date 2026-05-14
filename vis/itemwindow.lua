@@ -1,5 +1,4 @@
 local table = require 'ext.table'
-local range = require 'ext.range'
 local ig = require 'imgui'
 local ArrayWindow = require 'ff6.vis.arraywindow'
 
@@ -8,21 +7,16 @@ local ItemWindow = ArrayWindow:subclass()
 
 ItemWindow.name = 'item'
 
-function ItemWindow:init(...)
-	ItemWindow.super.init(self, ...)
+function ItemWindow:getCount()
 	local game = self.app.game
-	self.array = range((game.countof(game.items)))
-end
-
-function ItemWindow:getArray()
-	return self.array
+	return game.countof(game.items)
 end
 
 function ItemWindow:getIndexName(i)
 	return self.app.game.itemNames[i]
 end
 
-function ItemWindow:showIndexUI(ar)
+function ItemWindow:showIndexUI()
 	local app = self.app
 	local game = app.game
 
@@ -183,12 +177,12 @@ function ItemWindow:showIndexUI(ar)
 		ig.igText'...none'
 	else
 		ig.igPushID_Str'itemWindow-charsWithThis'
-		local lastChar
+		local lastCharIndex
 		for j,info in ipairs(self.charsWithThis) do
 			ig.igPushID_Int(j)
-			if lastChar ~= info.name then
-				lastChar = info.name
-				ig.igText(lastChar)
+			if lastCharIndex ~= info.charIndex then
+				lastCharIndex = info.charIndex
+				ig.igText(info.name)
 			end
 			ig.igSameLine()
 

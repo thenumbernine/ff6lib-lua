@@ -1,30 +1,23 @@
-local range = require 'ext.range'
 local table = require 'ext.table'
 local ig = require 'imgui'
-local ArrayWindow = require 'ff6.vis.arraywindow'
 local readMonsterSprite = require 'ff6.monstersprite'
-
+local ArrayWindow = require 'ff6.vis.arraywindow'
 
 
 local MonsterWindow = ArrayWindow:subclass()
 
 MonsterWindow.name = 'monster'
 
-function MonsterWindow:init(...)
-	MonsterWindow.super.init(self, ...)
+function MonsterWindow:getCount()
 	local game = self.app.game
-	self.array = range((game.countof(game.monsters)))
-end
-
-function MonsterWindow:getArray()
-	return self.array
+	return game.countof(game.monsters)
 end
 
 function MonsterWindow:getIndexName(i)
 	return self.app.game.monsterNames[i]
 end
 
-function MonsterWindow:showIndexUI(ar)
+function MonsterWindow:showIndexUI()
 	local app = self.app
 	local game = app.game
 

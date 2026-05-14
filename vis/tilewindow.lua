@@ -2,7 +2,6 @@ local ffi = require 'ffi'
 local table = require 'ext.table'
 local assert = require 'ext.assert'
 local string = require 'ext.string'
-local range = require 'ext.range'
 local path = require 'ext.path'
 local fromlua = require 'ext.fromlua'
 local vec2i = require 'vec-ffi.vec2i'
@@ -93,17 +92,16 @@ function TileWindow:getMapVolume()
 	if w and h then return w * h end
 end
 
-function TileWindow:getArray()
-	local vol = self:getMapVolume()
-	return vol and range(vol)
+function TileWindow:getCount()
+	return self:getMapVolume()
 end
 
-function TileWindow:showIndexUI(ar)
+function TileWindow:showIndexUI()
 	local app = self.app
 	local game = app.game
 
-	local t = ar[1+self.index]
-	if not t then return end
+	local count = self:getCount()
+	if self.index < 0 or self.index >= count then return end
 
 	local w, h = self:getMapSize()
 	if not w then return end

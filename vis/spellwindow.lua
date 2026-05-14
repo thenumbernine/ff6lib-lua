@@ -1,4 +1,3 @@
-local range = require 'ext.range'
 local ig = require 'imgui'
 local ArrayWindow = require 'ff6.vis.arraywindow'
 
@@ -7,21 +6,16 @@ local SpellWindow = ArrayWindow:subclass()
 
 SpellWindow.name = 'spell'
 
-function SpellWindow:init(...)
-	SpellWindow.super.init(self, ...)
+function SpellWindow:getCount()
 	local game = self.app.game
-	self.array = range((game.countof(game.spells)))
-end
-
-function SpellWindow:getArray()
-	return self.array
+	return game.countof(game.spells)
 end
 
 function SpellWindow:getIndexName(i)
 	return self.app.game.getSpellName(i)
 end
 
-function SpellWindow:showIndexUI(ar)
+function SpellWindow:showIndexUI()
 	local app = self.app
 	local game = app.game
 

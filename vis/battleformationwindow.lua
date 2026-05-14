@@ -1,24 +1,16 @@
 local table = require 'ext.table'
-local range = require 'ext.range'
 local ig = require 'imgui'
-local ArrayWindow = require 'ff6.vis.arraywindow'
 local readMonsterSprite = require 'ff6.monstersprite'
+local ArrayWindow = require 'ff6.vis.arraywindow'
 
 
 local BattleFormationWindow = ArrayWindow:subclass()
 
 BattleFormationWindow.name = 'battle formation'
 
-function BattleFormationWindow:init(...)
-	BattleFormationWindow.super.init(self, ...)
-
+function BattleFormationWindow:getCount()
 	local game = self.app.game
-
-	self.array = range((game.countof(game.formations)))
-end
-
-function BattleFormationWindow:getArray()
-	return self.array
+	return game.countof(game.formations)
 end
 
 function BattleFormationWindow:getIndexName(i)
@@ -46,7 +38,7 @@ local availSize = ig.ImVec2()
 local drawSize = ig.ImVec2()
 local uv0 = ig.ImVec2(0,0)
 local uv1 = ig.ImVec2(1,1)
-function BattleFormationWindow:showIndexUI(ar)
+function BattleFormationWindow:showIndexUI()
 	local app = self.app
 	local game = app.game
 

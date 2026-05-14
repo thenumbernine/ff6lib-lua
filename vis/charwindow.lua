@@ -1,4 +1,3 @@
-local range = require 'ext.range'
 local ig = require 'imgui'
 local ArrayWindow = require 'ff6.vis.arraywindow'
 
@@ -7,21 +6,15 @@ local CharWindow = ArrayWindow:subclass()
 
 CharWindow.name = 'characters'
 
-function CharWindow:init(...)
-	CharWindow.super.init(self, ...)
-
-	self.array = range(self.app.game.numCharacters)
-end
-
-function CharWindow:getArray()
-	return self.array
+function CharWindow:getCount()
+	return self.app.game.numCharacters
 end
 
 function CharWindow:getIndexName(i)
 	return self.app.game.characterNames[i]
 end
 
-function CharWindow:showIndexUI(ar)
+function CharWindow:showIndexUI()
 	local app = self.app
 	local game = app.game
 

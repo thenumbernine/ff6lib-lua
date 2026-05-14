@@ -1,6 +1,5 @@
 local ffi = require 'ffi'
 local math = require 'ext.math'
-local range = require 'ext.range'
 local ig = require 'imgui'
 local ArrayWindow = require 'ff6.vis.arraywindow'
 
@@ -11,20 +10,15 @@ local TileSheetWindow = ArrayWindow:subclass()
 
 TileSheetWindow.name = 'tile sheet'
 
-function TileSheetWindow:init(...)
-	self.array = range(256)
-	TileSheetWindow.super.init(self, ...)
-end
-
-function TileSheetWindow:getArray()
-	return self.array
+function TileSheetWindow:getCount()
+	return 256
 end
 
 local min = ig.ImVec2()
 local max = ig.ImVec2()
 local availSize = ig.ImVec2()
 local drawSize = ig.ImVec2()
-function TileSheetWindow:showIndexUI(ar)
+function TileSheetWindow:showIndexUI()
 	local layerTexs = self.app.map16x16tileTexs
 	if not layerTexs then return end
 	local texs = layerTexs[self.layerIndex]

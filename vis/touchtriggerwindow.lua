@@ -11,11 +11,11 @@ function TouchTriggerWindow:getArray()
 	return mapInfo and mapInfo.touchTriggers
 end
 
-function TouchTriggerWindow:showIndexUI(ar)
+function TouchTriggerWindow:showIndexUI()
 	local app = self.app
 	local game = app.game
 
-	local e = ar[1+self.index]
+	local e = self:getIndex(self.index)
 	if not e then return end
 
 	self:editField(e, 'pos', game.XY8b)

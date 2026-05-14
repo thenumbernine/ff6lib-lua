@@ -23,7 +23,8 @@ function EventScriptWindow:getIndexName(i)
 	return ('event $%06x'):format(self.app.game.eventScriptCmds[1+i].addr)
 end
 
-function EventScriptWindow:showIndexUI(ar)
+function EventScriptWindow:showIndexUI()
+	local ar = self:getArray()
 	-- TODO index isn't necessary for this window
 	-- tho better TODO is to fix the scroll area of the clipper and make it jump correctly
 	--if ig.igBeginChild('ScriptWindowEvents', ig.ImVec2(0, #ar), true) then

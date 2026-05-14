@@ -12,8 +12,8 @@ function BigDoorWindow:getArray()
 	return mapInfo and mapInfo.bigDoors
 end
 
-function BigDoorWindow:showIndexUI(ar)
-	local e = ar[1+self.index]
+function BigDoorWindow:showIndexUI()
+	local e = self:getIndex(self.index)
 	if not e then return end
 
 	ig.igPushID_Str(self.name)

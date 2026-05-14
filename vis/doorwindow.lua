@@ -10,8 +10,8 @@ function DoorWindow:getArray()
 	return mapInfo and mapInfo.doors
 end
 
-function DoorWindow:showIndexUI(ar)
-	local e = ar[1+self.index]
+function DoorWindow:showIndexUI()
+	local e = self:getIndex(self.index)
 	if not e then return end
 
 	ig.igPushID_Str(self.name)

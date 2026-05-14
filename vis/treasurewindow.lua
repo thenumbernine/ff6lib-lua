@@ -11,13 +11,12 @@ function TreasureWindow:getArray()
 	return mapInfo and mapInfo.treasures
 end
 
-function TreasureWindow:showIndexUI(ar)
-	local t = ar[1+self.index]
+function TreasureWindow:showIndexUI()
+	local t = self:getIndex(self.index)
 	if not t then return end
 
 	local app = self.app
 
-	ig.igPushID_Str(self.name)
 	for fieldname, ctype, field in t:fielditer() do
 		if fieldname == 'battleOrItemOrGP' then
 			if t.type == 0 then	-- empty
@@ -32,12 +31,9 @@ function TreasureWindow:showIndexUI(ar)
 				ig.igText(' ??? = '..t.battleOrItemOrGP)
 			end
 		else
-			ig.igPushID_Str(fieldname)
 			self:editField(t, fieldname, ctype, field)
-			ig.igPopID()
 		end
 	end
-	ig.igPopID()
 end
 
 return TreasureWindow
