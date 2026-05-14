@@ -2796,6 +2796,7 @@ game.MonsterItem = MonsterItem
 game.Formation = Formation
 game.Formation2 = Formation2
 game.MenuName = MenuName
+game.MenuNameRef = MenuNameRef
 game.MenuNameRef4 = MenuNameRef4
 game.CharacterName = CharacterName
 game.Character = Character
@@ -2829,6 +2830,40 @@ require 'ff6.maps'(game)
 
 require 'ff6.script'(game)
 
+
+-- another file for this or nah?
+function game.getMenuCharImage(charIndex)
+	if charIndex < 0 or charIndex >= numMenuChars then return end
+
+	local Image = require 'image'
+	local makePalette = require 'ff6.graphics'.makePalette
+	local tileWidth = require 'ff6.graphics'.tileWidth
+	local tileHeight = require 'ff6.graphics'.tileHeight
+	local readTile = require 'ff6.graphics'.readTile
+
+	local bpp = 4
+	local tilesWide = 5
+	local tilesHigh = 5
+
+	local baseptr
+	if charIndex < 16 then
+		baseptr = rom + 0x2d0000 + game.characterMenuImageOffsets[charIndex]
+	else
+		baseptr = game.characterMenuImages + charIndex * (tilesWide * tilesHigh * 8 * bpp)
+	end
+
+	local im = Image(tileWidth*tilesWide, tileHeight*tilesHigh, 1, uint8_t):clear()
+	local tileIndex = 0
+	for ty=0,tilesHigh-1 do
+		for tx=0,tilesWide-1 do
+			local ptr = baseptr + game.characterMenuImageTileLayout[tileIndex] * 8 * bpp
+			readTile(im, tx*tileWidth, ty*tileHeight, ptr, bpp)
+			tileIndex = tileIndex + 1
+		end
+	end
+	im.palette = makePalette(game, game.menuPortraitPalette + charIndex, 4, 16)
+	return im
+end
 
 --[[ 0xd1600
 					-- Game Genie code:

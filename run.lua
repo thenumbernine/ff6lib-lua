@@ -10,9 +10,6 @@ local Image = require 'image'
 local gnuplot = require 'gnuplot'
 local makePalette = require 'ff6.graphics'.makePalette
 local makePaletteSets = require 'ff6.graphics'.makePaletteSets
-local tileWidth = require 'ff6.graphics'.tileWidth
-local tileHeight = require 'ff6.graphics'.tileHeight
-local readTile = require 'ff6.graphics'.readTile
 
 local infn, outfn = ...
 assert(infn, "missing filename")
@@ -701,34 +698,11 @@ print('menuWindowPalettes = '..game.menuWindowPalettes)
 
 --print('characterMenuImages = '..game.characterMenuImages)
 do
-	local bpp = 4
-	local tilesWide = 5
-	local tilesHigh = 5
 	local menucharpath = path'characters_menu'
 	menucharpath:mkdir()
-	local ptr = game.characterMenuImages
 	for charIndex=0,game.numMenuChars-1 do
-		-- same same anyways?
-		if charIndex < 16 then
-			ptr = rom + 0x2d0000 + game.characterMenuImageOffsets[charIndex]
-		else
-			ptr = game.characterMenuImages + charIndex * (tilesWide * tilesHigh * 8 * bpp)
-		end
-		local baseptr = ptr
-		local im = Image(tileWidth*tilesWide, tileHeight*tilesHigh, 1, 'uint8_t')
-			:clear()
-		local tileIndex = 0
-		for ty=0,tilesHigh-1 do
-			for tx=0,tilesWide-1 do
-				ptr = baseptr + game.characterMenuImageTileLayout[tileIndex] * 8 * bpp
-				readTile(im, tx*tileWidth, ty*tileHeight, ptr, bpp)
-				tileIndex = tileIndex + 1
-			end
-		end
-		im.palette = makePalette(game, game.menuPortraitPalette + charIndex, 4, 16)
-		im:save(
-			menucharpath('menu'..charIndex..'.png').path
-		)
+		local im = game.getMenuCharImage(charIndex)
+		im:save(menucharpath/('menu'..charIndex..'.png'))
 	end
 	--for charIndex=0,game.numMenuChars-1 do
 	--	print('menuPortraitPalette = '..game.menuPortraitPalette[charIndex])

@@ -18,7 +18,6 @@ function BigDoorWindow:showIndexUI(ar)
 
 	ig.igPushID_Str(self.name)
 	for fieldname, ctype, field in e:fielditer() do
-		ig.igPushID_Str(fieldname)
 		if fieldname == 'mapIndex' then
 			if self:editRef(self.app.mapWindow, e, 'mapIndex') then
 				self:goThruDoor()
@@ -26,7 +25,6 @@ function BigDoorWindow:showIndexUI(ar)
 		else
 			self:editField(e, fieldname, ctype, field)
 		end
-		ig.igPopID()
 	end
 	ig.igPopID()
 end

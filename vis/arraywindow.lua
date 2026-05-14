@@ -1,6 +1,7 @@
 local ffi = require 'ffi'
 local assert = require 'ext.assert'
 local table = require 'ext.table'
+local range = require 'ext.range'
 local class = require 'ext.class'
 local gl = require 'gl'
 local GLTex2D = require 'gl.tex2d'
@@ -184,6 +185,8 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 	or ctypeobj == game.Element
 	or ctypeobj == game.Targetting
 	or ctypeobj == game.SpellLearn
+	or ctypeobj == game.MenuNameRef4
+	or ctypeobj == game.ItemRef2
 	then
 		-- i think imgui has vector inputs... hmmm
 		ig.igText(fieldname)
@@ -236,6 +239,16 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 		end
 		--]==]
 		--]=]
+
+	elseif ctypeobj == game.MenuNameRef then
+
+		self.tmpInt = self.tmpInt or ffi.new('int[1]')
+		self.tmpInt[0] = obj[fieldname].i
+		if ig.igCombo('', self.tmpInt, range(0,game.countof(game.menuNames)-1):mapi(function(i)
+			return tostring(game.menuNames[i])
+		end)) then
+			obj[fieldname].i = self.tmpInt[0]
+		end
 
 	-- default:
 	else
