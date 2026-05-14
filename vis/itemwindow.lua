@@ -59,9 +59,10 @@ function ItemWindow:showIndexUI(ar)
 	end
 	ig.igPopID()
 
+
 	-- reverse-references:
 
-	if self.colosseumBetsWithThis == nil then
+	if not self.colosseumBetsWithThis then
 		self.colosseumBetsWithThis = table()
 		for i=0,game.countof(game.items)-1 do
 			local otherColInfo = game.itemColosseumInfos + i
@@ -85,7 +86,7 @@ function ItemWindow:showIndexUI(ar)
 	end
 
 
-	if self.monstersWithThis == nil then
+	if not self.monstersWithThis then
 		self.monstersWithThis = table()
 		for i=0,game.countof(game.monsterItems)-1 do
 			local monsterItem = game.monsterItems + i
@@ -111,7 +112,7 @@ function ItemWindow:showIndexUI(ar)
 	end
 
 
-	if self.treasuresWithThis == nil then
+	if not self.treasuresWithThis then
 		self.treasuresWithThis = table()
 		for i=0,game.countof(game.maps)-1 do
 			local mapInfo = game.getMap(i)		-- this wont bloat mem too much right?
@@ -158,7 +159,51 @@ function ItemWindow:showIndexUI(ar)
 	end
 
 
-	if self.metamorphsWithThis == nil then
+	if not self.charsWithThis then
+		self.charsWithThis = table()
+		for i=0,game.numCharacters-1 do
+			local name = tostring(game.characterNames[i])
+			local ch = game.characters + i
+			for _,field in ipairs{'lhand', 'rhand', 'head', 'body'} do
+				if ch[field].i == self.index then
+					self.charsWithThis:insert{charIndex=i, name=name, field=field}
+				end
+			end
+			-- TODO time to not make these an array?
+			for j=0,1 do
+				if ch.relic.s[j].i == self.index then
+					self.charsWithThis:insert{charIndex=i, name=name, field='relic'..(j+1)}
+				end
+			end
+		end
+	end
+	ig.igSeparator()
+	ig.igText'found in characters ...'
+	if #self.charsWithThis == 0 then
+		ig.igText'...none'
+	else
+		ig.igPushID_Str'itemWindow-charsWithThis'
+		local lastChar
+		for j,info in ipairs(self.charsWithThis) do
+			ig.igPushID_Int(j)
+			if lastChar ~= info.name then
+				lastChar = info.name
+				ig.igText(lastChar)
+			end
+			ig.igSameLine()
+
+			if ig.igButton(info.field) then
+				self.app.charWindow.show[0] = true
+				self.app.charWindow:setIndex(info.charIndex)
+			end
+
+			ig.igPopID()
+		end
+		ig.igPopID()
+	end
+
+
+	if not self.metamorphsWithThis then
 		self.metamorphsWithThis = table()
 		for i=0,game.countof(game.metamorphSets)-1 do
 			local mmset = game.metamorphSets + i
@@ -216,6 +261,7 @@ function ItemWindow:setIndex(...)
 	self.colosseumBetsWithThis = nil
 	self.monstersWithThis = nil
 	self.treasuresWithThis = nil
+	self.charsWithThis = nil
 	self.metamorphsWithThis = nil
 	self.eventScriptCmdsWithThis = nil
 end

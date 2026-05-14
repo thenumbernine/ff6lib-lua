@@ -57,6 +57,7 @@ function CharWindow:setIndex(...)
 	-- refresh char sprite
 	if self.charSpriteTex then
 		self.charSpriteTex:delete()
+		self.charSpriteTex = nil
 	end
 	if self.index >= 0 and self.index < game.numMenuChars then
 		self.charSpriteTex = self:makeTex(
