@@ -131,6 +131,10 @@ function MapWindow:showIndexUI()
 	ig.igSameLine()
 	app.npcWindow:popupButton()
 
+	ig.luatableTooltipCheckbox('showVoxelmapFloodFills', app, 'showVoxelmapFloodFills')
+	ig.igSameLine()
+	app.voxelmapWindow:popupButton()
+
 	if self.index < 2 then
 		ig.luatableTooltipCheckbox('showWorldEncounterSectors', app, 'showWorldEncounterSectors')
 		ig.igSameLine()

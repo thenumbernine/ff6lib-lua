@@ -35,4 +35,17 @@ end
 
 --function Window:updateWindow() ... end
 
+function Window:popupButton()
+	local result
+	ig.igPushID_Str((assert.type(self.name, 'string')))
+	ig.igPushID_Str'popup button'
+	if ig.igButton(self.name) then
+		self.show[0] = true
+		result = true
+	end
+	ig.igPopID()
+	ig.igPopID()
+	return result
+end
+
 return Window

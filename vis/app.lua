@@ -435,6 +435,7 @@ function App:onLoadROM(infn, mapIndex)
 	self.showNPCs = true
 	self.npcWindow = NPCWindow{app=self}
 
+
 	local WorldEncounterSectorWindow = require 'ff6.vis.worldencountersectorwindow'
 	self.showWorldEncounterSectors = false	-- nah too big
 	self.worldEncounterSectorWindow = WorldEncounterSectorWindow{app=self}
@@ -468,7 +469,10 @@ function App:onLoadROM(infn, mapIndex)
 	local ScriptWindow = require 'ff6.vis.scriptwindow'
 	self.scriptWindow = ScriptWindow{app=self}
 
+	-- idk i guess this is a 'child of' map window whatever that means
+	-- but i'm still putting it as a base window
 	local VoxelmapWindow = require 'ff6.vis.voxelmapwindow'
+	self.showVoxelmapFloodFills = true
 	self.voxelmapWindow = VoxelmapWindow{app=self}
 
 	-- base-level not dependent on another window:
