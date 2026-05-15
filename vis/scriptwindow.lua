@@ -24,6 +24,9 @@ function EventScriptWindow:getIndexName(i)
 end
 
 function EventScriptWindow:showIndexUI()
+	local app = self.app
+	local game = app.game
+
 	local ar = self:getArray()
 	-- TODO index isn't necessary for this window
 	-- tho better TODO is to fix the scroll area of the clipper and make it jump correctly
@@ -52,12 +55,68 @@ function EventScriptWindow:showIndexUI()
 			for i=self.clipper.DisplayStart,self.clipper.DisplayEnd-1 do
 				local cmd = ar[1+i]
 				if cmd then
+					ig.igPushID_Int(cmd.addr)
+
 					ig.igText(
 						(i == self.index and '>' or ' ')
 						..('%06x: '):format(cmd.addr)
-						..tostring(cmd)
-							:gsub('\n', '\\n')
 					)
+					ig.igSameLine()
+
+					-- item links:
+					if game.ScriptCmds.GiveItem:isa(cmd) then
+						ig.igText'GiveItem'
+						ig.igSameLine()
+						app.itemWindow:popupButton(cmd.itemIndex)
+					elseif game.ScriptCmds.TakeItem:isa(cmd) then
+						ig.igText'TakeItem'
+						ig.igSameLine()
+						app.itemWindow:popupButton(cmd.itemIndex)
+
+					-- battles:
+					elseif game.ScriptCmds.TouchBattle:isa(cmd) then	-- TouchBattle is a subclass of Battle
+						ig.igText'TouchBattle'
+						ig.igSameLine()
+						app.eventBattleOptionsWindow:popupButton(cmd.eventBattleOptionsIndex)
+					elseif game.ScriptCmds.Battle:isa(cmd) then
+						ig.igText'Battle'
+						ig.igSameLine()
+						app.eventBattleOptionsWindow:popupButton(cmd.eventBattleOptionsIndex)
+
+					-- maps:
+					elseif game.ScriptCmds.SetMap2:isa(cmd) then	-- SetMap2 is a subclass of SetMap
+						ig.igText'SetMap2'
+						ig.igSameLine()
+						if app.mapWindow:popupButton(cmd.mapIndex) then
+							local mapWidth, mapHeight = app.tileWindow:getMapSize()
+							if mapWidth and mapHeight then
+								app.tileWindow:setIndex(cmd.x + mapWidth * cmd.y)
+							end
+							app:centerView(cmd.x, cmd.y)
+						end
+					elseif game.ScriptCmds.SetMap:isa(cmd) then
+						ig.igText'SetMap'
+						ig.igSameLine()
+						if app.mapWindow:popupButton(cmd.mapIndex) then
+							local mapWidth, mapHeight = app.tileWindow:getMapSize()
+							if mapWidth and mapHeight then
+								app.tileWindow:setIndex(cmd.x + mapWidth * cmd.y)
+							end
+							app:centerView(cmd.x, cmd.y)
+						end
+					elseif game.ScriptCmds.MovePartyToMap:isa(cmd) then
+						ig.igText('movePartyToMap '..cmd.partyIndex)
+						ig.igSameLine()
+						if app.mapWindow:popupButton(cmd.mapIndex) then
+							-- hmm, no x,y?
+						end
+
+					else
+					-- default:
+						ig.igText(tostring(cmd):gsub('\n', '\\n'))
+					end
+
+					ig.igPopID()
 				end
 			end
 		end

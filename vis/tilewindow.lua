@@ -14,15 +14,6 @@ local uint8_t_p = ffi.typeof'uint8_t*'
 local uint16_t_p = ffi.typeof'uint16_t*'
 
 
--- convert from 4-bit xy ff6 16x16 tilemap index to numo9 5-bit xy 8x8 tilemap index
-local function tile44to55(index)
-	return bit.bor(
-		bit.lshift(bit.band(0x0f, index), 1),
-		bit.lshift(bit.band(0xf0, index), 2)
-	)
-end
-
-
 local ArrayWindow = require 'ff6.vis.arraywindow'
 
 local TileWindow = ArrayWindow:subclass()

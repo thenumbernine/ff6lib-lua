@@ -9,13 +9,15 @@ local vec3d = require 'vec-ffi.vec3d'
 local vec4x4fcol = require 'vec-ffi.vec4x4fcol'
 local LiteThread = require 'thread.lite'
 local Semaphore = require 'thread.semaphore'
+local Image = require 'image'
 local sdl = require 'sdl'
 local sdlAssertNonNull = require 'sdl.assert'.nonnull
 local gl = require 'gl'
-local Image = require 'image'
 local GLTex2D = require 'gl.tex2d'
+local GLPingPong = require 'gl.pingpong'
 local GLSceneObject = require 'gl.sceneobject'
 local ig = require 'imgui'
+local ImGuiAppWithOrbit = require 'imgui.appwithorbit'
 
 local vis_util = require 'ff6.vis.util'
 local zAndLayersWithoutLayer3Priority = vis_util.zAndLayersWithoutLayer3Priority
@@ -31,7 +33,7 @@ local startTime = timer.getTime()
 
 local app	-- singleton, save for the sdl open file callback
 
-local App = require 'imgui.appwithorbit'()
+local App = ImGuiAppWithOrbit()
 
 App.hasFocus = true
 App.title = 'FF6 Data Visualizer'
@@ -40,9 +42,6 @@ function App:initGL(...)
 	app = self
 
 	App.super.initGL(self, ...)
-
-	self.lastLeftPressTime = startTime
-	self.leftPressTime = startTime
 
 	self.view.ortho = true
 	self.view.orthoSize = 16
@@ -647,14 +646,10 @@ function App:update()
 self.tooltipText = math.floor(mx)..', '..math.floor(my)
 
 			local leftPress = self.mouse.leftPress
-			if leftPress then
-				self.lastLeftPressTime = self.leftPressTime
-				self.leftPressTime = timer.getTime()
-			end
 
 			-- tempting to implement this as a bitflag layer ...
 			if self.showVoxelmapFloodFills then
-				self.voxelmapWindow:showTiles(showHL)
+				self.voxelmapWindow:showTiles(mx, my, showHL)
 			end
 
 			if (self.mapWindow.index == 0 or self.mapWindow.index == 1)
@@ -758,7 +753,6 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 					then
 						self.doorWindow:setIndex(i-1)
 						self.doorWindow.show[0] = true
-						print('double-click time', self.leftPressTime - self.lastLeftPressTime)
 						-- double-click to quick-traverse map
 						if self.mouse.leftDoubleClick then
 							self.doorWindow:goThruDoor()
@@ -925,7 +919,6 @@ function App:updateGUI()
 						end
 
 						-- save a composite image while we're here
-						local GLPingPong = require 'gl.pingpong'
 						local pp = GLPingPong{
 							numBuffers = 1,
 							width = tonumber(self.mapSize.x),

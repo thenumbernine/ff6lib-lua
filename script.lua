@@ -307,7 +307,7 @@ print(('$%06x-$%06x'):format(startaddr2, endaddr2))
 			self.noBlur = 0 ~= bit.band(0x80, arg)
 		end,
 		__tostring = function(self)
-			return (self.collisionBattle and 'collision battle' or 'normal battle')
+			return (self.touchBattle and 'touchBattle' or 'battle')
 				..' eventBattleOptionsIndex='..self.eventBattleOptionsIndex
 				..' background='..bit.band(0x3f, self.battleBG)
 				..(self.noSound and ' no sound' or '')
@@ -315,9 +315,9 @@ print(('$%06x-$%06x'):format(startaddr2, endaddr2))
 		end,
 	}
 
-	ScriptCmds.CollisionBattle = ScriptCmds.Battle:subclass{
+	ScriptCmds.TouchBattle = ScriptCmds.Battle:subclass{
 		cmd = 0x4c,
-		collisionBattle = true,
+		touchBattle = true,
 	}
 
 	ScriptCmds.RandomBattle = Cmd:subclass{
@@ -468,7 +468,7 @@ print(('$%06x-$%06x'):format(startaddr2, endaddr2))
 		desc = 'setMapAnimationSpeed{tile=<?=tile?>, speed=<?=speed?>}',
 	}
 
-	ScriptCmds.ChangeMap = Cmd:subclass{
+	ScriptCmds.SetMap = Cmd:subclass{
 		cmd = 0x6a,
 		argtypes = {uint16_t, uint8_t, uint8_t, uint8_t},
 		getargs = function(self, arg, x, y, flags)
@@ -476,6 +476,9 @@ print(('$%06x-$%06x'):format(startaddr2, endaddr2))
 			self.y = y
 			self.flags = flags
 			self.arg = arg
+			-- hmm why is the map index off by 1? and not always too?
+			-- off by 1 in the event entering Mt Kolts.
+			-- not off by 1 in the event when entering the figaro caves from the figaro castle basement.
 			self.mapIndex = bit.band(arg, 0x1ff)
 		end,
 		__tostring = function(self)
@@ -494,7 +497,7 @@ print(('$%06x-$%06x'):format(startaddr2, endaddr2))
 		end,
 	}
 
-	ScriptCmds.ChangeMap2 = ScriptCmds.ChangeMap:subclass{
+	ScriptCmds.SetMap2 = ScriptCmds.SetMap:subclass{
 		cmd = 0x6b,
 	}
 

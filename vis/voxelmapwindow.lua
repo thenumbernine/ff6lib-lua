@@ -22,11 +22,29 @@ local worldTilePropsFlagForName = vis_util.worldTilePropsFlagForName
 local settable = vis_util.settable
 
 
+local uint8_t_p = ffi.typeof'uint8_t*'
+local uint16_t_p = ffi.typeof'uint16_t*'
 local intptr_t = ffi.typeof'intptr_t'
 
 
-local floodFillSavePath = path'floodfill-save.lua'
+-- now flood-fill against bit #17 (the fake one for the special-value of 'impassible')
+local fourDirs = {
+	{1, 0},
+	{0, 1},
+	{-1, 0},
+	{0, -1},
+}
 
+-- convert from 4-bit xy ff6 16x16 tilemap index to numo9 5-bit xy 8x8 tilemap index
+local function tile44to55(index)
+	return bit.bor(
+		bit.lshift(bit.band(0x0f, index), 1),
+		bit.lshift(bit.band(0xf0, index), 2)
+	)
+end
+
+
+local floodFillSavePath = path'floodfill-save.lua'
 
 local FloodFillInfo = class()
 
@@ -42,28 +60,107 @@ end
 
 function FloodFillInfo:calcSize()
 	local bbox = self.bbox
-	return vec3i(bbox.max.x - bbox.min.x, bbox.max.y - bbox.min.y, self.maxAlt)
+	return vec3i(bbox.max.x - bbox.min.x + 1, bbox.max.y - bbox.min.y + 1, self.maxAlt)
 end
 
-function FloodFillInfo:calcAlts()
-	local tileIsNorthSlope = string.split(ffInfo.tileIsNorthSlope, ','):mapi(function(x)
+function FloodFillInfo:refreshTileValues()
+	local app  = self.app
+	local game = app.game
+	local mapIndex = app.mapWindow.index
+	local mapInfo = game.getMap(mapIndex)
+	if not mapInfo then return end
+	local layerSizes = mapInfo.layerSizes
+	local mapWidth, mapHeight = layerSizes[1].x, layerSizes[1].y
+
+	local size = self:calcSize()
+	for y=0,tonumber(size.y)-1 do	-- from bottom to top of 2D map, per-row (important for north-facing-stairs sake)
+		for x=0,tonumber(size.x)-1 do
+			local mapx = x + self.bbox.min.x
+			local mapy = size.y - 1 - y + self.bbox.min.y
+			local i = mapx + mapWidth * mapy
+			self.tileInfos[i] = self.tileInfos[i] or {x=mapx, y=mapy}
+			local tileInfo = self.tileInfos[i]
+			tileInfo.tile1, tileInfo.tile2, tileInfo.tile3 = app.voxelmapWindow:getAllTile16x16s(mapx, mapy)
+			tileInfo.tileValue = bit.bor(
+				tileInfo.tile1,
+				bit.lshift(tileInfo.tile2, 8),
+				bit.lshift(tileInfo.tile3, 16)
+			)
+		end
+	end
+
+	-- should I throw away keys oob?
+end
+
+function FloodFillInfo:recalcAlts()
+	self:refreshTileValues()
+
+	local app  = self.app
+	local game = app.game
+	local mapIndex = app.mapWindow.index
+	local mapInfo = game.getMap(mapIndex)
+	if not mapInfo then return end
+	local layerSizes = mapInfo.layerSizes
+	local mapWidth, mapHeight = layerSizes[1].x, layerSizes[1].y
+
+	local tileIsNorthSlope = string.split(self.tileIsNorthSlope, ','):mapi(function(x)
 		return true, (assert(tonumber(x)))
 	end)
 
-	local size = ffInfo:calcSize()
+	local size = self:calcSize()
 
 	local alt = 0
+	-- iterate in voxelmap xy coords
 	for y=0,tonumber(size.y)-1 do	-- from bottom to top of 2D map, per-row (important for north-facing-stairs sake)
 		local nextAlt
 		for x=0,tonumber(size.x)-1 do
+			local mapx = x + self.bbox.min.x
+			local mapy = size.y - 1 - y + self.bbox.min.y
+			local i = mapx + mapWidth * mapy
+			local tileInfo = self.tileInfos[i]
+			if tileInfo then
+				if tileInfo.filled then
+					local floorTile16x16 = app.voxelmapWindow:getFloorTile(mapx, mapy)
 
-			local floorTile16x16 = self.app.voxelmapWindow:getFloorTile(mapx, mapy)
-			local slope = tileIsNorthSlope[floorTile16x16]
-			if slope then
-				nextAlt = alt + 1
+					-- TODO what kind of slope ... half step vs whole step
+					tileInfo.slope = tileIsNorthSlope[floorTile16x16]
+					if tileInfo.slope then
+						nextAlt = alt + 1
+					end
+
+					tileInfo.alt = alt
+				else
+					-- not a floor tile ...
+					-- is it a ceiling tile?
+					-- TODO where to put this test ...
+					tileInfo.isCeiling =
+						tileInfo.tile1 == 1
+						or (
+							tileInfo.tile1 == 0x11	-- transparent
+							and tileInfo.tile2 == 1
+						)
+				end
 			end
+		end
+		alt = math.min(nextAlt or alt, size.z-1)
+	end
 
-
+	-- iterate in voxelmap xy coords
+	for x=0,tonumber(size.x)-1 do
+		local lastFilledY
+		for y=0,tonumber(size.y)-1 do	-- from bottom to top
+			local mapx = x + self.bbox.min.x
+			local mapy = size.y - 1 - y + self.bbox.min.y
+			local i = mapx + mapWidth * mapy
+			local tileInfo = self.tileInfos[i]
+			if tileInfo then
+				if tileInfo.filled then
+					lastFilledY = y
+				elseif lastFilledY and tileInfo.isCeiling then
+					local wallHeight = y - lastFilledY
+--print('x', x, 'from y', lastFilledY, 'to y', y, 'wallHeight', wallHeight)
+				end
+			end
 		end
 	end
 end
@@ -184,40 +281,25 @@ function VoxelmapWindow:updateWindow()
 			local y = (tileIndex - x) / mapWidth
 
 			local found
-			for _,ff in ipairs(self.floodFillTilesPerMap[mapIndex] or {}) do
-				if ff.filled[x + mapWidth * y] then
+			for _,ffInfo in ipairs(self.floodFillTilesPerMap[mapIndex] or {}) do
+				if ffInfo.tileInfos[x + mapWidth * y] then
 					print'already flood-filled this region!'
 					found = true
 				end
 			end
 			if not found then
-				-- now flood-fill against bit #17 (the fake one for the special-value of 'impassible')
-				local dirs = {
-					{1, 0},
-					{0, 1},
-					{-1, 0},
-					{0, -1},
-				}
-
-				local filled = {}
+				-- first populate this with only filled tiles
+				-- then after the flood fill, populate all and later let the user add annotations
+				local tileInfos = {}
 				local bbox = box2i()
 				bbox.min:set(32767, 32767)	-- some max bound
 				bbox.max:set(-32768, -32768)				-- some min bound
 				local function writeFilled(x,y)
 					bbox:stretch(vec2i(x,y))
-					local i = x + mapWidth * y
-					-- read 16x16's here ...
-					local value = 0
-					for layer=1,3 do
-						local tile16x16 = self:getTile16x16(x, y, layer) or 0
-						value = bit.bor(value, bit.lshift(
-							tile16x16,
-							bit.lshift(layer-1, 3)	-- shift our 16x16 byte left 8 bits per layer...
-						))
-					end
-
-					filled[i] = {
-						tileValue = value,
+					tileInfos[x + mapWidth * y] = {
+						x = x,
+						y = y,
+						filled = true,
 						alt = 0,
 					}
 				end
@@ -235,13 +317,27 @@ function VoxelmapWindow:updateWindow()
 					fillstack:insert{x, y}
 					while #fillstack > 0 do
 						local x0, y0 = table.unpack(fillstack:remove())
+						local dirs = table(fourDirs)
+
+						-- no stairs on the world map
+						if mapIndex >= 3 then
+							-- as long as i'm just testing current tile then I need to flood-fill from the lowest point ...
+							local flags = data[x0 + mapWidth * y0]
+							if 0 ~= bit.band(flags, mapTilePropsFlagForName.stairsUpLeft) then
+								dirs:insert{-1, -1}
+							end
+							if 0 ~= bit.band(flags, mapTilePropsFlagForName.stairsUpRight) then
+								dirs:insert{1, -1}
+							end
+						end
+
 						for _,dir in ipairs(dirs) do
 							local x1, y1 = x0 + dir[1], y0 + dir[2]
 							if x1 >= 0 and x1 < mapWidth
 							and y1 >= 0 and y1 < mapHeight
 							then
 								local i = x1 + mapWidth * y1
-								if not filled[i]
+								if not tileInfos[i]
 								and canTraverse(x1, y1)
 								then
 									writeFilled(x1, y1)
@@ -252,27 +348,35 @@ function VoxelmapWindow:updateWindow()
 					end
 				end
 
+				self.floodFillTilesPerMap[mapIndex] = self.floodFillTilesPerMap[mapIndex] or table()
+				local ffInfo = FloodFillInfo{
+					app = app,
+					tileInfos = tileInfos,			-- key = tile index, value = table, .tileValue = int with each byte a layer's tile16x16 index
+					bbox = bbox,
+					destFilename = 'exported-voxelmap-map'..mapIndex..'-'..(#self.floodFillTilesPerMap[mapIndex]+1)..'.vox',
+				}
+				self.floodFillTilesPerMap[mapIndex]:insert(ffInfo)
+
+				-- now refresh tile values (gotta do this eveyr time the bbox changes)
+				-- hist needs this
+				ffInfo:refreshTileValues()
+
 				-- hmm TODO
 				-- histogram on layer1 tile or layer2 or on both?
 				local hist = {}
-				for index, ft in pairs(filled) do
-					hist[ft.tileValue] = (hist[ft.tileValue] or 0) + 1
+				for index, tileInfo in pairs(tileInfos) do
+					local tileValue = tileInfo.tileValue
+					if tileValue then
+						hist[tileValue] = (hist[tileValue] or 0) + 1
+					end
 				end
-				local tileValues = table.keys(hist):sort(function(a,b)
+				print('hist')
+				print(tolua(hist))
+				-- int of tile16x16 layers, sorted by occurrence
+				ffInfo.tileValues = table.keys(hist):sort(function(a,b)
 					return hist[a] > hist[b]
 				end)
-				local floorTile = bit.band(0xff, tileValues[1])
-
-				self.floodFillTilesPerMap[mapIndex] = self.floodFillTilesPerMap[mapIndex] or table()
-				self.floodFillTilesPerMap[mapIndex]:insert(FloodFillInfo{
-					app = app,
-					filled = filled,			-- key = tile index, value = int with each byte a layer's tile16x16 index
-					hist = hist,				-- key = int of tile16x16 layers (value of filled), value = occurrence count
-					tileValues = tileValues,	-- int of tile16x16 layers, sorted by occurrence
-					bbox = bbox,
-					floorTile = floorTile,
-					destFilename = 'exported-voxelmap-map'..mapIndex..'-'..(#self.floodFillTilesPerMap[mapIndex]+1)..'.vox',
-				})
+				ffInfo.floorTile = bit.band(0xff, ffInfo.tileValues[1])
 			end
 		end
 	end
@@ -280,153 +384,150 @@ function VoxelmapWindow:updateWindow()
 	local floodFillTilesForThisMap = self.floodFillTilesPerMap[mapIndex]
 	if floodFillTilesForThisMap then
 		for ffIndex,ffInfo in ipairs(floodFillTilesForThisMap) do
+			ig.igPushID_Int(ffIndex)
+
 			ig.igSeparator()
 			if ig.igButton'Remove' then
 				floodFillTilesForThisMap:remove(ffIndex)
-				return	-- iterated table is invalidated
-			end
+				-- iterated table is invalidated
+			else
 
-			ig.luatableTooltipInputText('output filename', ffInfo, 'destFilename')
-			ig.igSameLine()
-			if ig.igButton'...' then
-				-- TODO do a SDL open file dialog here
-				-- and save the resutl as our output location
-				sdl.SDL_ShowSaveFileDialog(
-					self.sdlSaveFileDialog_chooseOutputFilenameThread.funcptr,	-- callback
-					nil,				-- userdata
-					self.app.window,	-- window
-					nil,				-- filters
-					0,					-- nfilters
-					path(ffInfo.destFilename):getdir():exists()
-						and path(ffInfo.destFilename):getdir().path
-						or path:cwd().path		-- default_location
-				)
-			end
-			-- if we do the save then whatever ffInfo is open gets it, so don't change ffInfo's until you pick your file!
-			if self.semOpen:trywait() then
-				ffInfo.destFilename = self.sdlSaveFileDialog_chooseOutputFilenameThread.lua.global.openfilename
-			end
+				-- text here, or tolua/fromlua here to verify syntax?
+				ig.luatableInputText('tile remapping', ffInfo, 'tileRemapping')
 
+				ig.luatableInputInt('voxelmap height', ffInfo, 'maxAlt')
 
-			-- text here, or tolua/fromlua here to verify syntax?
-			ig.luatableInputText('tile remapping', ffInfo, 'tileRemapping')
+				ig.igText'flood fill bounds:'
+				local bbox = ffInfo.bbox
+				ig.luatableInputInt('flood fill min x', bbox.min, 'x')
+				ig.luatableInputInt('flood fill min y', bbox.min, 'y')
+				ig.luatableInputInt('flood fill max x', bbox.max, 'x')
+				ig.luatableInputInt('flood fill max y', bbox.max, 'y')
 
-			ig.luatableInputInt('voxelmap height', ffInfo, 'maxAlt')
+				-- AsText so it can handle all lua number parsing, including 0x's
+				ig.luatableInputFloatAsText('floor tile', ffInfo, 'floorTile')
+				ig.luatableInputFloatAsText('wall tile', ffInfo, 'wallTile')
+				ig.luatableInputFloatAsText('ceiling tile', ffInfo, 'ceilingTile')
 
-			ig.igText'flood fill bounds:'
-			local bbox = ffInfo.bbox
-			ig.luatableInputInt('flood fill min x', bbox.min, 'x')
-			ig.luatableInputInt('flood fill min y', bbox.min, 'y')
-			ig.luatableInputInt('flood fill max x', bbox.max, 'x')
-			ig.luatableInputInt('flood fill max y', bbox.max, 'y')
+				ig.luatableInputText('north slopes:', ffInfo, 'tileIsNorthSlope')
 
-			-- AsText so it can handle all lua number parsing, including 0x's
-			ig.luatableInputFloatAsText('floor tile', ffInfo, 'floorTile')
-			ig.luatableInputFloatAsText('wall tile', ffInfo, 'wallTile')
-			ig.luatableInputFloatAsText('ceiling tile', ffInfo, 'ceilingTile')
-
-			ig.luatableInputText('north slopes:', ffInfo, 'tileIsNorthSlope')
-
-			if ig.igButton'export voxelmap' then
-				local size = ffInfo:calcSize()
-
-				local tileRemap
-				if string.trim(ffInfo.tileRemapping) ~= '' then
-					xpcall(function()
-						tileRemap = assert(fromlua(ffInfo.tileRemapping))
-					end, function(err)
-						print(err..'\n'..debug.traceback())
-					end)
+				if ig.igButton'recalc alts...' then
+					ffInfo:recalcAlts()
 				end
 
-				-- in ff6, tile 1 <-> mine 2 is empty, but in mine it is where i put the torch animations (which are not present in the ff6 tile sheet)
-				local function applyRemaps(tileIndex)
-					return tileRemap and tileRemap[tileIndex] or tileIndex
-				end
 
-				local voxelmap
-				do
-					local v = vector(Voxel, 3 + size:volume())
-					ffi.cast('vec3i*', v.v)[0] = size
-					for i=3,3+size:volume()-1 do
-						v.v[i].intval = 0xffffffff
+
+				ig.luatableTooltipInputText('output filename', ffInfo, 'destFilename')
+				ig.igSameLine()
+				if ig.igButton'...' then
+					-- TODO do a SDL open file dialog here
+					-- and save the resutl as our output location
+					sdl.SDL_ShowSaveFileDialog(
+						self.sdlSaveFileDialog_chooseOutputFilenameThread.funcptr,	-- callback
+						nil,				-- userdata
+						self.app.window,	-- window
+						nil,				-- filters
+						0,					-- nfilters
+						path(ffInfo.destFilename):getdir():exists()
+							and path(ffInfo.destFilename):getdir().path
+							or path:cwd().path		-- default_location
+					)
+				end
+				-- if we do the save then whatever ffInfo is open gets it, so don't change ffInfo's until you pick your file!
+				if self.semOpen:trywait() then
+					ffInfo.destFilename = self.sdlSaveFileDialog_chooseOutputFilenameThread.lua.global.openfilename
+				end
+				if ig.igButton'export voxelmap' then
+					local size = ffInfo:calcSize()
+
+					local tileRemap
+					if string.trim(ffInfo.tileRemapping) ~= '' then
+						xpcall(function()
+							tileRemap = assert(fromlua(ffInfo.tileRemapping))
+						end, function(err)
+							print(err..'\n'..debug.traceback())
+						end)
 					end
-					voxelmap = BlobVoxelMap(v:dataToStr())
-				end
 
-				-- 2) copy ground tiles across
-				--local altForCol = range(size.x):mapi(function() return 0 end)
-				for y=0,tonumber(size.y)-1 do	-- from bottom to top of 2D map, per-row (important for north-facing-stairs sake)
-					for x=0,tonumber(size.x)-1 do
-						for z=0,tonumber(size.z)-1 do
-							local vox = voxelmap:getVoxelBlobPtr(x, y, z)
-							vox.intval = 0	-- reset from clear
-							vox.spriteIndex = applyRemaps(tile44to55(ffInfo.floorTile))
-							vox.mesh3DIndex = 0	-- hmm todo, floor voxel mesh index
-							--vox.orientation = 32	-- flip x in voxel orientation?
-							vox.orientation = 34	-- flip y
+					-- in ff6, tile 1 <-> mine 2 is empty, but in mine it is where i put the torch animations (which are not present in the ff6 tile sheet)
+					local function applyRemaps(tileIndex)
+						return tileRemap and tileRemap[tileIndex] or tileIndex
+					end
+
+					local voxelmap
+					do
+						local v = vector(Voxel, 3 + size:volume())
+						ffi.cast('vec3i*', v.v)[0] = size
+						for i=3,3+size:volume()-1 do
+							v.v[i].intval = 0xffffffff
 						end
+						voxelmap = BlobVoxelMap(v:dataToStr())
+					end
 
-						local mapx = x + bbox.min.x
-						local mapy = size.y - 1 - y + bbox.min.y
-						local i = mapx + mapWidth * mapy
-						if not ffInfo.filled[i] then
-							local alt = 0	--- ?? what should it be?
-							-- if this is a non-traversible tile then grow the walls
-							-- TODO determine which wall,
-							--  if it's north-facing then use y-z tile for walls
-							--  if it's south/east/west then reuse a previosly-created north-facing wall tile profile.
-							for z=alt+1,size.z-1 do
+					-- 2) copy ground tiles across
+					--local altForCol = range(size.x):mapi(function() return 0 end)
+					for y=0,tonumber(size.y)-1 do	-- from bottom to top of 2D map, per-row (important for north-facing-stairs sake)
+						for x=0,tonumber(size.x)-1 do
+							for z=0,tonumber(size.z)-1 do
 								local vox = voxelmap:getVoxelBlobPtr(x, y, z)
 								vox.intval = 0	-- reset from clear
-								-- TODO if it's a north wall then copy source tiles going y+
-								-- and if it's any other wall then copy from the north tile wall profile
-								vox.spriteIndex = applyRemaps(tile44to55(
-									self:getWallOrCeilingTile(mapx, mapy - z)
-									or (
-										z == size.z-1
-										and ffInfo.ceilingTile
-										or ffInfo.wallTile	-- TODO make this the most-prominent-wall-tile
-									)
-								))
-								-- idk how to find that out ... trace from top of traversible filled region to the ceiling tile and count up most-prevalent
-								vox.mesh3DIndex = 0	-- hmm todo, wall voxel mesh index
+								vox.spriteIndex = applyRemaps(tile44to55(ffInfo.floorTile))
+								vox.mesh3DIndex = 0	-- hmm todo, floor voxel mesh index
 								--vox.orientation = 32	-- flip x in voxel orientation?
 								vox.orientation = 34	-- flip y
 							end
-						else
-							local floorTile16x16 = self:getFloorTile(mapx, mapy)
-							local slope = tileIsNorthSlope[floorTile16x16]
-							if slope then
-								nextAlt = alt + 1
-							end
-							-- read the real tile and use it instead of the most prominent
-							local vox = voxelmap:getVoxelBlobPtr(x, y, math.min(nextAlt or alt, size.z-1))
-							vox.intval = 0	-- reset from clear
-							vox.spriteIndex = applyRemaps(tile44to55(floorTile16x16 or ffInfo.floorTile))
-							if not slope then
-								vox.mesh3DIndex = 0	-- hmm todo, floor voxel mesh index
-								vox.orientation = 34	-- flip y
+
+							local mapx = x + bbox.min.x
+							local mapy = size.y - 1 - y + bbox.min.y
+							local i = mapx + mapWidth * mapy
+							local tileInfo = ffInfo.tileInfos[i]
+							if not tileInfo then
+								local alt = 0	--- ?? what should it be?
+								-- if this is a non-traversible tile then grow the walls
+								-- TODO determine which wall,
+								--  if it's north-facing then use y-z tile for walls
+								--  if it's south/east/west then reuse a previosly-created north-facing wall tile profile.
+								for z=alt+1,size.z-1 do
+									local vox = voxelmap:getVoxelBlobPtr(x, y, z)
+									vox.intval = 0	-- reset from clear
+									-- TODO if it's a north wall then copy source tiles going y+
+									-- and if it's any other wall then copy from the north tile wall profile
+									vox.spriteIndex = applyRemaps(tile44to55(
+										self:getWallOrCeilingTile(mapx, mapy - z)
+										or (
+											z == size.z-1
+											and ffInfo.ceilingTile
+											or ffInfo.wallTile	-- TODO make this the most-prominent-wall-tile
+										)
+									))
+									-- idk how to find that out ... trace from top of traversible filled region to the ceiling tile and count up most-prevalent
+									vox.mesh3DIndex = 0	-- hmm todo, wall voxel mesh index
+									--vox.orientation = 32	-- flip x in voxel orientation?
+									vox.orientation = 34	-- flip y
+								end
 							else
-								vox.mesh3DIndex = 5		-- "slope with sides"
-								-- TODO I need a mesh that is y-slope-up with texcoords aligned ...
-								-- ... or maybe I need extra bits for applying orientation2D to the texcoords?
-								-- TODO use the voxelmap rotation lookup tables for a left-applied z-rotation on 34 (aka flip-y)...
-								vox.orientation = 35
+								local floorTile16x16 = self:getFloorTile(mapx, mapy)
+								-- read the real tile and use it instead of the most prominent
+								local vox = voxelmap:getVoxelBlobPtr(x, y, tileInfo.alt)
+								vox.intval = 0	-- reset from clear
+								vox.spriteIndex = applyRemaps(tile44to55(floorTile16x16 or ffInfo.floorTile))
+								if not tileInfo.slope then
+									vox.mesh3DIndex = 0	-- hmm todo, floor voxel mesh index
+									vox.orientation = 34	-- flip y
+								else
+									vox.mesh3DIndex = 5		-- "slope with sides"
+									-- TODO I need a mesh that is y-slope-up with texcoords aligned ...
+									-- ... or maybe I need extra bits for applying orientation2D to the texcoords?
+									-- TODO use the voxelmap rotation lookup tables for a left-applied z-rotation on 34 (aka flip-y)...
+									vox.orientation = 35
+								end
 							end
 						end
 					end
-					alt = math.min(nextAlt or alt, size.z-1)
+					path(ffInfo.destFilename):write(voxelmap:toBinStr())
 				end
-				path(ffInfo.destFilename):write(voxelmap:toBinStr())
 			end
-
-			--[[
-			ig.igText('flood fill histogram:')
-			for _,tileValue in ipairs(ffInfo.tileValues) do
-				ig.igText('\t'..('0x%06x'):format(tileValue)..' = '..ffInfo.hist[tileValue])
-			end
-			--]]
+			ig.igPopID()
 		end
 	end
 end
@@ -434,39 +535,52 @@ end
 -- really it's a "TileWindow" thing
 -- but it's only used here so :shrug:
 
-function VoxelmapWindow:getTile16x16(x, y, layer)	-- layer is 1-based
+function VoxelmapWindow:getTile16x16(x, y, layerIndex)	-- layerIndex is 1-based
 	local app = self.app
-	local game = self.game
-	if not app.mapWindow then return end
+	local game = app.game
+	if not app.mapWindow then
+		return
+	end
 	local mapIndex = app.mapWindow.index
 	local mapInfo = game.getMap(mapIndex)
-	if not mapInfo then return end
+	if not mapInfo then
+		return
+	end
 	local layouts = mapInfo.layouts
 	local layerPos = mapInfo.layerPos
 	local layerSizes = mapInfo.layerSizes
 
-	local layout = layouts[layer]
+	local layout = layouts[layerIndex]
 	local layoutData = layout and layout.data
-	if not layoutData then return end
+	if not layoutData then
+		return
+	end
 
 	local posx, posy = 0, 0
-	if layerPos[layer]
+	if layerPos[layerIndex]
 	-- if we have a position for the layer, but we're using parallax, then the position is going to be relative to the view
 	--and map.parallax == 0
 	then
-		posx, posy = layerPos[layer]:unpack()
+		posx, posy = layerPos[layerIndex]:unpack()
 	end
 
 	local layoutptr = ffi.cast(uint8_t_p, layoutData)
-	local layerSize = layerSizes[layer]
+	local layerSize = layerSizes[layerIndex]
 	local srcX = (x - posx) % layerSize.x
 	local srcY = (y - posy) % layerSize.y
 	return layoutptr[((srcX + layerSize.x * srcY) % #layoutData)]
 end
 
+-- or the bytes together of all 3 layers...
+function VoxelmapWindow:getAllTile16x16s(x, y, layerIndex)
+	layerIndex = layerIndex or 1
+	if layerIndex > 3 then return end
+	return self:getTile16x16(x, y, layerIndex) or 0, self:getAllTile16x16s(x, y, layerIndex+1)
+end
+
 function VoxelmapWindow:getTileProps(x,y)
 	local app = self.app
-	local game = self.game
+	local game = app.game
 	if not app.mapWindow then return end
 	local mapIndex = app.mapWindow.index
 	local mapInfo = game.getMap(mapIndex)
@@ -486,7 +600,7 @@ end
 
 function VoxelmapWindow:getFloorTile(x,y)
 	local app = self.app
-	local game = self.game
+	local game = app.game
 	if not app.mapWindow then return end
 	local mapIndex = app.mapWindow.index
 	local mapInfo = game.getMap(mapIndex)
@@ -519,7 +633,7 @@ end
 
 function VoxelmapWindow:getWallOrCeilingTile(x,y)
 	local app = self.app
-	local game = self.game
+	local game = app.game
 	if not app.mapWindow then return end
 	local mapIndex = app.mapWindow.index
 	local mapInfo = game.getMap(mapIndex)
@@ -533,7 +647,7 @@ function VoxelmapWindow:getWallOrCeilingTile(x,y)
 	return self:getTile16x16(x, y, 1)
 end
 
-function VoxelmapWindow:showTiles(showHL)
+function VoxelmapWindow:showTiles(mx, my, showHL)
 	local app = self.app
 	local game = app.game
 	local mapIndex = app.mapWindow.index
@@ -545,24 +659,41 @@ function VoxelmapWindow:showTiles(showHL)
 	local floodFillTilesForThisMap = self.floodFillTilesPerMap[mapIndex]
 	if not floodFillTilesForThisMap then return end
 
+	local leftPress = app.mouse.leftPress
 	local rectObj = app.rectObj
 	local uniforms = rectObj.uniforms
+	local fontSize = .5
 
 	for ffIndex,ffInfo in ipairs(floodFillTilesForThisMap) do
-		for i,ft in pairs(ffInfo.filled) do
+		for i,tileInfo in pairs(ffInfo.tileInfos) do
 			local x = i % mapWidth
 			local y = (i - x) / mapWidth
-			settable(uniforms.bbox, x, y, 1, 1)
-			settable(uniforms.color, 0,.5,0,.5)
-			rectObj:draw()
 
-			local fontSize = .5
-			self.font:drawUnpacked(
-				x + .5 * fontSize, y + .5 * fontSize,
-				fontSize, fontSize,
-				tostring(ft.alt or '0')
-			)
+			if tileInfo.isCeiling then
+				settable(uniforms.bbox, x, y, 1, 1)
+				settable(uniforms.color, .5,.5,0,.5)
+				rectObj:draw()
+			end
+
+			if tileInfo.alt then
+				settable(uniforms.bbox, x, y, 1, 1)
+				settable(uniforms.color, 0,.5,0,.5)
+				rectObj:draw()
+				self.font:drawUnpacked(
+					x + .5 * fontSize, y + .5 * fontSize,
+					fontSize, fontSize,
+					tostring(tileInfo.alt)
+				)
+			end
+
+			if leftPress
+			and x <= mx and mx <= x+1
+			and y <= my and my <= y+1
+			then
+				self.show[0] = true
+			end
 		end
+
 		local bbox = ffInfo.bbox
 		settable(uniforms.bbox, bbox.min.x, bbox.min.y, bbox.max.x - bbox.min.x + 1, bbox.max.y - bbox.min.y + 1)
 		settable(uniforms.color, 1,1,1,1)
