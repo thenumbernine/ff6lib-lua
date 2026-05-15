@@ -37,7 +37,6 @@ local function settable(t, ...)
 end
 
 
---local doubleClickTime = 1
 local startTime = timer.getTime()
 
 local app	-- singleton, save for the sdl open file callback
@@ -787,10 +786,6 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 						self.doorWindow.show[0] = true
 						print('double-click time', self.leftPressTime - self.lastLeftPressTime)
 						-- double-click to quick-traverse map
-						-- TODO looks like SDL captures this for me
-						-- that means I shouldn't be using the mouse object for per-frame mouse state tracking
-						-- but instead i should be doing this in the event function
-						--if self.leftPressTime - self.lastLeftPressTime < doubleClickTime then
 						if self.mouse.leftDoubleClick then
 							self.doorWindow:goThruDoor()
 						end
@@ -819,7 +814,6 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 						self.bigDoorWindow:setIndex(i-1)
 						self.bigDoorWindow.show[0] = true
 						-- double-click to quick-traverse map
-						--if self.leftPressTime - self.lastLeftPressTime < doubleClickTime then
 						if self.mouse.leftDoubleClick then
 							self.bigDoorWindow:goThruDoor()
 						end
@@ -1095,7 +1089,6 @@ function App:event(e)
 		if e.type == sdl.SDL_EVENT_MOUSE_BUTTON_DOWN then
 			self.mouse.leftDoubleClick = true
 		elseif e.type == sdl.SDL_EVENT_MOUSE_BUTTON_UP then
-			-- will sdl issue paired mouse button up's for double-click's, to go with its mouse-button-down's?
 			self.mouse.leftDoubleClick = false
 		end
 	end

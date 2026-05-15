@@ -1,6 +1,7 @@
 local ffi = require 'ffi'
 local table = require 'ext.table'
 local string = require 'ext.string'
+local class = require 'ext.class'
 local path = require 'ext.path'
 local tolua = require 'ext.tolua'
 local fromlua = require 'ext.fromlua'
@@ -22,6 +23,20 @@ local intptr_t = ffi.typeof'intptr_t'
 
 
 local floodFillSavePath = path'floodfill-save.lua'
+
+
+local FloodFillInfo = class()
+
+function FloodFillInfo:init(args)
+	for k,v in pairs(args) do self[k] = v end
+
+	self.wallTile = self.wallTile or 0
+	self.ceilingTile = self.ceilingTile or 0
+	self.tileIsNorthSlope = self.tileIsNorthSlope or ''
+	self.tileRemapping = self.tileRemapping or ''	-- lua key->value code for a table for remapping 32x32 of 8x8 (numo9-index) tile-indexes
+	self.maxAlt = self.maxAlt or 8
+end
+
 
 local VoxelmapWindow = Window:subclass()
 
@@ -45,6 +60,9 @@ function VoxelmapWindow:init(...)
 		)
 		for k,v in pairs(self.floodFillTilesPerMap) do
 			setmetatable(v, table)
+			for _,info in ipairs(v) do
+				setmetatable(info, FloodFillInfo)
+			end
 		end
 	end
 
@@ -205,19 +223,14 @@ function VoxelmapWindow:updateWindow()
 				local floorTile = bit.band(0xff, tileValues[1])
 
 				self.floodFillTilesPerMap[mapIndex] = self.floodFillTilesPerMap[mapIndex] or table()
-				self.floodFillTilesPerMap[mapIndex]:insert{
-					filled = filled,	-- key = tile index, value = int with each byte a layer's tile16x16 index
-					hist = hist,		-- key = int of tile16x16 layers (value of filled), value = occurrence count
+				self.floodFillTilesPerMap[mapIndex]:insert(FloodFillInfo{
+					filled = filled,			-- key = tile index, value = int with each byte a layer's tile16x16 index
+					hist = hist,				-- key = int of tile16x16 layers (value of filled), value = occurrence count
 					tileValues = tileValues,	-- int of tile16x16 layers, sorted by occurrence
 					bbox = bbox,
 					floorTile = floorTile,
-					wallTile = 0,
-					ceilingTile = 0,
-					tileIsNorthSlope = '',
-					tileRemapping = '',	-- lua key->value code for a table for remapping 32x32 of 8x8 (numo9-index) tile-indexes
 					destFilename = 'exported-voxelmap-map'..mapIndex..'-'..(#self.floodFillTilesPerMap[mapIndex]+1)..'.vox',
-					maxAlt = 8,
-				}
+				})
 			end
 		end
 	end
