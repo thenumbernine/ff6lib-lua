@@ -21,20 +21,10 @@ local vis_util = require 'ff6.vis.util'
 local zAndLayersWithoutLayer3Priority = vis_util.zAndLayersWithoutLayer3Priority
 local zAndLayersWithLayer3Priority = vis_util.zAndLayersWithLayer3Priority
 local numTilePropsBits = vis_util.numTilePropsBits
+local settable = vis_util.settable
 
 
 local intptr_t = ffi.typeof'intptr_t'
-
-
-local function settableindex(t, i, ...)
-	if select('#', ...) == 0 then return end
-	t[i] = ...
-	settableindex(t, i+1, select(2, ...))
-end
-
-local function settable(t, ...)
-	settableindex(t, 1, ...)
-end
 
 
 local startTime = timer.getTime()
@@ -664,23 +654,7 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 
 			-- tempting to implement this as a bitflag layer ...
 			if self.showVoxelmapFloodFills then
-				local mapIndex = self.mapWindow.index
-				local floodFillTilesForThisMap = self.voxelmapWindow.floodFillTilesPerMap[mapIndex]
-				if floodFillTilesForThisMap then
-					for ffIndex,ffInfo in ipairs(floodFillTilesForThisMap) do
-						for i in pairs(ffInfo.filled) do
-							local x = i % mapWidth
-							local y = (i - x) / mapWidth
-							settable(uniforms.bbox, x, y, 1, 1)
-							settable(uniforms.color, 0,.5,0,.5)
-							rectObj:draw()
-						end
-						local bbox = ffInfo.bbox
-						settable(uniforms.bbox, bbox.min.x, bbox.min.y, bbox.max.x - bbox.min.x + 1, bbox.max.y - bbox.min.y + 1)
-						settable(uniforms.color, 1,1,1,1)
-						showHL()
-					end
-				end
+				self.voxelmapWindow:showTiles(showHL)
 			end
 
 			if (self.mapWindow.index == 0 or self.mapWindow.index == 1)

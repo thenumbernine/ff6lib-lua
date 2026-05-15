@@ -11,6 +11,7 @@ local vec2i = require 'vec-ffi.vec2i'
 local vec3i = require 'vec-ffi.vec3i'
 local box2i = require 'vec-ffi.box2i'
 local vector = require 'stl.vector-lua'
+local Font = require 'gui.font'
 local sdl = require 'sdl'
 local ig = require 'imgui'
 local Window = require 'ff6.vis.window'
@@ -18,6 +19,7 @@ local Window = require 'ff6.vis.window'
 local vis_util = require 'ff6.vis.util'
 local mapTilePropsFlagForName = vis_util.mapTilePropsFlagForName
 local worldTilePropsFlagForName = vis_util.worldTilePropsFlagForName
+local settable = vis_util.settable
 
 
 local intptr_t = ffi.typeof'intptr_t'
@@ -73,6 +75,11 @@ VoxelmapWindow.name = 'voxelmap'
 
 function VoxelmapWindow:init(...)
 	VoxelmapWindow.super.init(self, ...)
+
+	-- TODO maybe move this to vis/app.lua
+	self.font = Font{
+		view = self.app.view,
+	}
 
 	-- load the floodFillTilesPerMap here...
 	self.floodFillTilesPerMap = table()
@@ -524,6 +531,43 @@ function VoxelmapWindow:getWallOrCeilingTile(x,y)
 	-- always layer 1?
 	-- layer 2 will sometimes have overhead ceiling stuff
 	return self:getTile16x16(x, y, 1)
+end
+
+function VoxelmapWindow:showTiles(showHL)
+	local app = self.app
+	local game = app.game
+	local mapIndex = app.mapWindow.index
+	local mapInfo = game.getMap(mapIndex)
+	if not mapInfo then return end
+	local layerSizes = mapInfo.layerSizes
+	local mapWidth, mapHeight = layerSizes[1].x, layerSizes[1].y
+
+	local floodFillTilesForThisMap = self.floodFillTilesPerMap[mapIndex]
+	if not floodFillTilesForThisMap then return end
+
+	local rectObj = app.rectObj
+	local uniforms = rectObj.uniforms
+
+	for ffIndex,ffInfo in ipairs(floodFillTilesForThisMap) do
+		for i,ft in pairs(ffInfo.filled) do
+			local x = i % mapWidth
+			local y = (i - x) / mapWidth
+			settable(uniforms.bbox, x, y, 1, 1)
+			settable(uniforms.color, 0,.5,0,.5)
+			rectObj:draw()
+
+			local fontSize = .5
+			self.font:drawUnpacked(
+				x + .5 * fontSize, y + .5 * fontSize,
+				fontSize, fontSize,
+				tostring(ft.alt or '0')
+			)
+		end
+		local bbox = ffInfo.bbox
+		settable(uniforms.bbox, bbox.min.x, bbox.min.y, bbox.max.x - bbox.min.x + 1, bbox.max.y - bbox.min.y + 1)
+		settable(uniforms.color, 1,1,1,1)
+		showHL()
+	end
 end
 
 return VoxelmapWindow

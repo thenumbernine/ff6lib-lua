@@ -1,5 +1,17 @@
 local table = require 'ext.table'
 
+local function settableindex(t, i, ...)
+	if select('#', ...) == 0 then return end
+	t[i] = ...
+	settableindex(t, i+1, select(2, ...))
+end
+
+local function settable(t, ...)
+	settableindex(t, 1, ...)
+end
+
+
+
 local zAndLayersWithoutLayer3Priority = {
 	{0,3},
 	-- priority 0 sprites here
@@ -77,6 +89,7 @@ end):setmetatable(nil)
 
 
 return {
+	settable = settable,
 	zAndLayersWithoutLayer3Priority = zAndLayersWithoutLayer3Priority,
 	zAndLayersWithLayer3Priority = zAndLayersWithLayer3Priority,
 	numTilePropsBits = numTilePropsBits,
