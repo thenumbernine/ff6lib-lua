@@ -3,13 +3,10 @@ local table = require 'ext.table'
 local math = require 'ext.math'
 local assert = require 'ext.assert'
 local timer = require 'ext.timer'
-local fromlua = require 'ext.fromlua'
-local tolua = require 'ext.tolua'
 local path = require 'ext.path'
 local vec2d = require 'vec-ffi.vec2d'
 local vec3d = require 'vec-ffi.vec3d'
 local vec4x4fcol = require 'vec-ffi.vec4x4fcol'
-local box2i = require 'vec-ffi.box2i'
 local LiteThread = require 'thread.lite'
 local Semaphore = require 'thread.semaphore'
 local sdl = require 'sdl'
@@ -40,7 +37,7 @@ local function settable(t, ...)
 end
 
 
-local doubleClickTime = 1
+--local doubleClickTime = 1
 local startTime = timer.getTime()
 
 local app	-- singleton, save for the sdl open file callback
@@ -49,8 +46,6 @@ local App = require 'imgui.appwithorbit'()
 
 App.hasFocus = true
 App.title = 'FF6 Data Visualizer'
-
-local floodFillSavePath = path'floodfill-save.lua'
 
 function App:initGL(...)
 	app = self
@@ -256,23 +251,6 @@ void main() {
 	self.mapSize = vec2d()
 
 
-	self.floodFillTilesPerMap = table()
-	if floodFillSavePath:exists() then
-		self.floodFillTilesPerMap = table(
-			(assert(fromlua(
-				(assert(
-					floodFillSavePath:read()
-				)),
-				nil, nil, {
-					box2i = box2i,
-				}
-			)))
-		)
-		for k,v in pairs(self.floodFillTilesPerMap) do
-			setmetatable(v, table)
-		end
-	end
-
 
 
 	-- how to let the app know when SDL tells the sub-lua-state when it wants to open a file ...
@@ -354,23 +332,9 @@ end)
 end
 
 function App:exit(...)
-
-	assert(floodFillSavePath:write(
-		(assert(tolua(
-			self.floodFillTilesPerMap,
-			{
-				serializeForType = {
-					cdata = function(state, x, tab, luapath, keyRef)
-						if box2i:isa(x) then
-							return 'box2i'..tostring(x)
-						else
-							error("tolua got unknown cdata "..tostring(x))
-						end
-					end,
-				},
-			}
-		)))
-	))
+	if self.voxelmapWindow then
+		self.voxelmapWindow:exit()
+	end
 
 	App.super.exit(self, ...)
 end
@@ -702,7 +666,7 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 			-- tempting to implement this as a bitflag layer ...
 			if self.showVoxelmapFloodFills then
 				local mapIndex = self.mapWindow.index
-				local floodFillTilesForThisMap = self.floodFillTilesPerMap[mapIndex]
+				local floodFillTilesForThisMap = self.voxelmapWindow.floodFillTilesPerMap[mapIndex]
 				if floodFillTilesForThisMap then
 					for ffIndex,ffInfo in ipairs(floodFillTilesForThisMap) do
 						for i in pairs(ffInfo.filled) do
@@ -826,7 +790,8 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 						-- TODO looks like SDL captures this for me
 						-- that means I shouldn't be using the mouse object for per-frame mouse state tracking
 						-- but instead i should be doing this in the event function
-						if self.leftPressTime - self.lastLeftPressTime < doubleClickTime then
+						--if self.leftPressTime - self.lastLeftPressTime < doubleClickTime then
+						if self.mouse.leftDoubleClick then
 							self.doorWindow:goThruDoor()
 						end
 					end
@@ -854,7 +819,8 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 						self.bigDoorWindow:setIndex(i-1)
 						self.bigDoorWindow.show[0] = true
 						-- double-click to quick-traverse map
-						if self.leftPressTime - self.lastLeftPressTime < doubleClickTime then
+						--if self.leftPressTime - self.lastLeftPressTime < doubleClickTime then
+						if self.mouse.leftDoubleClick then
 							self.bigDoorWindow:goThruDoor()
 						end
 					end
@@ -978,13 +944,13 @@ function App:updateGUI()
 								numFrames = math.max(numFrames, #self.layerAnimTexs[z][layer])
 								if doSaveLayerPNGs then
 									for frameIndex,frameTex in ipairs(self.layerAnimTexs[z][layer]) do
-										frameTex.image:save((animScreenshotPath/(
+										frameTex.image:save(animScreenshotPath/(
 											'map'..self.mapWindow.index
 											..'_z='..z
 											..'_layer='..layer
 											..'_frame='..frameIndex
 											..'.png'
-										)).path)
+										))
 									end
 								end
 							end
@@ -1042,12 +1008,12 @@ function App:updateGUI()
 							image = image:flip()
 							compositeImgs:insert(image)
 							if doSaveLayerPNGs then
-								image:save((animScreenshotPath/(
+								image:save(animScreenshotPath/(
 									'map'..self.mapWindow.index
 									..'_composite'
 									..'_frame='..frameIndex
 									..'.png'
-								)).path)
+								))
 							end
 
 							fbo:unbind()
@@ -1107,7 +1073,7 @@ function App:event(e)
 	end
 
 	App.super.event(self, e)
-	--local canHandleMouse = not ig.igGetIO()[0].WantCaptureMouse
+	local canHandleMouse = not ig.igGetIO()[0].WantCaptureMouse
 	local canHandleKeyboard = not ig.igGetIO()[0].WantCaptureKeyboard
 
 	local game = self.game
@@ -1121,6 +1087,16 @@ function App:event(e)
 			elseif e.key.key == sdl.SDLK_RIGHT then
 				self.mapWindow:setIndex(math.clamp(math.floor(self.mapWindow.index + 1), 0, countof(game.maps)-1))
 			end
+		end
+	end
+
+	-- because sdl handles double-clicks on its own:
+	if canHandleMouse then
+		if e.type == sdl.SDL_EVENT_MOUSE_BUTTON_DOWN then
+			self.mouse.leftDoubleClick = true
+		elseif e.type == sdl.SDL_EVENT_MOUSE_BUTTON_UP then
+			-- will sdl issue paired mouse button up's for double-click's, to go with its mouse-button-down's?
+			self.mouse.leftDoubleClick = false
 		end
 	end
 end

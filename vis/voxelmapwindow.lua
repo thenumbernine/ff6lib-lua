@@ -2,6 +2,7 @@ local ffi = require 'ffi'
 local table = require 'ext.table'
 local string = require 'ext.string'
 local path = require 'ext.path'
+local tolua = require 'ext.tolua'
 local fromlua = require 'ext.fromlua'
 local LiteThread = require 'thread.lite'
 local Semaphore = require 'thread.semaphore'
@@ -20,12 +21,32 @@ local worldTilePropsFlagForName = vis_util.worldTilePropsFlagForName
 local intptr_t = ffi.typeof'intptr_t'
 
 
+local floodFillSavePath = path'floodfill-save.lua'
+
 local VoxelmapWindow = Window:subclass()
 
 VoxelmapWindow.name = 'voxelmap'
 
 function VoxelmapWindow:init(...)
 	VoxelmapWindow.super.init(self, ...)
+
+	-- load the floodFillTilesPerMap here...
+	self.floodFillTilesPerMap = table()
+	if floodFillSavePath:exists() then
+		self.floodFillTilesPerMap = table(
+			(assert(fromlua(
+				(assert(
+					floodFillSavePath:read()
+				)),
+				nil, nil, {
+					box2i = box2i,
+				}
+			)))
+		)
+		for k,v in pairs(self.floodFillTilesPerMap) do
+			setmetatable(v, table)
+		end
+	end
 
 	self.semOpen = Semaphore()
 	self.sdlSaveFileDialog_chooseOutputFilenameThread = LiteThread{
@@ -60,6 +81,25 @@ end, function(err)
 end)
 ]],
 	}
+end
+
+function VoxelmapWindow:exit()
+	assert(floodFillSavePath:write(
+		(assert(tolua(
+			self.floodFillTilesPerMap,
+			{
+				serializeForType = {
+					cdata = function(state, x, tab, luapath, keyRef)
+						if box2i:isa(x) then
+							return 'box2i'..tostring(x)
+						else
+							error("tolua got unknown cdata "..tostring(x))
+						end
+					end,
+				},
+			}
+		)))
+	))
 
 end
 
@@ -85,7 +125,7 @@ function VoxelmapWindow:updateWindow()
 			local y = (tileIndex - x) / mapWidth
 
 			local found
-			for _,ff in ipairs(app.floodFillTilesPerMap[mapIndex] or {}) do
+			for _,ff in ipairs(self.floodFillTilesPerMap[mapIndex] or {}) do
 				if ff.filled[x + mapWidth * y] then
 					print'already flood-filled this region!'
 					found = true
@@ -117,8 +157,10 @@ function VoxelmapWindow:updateWindow()
 						))
 					end
 
-					filled[i] = {}
-					filled[i].tileValue = value
+					filled[i] = {
+						tileValue = value,
+						alt = 0,
+					}
 				end
 				local function canTraverse(x,y)
 					local flags = data[x + mapWidth * y]
@@ -162,8 +204,8 @@ function VoxelmapWindow:updateWindow()
 				end)
 				local floorTile = bit.band(0xff, tileValues[1])
 
-				app.floodFillTilesPerMap[mapIndex] = app.floodFillTilesPerMap[mapIndex] or table()
-				app.floodFillTilesPerMap[mapIndex]:insert{
+				self.floodFillTilesPerMap[mapIndex] = self.floodFillTilesPerMap[mapIndex] or table()
+				self.floodFillTilesPerMap[mapIndex]:insert{
 					filled = filled,	-- key = tile index, value = int with each byte a layer's tile16x16 index
 					hist = hist,		-- key = int of tile16x16 layers (value of filled), value = occurrence count
 					tileValues = tileValues,	-- int of tile16x16 layers, sorted by occurrence
@@ -173,14 +215,14 @@ function VoxelmapWindow:updateWindow()
 					ceilingTile = 0,
 					tileIsNorthSlope = '',
 					tileRemapping = '',	-- lua key->value code for a table for remapping 32x32 of 8x8 (numo9-index) tile-indexes
-					destFilename = 'exported-voxelmap-map'..mapIndex..'-'..(#app.floodFillTilesPerMap[mapIndex]+1)..'.vox',
+					destFilename = 'exported-voxelmap-map'..mapIndex..'-'..(#self.floodFillTilesPerMap[mapIndex]+1)..'.vox',
 					maxAlt = 8,
 				}
 			end
 		end
 	end
 
-	local floodFillTilesForThisMap = app.floodFillTilesPerMap[mapIndex]
+	local floodFillTilesForThisMap = self.floodFillTilesPerMap[mapIndex]
 	if floodFillTilesForThisMap then
 		for ffIndex,ffInfo in ipairs(floodFillTilesForThisMap) do
 			ig.igSeparator()
