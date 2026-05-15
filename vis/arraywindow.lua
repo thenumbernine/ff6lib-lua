@@ -2,22 +2,16 @@ local ffi = require 'ffi'
 local assert = require 'ext.assert'
 local table = require 'ext.table'
 local range = require 'ext.range'
-local class = require 'ext.class'
 local gl = require 'gl'
 local GLTex2D = require 'gl.tex2d'
 local ig = require 'imgui'
+local Window = require 'ff6.vis.window'
 
-
-local Window = class()
--- .name
--- .update
 
 local ArrayWindow = Window:subclass()
 
 function ArrayWindow:init(args)
-	self.children = table(args.children)
-	self.show = ffi.new('bool[1]', not not args.show)
-	self.app = assert.index(args, 'app')
+	ArrayWindow.super.init(self, args)
 	self:setIndex(args.index or 0)
 end
 
@@ -41,6 +35,82 @@ function ArrayWindow:setIndex(index)
 end
 
 function ArrayWindow:getIndexName(i) end
+
+function ArrayWindow:isOpen()
+	if not ArrayWindow.super.isOpen(self) then return false end
+
+	-- extra visibility test for array-windows?
+	local count = self:getCount()
+	if not count or count == 0 then return false end
+
+	return true
+end
+
+function ArrayWindow:updateWindow()
+	local count = self:getCount()
+	ig.igText(self.name..' #'..self.index..'/'..count)
+
+	local pushIndex = self.index
+	if ig.luatableInputInt('index', self, 'index') then
+		local newIndex = self.index % count
+		self.index = pushIndex	-- so setIndex registers a change
+		self:setIndex(newIndex)
+	end
+
+	-- no name on any <-> no name on all
+	local name = self:getIndexName(self.index)
+	if name then
+		ig.igText('name = '..name)
+		if not self.searchText then
+			ig.igSameLine()
+			if ig.igButton'find' then
+				self.searchText = name
+			end
+		else
+			ig.igSeparator()
+			if ig.luatableInputText('find', self, 'searchText') then
+				-- on change:
+				self.searchOccurrences = table()
+				for i=0,count-1 do
+					local n = tostring(self:getIndexName(i))
+					if n:lower():find(self.searchText:lower(), 1, true) then
+						self.searchOccurrences:insert(i)
+					end
+				end
+			end
+
+			if self.searchOccurrences then
+				local currentIndex = self.searchOccurrences:find(self.index)
+				ig.igSameLine()
+				ig.igText((currentIndex or '')..'/'..#self.searchOccurrences)
+			end
+
+			if ig.igButton'next' then
+				if self.searchOccurrences
+				and #self.searchOccurrences > 0 then
+					if self.index >= self.searchOccurrences:last() then
+						self:setIndex(self.searchOccurrences[1])
+					else
+						for j,i in ipairs(self.searchOccurrences) do
+							if i > self.index then
+								self:setIndex(i)
+								break
+							end
+						end
+					end
+				end
+			end
+			ig.igSameLine()
+			if ig.igButton'close' then
+				self.searchText = nil
+				self.searchOccurrences = nil
+			end
+			ig.igSeparator()
+		end
+	end
+
+	self:showIndexUI()
+end
 
 function ArrayWindow:popupButton(targetIndex, extraText)
 	if targetIndex ~= nil then
@@ -74,80 +144,6 @@ function ArrayWindow:popupButton(targetIndex, extraText)
 	ig.igPopID()
 	ig.igPopID()
 	return result
-end
-
-function ArrayWindow:update()
-	if not self.show[0] then return end
-	local count = self:getCount()
-	if count == 0 then return end
-	ig.igPushID_Str(self.name)
-	if ig.igBegin(self.name, self.show, 0) then
-		ig.igText(self.name..' #'..self.index..'/'..count)
-
-		local pushIndex = self.index
-		if ig.luatableInputInt('index', self, 'index') then
-			local newIndex = self.index % count
-			self.index = pushIndex	-- so setIndex registers a change
-			self:setIndex(newIndex)
-		end
-
-
-		-- no name on any <-> no name on all
-		local name = self:getIndexName(self.index)
-		if name then
-			ig.igText('name = '..name)
-			if not self.searchText then
-				ig.igSameLine()
-				if ig.igButton'find' then
-					self.searchText = name
-				end
-			else
-				ig.igSeparator()
-				if ig.luatableInputText('find', self, 'searchText') then
-					-- on change:
-					self.searchOccurrences = table()
-					for i=0,self:getCount()-1 do
-						local n = tostring(self:getIndexName(i))
-						if n:lower():find(self.searchText:lower(), 1, true) then
-							self.searchOccurrences:insert(i)
-						end
-					end
-				end
-
-				if self.searchOccurrences then
-					local currentIndex = self.searchOccurrences:find(self.index)
-					ig.igSameLine()
-					ig.igText((currentIndex or '')..'/'..#self.searchOccurrences)
-				end
-
-				if ig.igButton'next' then
-					if self.searchOccurrences
-					and #self.searchOccurrences > 0 then
-						if self.index >= self.searchOccurrences:last() then
-							self:setIndex(self.searchOccurrences[1])
-						else
-							for j,i in ipairs(self.searchOccurrences) do
-								if i > self.index then
-									self:setIndex(i)
-									break
-								end
-							end
-						end
-					end
-				end
-				ig.igSameLine()
-				if ig.igButton'close' then
-					self.searchText = nil
-					self.searchOccurrences = nil
-				end
-				ig.igSeparator()
-			end
-		end
-
-		self:showIndexUI()
-	end
-	ig.igEnd()
-	ig.igPopID()
 end
 
 -- ctype is probably a ffi ctype object, unless it's a bitfield, then no such object exists (right?) and it's just a string

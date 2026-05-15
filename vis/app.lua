@@ -268,6 +268,9 @@ void main() {
 				}
 			)))
 		)
+		for k,v in pairs(self.floodFillTilesPerMap) do
+			setmetatable(v, table)
+		end
 	end
 
 
@@ -465,6 +468,9 @@ function App:onLoadROM(infn, mapIndex)
 	local ScriptWindow = require 'ff6.vis.scriptwindow'
 	self.scriptWindow = ScriptWindow{app=self}
 
+	local VoxelmapWindow = require 'ff6.vis.voxelmapwindow'
+	self.voxelmapWindow = VoxelmapWindow{app=self}
+
 	-- base-level not dependent on another window:
 	self.baseWindows:append{
 		self.mapWindow,
@@ -472,6 +478,7 @@ function App:onLoadROM(infn, mapIndex)
 		self.spellWindow,
 		self.metamorphWindow,
 		self.scriptWindow,
+		self.voxelmapWindow,
 	}
 
 	self.scriptWindow.show[0] = false	-- who keeps opening this?
