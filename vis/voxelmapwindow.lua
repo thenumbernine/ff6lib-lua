@@ -117,7 +117,8 @@ function VoxelmapWindow:updateWindow()
 						))
 					end
 
-					filled[i] = value
+					filled[i] = {}
+					filled[i].tileValue = value
 				end
 				local function canTraverse(x,y)
 					local flags = data[x + mapWidth * y]
@@ -150,16 +151,17 @@ function VoxelmapWindow:updateWindow()
 					end
 				end
 
+				-- hmm TODO
+				-- histogram on layer1 tile or layer2 or on both?
 				local hist = {}
-				for index, tileValue in pairs(filled) do
-					hist[tileValue] = (hist[tileValue] or 0) + 1
+				for index, ft in pairs(filled) do
+					hist[ft.tileValue] = (hist[ft.tileValue] or 0) + 1
 				end
 				local tileValues = table.keys(hist):sort(function(a,b)
 					return hist[a] > hist[b]
 				end)
-				-- hmm TODO
-				-- histogram on layer1 tile or layer2 or on both?
 				local floorTile = bit.band(0xff, tileValues[1])
+
 				app.floodFillTilesPerMap[mapIndex] = app.floodFillTilesPerMap[mapIndex] or table()
 				app.floodFillTilesPerMap[mapIndex]:insert{
 					filled = filled,	-- key = tile index, value = int with each byte a layer's tile16x16 index
@@ -331,10 +333,12 @@ function VoxelmapWindow:updateWindow()
 				path(ffInfo.destFilename):write(voxelmap:toBinStr())
 			end
 
+			--[[
 			ig.igText('flood fill histogram:')
 			for _,tileValue in ipairs(ffInfo.tileValues) do
 				ig.igText('\t'..('0x%06x'):format(tileValue)..' = '..ffInfo.hist[tileValue])
 			end
+			--]]
 		end
 	end
 end
