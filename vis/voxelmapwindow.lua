@@ -10,6 +10,7 @@ local Semaphore = require 'thread.semaphore'
 local vec2i = require 'vec-ffi.vec2i'
 local vec3i = require 'vec-ffi.vec3i'
 local box2i = require 'vec-ffi.box2i'
+local vector = require 'stl.vector-lua'
 local sdl = require 'sdl'
 local ig = require 'imgui'
 local Window = require 'ff6.vis.window'
@@ -37,6 +38,34 @@ function FloodFillInfo:init(args)
 	self.maxAlt = self.maxAlt or 8
 end
 
+function FloodFillInfo:calcSize()
+	local bbox = self.bbox
+	return vec3i(bbox.max.x - bbox.min.x, bbox.max.y - bbox.min.y, self.maxAlt)
+end
+
+function FloodFillInfo:calcAlts()
+	local tileIsNorthSlope = string.split(ffInfo.tileIsNorthSlope, ','):mapi(function(x)
+		return true, (assert(tonumber(x)))
+	end)
+
+	local size = ffInfo:calcSize()
+
+	local alt = 0
+	for y=0,tonumber(size.y)-1 do	-- from bottom to top of 2D map, per-row (important for north-facing-stairs sake)
+		local nextAlt
+		for x=0,tonumber(size.x)-1 do
+
+			local floorTile16x16 = self.app.voxelmapWindow:getFloorTile(mapx, mapy)
+			local slope = tileIsNorthSlope[floorTile16x16]
+			if slope then
+				nextAlt = alt + 1
+			end
+
+
+		end
+	end
+end
+
 
 local VoxelmapWindow = Window:subclass()
 
@@ -62,6 +91,7 @@ function VoxelmapWindow:init(...)
 			setmetatable(v, table)
 			for _,info in ipairs(v) do
 				setmetatable(info, FloodFillInfo)
+				info.app = self.app
 			end
 		end
 	end
@@ -102,6 +132,13 @@ end)
 end
 
 function VoxelmapWindow:exit()
+	-- don't serialize the whole app...
+	for k,v in pairs(self.floodFillTilesPerMap) do
+		for _,info in ipairs(v) do
+			info.app = nil
+		end
+	end
+
 	assert(floodFillSavePath:write(
 		(assert(tolua(
 			self.floodFillTilesPerMap,
@@ -118,17 +155,14 @@ function VoxelmapWindow:exit()
 			}
 		)))
 	))
-
 end
 
 function VoxelmapWindow:updateWindow()
 	local app = self.app
 	local game = app.game
-
 	local mapIndex = app.mapWindow.index
 	local mapInfo = game.getMap(mapIndex)
 	if not mapInfo then return end
-
 	local layerSizes = mapInfo.layerSizes
 	local mapWidth, mapHeight = layerSizes[1].x, layerSizes[1].y
 
@@ -168,7 +202,7 @@ function VoxelmapWindow:updateWindow()
 					-- read 16x16's here ...
 					local value = 0
 					for layer=1,3 do
-						local tile16x16 = getTile16x16(x, y, layer) or 0
+						local tile16x16 = self:getTile16x16(x, y, layer) or 0
 						value = bit.bor(value, bit.lshift(
 							tile16x16,
 							bit.lshift(layer-1, 3)	-- shift our 16x16 byte left 8 bits per layer...
@@ -224,6 +258,7 @@ function VoxelmapWindow:updateWindow()
 
 				self.floodFillTilesPerMap[mapIndex] = self.floodFillTilesPerMap[mapIndex] or table()
 				self.floodFillTilesPerMap[mapIndex]:insert(FloodFillInfo{
+					app = app,
 					filled = filled,			-- key = tile index, value = int with each byte a layer's tile16x16 index
 					hist = hist,				-- key = int of tile16x16 layers (value of filled), value = occurrence count
 					tileValues = tileValues,	-- int of tile16x16 layers, sorted by occurrence
@@ -286,14 +321,7 @@ function VoxelmapWindow:updateWindow()
 			ig.luatableInputText('north slopes:', ffInfo, 'tileIsNorthSlope')
 
 			if ig.igButton'export voxelmap' then
-				-- 1) make our voxelmap
-				local vector = require 'stl.vector-lua'
-				local size = vec3i(bbox.max.x - bbox.min.x, bbox.max.y - bbox.min.y, ffInfo.maxAlt)
-
-
-				local tileIsNorthSlope = string.split(ffInfo.tileIsNorthSlope, ','):mapi(function(x)
-					return true, (assert(tonumber(x)))
-				end)
+				local size = ffInfo:calcSize()
 
 				local tileRemap
 				if string.trim(ffInfo.tileRemapping) ~= '' then
@@ -309,7 +337,6 @@ function VoxelmapWindow:updateWindow()
 					return tileRemap and tileRemap[tileIndex] or tileIndex
 				end
 
-
 				local voxelmap
 				do
 					local v = vector(Voxel, 3 + size:volume())
@@ -322,11 +349,9 @@ function VoxelmapWindow:updateWindow()
 
 				-- 2) copy ground tiles across
 				--local altForCol = range(size.x):mapi(function() return 0 end)
-				local alt = 0
 				for y=0,tonumber(size.y)-1 do	-- from bottom to top of 2D map, per-row (important for north-facing-stairs sake)
-					local nextAlt
 					for x=0,tonumber(size.x)-1 do
-						for z=0,alt do
+						for z=0,tonumber(size.z)-1 do
 							local vox = voxelmap:getVoxelBlobPtr(x, y, z)
 							vox.intval = 0	-- reset from clear
 							vox.spriteIndex = applyRemaps(tile44to55(ffInfo.floorTile))
@@ -339,6 +364,7 @@ function VoxelmapWindow:updateWindow()
 						local mapy = size.y - 1 - y + bbox.min.y
 						local i = mapx + mapWidth * mapy
 						if not ffInfo.filled[i] then
+							local alt = 0	--- ?? what should it be?
 							-- if this is a non-traversible tile then grow the walls
 							-- TODO determine which wall,
 							--  if it's north-facing then use y-z tile for walls
@@ -349,7 +375,7 @@ function VoxelmapWindow:updateWindow()
 								-- TODO if it's a north wall then copy source tiles going y+
 								-- and if it's any other wall then copy from the north tile wall profile
 								vox.spriteIndex = applyRemaps(tile44to55(
-									getWallOrCeilingTile(mapx, mapy - z)
+									self:getWallOrCeilingTile(mapx, mapy - z)
 									or (
 										z == size.z-1
 										and ffInfo.ceilingTile
@@ -362,7 +388,7 @@ function VoxelmapWindow:updateWindow()
 								vox.orientation = 34	-- flip y
 							end
 						else
-							local floorTile16x16 = getFloorTile(mapx, mapy)
+							local floorTile16x16 = self:getFloorTile(mapx, mapy)
 							local slope = tileIsNorthSlope[floorTile16x16]
 							if slope then
 								nextAlt = alt + 1
@@ -396,6 +422,108 @@ function VoxelmapWindow:updateWindow()
 			--]]
 		end
 	end
+end
+
+-- really it's a "TileWindow" thing
+-- but it's only used here so :shrug:
+
+function VoxelmapWindow:getTile16x16(x, y, layer)	-- layer is 1-based
+	local app = self.app
+	local game = self.game
+	if not app.mapWindow then return end
+	local mapIndex = app.mapWindow.index
+	local mapInfo = game.getMap(mapIndex)
+	if not mapInfo then return end
+	local layouts = mapInfo.layouts
+	local layerPos = mapInfo.layerPos
+	local layerSizes = mapInfo.layerSizes
+
+	local layout = layouts[layer]
+	local layoutData = layout and layout.data
+	if not layoutData then return end
+
+	local posx, posy = 0, 0
+	if layerPos[layer]
+	-- if we have a position for the layer, but we're using parallax, then the position is going to be relative to the view
+	--and map.parallax == 0
+	then
+		posx, posy = layerPos[layer]:unpack()
+	end
+
+	local layoutptr = ffi.cast(uint8_t_p, layoutData)
+	local layerSize = layerSizes[layer]
+	local srcX = (x - posx) % layerSize.x
+	local srcY = (y - posy) % layerSize.y
+	return layoutptr[((srcX + layerSize.x * srcY) % #layoutData)]
+end
+
+function VoxelmapWindow:getTileProps(x,y)
+	local app = self.app
+	local game = self.game
+	if not app.mapWindow then return end
+	local mapIndex = app.mapWindow.index
+	local mapInfo = game.getMap(mapIndex)
+	if not mapInfo then return end
+	local layouts = mapInfo.layouts
+	local layout1Data = layouts[1] and layouts[1].data
+	local tilePropsData = mapInfo.tilePropsData
+	local layerSizes = mapInfo.layerSizes
+	local mapWidth, mapHeight = layerSizes[1].x, layerSizes[1].y
+
+	if not layout1Data then return end
+	if not tilePropsData then return end
+	local layoutptr = ffi.cast(uint8_t_p, layout1Data)
+	local tilePropsPtr = ffi.cast(uint16_t_p, tilePropsData)
+	return tilePropsPtr[layoutptr[x + mapWidth * y]]
+end
+
+function VoxelmapWindow:getFloorTile(x,y)
+	local app = self.app
+	local game = self.game
+	if not app.mapWindow then return end
+	local mapIndex = app.mapWindow.index
+	local mapInfo = game.getMap(mapIndex)
+	if not mapInfo then return end
+	local layerSizes = mapInfo.layerSizes
+	local mapWidth, mapHeight = layerSizes[1].x, layerSizes[1].y
+
+	if x < 0 or y < 0 or x >= mapWidth or y >= mapHeight then return end
+	-- which layer do I use?
+	--- I guess I use layer1
+	--   except when it's transparent
+	--   (same as when topSpritePriority is set?)
+	--  and then I use layer2?
+	-- [[
+	local props = self:getTileProps(x, y)
+	if props ~= 7
+	and props ~= 0xfff7
+	then
+		local topSpritePriority = 0 ~= bit.band(mapTilePropsFlagForName.topSpritePriority, props)
+		--local bottomSpritePriority = 0 ~= bit.band(mapTilePropsFlagForName.bottomSpritePriority, props)
+		if topSpritePriority then
+			return self:getTile16x16(x, y, 2)
+		end
+	end
+	--]]
+	local tile = self:getTile16x16(x, y, 1)
+	--if tile == 0 then tile = self:getTile16x16(x, y, 2) end
+	return tile
+end
+
+function VoxelmapWindow:getWallOrCeilingTile(x,y)
+	local app = self.app
+	local game = self.game
+	if not app.mapWindow then return end
+	local mapIndex = app.mapWindow.index
+	local mapInfo = game.getMap(mapIndex)
+	if not mapInfo then return end
+	local layerSizes = mapInfo.layerSizes
+	local mapWidth, mapHeight = layerSizes[1].x, layerSizes[1].y
+
+	if x < 0 or y < 0 or x >= mapWidth or y >= mapHeight then return end
+	-- always layer 1?
+	-- layer 2 will sometimes have overhead ceiling stuff
+	return self:getTile16x16(x, y, 1)
 end
 
 return VoxelmapWindow
