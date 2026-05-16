@@ -162,11 +162,15 @@ function MapWindow:showIndexUI()
 	end
 	--]]
 
+	app.scriptWindow:popupButtonForAddr(mapInfo.startEventScriptAddr)
+
 	local map = mapInfo.map
 	if map then
-		-- fields:
-		for fieldname, ctype, field in map[0]:fielditer() do
-			self:editField(map[0], fieldname, ctype, field)
+		if ig.igCollapsingHeader'fields' then
+			-- fields:
+			for fieldname, ctype, field in map[0]:fielditer() do
+				self:editField(map[0], fieldname, ctype, field)
+			end
 		end
 	end
 end

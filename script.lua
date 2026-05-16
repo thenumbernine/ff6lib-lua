@@ -32,6 +32,7 @@ return function(game)
 	for mapIndex=0,countof(game.maps)-1 do
 		local mapInfo = game.getMap(mapIndex)
 		if mapInfo then
+			game.eventScriptAddrs[mapInfo.startEventScriptAddr] = true
 			for _,n in ipairs(mapInfo.npcs) do
 				local scriptAddr = n:getScriptAddr()
 				if scriptAddr then
@@ -634,21 +635,21 @@ print(('$%06x-$%06x'):format(startaddr2, endaddr2))
 		cmd = 0x88,
 		argtypes = {uint8_t, uint16_t},
 		argnames = {'characterIndex', 'status'},
-		desc = "characters[<?=characterIndex?>].status &= ~0x<?=bit.tohex(4, status)?>",
+		desc = "characters[<?=characterIndex?>].status &= ~0x<?=bit.tohex(status, 4)?>",
 	}
 
 	ScriptCmds.ToggleCharacterStatus = Cmd:subclass{
 		cmd = 0x89,
 		argtypes = {uint8_t, uint16_t},
 		argnames = {'characterIndex', 'status'},
-		desc = "characters[<?=characterIndex?>].status ~~= 0x<?=bit.tohex(4, status)?>",
+		desc = "characters[<?=characterIndex?>].status ~~= 0x<?=bit.tohex(status, 4)?>",
 	}
 
 	ScriptCmds.SetCharacterStatus = Cmd:subclass{
 		cmd = 0x8a,
 		argtypes = {uint8_t, uint16_t},
 		argnames = {'characterIndex', 'status'},
-		desc = "characters[<?=characterIndex?>].status |= 0x<?=bit.tohex(4, status)?>",
+		desc = "characters[<?=characterIndex?>].status |= 0x<?=bit.tohex(status, 4)?>",
 	}
 
 	ScriptCmds.GiveCharacterHP = Cmd:subclass{

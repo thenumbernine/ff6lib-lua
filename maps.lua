@@ -890,6 +890,10 @@ data = ffi.string(dest, #data)
 		-- lookup into game.monsterRandomBattles to determine the random-battle-options for this stage
 		mapInfo.monsterRandomBattleOptionIndex = game.mapRandomBattleOptions[mapIndex]
 
+		-- should I add 0x0a0000 like we do for all event scripts?
+		-- yup there are enough 0x005eb3's that correspond with 0x0a5eb3's which are the 'return' used everywhere
+		mapInfo.startEventScriptAddr = game.mapStartEvents[mapIndex]:value() + ffi.offsetof(Game, 'eventScript')
+
 		game.mapInfoCache[mapIndex] = mapInfo
 		return mapInfo
 	end
@@ -909,37 +913,38 @@ data = ffi.string(dest, #data)
 		end
 
 		local addr = game.battleBgGfxAddrs[i]:value()
-		if addr ~= 0 then
-			addr = addr - 0xc00000
-			assert.ge(addr, 0)
-			assert.lt(addr, romsize)
+		if addr == 0 then return end
 
-			-- some addrs point into battleBgGfxCompressed, and those need to be decompressed
-			-- some point into mapTileGraphics and those don't need to be decompressed
-			local isBattleBgGfxCompressed = addr >= ffi.offsetof(Game, 'battleBgGfxCompressed')
-				and addr < ffi.offsetof(Game, 'battleBgGfxCompressed') + ffi.sizeof(game.battleBgGfxCompressed)
+		addr = addr - 0xc00000
+		assert.ge(addr, 0)
+		assert.lt(addr, romsize)
 
-			if isBattleBgGfxCompressed then
-				local pstart = rom + addr
-				local data, pend = decompress(pstart, romsize)
-				if not data then
-					print('battleBgGfxs[0x'..bin.tohex(i)..'] = 0x'..bin.tohex(addr, 6)..' failed to decompress')
-				else
-					game.battleBgGfxCache[i] = {
-						index = i,
-						addr = addr,
-						data = data,
-						isCompressed = isBattleBgGfxCompressed,
-					}
-				end
+		-- some addrs point into battleBgGfxCompressed, and those need to be decompressed
+		-- some point into mapTileGraphics and those don't need to be decompressed
+		local isBattleBgGfxCompressed = addr >= ffi.offsetof(Game, 'battleBgGfxCompressed')
+			and addr < ffi.offsetof(Game, 'battleBgGfxCompressed') + ffi.sizeof(game.battleBgGfxCompressed)
+
+		if isBattleBgGfxCompressed then
+			local pstart = rom + addr
+			local data, pend = decompress(pstart, romsize)
+			if not data then
+				print('battleBgGfxs[0x'..bin.tohex(i)..'] = 0x'..bin.tohex(addr, 6)..' failed to decompress')
 			else
 				game.battleBgGfxCache[i] = {
 					index = i,
 					addr = addr,
-					data = rom + addr,
+					data = data,
+					compressedSize = pend - pstart,
 					isCompressed = isBattleBgGfxCompressed,
 				}
 			end
+		else
+			game.battleBgGfxCache[i] = {
+				index = i,
+				addr = addr,
+				data = rom + addr,
+				isCompressed = isBattleBgGfxCompressed,
+			}
 		end
 
 		return game.battleBgGfxCache[i]

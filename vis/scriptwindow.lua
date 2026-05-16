@@ -1,3 +1,4 @@
+local string = require 'ext.string'
 local ig = require 'imgui'
 local ArrayWindow = require 'ff6.vis.arraywindow'
 
@@ -113,7 +114,7 @@ function EventScriptWindow:showIndexUI()
 
 					else
 					-- default:
-						ig.igText(tostring(cmd):gsub('\n', '\\n'))
+						ig.igText(string.trim(tostring(cmd):gsub('\n', '\\n')))
 					end
 
 					ig.igPopID()

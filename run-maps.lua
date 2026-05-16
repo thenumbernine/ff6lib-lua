@@ -266,7 +266,7 @@ for mapIndex=0,countof(game.maps)-1 do
 			local tilesetIndex = tonumber(map['tileset'..i])
 			local tileset = game.getMapTileset(tilesetIndex)
 			local tilesetData = tilesetDatas[i]
-			print('map tileset'..i..' data size', tilesetData and #tilesetData)
+			print(' tileset'..i..' data size', tilesetData and #tilesetData)
 			if tileset then
 				tileset.mapIndexes[mapIndex] = true
 				tileset.palettes[paletteIndex] = true
@@ -290,16 +290,19 @@ print('setting gfxstr', gfxstr, 'paletteIndex', paletteIndex)
 		end
 
 		for i=1,3 do
-			print('map layer '..i..' size', layerSizes[i], 'volume', layerSizes[i]:volume())
-			print('map layout'..i..' data size', layouts[i] and #layouts[i].data)
+			print(' layer '..i..' size', layerSizes[i], 'volume', layerSizes[i]:volume())
+			print(' layout'..i..' data size', layouts[i] and #layouts[i].data)
 			if i > 1 then
-				print('map layer'..i..' pos', layerPos[i])
+				print(' layer'..i..' pos', layerPos[i])
 			end
 		end
 
 		if not palette then
 			print(' map has invalid palette!')
 		end
+
+		print((' script=$%06x'):format(mapInfo.startEventScriptAddr))
+		print(' monsterRandomBattleOptionIndex = '..mapInfo.monsterRandomBattleOptionIndex:hex())
 
 		for i=1,4 do
 			local gfx = mapInfo.gfxs[i]

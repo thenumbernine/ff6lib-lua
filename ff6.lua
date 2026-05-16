@@ -1895,8 +1895,12 @@ local Treasure = ff6struct{
 	ctypeOnly = true,
 	fields = {
 		{pos = XY8b},
-		{switch = 'uint16_t:9'},	-- global index / bitflag? into game state data?
-		{unused_2_1 = 'uint16_t:1'},	-- does this bit go in 'switch' too? like in NPC switch is 10 bits...
+
+		-- bitflag into game state data
+		-- is this 'map switch' or 'npc switch' or 'battle switch' or different?
+		{flag = 'uint16_t:9'},
+
+		{unused_2_1 = 'uint16_t:1'},	-- does this bit go in 'flag' too? like in NPC .flag is 10 bits...
 		{unused_2_2 = 'uint16_t:1'},
 		{empty = 'uint16_t:1'},		-- set iff type == 0 i.e. empty
 		{unused_2_4 = 'uint16_t:1'},
@@ -1953,7 +1957,7 @@ end,
 
 						{name='unknown_2_2', type='uint32_t:3'},			-- 2.2-2.4
 						{name='scrollingLayer', type='uint32_t:1'},			-- 2.5 = 0=layer1, 1=layer2
-						{name='switch', type='uint32_t:10'},				-- 2.6-3.7
+						{name='flag', type='uint32_t:10'},				-- 2.6-3.7
 					},
 				}},
 
@@ -2402,9 +2406,12 @@ Game = struct{
 		{name = 'battleAnimScriptOffsets', type = arrayType(uint16_t, 660)},									-- 0x11ead8 - 0x11f000 ... uint16 offsets +0x100000 ... maybe there are only 650 of these to match with `countof(battleAnimEffects)`?
 		{name = 'battleMessageBase', type = arrayType(uint8_t, -(0x11f000 - 0x11f7a0))},						-- 0x11f000 - 0x11f7a0
 		{name = 'battleMessageOffsets', type = arrayType(uint16_t, numBattleMessages)},							-- 0x11f7a0 - 0x11f9a0
-
-		{name = 'unknown_11f9a0', type = arrayType(uint8_t, -(0x11f9a0 - 0x120000))},							-- 0x11f9a0 - 0x120000
-
+		{name = 'unused_11f9a0', type = arrayType(uint8_t, -(0x11f9a0 - 0x11f9ab))},							-- 0x11f9a0 - 0x11f9ab
+		{name = 'mogDanceBackgrounds', type = arrayType(uint8_t, numMogDances)},								-- 0x11f9ab - 0x11f9b3
+		{name = 'unused_11f9b3', type = uint16_t},																-- 0x11f9b3 - 0x11f9b5
+		{name = 'esperMenuOrder', type = arrayType(uint8_t, numEspers)},										-- 0x11f9b5 - 0x11f9d0
+		{name = 'unused_11f9d0', type = arrayType(uint8_t, -(0x11f9d0 - 0x11fa00))},							-- 0x11f9d0 - 0x11fa00
+		{name = 'mapStartEvents', type = arrayType(uint24_t, 0x200)},											-- 0x11fa00 - 0x120000
 		{name = 'battleAnimGraphicsSets3bpp', type = arrayType(BattleAnim8x8Tile, 0x20 * 0x180)},				-- 0x120000 - 0x126000 - holds the 'graphicSet' uint16 offsets from BattleAnimEffect * (0x20 entries == 0x40 bytes)
 		{name = 'battleAnimPalettes', type = arrayType(Palette8, 0xf0)},										-- 0x126000 - 0x126f00
 		{name = 'itemTypeNames', type = arrayType(Str7, 0x20)},													-- 0x126f00 - 0x126fe0
@@ -2612,6 +2619,9 @@ assertOffset('battleAnimSets', 0x107fb2)
 assertOffset('battleDialog2Offsets', 0x10d000)
 assertOffset('battleAnimFrame16x16Tiles', 0x110141)
 assertOffset('battleMessageOffsets', 0x11f7a0)
+assertOffset('mogDanceBackgrounds', 0x11f9ab)
+assertOffset('esperMenuOrder', 0x11f9b5)
+assertOffset('mapStartEvents', 0x11fa00)
 assertOffset('battleAnimGraphicsSets3bpp', 0x120000)
 assertOffset('battleAnimPalettes', 0x126000)
 assertOffset('itemTypeNames', 0x126f00)

@@ -437,6 +437,7 @@ function VoxelmapWindow:updateWindow()
 				if self.semOpen:trywait() then
 					ffInfo.destFilename = self.sdlSaveFileDialog_chooseOutputFilenameThread.lua.global.openfilename
 				end
+
 				if ig.igButton'export voxelmap' then
 					local size = ffInfo:calcSize()
 
@@ -526,6 +527,113 @@ function VoxelmapWindow:updateWindow()
 					end
 					path(ffInfo.destFilename):write(voxelmap:toBinStr())
 				end
+
+				-- right now i'm outputting this once per flood-fill tile
+				-- but if you look at ff6t3d/scripts/build-tutorial-house-voxelmap.lua (my first attempt at semi-automated ff6-to-ff6t3d porting)
+				--  then you'll see i am combining many-to-one
+				-- so maybe I'll do that later? idk
+				-- fun fact, ff6 does put multiple separate rooms into a single map
+				-- but sometimes it will span interconnected areas (like narshe mines) across several maps
+				if ig.igButton'export stage args' then
+					local ls = table()
+					local function lprint(...)
+						local s = ''
+						for i=1,select('#', ...) do
+							if i > 1 then s = s .. '\t' end
+							s = s .. tostring((select(i, ...)))
+						end
+						ls:insert(s..'\n')
+					end
+
+
+					for _,n in ipairs(map.npcs) do
+						lprint('--map #'..mapIndex..' npc', n)
+						lprint('NPC{')
+						lprint('', 'stage = stage,')
+						lprint('', 'standPos = {'..n.x..', '..n.y..', 0},')
+
+						-- TODO a lot for these:
+						lprint('', 'sprite = '..n.graphics..',')
+						lprint('', 'palette = '..n.palette..',')	-- TODO gotta regen my sprite-sheets now to use original palettes....
+
+						-- ff: up, right, down, left
+						-- mine ... ??? angles I think?
+						lprint('', 'direction = '..n.direction_or_type..',')	-- TODO how to tell which...
+
+						if n.movement == 0 then	-- none
+						elseif n.movement == 1 then -- user
+							lprint('', 'movementIsUserControlled_TODO = true,')
+						elseif n.movement == 2 then	-- script (address?)
+							lprint('', 'movementIsScriptControlled_TODO = true,')
+						elseif n.movement == 3 then	-- random
+							lprint('', 'wanderIdle = true,')
+						else
+							lprint('', 'movementIsUnknown_TODO = '..n.movement..',')
+						end
+						lprint('', 'walkSpeed = 6 * '..n.speed..',')
+						lprint('', 'onAct = function(ent, clientEnt, client)')
+
+						local addr = n:getScriptAddr()
+						local nextaddr = addrsInOrder[addrsInOrder:find(addr)+1]
+
+						local startCmdIndex = game.eventScriptCmdIndexForAddr[addr]
+						local endCmdIndex = (game.eventScriptCmdIndexForAddr[nextaddr] or #game.eventScriptCmds+1)-1
+
+						for i=startCmdIndex, endCmdIndex do
+							lprint('', '', ''..tostring(game.eventScriptCmds[i]))
+						end
+
+						lprint('', 'end,')
+						lprint'}'
+					end
+
+					for _,t in ipairs(map.treasures) do
+						lprint('--map #'..mapIndex..' treasure', t)
+						lprint'Treasure{'
+						lprint('', 'stage = stage,')
+						lprint('', 'standPos = {'..t.pos.x..', '..t.pos.y..', 0},')	-- TODO offset based on map
+
+						-- wait are script 'switches' and treasure 'switches' the same?
+						-- is treasure 'flag' the same as npc 'flag' or map 'flag' ?
+						lprint('', "gameStateKey = 'treasureFlag"..t.flag.."',")
+						if t.type == 1 then
+							-- points to game.formations[0]
+							--lprint("\tmonsterFormationIndex="..t.battleOrItemOrGP..",")
+							lprint('', 'battle = {')
+							local formation = game.formations + t.battleOrItemOrGP
+							for j=1,6 do
+								if formation:getMonsterActive(j) then
+									lprint('', '', "{monster = monsters['"..game.monsterNames[formation:getMonsterIndex(j)].."'},")
+								end
+							end
+							-- then if you want, game.formation2s[i] holds all the extra info, like music, back, pincer, etc
+							lprint('', '},')
+						elseif t.type == 2 then
+							--lprint("\titemIndex="..t.battleOrItemOrGP..',')
+							lprint('', "items = {items['"..game.itemNames[t.battleOrItemOrGP].."']},")
+						elseif t.type == 3 then
+							lprint('', "gold = "..(t.battleOrItemOrGP * 100)..",")
+
+						else
+							lprint("error('TODO t.type=="..tostring(t.type).."',")
+						end
+						lprint'}'
+						--lprint('map #'..mapIndex..' treasure', t)
+					end
+
+					for _,t in ipairs(map.touchTriggers) do
+						lprint('-- map #'..mapIndex..' touchTrigger', t)
+					end
+					for _,d in ipairs(map.doors) do
+						lprint('-- map #'..mapIndex..' door', d)
+					end
+					for _,d in ipairs(map.bigDoors) do
+						lprint('-- map #'..mapIndex..' bigdoor', d)
+					end
+
+					destFilename:setext'.lua':write(ls:concat())
+				end
+
 			end
 			ig.igPopID()
 		end

@@ -135,14 +135,14 @@ do
 	for i=0,countof(game.battleBgGfxAddrs)-1 do
 		local battleBgGfx = game.getBattleBgGfx(i)
 		if not battleBgGfx then
-			print('battleBgGfxs[0x'..i:hex()..'] = 0x'..addr:hex()..' failed to decompress')
+			print('battleBgGfxs[0x'..i:hex()..'] = 0')
 		else
 			local addr = battleBgGfx.addr
 			if battleBgGfx.isCompressed then
 				-- size is very arbitrary and a lot look like bad data
 				print('battleBgGfxs[0x'..i:hex()..'] = 0x'..addr:hex()
-					..' uncompressed=0x'..(#data):hex()
-					..' compressed=0x'..(pend-pstart):hex()
+					..' uncompressed=0x'..(#battleBgGfx.data):hex()
+					..(battleBgGfx.compressedSize and (' compressed=0x'..battleBgGfx.compressedSize:hex()) or '')
 					..' isBattleBgGfxCompressed'
 				)
 			else
@@ -187,7 +187,9 @@ do
 		print('\tgfx 3', gfx3 and type(gfx3.data) == 'string' and 'len=0x'..(#gfx3.data):hex() or (gfx3 and 'addr=0x'..gfx3.addr:hex()) or 'nil')
 
 		local img = game.getBattleBgImage(battleBgIndex)
-		img:save(battlebgpath('bg'..battleBgIndex..'.png').path)
+		if img then
+			img:save(battlebgpath('bg'..battleBgIndex..'.png').path)
+		end
 	end
 end
 --os.exit()
