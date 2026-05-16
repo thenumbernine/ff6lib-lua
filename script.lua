@@ -106,9 +106,13 @@ print(('$%06x-$%06x'):format(startaddr2, endaddr2))
 
 
 	ScriptCmds.RunObject = Cmd:subclass{
-		argtypes = {uint8_t, uint8_t},
-		argnames = {'objectIndex', 'length'},
-		desc = "runObjectScript{object=<?=objectIndex?>, length=<?=bit.band(0x7f, length)?><?=0~=bit.band(0x80, length) and ', block=true' or ''?>}",
+		argtypes = {uint8_t},
+		argnames = {'length'},
+		desc = "runObjectScript{"
+			.."object=<?=cmd?>"
+			..", length=<?=bit.band(0x7f, length)?>"
+			.."<?= 0 ~= bit.band(0x80, length) and ', block=true' or ''?>"
+			.."}",
 	}
 	for i=0x00,0x34 do
 		ScriptCmds['RunObject '..i] = ScriptCmds.RunObject:subclass{cmd=i}
@@ -976,18 +980,24 @@ print(('$%06x-$%06x'):format(startaddr2, endaddr2))
 			for i=1,count do
 				local arg = read(uint16_t)
 				self.conds:insert{
-					gameFlagIndex = bit.band(0x3fff, arg),
+					mapFlagIndex = bit.band(0x3fff, arg),
 					value = bit.rshift(arg, 15),
 				}
 			end
 			self.destAddr = startaddr + read(uint24_t)
 		end,
 		__tostring = function(self)
+			-- which flag? npc flag? map flag? treasure flag? etc flag?
+			local gotostmt =
+				-- used often enough as a return stmt...
+				self.destAddr == 0x0a5eb3
+				and 'return'
+				or 'goto '..('$%06x'):format(self.destAddr)
 			return "if "
 				..self.conds:mapi(function(cond)
-					return 'gameState.flag'..cond.gameFlagIndex..' == '..cond.value
+					return 'gameState.mapFlag'..cond.mapFlagIndex..' == '..cond.value
 				end):concat(self._and and ' and ' or ' or ')
-				..' then goto '..('$%06x'):format(self.destAddr)
+				..' then '..gotostmt..' end'
 		end,
 	}
 	for cmd=0xc0,0xcf do
@@ -998,7 +1008,8 @@ print(('$%06x-$%06x'):format(startaddr2, endaddr2))
 		ScriptCmds['ChangeFlag'..('0x%02x'):format(cmd)] = Cmd:subclass{
 			cmd = cmd,
 			argtypes = {uint8_t},
-			desc = 'changeFlag <?=args[1]?>',
+			-- which flag is this?  #204 <=> "Song Override"
+			desc = 'gameState.eventFlags<?=args[1]?> ~~= true',
 		}
 	end
 
