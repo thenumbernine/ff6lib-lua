@@ -646,6 +646,7 @@ function App:update()
 self.tooltipText = math.floor(mx)..', '..math.floor(my)
 
 			local leftPress = self.mouse.leftPress
+			local leftDoubleClick = self.mouse.leftDoubleClick
 
 			-- tempting to implement this as a bitflag layer ...
 			if self.showVoxelmapFloodFills then
@@ -747,14 +748,14 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 			if self.showDoors then
 				for i,e in ipairs(mapInfo.doors) do
 					local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
-					if leftPress
+					if leftPress or leftDoubleClick
 					and x <= mx and mx <= x+1
 					and y <= my and my <= y+1
 					then
 						self.doorWindow:setIndex(i-1)
 						self.doorWindow.show[0] = true
 						-- double-click to quick-traverse map
-						if self.mouse.leftDoubleClick then
+						if leftDoubleClick then
 							self.doorWindow:goThruDoor()
 						end
 					end
@@ -775,14 +776,14 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 					else
 						w, h = 1, e.length+1
 					end
-					if leftPress
+					if leftPress or leftDoubleClick
 					and x <= mx and mx <= x+w
 					and y <= my and my <= y+h
 					then
 						self.bigDoorWindow:setIndex(i-1)
 						self.bigDoorWindow.show[0] = true
 						-- double-click to quick-traverse map
-						if self.mouse.leftDoubleClick then
+						if leftDoubleClick then
 							self.bigDoorWindow:goThruDoor()
 						end
 					end
@@ -1054,9 +1055,13 @@ function App:event(e)
 	-- because sdl handles double-clicks on its own:
 	if canHandleMouse then
 		if e.type == sdl.SDL_EVENT_MOUSE_BUTTON_DOWN then
-			self.mouse.leftDoubleClick = true
+			if e.button.clicks == 2 then
+				self.mouse.leftDoubleClick = true
+			end
 		elseif e.type == sdl.SDL_EVENT_MOUSE_BUTTON_UP then
-			self.mouse.leftDoubleClick = false
+			if e.button.clicks == 2 then
+				self.mouse.leftDoubleClick = false
+			end
 		end
 	end
 end
