@@ -3,6 +3,7 @@ local ffi = require 'ffi'
 local assert = require 'ext.assert'
 local string = require 'ext.string'
 local table = require 'ext.table'
+local struct = require 'struct'
 local ff6struct = require 'ff6.ff6struct'
 
 
@@ -182,15 +183,20 @@ end
 
 local function gamestrtype(args)
 	local size = assert(args.size)
-	local ctype = ffi.typeof([[struct { uint8_t ptr[]]..size..[[]; }]])
-	assert.eq(ffi.sizeof(ctype), size)
-	ffi.metatype(ctype, {
-		__tostring = function(self)
-			return string.trim(gamestr(self.ptr, size))
+	local typeobj = struct{
+		ctypeOnly = true,
+		fields = {
+			{name='ptr', type=arrayType(uint8_t, size)},
+		},
+		metatable = function(mt)
+			mt.__tostring = function(self)
+				return string.trim(gamestr(self.ptr, size))
+			end
+			mt.__concat = string.concat
 		end,
-		__concat = string.concat,
-	})
-	return ctype
+	}
+	assert.eq(ffi.sizeof(typeobj), size)
+	return typeobj
 end
 
 local function makefixedstr(n)
@@ -200,7 +206,11 @@ local function makefixedstr(n)
 end
 
 local Str6 = makefixedstr(6)
+local Str12 = makefixedstr(12)
+
 local CharacterName = Str6
+local SwordTechName = Str12
+local MogDanceName = Str12
 
 return {
 	countof = countof,
@@ -216,5 +226,8 @@ return {
 	gamestr = gamestr,
 	makefixedstr = makefixedstr,
 	Str6 = Str6,
+	Str12 = Str12,
 	CharacterName = CharacterName,
+	SwordTechName = SwordTechName,
+	MogDanceName = MogDanceName,
 }

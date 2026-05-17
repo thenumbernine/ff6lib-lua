@@ -53,6 +53,8 @@ local Effect4 = ff6_util.Effect4
 local gamestr = ff6_util.gamestr
 local makefixedstr = ff6_util.makefixedstr
 local CharacterName = ff6_util.CharacterName
+local SwordTechName = ff6_util.SwordTechName
+local MogDanceName = ff6_util.MogDanceName
 
 
 local romsize = 0x300000
@@ -209,7 +211,6 @@ local Str7 = makefixedstr(7)
 local Str8 = makefixedstr(8)
 local Str9 = makefixedstr(9)
 local Str10 = makefixedstr(10)
-local Str12 = makefixedstr(12)
 local Str13 = makefixedstr(13)
 
 -- only used for BlitzData ... hmm ...
@@ -516,7 +517,10 @@ local numEsperBonuses = 17
 -- another one that needs 'game'
 local EsperBonus = reftype{
 	ctypeOnly = true,
-	getter = function(i) return gameC.esperBonusDescs[i] end,
+	getter = function(i)
+		if i < 0 or i >= countof(gameC.esperBonusDescs) then return end
+		return gameC.esperBonusDescs[i]
+	end,
 }
 
 -- also needs a pointer to 'game'
@@ -661,7 +665,10 @@ local MonsterName = Str10
 -- If I find a uint16_t then I'll make reftype more flexible and make a second monsterRef16_t type.
 local MonsterRef = reftype{
 	ctypeOnly = true,
-	getter = function(i) return gameC.monsterNames[i] end,
+	getter = function(i)
+		if i < 0 or i >= countof(gameC.monsterNames) then return end
+		return gameC.monsterNames[i]
+	end,
 }
 
 local numFormations = 0x240
@@ -1350,6 +1357,7 @@ local MenuName = Str7
 local MenuNameRef = reftype{
 	ctypeOnly = true,
 	getter = function(i)
+		if i < 0 or i >= countof(gameC.menuNames) then return end
 		return gameC.menuNames[i]
 	end,
 }
@@ -1394,10 +1402,8 @@ assert.eq(ffi.sizeof(Character), 22)
 
 local numCharacters = 0x40	-- allegedly...
 
-local MogDanceName = Str12
 local numMogDances = 8
 
-local SwordTechName = Str12
 local numSwordTechs = 8
 
 local numBlitzes = 8
@@ -1519,6 +1525,7 @@ assert.eq(ffi.sizeof(XY8b), 2)
 local MapNameRef = reftype{
 	ctypeOnly = true,
 	getter = function(i)
+		if i < 0 or i >= #game.mapNames then return end
 		return game.mapNames[i]
 	end,
 }

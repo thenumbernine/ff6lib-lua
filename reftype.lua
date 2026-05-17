@@ -17,7 +17,8 @@ local function reftype(args)
 			function mt:__tostring()
 				if self.i == 0xff then
 					if not (getter and args.getterSkipNone) then
-						return nil	--'"(none)"'
+						--return nil
+						return '"(none)"'
 					end
 				end
 				if options then
