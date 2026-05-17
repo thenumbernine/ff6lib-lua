@@ -1,5 +1,6 @@
 #!/usr/bin/env luajit
 -- this is separate of everything else, just a quick and dirty sram viewer
+-- https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:sram&s[]=%2Asram%2A
 local ffi = require 'ffi'
 local path = require 'ext.path'
 local assert = require 'ext.assert'
@@ -82,23 +83,49 @@ local Character = struct{
 }
 assert.eq(ffi.sizeof(Character), 0x25)
 
+local SaveSlot = struct{
+	ctypeOnly = true,
+	fields = {
+		{name='characters', type=arrayType(Character, 0x10)},				-- 0x000 - 0x250
+		-- where are the battle group encounter flags?
+
+		{name='unknown_0250', type=arrayType(uint8_t, -(0x250 - 0x960))},	-- 0x250 - 0x960
+
+		{name='mapx', type=uint8_t},										-- 0x960
+		{name='mapy', type=uint8_t},										-- 0x961
+
+		{name='unknown_0962', type=arrayType(uint8_t, -(0x962 - 0x96b))},	-- 0x962 - 0x96b
+		{name='mapx2', type=uint8_t},										-- 0x96b
+		{name='mapy2', type=uint8_t},										-- 0x96c
+		{name='unknown_096d', type=arrayType(uint8_t, -(0x96d - 0xa00))},	-- 0x96d - 0xa00
+	},
+}
+assert.eq(ffi.sizeof(SaveSlot), 0xa00)
+
 -- wait is this true? or was I looking at RAM, not SRAM?
 local SRAM = struct{
 	ctypeOnly = true,
 	fields = {
-		{name='characters', type=arrayType(Character, 0x10)},	-- 0x0000 - 0x0250
-		-- where are the battle group encounter flags?
+		{name='saves', type=arrayType(SaveSlot, 3)},						-- 0x0000 - 0x1e00
+		{name='unknown_1e00', type=arrayType(uint8_t, -(0x1e00 - 0x1ff0))},	-- 0x1e00 - 0x1ff0
+		{name='mostRecentSaveSlot', type=uint8_t},							-- 0x1ff0 - 0x1ff1
+		{name='randomNumberSeed', type=uint8_t},							-- 0x1ff1 - 0x1ff2
+		{name='unknown_1ff2', type=arrayType(uint8_t, -(0x1ff2 - 0x1ff8))},	-- 0x1ff2 - 0x1ff8
+		{name='tailsig', type=arrayType(uint8_t, 8)},						-- 0x1ff8 - 0x2000
 	},
 }
+assert.eq(ffi.sizeof(SRAM), 0x2000)
 
-local function assertOffset(name, addr)
-	assert.eq(ffi.offsetof(SRAM, name), addr, name)
-end
+assert.eq(ffi.sizeof(SRAM), #data)	-- make sure it fits
 
-assertOffset('characters', 0)
-
-assert.le(ffi.sizeof(SRAM), #data)	-- make sure it fits
 local sram = ffi.cast(ffi.typeof('$*', SRAM), ptr)
-for i=0,countof(sram.characters)-1 do
-	print('char['..i..'] = '..tostring(sram.characters[i]))
+
+for i=0,countof(sram.saves)-1 do
+	local save = sram.saves + i
+	print()
+	print('save', i)
+	for j=0,countof(save.characters)-1 do
+		local ch = save.characters + j
+		print('char['..j..'] = '..tostring(ch))
+	end
 end
