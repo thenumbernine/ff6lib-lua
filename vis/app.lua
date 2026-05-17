@@ -663,8 +663,8 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 
 					local i = bit.bor(sectorIndex, bit.lshift(self.mapWindow.index, 6))
 					if leftPress
-					and x <= mx and mx <= x+w
-					and y <= my and my <= y+h
+					and x <= mx and mx < x+w
+					and y <= my and my < y+h
 					then
 						self.worldEncounterSectorWindow:setIndex(i)
 						self.worldEncounterSectorWindow.show[0] = true
@@ -713,8 +713,8 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 				for i,t in ipairs(mapInfo.treasures) do
 					local x, y = tonumber(t.pos.x), tonumber(t.pos.y)
 					if leftPress
-					and x <= mx and mx <= x+1
-					and y <= my and my <= y+1
+					and x <= mx and mx < x+1
+					and y <= my and my < y+1
 					then
 						self.treasureWindow:setIndex(i-1)
 						self.treasureWindow.show[0] = true
@@ -731,8 +731,8 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 				for i,e in ipairs(mapInfo.touchTriggers) do
 					local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
 					if leftPress
-					and x <= mx and mx <= x+1
-					and y <= my and my <= y+1
+					and x <= mx and mx < x+1
+					and y <= my and my < y+1
 					then
 						self.touchTriggerWindow:setIndex(i-1)
 						self.touchTriggerWindow.show[0] = true
@@ -748,9 +748,9 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 			if self.showDoors then
 				for i,d in ipairs(mapInfo.doors) do
 					local x, y = tonumber(d.pos.x), tonumber(d.pos.y)
-					if leftPress or leftDoubleClick
-					and x <= mx and mx <= x+1
-					and y <= my and my <= y+1
+					if (leftPress or leftDoubleClick)
+					and x <= mx and mx < x+1
+					and y <= my and my < y+1
 					then
 						self.doorWindow:setIndex(i-1)
 						self.doorWindow.show[0] = true
@@ -776,9 +776,9 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 					else
 						w, h = 1, d.length+1
 					end
-					if leftPress or leftDoubleClick
-					and x <= mx and mx <= x+w
-					and y <= my and my <= y+h
+					if (leftPress or leftDoubleClick)
+					and x <= mx and mx < x+w
+					and y <= my and my < y+h
 					then
 						self.bigDoorWindow:setIndex(i-1)
 						self.bigDoorWindow.show[0] = true
@@ -799,8 +799,8 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 				for i,n in ipairs(mapInfo.npcs) do
 					local x, y = tonumber(n.x), tonumber(n.y)
 					if leftPress
-					and x <= mx and mx <= x+1
-					and y <= my and my <= y+1
+					and x <= mx and mx < x+1
+					and y <= my and my < y+1
 					then
 						self.npcWindow:setIndex(i-1)
 						self.npcWindow.show[0] = true

@@ -283,7 +283,7 @@ for i=saveMin, saveMax do
 		local sep = ''
 		for _,t in ipairs(treasuresForFlagIndex[i] or {}) do
 			io.write(sep, ' ', tostring(t.treasure)..' in maps '..t.maps:concat',')
-			sep = ','
+			sep = ';'
 		end
 		print()
 	end
