@@ -276,6 +276,31 @@ function VoxelmapWindow:updateWindow()
 	and app.tilePropsTex.data
 	then
 		local data = app.tilePropsTex.data
+
+		local isDoor = {}
+		for _,d in ipairs(mapInfo.doors) do
+			if d.pos.x >= 0 and d.pos.x < mapWidth
+			and d.pos.y >= 0 and d.pos.y < mapHeight
+			then
+				isDoor[d.pos.x + mapWidth * d.pos.y] = true
+			end
+		end
+		for _,d in ipairs(mapInfo.bigDoors) do
+			for i=0,d.length do	-- inclusive, so length==0 means 1x1
+				local x, y
+				if d.vertical == 0 then
+					x, y = d.pos.x + i, d.pos.y
+				else
+					x, y = d.pos.x, d.pos.y + i
+				end
+				if x >= 0 and x < mapWidth
+				and y >= 0 and y < mapHeight
+				then
+					isDoor[x + mapWidth * y] = true
+				end
+			end
+		end
+
 		if ig.igButton'Flood Fill Tile...' then
 			local x = tileIndex % mapWidth
 			local y = (tileIndex - x) / mapWidth
@@ -317,17 +342,56 @@ function VoxelmapWindow:updateWindow()
 					fillstack:insert{x, y}
 					while #fillstack > 0 do
 						local x0, y0 = table.unpack(fillstack:remove())
-						local dirs = table(fourDirs)
+						local dirs
 
-						-- no stairs on the world map
-						if mapIndex >= 3 then
-							-- as long as i'm just testing current tile then I need to flood-fill from the lowest point ...
+						if mapIndex < 3 then
+							dirs = table(fourDirs)
+						else
+							dirs = table()
+							-- no stairs on the world map...
+							-- only insert directions for passability flags?
 							local flags = data[x0 + mapWidth * y0]
+							if 0 ~= bit.band(flags, mapTilePropsFlagForName.passableLeft) then
+								dirs:insert{-1, 0}
+							end
+							if 0 ~= bit.band(flags, mapTilePropsFlagForName.passableRight) then
+								dirs:insert{1, 0}
+							end
+							if 0 ~= bit.band(flags, mapTilePropsFlagForName.passableUp) then
+								dirs:insert{0, -1}
+							end
+							if 0 ~= bit.band(flags, mapTilePropsFlagForName.passableDown) then
+								dirs:insert{0, 1}
+							end
+
+							-- as long as i'm just testing current tile then I need to flood-fill from the lowest point ...
 							if 0 ~= bit.band(flags, mapTilePropsFlagForName.stairsUpLeft) then
 								dirs:insert{-1, -1}
 							end
 							if 0 ~= bit.band(flags, mapTilePropsFlagForName.stairsUpRight) then
 								dirs:insert{1, -1}
+							end
+
+							-- check up-left from other side
+							local x1 = x0+1
+							local y1 = y0+1
+							if x1 >= 0 and x1 < mapWidth
+							and y1 >= 0 and y1 < mapHeight
+							then
+								if 0 ~= bit.band(data[x1 + mapWidth * y1], mapTilePropsFlagForName.stairsUpLeft) then
+									dirs:insert{1, 1}
+								end
+							end
+
+							-- check up-right from other side
+							local x1 = x0-1
+							local y1 = y0+1
+							if x1 >= 0 and x1 < mapWidth
+							and y1 >= 0 and y1 < mapHeight
+							then
+								if 0 ~= bit.band(data[x1 + mapWidth * y1], mapTilePropsFlagForName.stairsUpRight) then
+									dirs:insert{-1, 1}
+								end
 							end
 						end
 
@@ -341,7 +405,10 @@ function VoxelmapWindow:updateWindow()
 								and canTraverse(x1, y1)
 								then
 									writeFilled(x1, y1)
-									fillstack:insert{x1, y1}
+									-- if this is an exit then don't add to the fill stack (since we can't keep moving anyways)
+									if not isDoor[x1 + mapWidth * y1] then
+										fillstack:insert{x1, y1}
+									end
 								end
 							end
 						end
@@ -545,8 +612,7 @@ function VoxelmapWindow:updateWindow()
 						ls:insert(s..'\n')
 					end
 
-
-					for _,n in ipairs(map.npcs) do
+					for _,n in ipairs(mapInfo.npcs) do
 						lprint('--map #'..mapIndex..' npc', n)
 						lprint('NPC{')
 						lprint('', 'stage = stage,')
@@ -587,7 +653,7 @@ function VoxelmapWindow:updateWindow()
 						lprint'}'
 					end
 
-					for _,t in ipairs(map.treasures) do
+					for _,t in ipairs(mapInfo.treasures) do
 						lprint('--map #'..mapIndex..' treasure', t)
 						lprint'Treasure{'
 						lprint('', 'stage = stage,')
@@ -621,13 +687,13 @@ function VoxelmapWindow:updateWindow()
 						--lprint('map #'..mapIndex..' treasure', t)
 					end
 
-					for _,t in ipairs(map.touchTriggers) do
+					for _,t in ipairs(mapInfo.touchTriggers) do
 						lprint('-- map #'..mapIndex..' touchTrigger', t)
 					end
-					for _,d in ipairs(map.doors) do
+					for _,d in ipairs(mapInfo.doors) do
 						lprint('-- map #'..mapIndex..' door', d)
 					end
-					for _,d in ipairs(map.bigDoors) do
+					for _,d in ipairs(mapInfo.bigDoors) do
 						lprint('-- map #'..mapIndex..' bigdoor', d)
 					end
 

@@ -746,8 +746,8 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 				end
 			end
 			if self.showDoors then
-				for i,e in ipairs(mapInfo.doors) do
-					local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
+				for i,d in ipairs(mapInfo.doors) do
+					local x, y = tonumber(d.pos.x), tonumber(d.pos.y)
 					if leftPress or leftDoubleClick
 					and x <= mx and mx <= x+1
 					and y <= my and my <= y+1
@@ -768,13 +768,13 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 				end
 			end
 			if self.showBigDoors then
-				for i,e in ipairs(mapInfo.bigDoors) do
-					local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
+				for i,d in ipairs(mapInfo.bigDoors) do
+					local x, y = tonumber(d.pos.x), tonumber(d.pos.y)
 					local w, h
-					if e.vertical == 0 then
-						w, h = e.length+1, 1
+					if d.vertical == 0 then
+						w, h = d.length+1, 1
 					else
-						w, h = 1, e.length+1
+						w, h = 1, d.length+1
 					end
 					if leftPress or leftDoubleClick
 					and x <= mx and mx <= x+w

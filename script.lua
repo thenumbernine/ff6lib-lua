@@ -1,3 +1,7 @@
+--[[
+if battleanim.lua has battle-animation-scripts
+then should i call this events.lua for event-scripts?
+--]]
 local ffi = require 'ffi'
 local assert = require 'ext.assert'
 local table = require 'ext.table'
@@ -64,6 +68,7 @@ print(('$%06x-$%06x'):format(startaddr2, endaddr2))
 	-- but later I could do something like a table from call-address to list-of-instructions that stops at 'return' ... ? or does the script retain a well-defined structure to respect that rule?
 	-- one per cmd
 	-- TODO tempting to make this just a bunch of structs...
+	-- but some cmds are variable-length so ... I can have their args structs but can't have the object as a whole ... unless I make one struct per possible cmd-size ...
 	local class = require 'ext.class'
 	local ScriptCmds = {}
 	game.ScriptCmds = ScriptCmds
@@ -903,7 +908,7 @@ print(('$%06x-$%06x'):format(startaddr2, endaddr2))
 		cmd = 0xb7,
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'flagIndex', 'destAddrOfs'},
-		desc = 'if gameState.battleFlag<?=flagIndex?> then goto <?=("$%06x"):format(0x0a0000 + destAddrOfs)?>',
+		desc = 'if gameState.battleFlag<?=flagIndex?> then goto <?=("$%06x"):format(startaddr + destAddrOfs)?>',
 	}
 
 	local SetFlagCmd = Cmd:subclass{

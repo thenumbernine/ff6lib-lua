@@ -14,6 +14,7 @@ battleAnimScriptOffsets[i]
 
 battleAnimScripts[i]
 	handles frame playback of battleAnimSets[]
+	(TODO make structs out of this like I do for event-scripts in scripts.lua)
 
 battleAnimSets[i]
 	.wait is how long to wait
