@@ -12,14 +12,7 @@ local reftype = require 'ff6.reftype'
 
 
 local uint8_t = ffi.typeof'uint8_t'
-local uint8_t_p = ffi.typeof'uint8_t*'
 local uint16_t = ffi.typeof'uint16_t'
-
-
--- util? ext.ffi or something?
-local function countof(array)
-	return ffi.sizeof(array) / (ffi.cast(uint8_t_p, array+1) - ffi.cast(uint8_t_p, array+0))
-end
 
 
 local Game
@@ -46,20 +39,20 @@ end
 
 -- define types here that you don't want defined more than once ...
 
-local uint24_t = ff6struct{
-	name = 'uint24_t',
-	fields = {
-		{lo = uint16_t},
-		{hi = uint8_t},
-	},
-	metatable = function(mt)
-		mt.value = function(self)
-			return bit.bor(self.lo, bit.lshift(self.hi, 16))
-		end
-	end,
-}
-assert.eq(ffi.sizeof(uint24_t), 3)
-
+local ff6_util = require 'ff6.util'
+local countof = ff6_util.countof
+local arrayType = ff6_util.arrayType
+local uint24_t = ff6_util.uint24_t
+local EquipFlags = ff6_util.EquipFlags
+local Element = ff6_util.Element
+local Targetting = ff6_util.Targetting
+local Effect1 = ff6_util.Effect1
+local Effect2 = ff6_util.Effect2
+local Effect3 = ff6_util.Effect3
+local Effect4 = ff6_util.Effect4
+local gamestr = ff6_util.gamestr
+local makefixedstr = ff6_util.makefixedstr
+local CharacterName = ff6_util.CharacterName
 
 
 local romsize = 0x300000
@@ -85,45 +78,6 @@ local rom = romvec.v + 0
 local gameC	-- C object / ffi metatype
 local game	-- Lua wrapper to provide extra Lua closure tables etc
 
-local function findu8(ptr, ch)
-	while true do
-		if ptr[0] == ch then return ptr end
-		ptr = ptr + 1
-	end
-end
-
--- TODO how about unicode?  no objections to fixed-size strings turning into varying-sized strings?
--- welp this seems good but itemForName :sub(2) no longer works
-local gameToAscii = table{
-'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P',
-'Q','R','S','T','U','V','W','X','Y','Z','a','b','c','d','e','f',
-'g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v',
-'w','x','y','z','0','1','2','3','4','5','6','7','8','9','!','?',
-'/',':','”',"'",'-','.',',','…',';','#','+','(',')','%','~','*',
-' ',' ','=','“','↑','→','↙','×','🔪','🗡️','⚔️','🔱','🪄','🖌️','𖣘','♦',
-'🃏','🐾','🛡️','🪖','🧥','🏹','📏','💍','⚪','🔴','🔵',' ',' ',' ',' ',' ',
-' ','▏','▎','▍','▌','▋','▊','▉','█','{','}',' ',' ',' ',' ',' '}
-:mapi(function(v)
-	if type(v) == 'number' then return string.char(v) end
-	return v
-end)
-local function gamestr(ptr, len)
-	assert(len, "did you want to use gamezstr?")
-	local s = table()
-	for i=0,len-1 do
-		local ch = ptr[i]
-		ch = bit.band(ch, 0x7f)
-		local ascii = gameToAscii[ch+1]
-		assert(ascii, "failed to find ascii for game char "..ptr[i])
-		s:insert(ascii)
-	end
-	return s:concat()
-end
-
-local function gamezstr(ptr)
-	local pend = findu8(ptr, 0)
-	return gamestr(ptr, pend - ptr)
-end
 
 -- same as gameToAscii ... one uses single-chars the other uses []'s
 local convertCompressedChar = {
@@ -221,12 +175,11 @@ local function ptrType(baseType)
 	return ffi.typeof('$*', baseType)
 end
 
-local function arrayType(baseType, size)
-	-- neither luajit nor lua-ffi-wasm can handle decimals in array sizes.
-	-- how come lua-ffi-wasm gets a decimal in array size here?
-	-- aha, because lua-ffi-wasm is based on Lua 5.4, when they introduced separate decimal and integer numbers, and started serializing them differently.
-	size = math.floor(size)
-	return ffi.typeof('$['..size..']', baseType)
+local function findu8(ptr, ch)
+	while true do
+		if ptr[0] == ch then return ptr end
+		ptr = ptr + 1
+	end
 end
 
 local function compzstr(ptr)
@@ -234,19 +187,7 @@ local function compzstr(ptr)
 	return compstr(ptr, pend - ptr)
 end
 
-local function gamestrtype(args)
-	local size = assert(args.size)
-	local ctype = ffi.typeof([[struct { uint8_t ptr[]]..size..[[]; }]])
-	assert.eq(ffi.sizeof(ctype), size)
-	ffi.metatype(ctype, {
-		__tostring = function(self)
-			return string.trim(gamestr(self.ptr, size))
-		end,
-		__concat = string.concat,
-	})
-	return ctype
-end
-
+-- only used for BlitzData ... hmm ...
 local function rawtype(args)
 	local size = assert(args.size)
 	local ctype = ffi.typeof([[struct { uint8_t ptr[]]..size..[[]; }]])
@@ -264,107 +205,6 @@ local function rawtype(args)
 	return ctype
 end
 
---[[
-args:
-	options
-	type (optional) default uint8_t
---]]
-local function bitflagtype(args)
-	local ctype = args.type or 'uint8_t'
-	assert.type(ctype, 'string')
-	return ff6struct{
-		ctypeOnly = true,
-		fields = table.mapi(assert(args.options), function(option)
-			return {[assert(option)] = ctype..':1'}
-		end),
-	}
-end
-
-local Element = bitflagtype{
-	options = {
-		'fire',
-		'ice',
-		'thunder',
-		'poison',
-		'wind',
-		'pearl',
-		'earth',
-		'water',
-	},
-}
-
-local Targetting = bitflagtype{
-	options = {
-		'one',			-- can move cursor?
-		'oneSideOnly',
-		'everyone',		-- auto select all?
-		'groupDefault',	-- auto select one side
-		'automatic',	-- auto confirm
-		'group',		-- manual party select
-		'enemyDefault',
-		'random',
-	},
-}
-
-local Effect1 = bitflagtype{
-	options = {
-		'dark',
-		'zombie',
-		'poison',
-		'magitech',
-		'invisible',
-		'imp',
-		'petrify',
-		'mortal',
-	},
-}
-
-local Effect2 = bitflagtype{
-	options = {
-		'countdown',
-		'nearFatal',
-		'image',
-		'mute',
-		'berzerk',
-		'muddle',
-		'hpLeak',
-		'sleep',
-	},
-}
-
-local Effect3 = bitflagtype{
-	options = {
-		'danceFloat',
-		'regen',
-		'slow',
-		'haste',
-		'stop',
-		'shell',
-		'safe',
-		'reflect',
-	},
-}
-
-local Effect4 = bitflagtype{
-	options = {
-		'raging',
-		'frozen',
-		'reraise',
-		'morphed',
-		'casting',
-		'removedFromBattle',
-		'interceptor',
-		'floating',
-	},
-}
-
-local function makefixedstr(n)
-	return gamestrtype{
-		size = n,
-	}
-end
-
-local Str6 = makefixedstr(6)
 local Str7 = makefixedstr(7)
 local Str8 = makefixedstr(8)
 local Str9 = makefixedstr(9)
@@ -372,6 +212,7 @@ local Str10 = makefixedstr(10)
 local Str12 = makefixedstr(12)
 local Str13 = makefixedstr(13)
 
+-- only used for BlitzData ... hmm ...
 local madefixedraw = {}
 local function makefixedraw(n)
 	local cache = madefixedraw[n]
@@ -381,9 +222,16 @@ local function makefixedraw(n)
 	return mt
 end
 
+-- only used for BlitzData ... hmm ...
 local Raw12 = makefixedraw(12)	-- Raw12 for uint8_t[12] for the blitzes
 
 ---------------- COMPRESSED/UNCOMPRESSED STRINGS ----------------
+
+local function gamezstr(ptr)
+	local pend = findu8(ptr, 0)
+	return gamestr(ptr, pend - ptr)
+end
+
 
 local StringList = class()
 
@@ -1162,29 +1010,6 @@ local itemUseAbilityNames = {
 	'dried meat',
 }
 
-local EquipFlags = bitflagtype{
-	type = 'uint16_t',
-	options = {
-		'terra',
-		'locke',
-		'cyan',
-		'shadow',
-		'edgar',
-		'sabin',
-		'celes',
-		'strago',
-		'relm',
-		'setzer',
-		'mog',
-		'gau',
-		'gogo',
-		'umaro',
-		'impItem',
-		'meritAward',
-	},
-}
-assert.eq(ffi.sizeof(EquipFlags), 2)
-
 local itemSpecialAbilityNames = {
 	'nothing',	-- 00
 	'randomally steals',
@@ -1528,8 +1353,6 @@ local MenuNameRef = reftype{
 		return gameC.menuNames[i]
 	end,
 }
-
-local CharacterName = Str6
 
 local MenuNameRef4 = createVec{
 	ctypeOnly = true,
@@ -2881,6 +2704,7 @@ rom[0xd1614] = 0x97	-- B5FF-8F79
 rom[0xd1618] = 0xc1	-- AFFF-8479
 rom[0xd1619] = 0x8f -- 6EFF-8459
 					-- wait I used +0xC00000 ... didn't seem to work ... whats the correct offset for ROM GG codes?
+local uint8_t_p = ffi.typeof'uint8_t*'
 print(compzstr(ffi.cast(uint8_t_p, rom+0xd1600)))
 --[=[
 test = table{0x2a, 0x24, 0x25, 0x2a, 0x20, 0x61, 0x7f, 0x20, 0x85, 0x46, 0x67, 0x83, 0x87, 0x3e, 0x63, 0x86, 0x32, 0x20, 0x2d, 0x23,

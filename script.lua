@@ -59,9 +59,9 @@ return function(game)
 	local startaddr2 = ffi.offsetof(Game, 'dialogBase')
 	local endaddr2 = ffi.offsetof(Game, 'dialogBase') + ffi.sizeof(game.dialogBase)
 
-print('event script ranges:')
-print(('$%06x-$%06x'):format(startaddr, endaddr))
-print(('$%06x-$%06x'):format(startaddr2, endaddr2))
+--DEBUG:print('event script ranges:')
+--DEBUG:print(('$%06x-$%06x'):format(startaddr, endaddr))
+--DEBUG:print(('$%06x-$%06x'):format(startaddr2, endaddr2))
 
 	-- how to generate this in a modular way that both outputs and is reusable later
 	-- for now I will insert in-order and provide an address lookup table to the index in this table
