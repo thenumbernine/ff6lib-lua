@@ -139,16 +139,16 @@ local SaveSlot = struct{
 
 		{name='numSaves', type=uint8_t},									-- 0x7c7 - 0x7c8
 
-		{name='unknown_7c8', type=arrayType(uint8_t, -(0x7c8 - 0x7dd))},	-- 0x7c8 - 0x7dd
+		{name='unknown_7c8', type=uint8_t},									-- 0x7c8 - 0x7c9
 
-		-- after fighting fossilfang for the first time
-		--  <-> formation #93 = byte 11, bit 5 <-> mask $20 ...
-		--  <-> monster #35 = byte 4, bit 3 <-> mask $08
-		-- $7c7 incremented from $43 to $45 so I guess it's not a flag ...
-		-- $7e8 flag changed from $1f to $3f (likely candidate....)
+		-- 0x7c9 = 'battle variables'
+		-- with doom gate's hp at 0x7d3-0x7d4
+		-- cursed shield counter at 0x7d5
+		{name='battleVars', type=arrayType(uint8_t, 20)},					-- 0x7c9 - 0x7dd
+
 		{name='battleFormationFlags', type=arrayType(uint8_t, 0x40)},		-- 0x7dd - 0x81d
 
-		{name='unknown_81d', type=arrayType(uint8_t, -(0x81d - 0x840))},	-- 0x81d - 0x840
+		{name='unknown_81d', type=arrayType(uint8_t, -(0x81d - 0x840))},	-- 0x81d - 0x840 = 23 bytes ...
 
 		{name='treasureFlags', type=arrayType(uint8_t, 0x40)},				-- 0x840 - 0x880 = "treasure bits" here: https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:field_ram&s[]=%2Asram%2A#fffsave_ram
 		{name='mapFlags', type=arrayType(uint8_t, 0x60)},					-- 0x880 - 0x8e0 = 768 = 0x300 flags /8 = 0x60 bytes. everything8215's "mapSwitches", or this page's "event bits": https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:field_ram&s[]=%2Asram%2A#fffsave_ram
@@ -230,6 +230,19 @@ for i=saveMin, saveMax do
 		for fieldname in ch:fielditer() do
 			print('', '', fieldname, ch[fieldname])
 		end
+	end
+
+	-- formation count is 0x240
+	-- that's 0x48 bytes of flags
+	-- but save files only have 0x40 flags
+	-- so ...
+	print()
+	for i=0,countof(save.battleFormationFlags)*8-1 do
+		local byteofs = bit.rshift(i,3)
+		local bitofs = bit.band(i, 7)
+		local mask = bit.lshift(1, bitofs)
+		local enabled = 0 ~= bit.band(mask, save.battleFormationFlags[byteofs])
+		print(enabled and '✅' or '❌', game.getFormationName(i))
 	end
 end
 --]]

@@ -14,24 +14,7 @@ function BattleFormationWindow:getCount()
 end
 
 function BattleFormationWindow:getIndexName(i)
-	local game = self.app.game
-	local formation = game.formations + i
-	local monsterCounts = {}
-	for k=1,6 do
-		if formation:getMonsterActive(k) then
-			local monsterIndex = formation:getMonsterIndex(k)
-			local key = '#'..monsterIndex
-			if monsterIndex < game.numMonsters then
-				key = key ..':'..tostring(game.monsterNames[monsterIndex])
-			end
-			monsterCounts[key] = (monsterCounts[key] or 0) + 1
-		end
-	end
-	return table.keys(monsterCounts):sort():mapi(function(key)
-		local count = monsterCounts[key]
-		if count == 1 then return key end
-		return key..' x'..count
-	end):concat', '
+	return self.app.game.getFormationName(i)
 end
 
 local availSize = ig.ImVec2()
