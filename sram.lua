@@ -2,6 +2,7 @@
 -- this is separate of everything else, just a quick and dirty sram viewer
 -- https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:sram&s[]=%2Asram%2A
 local ffi = require 'ffi'
+local table = require 'ext.table'
 local path = require 'ext.path'
 local assert = require 'ext.assert'
 local createVec = require 'vec-ffi.create_vec'
@@ -203,6 +204,44 @@ assert.eq(ffi.sizeof(SRAM), 0x2000)
 
 assert.eq(ffi.sizeof(SRAM), #data)	-- make sure it fits
 
+-- reverse-reference treasure # for its bits ...
+local treasuresForFlagIndex
+if game then
+	-- [[ a lot is identical to maps.lua treasure generation, i could consolidate if I stored either pointers there or objects and addresses there
+	local mapsForTreasure = {}	 -- key = treasure index, value = table of map indexes
+	for mapIndex=0,countof(game.maps) do
+		local startOfs = game.treasureOfs[mapIndex]
+		assert.eq(startOfs % ffi.sizeof(game.Treasure), 0)
+		local startIndex = startOfs / ffi.sizeof(game.Treasure)
+
+		local endIndex
+		if mapIndex == countof(game.treasureOfs)-1 then
+			endIndex = countof(game.treasures)
+		else
+			local endOfs = game.treasureOfs[mapIndex+1]
+			assert.eq(endOfs % ffi.sizeof(game.Treasure), 0)
+			endIndex = endOfs / ffi.sizeof(game.Treasure)
+		end
+		for treasureIndex=startIndex,endIndex-1 do
+			local t = game.treasures + treasureIndex
+			mapsForTreasure[treasureIndex] = mapsForTreasure[treasureIndex] or table()
+			mapsForTreasure[treasureIndex]:insert(mapIndex)
+		end
+	end
+	--]]
+
+	treasuresForFlagIndex = {}
+	for treasureIndex=0,countof(game.treasures)-1 do
+		local t = game.treasures + treasureIndex
+		local flag = tonumber(t.flag)
+		treasuresForFlagIndex[flag] = treasuresForFlagIndex[flag] or table()
+		treasuresForFlagIndex[flag]:insert{
+			treasure = game.Treasure(t[0]),
+			maps = mapsForTreasure[treasureIndex],
+		}
+	end
+end
+
 local sram = ffi.cast(ffi.typeof('$*', SRAM), ptr)
 --[[
 print(sram)
@@ -232,17 +271,35 @@ for i=saveMin, saveMax do
 		end
 	end
 
+	print()
+	print'treasures:'
+	for i=0,bit.lshift(countof(save.treasureFlags),3)-1 do
+		local byteofs = bit.rshift(i,3)
+		local bitofs = bit.band(i, 7)
+		local mask = bit.lshift(1, bitofs)
+		local enabled = 0 ~= bit.band(mask, save.treasureFlags[byteofs])
+		local t = game.treasures + i
+		io.write(i, '\t', enabled and '✅' or '❌')
+		local sep = ''
+		for _,t in ipairs(treasuresForFlagIndex[i] or {}) do
+			io.write(sep, ' ', tostring(t.treasure)..' in maps '..t.maps:concat',')
+			sep = ','
+		end
+		print()
+	end
+
 	-- formation count is 0x240
 	-- that's 0x48 bytes of flags
 	-- but save files only have 0x40 flags
 	-- so ...
 	print()
-	for i=0,countof(save.battleFormationFlags)*8-1 do
+	print'battle formations:'
+	for i=0,bit.lshift(countof(save.battleFormationFlags),3)-1 do
 		local byteofs = bit.rshift(i,3)
 		local bitofs = bit.band(i, 7)
 		local mask = bit.lshift(1, bitofs)
 		local enabled = 0 ~= bit.band(mask, save.battleFormationFlags[byteofs])
-		print(enabled and '✅' or '❌', game.getFormationName(i))
+		print(i, enabled and '✅' or '❌', game.getFormationName(i))
 	end
 end
 --]]

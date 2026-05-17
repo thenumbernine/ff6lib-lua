@@ -1724,20 +1724,41 @@ local mapTilesetOfsAddr = 0x1fba00
 local Treasure = ff6struct{
 	ctypeOnly = true,
 	fields = {
-		{pos = XY8b},
+		{pos = XY8b},					-- 0-1
+		{flag = 'uint16_t:9'},			-- 2.0-3.0	= bitflag into game state data
+		{unused_2_1 = 'uint16_t:1'},	-- 3.1		= does this bit go in 'flag' too? like in NPC .flag is 10 bits...
+		{unused_2_2 = 'uint16_t:1'},	-- 3.2
+		{empty = 'uint16_t:1'},			-- 3.3		= set iff type == 0 i.e. empty
+		{unused_2_4 = 'uint16_t:1'},	-- 3.4
+		{type = 'uint16_t:2'},			-- 3.5-3.6	= 0=empty, 1=monster, 2=item, 3=gp
+		{unknown_2_7 = 'uint16_t:1'},	-- 3.7		= ???
 
-		-- bitflag into game state data
-		-- is this 'map switch' or 'npc switch' or 'battle switch' or different?
-		{flag = 'uint16_t:9'},
-
-		{unused_2_1 = 'uint16_t:1'},	-- does this bit go in 'flag' too? like in NPC .flag is 10 bits...
-		{unused_2_2 = 'uint16_t:1'},
-		{empty = 'uint16_t:1'},		-- set iff type == 0 i.e. empty
-		{unused_2_4 = 'uint16_t:1'},
-		{type = 'uint16_t:3'},	-- 0=empty, 1=monster, 2=item, 3=gp
-		-- depends on 'type'
+		-- depends on 'type':
 		{battleOrItemOrGP = uint8_t},	-- GP is x100
 	},
+	metatable = function(mt)
+		mt.__tostring = function(self)
+			local contents
+			-- why do they even need the .empty extra flag for?
+			if self.type == 0 then
+				contents = 'empty=true'
+			elseif self.type == 1 then
+				contents = 'monsterBattle="'..tostring(game.getFormationName(game.monsterEventBattles[self.battleOrItemOrGP].s[0].formation))..'"'
+			elseif self.type == 2 then
+				contents = 'item="'..tostring(gameC.itemNames[self.battleOrItemOrGP])..'"'
+			elseif self.type == 3 then
+				contents = 'GP='..(self.battleOrItemOrGP * 100)
+			else
+				contents = 'unknownType='..self.type
+			end
+			return '{'
+				..'pos='..self.pos
+				..', flag='..self.flag
+				..', '..contents
+				..(self.unknown_2_7 ~= 0 and ', unknown_2_7=1' or '')
+				..'}'
+		end
+	end,
 }
 assert.eq(ffi.sizeof(Treasure), 5)
 
@@ -2705,6 +2726,7 @@ function game.getMenuCharImage(charIndex)
 	return im
 end
 
+-- here or in Formation?
 function game.getFormationName(i)
 	if i < 0 or i >= countof(game.formations) then return end
 
@@ -2753,6 +2775,18 @@ for i=0,#test-1 do
 end
 print()
 --]=]
+os.exit()
+--]]
+
+-- [[ why are most event battles matching, but some not?
+print'event battles'
+for i=0,0xff do
+	print(i,
+		game.monsterEventBattles[i].s[0] == game.monsterEventBattles[i].s[1],
+		game.getFormationName(game.monsterEventBattles[i].s[0].formation),
+		game.getFormationName(game.monsterEventBattles[i].s[1].formation)
+	)
+end
 os.exit()
 --]]
 
