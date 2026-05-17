@@ -288,18 +288,55 @@ for i=saveMin, saveMax do
 		print()
 	end
 
+	local function align(n, s)
+		s = tostring(s)
+		return s..(' '):rep(n - #s)
+	end
+
 	-- formation count is 0x240
 	-- that's 0x48 bytes of flags
 	-- but save files only have 0x40 flags
 	-- so ...
-	print()
-	print'battle formations:'
+	local formationsEnabled = {}
+	local monstersEnabled = {}
 	for i=0,bit.lshift(countof(save.battleFormationFlags),3)-1 do
 		local byteofs = bit.rshift(i,3)
 		local bitofs = bit.band(i, 7)
 		local mask = bit.lshift(1, bitofs)
-		local enabled = 0 ~= bit.band(mask, save.battleFormationFlags[byteofs])
-		print(i, enabled and '✅' or '❌', game.getFormationName(i))
+		local formationEnabled = 0 ~= bit.band(mask, save.battleFormationFlags[byteofs])
+		formationsEnabled[i] = formationEnabled
+		if formationEnabled then
+			local formation = game.formations + i
+			-- do I care about chooseNextFour as well?
+			for j=1,6 do
+				if formation:getMonsterActive(j) then
+					local monsterIndex = formation:getMonsterIndex(j)
+					monstersEnabled[monsterIndex] = true
+				end
+			end
+		end
+	end
+	print()
+	print(
+		align(4+3+72, 'battle formations:')
+		..'monsters:'
+	)
+	for i=0,math.max(countof(game.monsters), bit.lshift(countof(save.battleFormationFlags),3))-1 do
+		local monsterEnabled
+		if i < countof(game.monsters) then
+			monsterEnabled = not not monstersEnabled[i]
+		end
+		print(
+			align(4, i)								-- biggest is 3
+			..align(3, formationsEnabled[i] and '✅' or '❌')	-- biggest is 1 but it needs 2 spaces...
+			..align(72, game.getFormationName(i))	-- biggest is 70
+			..(monsterEnabled ~= nil and
+				align(4, i)
+				..align(3, monsterEnabled and '✅' or '❌')
+				..game.monsterNames[i]
+				or ''
+			)
+		)
 	end
 end
 --]]
