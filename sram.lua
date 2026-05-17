@@ -139,11 +139,20 @@ local SaveSlot = struct{
 
 		{name='numSaves', type=uint8_t},									-- 0x7c7 - 0x7c8
 
-		{name='unknown_7c8', type=arrayType(uint8_t, -(0x7c8 - 0x880))},	-- 0x7c8 - 0x880
+		{name='unknown_7c8', type=arrayType(uint8_t, -(0x7c8 - 0x7dd))},	-- 0x7c8 - 0x7dd
 
-		{name='mapFlags', type=arrayType(uint8_t, 0x60)},					-- 0x880 - 0x8e0 = 768 = 0x300 flags /8 = 0x60 bytes
+		-- after fighting fossilfang for the first time
+		--  <-> formation #93 = byte 11, bit 5 <-> mask $20 ...
+		--  <-> monster #35 = byte 4, bit 3 <-> mask $08
+		-- $7c7 incremented from $43 to $45 so I guess it's not a flag ...
+		-- $7e8 flag changed from $1f to $3f (likely candidate....)
+		{name='battleFormationFlags', type=arrayType(uint8_t, 0x40)},		-- 0x7dd - 0x81d
 
-		{name='unknown_8e0', type=arrayType(uint8_t, -(0x8e0 - 0x960))},	-- 0x8e0 - 0x960
+		{name='unknown_81d', type=arrayType(uint8_t, -(0x81d - 0x840))},	-- 0x81d - 0x840
+
+		{name='treasureFlags', type=arrayType(uint8_t, 0x40)},				-- 0x840 - 0x880 = "treasure bits" here: https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:field_ram&s[]=%2Asram%2A#fffsave_ram
+		{name='mapFlags', type=arrayType(uint8_t, 0x60)},					-- 0x880 - 0x8e0 = 768 = 0x300 flags /8 = 0x60 bytes. everything8215's "mapSwitches", or this page's "event bits": https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:field_ram&s[]=%2Asram%2A#fffsave_ram
+		{name='npcFlags', type=arrayType(uint8_t, 0x80)},					-- 0x8e0 - 0x960
 
 		{name='mapx', type=uint8_t},										-- 0x960 - 0x961
 		{name='mapy', type=uint8_t},										-- 0x961 - 0x962
@@ -158,11 +167,7 @@ local SaveSlot = struct{
 		{name='mapy2', type=uint8_t},										-- 0x96c
 		{name='unknown_96d', type=arrayType(uint8_t, -(0x96d - 0xa00))},	-- 0x96d - 0xa00
 
-
-		-- where are the battle group encounter flags?
 		-- where are the npc flags? 1024 bits = 0x80 bytes
-		-- where are the map flags? 768 bits = 0x60 bytes
-		-- where are the treasure flags? 512 bits = 0x40 bytes
 	},
 }
 assert.eq(ffi.sizeof(SaveSlot), 0xa00)
