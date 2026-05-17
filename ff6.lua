@@ -2778,7 +2778,7 @@ print()
 os.exit()
 --]]
 
--- [[ why are most event battles matching, but some not?
+--[[ why are most event battles matching, but some not?
 print'event battles'
 for i=0,0xff do
 	print(i,
