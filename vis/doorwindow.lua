@@ -11,7 +11,7 @@ function DoorWindow:getArray()
 end
 
 function DoorWindow:showIndexUI()
-	local e = self:getIndex(self.index)
+	local e = self:getCurIndex()
 	if not e then return end
 
 	ig.igPushID_Str(self.name)
@@ -28,7 +28,7 @@ function DoorWindow:showIndexUI()
 end
 
 function DoorWindow:goThruDoor()
-	local e = self:getIndex(self.index)
+	local e = self:getCurIndex()
 	if not e then return end
 
 	self.app.mapWindow:setIndex(e.mapIndex, 0 ~= e.setParentMap)

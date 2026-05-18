@@ -730,12 +730,15 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 			if self.showTouchTriggers then
 				for i,t in ipairs(mapInfo.touchTriggers) do
 					local x, y = tonumber(t.pos.x), tonumber(t.pos.y)
-					if leftPress
+					if (leftPress or leftDoubleClick)
 					and x <= mx and mx < x+1
 					and y <= my and my < y+1
 					then
 						self.touchTriggerWindow:setIndex(i-1)
 						self.touchTriggerWindow.show[0] = true
+						if leftDoubleClick then
+							self.scriptWindow:openScriptAddr(t:getScriptAddr())
+						end
 					end
 					settable(uniforms.bbox, x, y, 1, 1)
 					settable(uniforms.color, 1,0,1,.5)

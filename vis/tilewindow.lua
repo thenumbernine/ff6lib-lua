@@ -130,8 +130,8 @@ end
 function TileWindow:setXY(x, y)
 	local mapWidth, mapHeight = self:getMapSize()
 	if not mapWidth then return end
-	if x < 0 or y < 0 or x >= maxWidth or y >= mapHeight then return end
-	return self:setIndex(x + mapSize * y)
+	if x < 0 or y < 0 or x >= mapWidth or y >= mapHeight then return end
+	return self:setIndex(x + mapWidth * y)
 end
 
 function TileWindow:setIndex(index, ...)
