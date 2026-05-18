@@ -1010,12 +1010,24 @@ return function(game)
 		EventCmds['Switch '..cmd] = Switch:subclass{cmd = cmd}
 	end
 
+	-- hmm there's 4 extra bits here ...
+	-- one or two belong to the high-bit of the flagIndex I bet
+	-- two more for set/clear/toggle?
+	-- 0xd2 0x28 means `set mapFlags[0x128] to true`
+	-- so ... which is 'true/false' and which is high-bit?
+	-- and how come 0-14 is used, and not 0-15?
 	for cmd=0xd0,0xdd do
 		EventCmds['ChangeFlag'..('0x%02x'):format(cmd)] = EventCmd:subclass{
 			cmd = cmd,
 			argtypes = {uint8_t},
-			-- which flag is this?  #204 <=> "Song Override"
-			desc = 'gameState.eventFlags<?=args[1]?> ~~= true',
+			getargs = function(self, flagIndex)
+				self.value = 0 ~= bit.band(1, cmd)
+				self.flagIndex = bit.bor(
+					bit.lshift(bit.band(self.cmd, 6), 7),	-- move bits 1:2 to bits 8:9 ... ?
+					flagIndex
+				)
+			end,
+			desc = 'gameState.mapFlags<?=flagIndex?> ~~= <?=tostring(value)?>',
 		}
 	end
 
@@ -1338,7 +1350,6 @@ return function(game)
 			desc = 'gameState.eventFlags<?=args[1]?> ~~= true',
 		}
 	end
-
 
 
 	-- map by-number for by-name
