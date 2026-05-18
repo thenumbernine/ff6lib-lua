@@ -127,6 +127,13 @@ function TileWindow:showIndexUI()
 	end
 end
 
+function TileWindow:setXY(x, y)
+	local mapWidth, mapHeight = self:getMapSize()
+	if not mapWidth then return end
+	if x < 0 or y < 0 or x >= maxWidth or y >= mapHeight then return end
+	return self:setIndex(x + mapSize * y)
+end
+
 function TileWindow:setIndex(index, ...)
 	local app = self.app
 	local game = app.game

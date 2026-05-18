@@ -1259,7 +1259,7 @@ return function(game)
 	}
 
 	ObjectCmds.Move = ObjectCmd:subclass{
-		desc = 'obj.dir = <?=bit.band(cmd, 3)?>\n'
+		desc = 'obj.dir = <?=bit.band(cmd, 3)?> '
 			..'obj:walkForward(<?=bit.band(bit.rshift(cmd, 2), 7)?>)',
 	}
 	for cmd=0x80,0x9f do
@@ -1399,13 +1399,19 @@ return function(game)
 			-- if the mapIndex < 3 then it's a world-script, otherwise it's an event-script
 			-- ... right?
 			game.eventScriptAddrs[mapInfo.startEventScriptAddr] = game.eventScriptAddrs[mapInfo.startEventScriptAddr] or table()
-			game.eventScriptAddrs[mapInfo.startEventScriptAddr]:insert('map '..mapIndex..' startEventScriptAddr')
+			game.eventScriptAddrs[mapInfo.startEventScriptAddr]:insert{
+				type = 'startEventScriptAddr',
+				mapIndex = mapIndex,
+			}
 
 			for npcIndex,n in ipairs(mapInfo.npcs) do
 				local scriptAddr = n:getScriptAddr()
 				if scriptAddr then
 					game.eventScriptAddrs[scriptAddr] = game.eventScriptAddrs[scriptAddr] or table()
-					game.eventScriptAddrs[scriptAddr]:insert('map '..mapIndex..' npc '..(npcIndex-1))
+					game.eventScriptAddrs[scriptAddr]:insert{
+						npcIndex = npcIndex-1,
+						mapIndex = mapIndex,
+					}
 				end
 			end
 
@@ -1414,7 +1420,10 @@ return function(game)
 				if scriptAddr then
 					-- if the mapIndex < 3 then it's a world-script, otherwise it's an event-script
 					game.eventScriptAddrs[scriptAddr] = game.eventScriptAddrs[scriptAddr] or table()
-					game.eventScriptAddrs[scriptAddr]:insert('map '..mapIndex..' touchTrigger '..(touchTriggerIndex-1))
+					game.eventScriptAddrs[scriptAddr]:insert{
+						touchTriggerIndex = touchTriggerIndex-1,
+						mapIndex = mapIndex,
+					}
 				end
 			end
 		end

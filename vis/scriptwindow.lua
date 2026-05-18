@@ -1,19 +1,42 @@
+local ffi = require 'ffi'
 local string = require 'ext.string'
 local ig = require 'imgui'
 local ArrayWindow = require 'ff6.vis.arraywindow'
 
 
+local scriptDivider = {}
+
 local EventScriptWindow = ArrayWindow:subclass()
 
-function EventScriptWindow:init(...)
-	EventScriptWindow.super.init(self, ...)
-	self.clipper = ig.ImGuiListClipper_ImGuiListClipper()
-	self.availableSpace = ig.ImVec2()
-	-- on gc, but only before app shutdown:
-	--ig.ImGuiListClipper_destroy(self.clipper)
-end
-
 EventScriptWindow.name = 'event script'
+
+function EventScriptWindow:init(args, ...)
+	EventScriptWindow.super.init(self, args, ...)
+	self.scrollOppositeWorldRow = ffi.new('int[1]', 0x7ffffffff)
+	self.availSpace = ig.ImVec2()
+
+	local game = self.app.game
+
+	-- while we're here...
+	-- insert into the beginning of each script function a reference back to whoever is calling it
+	-- and an empty divider
+	for i=#game.eventScriptCmds,1,-1 do
+		local cmd = game.eventScriptCmds[i]
+		local whatPointsToScriptAdAddr = game.eventScriptAddrs[cmd.addr]
+		if whatPointsToScriptAdAddr then
+			game.eventScriptCmds:insert(i, {what=whatPointsToScriptAdAddr})
+			game.eventScriptCmds:insert(i, scriptDivider)
+		end
+	end
+
+	-- and now I have to recalculate eventScriptCmdIndexForAddr
+	game.eventScriptCmdIndexForAddr = {}
+	for i,cmd in ipairs(game.eventScriptCmds) do
+		if cmd.addr then
+			game.eventScriptCmdIndexForAddr[cmd.addr] = i
+		end
+	end
+end
 
 function EventScriptWindow:getArray()
 	return self.app.game.eventScriptCmds
@@ -21,116 +44,181 @@ end
 
 -- used for buttons, index is 0-based
 function EventScriptWindow:getIndexName(i)
-	return ('event $%06x'):format(self.app.game.eventScriptCmds[1+i].addr)
+	local cmd = self.app.game.eventScriptCmds[1+i]
+	if not cmd.addr then return '' end
+	return ('event $%06x'):format(cmd.addr)
 end
 
+local igzero = ig.ImVec2(0,0)
 function EventScriptWindow:showIndexUI()
 	local app = self.app
 	local game = app.game
 
 	local ar = self:getArray()
-	-- TODO index isn't necessary for this window
-	-- tho better TODO is to fix the scroll area of the clipper and make it jump correctly
-	--if ig.igBeginChild('ScriptWindowEvents', ig.ImVec2(0, #ar), true) then
-	-- this is even worse, now single wheel or scrollbar scrolls up and down jump over an entire page, and i can't find the item i'm looking for, and the clipper seek funciton doesn't work.
-	ig.igGetContentRegionAvail(self.availableSpace)
-	self.availableSpace.x = 0
-	if ig.igBeginChild('ScriptWindowEvents', self.availableSpace, true) then
 
-		if self.jumpRequested then
-			ig.igSetScrollY_Float(self.jumpRequested)
-			self.jumpRequested = nil
-		end
+	ig.igInputInt('current opposite-world row', self.scrollOppositeWorldRow)
 
-		--[[ not working, very arbitrary
-		if ig.igIsWindowHovered(0) then
-			local wheel = ig.igGetIO().MouseWheel
-			if wheel ~= 0 then
-				ig.igSetScrollY_Float(ig.igGetScrollY() - wheel * 10)
-			end
-		end
-		--]]
+	ig.igGetContentRegionAvail(self.availSpace)
+	self.availSpace.x = 18
 
-		ig.ImGuiListClipper_Begin(self.clipper, #ar, 1)
-		while ig.ImGuiListClipper_Step(self.clipper) do
-			for i=self.clipper.DisplayStart,self.clipper.DisplayEnd-1 do
-				local cmd = ar[1+i]
-				if cmd then
-					ig.igPushID_Int(cmd.addr)
+	--local numRowsVisible = 15
+	-- TODO determine by window size, or child panel within window...
+	-- igGetContentRegionAvail returns in pixels
+	local numRowsVisible = math.floor(self.availSpace.y / ig.igGetTextLineHeight())
+	local count = #ar
+	local scrollMax = count - numRowsVisible - 1
 
-					ig.igText(
-						(i == self.index and '>' or ' ')
-						..('%06x: '):format(cmd.addr)
-					)
-					ig.igSameLine()
+	ig.igVSliderInt(
+		'##scroll',							-- label
+		self.availSpace,					-- size
+		self.scrollOppositeWorldRow,		-- v
+		0,									-- vmin
+		scrollMax,							-- vmax
+		'',									-- format
+		0									-- flags
+	)
 
-					-- indent object-cmds since they are blocks of cmds from event-cmds
-					if game.ObjectCmd:isa(cmd)
-					and not game.ObjectCmds.EndScript:isa(cmd)
-					then
-						ig.igText('  ')
+	ig.igSameLine();
+	ig.igBeginChild(
+		'ScriptWindowEvents',
+		igzero,
+		ig.ImGuiChildFlags_None,
+		bit.bor(ig.ImGuiWindowFlags_NoScrollbar, ig.ImGuiWindowFlags_NoScrollWithMouse)
+	)
+
+	local wheel = ig.igGetIO().MouseWheel
+	if wheel ~= 0 and ig.igIsWindowHovered(0)
+	then
+		self.scrollOppositeWorldRow[0] = self.scrollOppositeWorldRow[0] + wheel * 3
+	end
+
+	if self.jumpRequested then
+		self.scrollOppositeWorldRow[0] = scrollMax - self.jumpRequested
+		self.jumpRequested = nil
+	end
+
+	if self.scrollOppositeWorldRow[0] < 0 then self.scrollOppositeWorldRow[0] = 0 end
+	if self.scrollOppositeWorldRow[0] > scrollMax then
+		self.scrollOppositeWorldRow[0] = scrollMax
+	end
+
+	-- TODO maybe turn this into a table to force its row height...
+	for visibleRowIndex = 0,numRowsVisible-1 do
+		local i = (scrollMax - self.scrollOppositeWorldRow[0]) + visibleRowIndex
+		if i >= 0 and i < count then
+			local cmd = ar[1+i]
+			if cmd == scriptDivider then
+				ig.igSeparator()
+			elseif cmd and cmd.what then
+				for j,what in ipairs(cmd.what) do
+					ig.igPushID_Int(j)
+					if what.startEventScriptAddr then
 						ig.igSameLine()
-					end
-
-					-- item links:
-					if game.EventCmds.GiveItem:isa(cmd) then
-						ig.igText'GiveItem'
+						app.mapWindow:popupButton(what.mapIndex)
+					elseif what.npcIndex then
 						ig.igSameLine()
-						app.itemWindow:popupButton(cmd.itemIndex)
-					elseif game.EventCmds.TakeItem:isa(cmd) then
-						ig.igText'TakeItem'
-						ig.igSameLine()
-						app.itemWindow:popupButton(cmd.itemIndex)
-
-					-- battles:
-					elseif game.EventCmds.TouchBattle:isa(cmd) then	-- TouchBattle is a subclass of Battle
-						ig.igText'TouchBattle'
-						ig.igSameLine()
-						app.eventBattleOptionsWindow:popupButton(cmd.eventBattleOptionsIndex)
-					elseif game.EventCmds.Battle:isa(cmd) then
-						ig.igText'Battle'
-						ig.igSameLine()
-						app.eventBattleOptionsWindow:popupButton(cmd.eventBattleOptionsIndex)
-
-					-- maps:
-					elseif game.EventCmds.SetMap2:isa(cmd) then	-- SetMap2 is a subclass of SetMap
-						ig.igText'SetMap2'
-						ig.igSameLine()
-						if app.mapWindow:popupButton(cmd.mapIndex) then
-							local mapWidth, mapHeight = app.tileWindow:getMapSize()
-							if mapWidth and mapHeight then
-								app.tileWindow:setIndex(cmd.x + mapWidth * cmd.y)
+						if ig.igButton('map '..what.mapIndex..' npc '..what.npcIndex) then
+							app.mapWindow:setIndex(what.mapIndex)
+							app.npcWindow:setIndex(what.npcIndex)
+							app.npcWindow.show[0] = true
+							local n = app.npcWindow:getCurIndex()
+							if n then
+								app:centerView(n.x, n.y)
 							end
-							app:centerView(cmd.x, cmd.y)
 						end
-					elseif game.EventCmds.SetMap:isa(cmd) then
-						ig.igText'SetMap'
+					elseif what.touchTriggerIndex then
 						ig.igSameLine()
-						if app.mapWindow:popupButton(cmd.mapIndex) then
-							local mapWidth, mapHeight = app.tileWindow:getMapSize()
-							if mapWidth and mapHeight then
-								app.tileWindow:setIndex(cmd.x + mapWidth * cmd.y)
+						if ig.igButton('map '..what.mapIndex..' touch '..what.touchTriggerIndex) then
+							app.mapWindow:setIndex(what.mapIndex)
+							app.touchTriggerWindow:setIndex(what.touchTriggerIndex)
+							app.touchTriggerWindow.show[0] = true
+							local t = app.touchTriggerWindow:getCurIndex()
+							if t then
+								app:centerView(t.pos.x, t.pos.y)
 							end
-							app:centerView(cmd.x, cmd.y)
 						end
-					elseif game.EventCmds.MovePartyToMap:isa(cmd) then
-						ig.igText('movePartyToMap '..cmd.partyIndex)
-						ig.igSameLine()
-						if app.mapWindow:popupButton(cmd.mapIndex) then
-							-- hmm, no x,y?
-						end
-
 					else
-					-- default:
-						ig.igText(string.trim(tostring(cmd):gsub('\n', '\\n')))
+						ig.igSameLine()
+						ig.igText'???'
 					end
-
 					ig.igPopID()
 				end
+			elseif cmd then
+				ig.igPushID_Int(cmd.addr)
+
+				ig.igText(
+					(i == self.index and '>' or ' ')
+					..('%06x: '):format(cmd.addr)
+				)
+				ig.igSameLine()
+
+				-- indent object-cmds since they are blocks of cmds from event-cmds
+				if game.ObjectCmd:isa(cmd)
+				and not game.ObjectCmds.EndScript:isa(cmd)
+				then
+					ig.igText('  ')
+					ig.igSameLine()
+				end
+
+				-- item links:
+				if game.EventCmds.GiveItem:isa(cmd) then
+					ig.igText'GiveItem'
+					ig.igSameLine()
+					app.itemWindow:popupButton(cmd.itemIndex)
+				elseif game.EventCmds.TakeItem:isa(cmd) then
+					ig.igText'TakeItem'
+					ig.igSameLine()
+					app.itemWindow:popupButton(cmd.itemIndex)
+
+				-- battles:
+				elseif game.EventCmds.TouchBattle:isa(cmd) then	-- TouchBattle is a subclass of Battle
+					ig.igText'TouchBattle'
+					ig.igSameLine()
+					app.eventBattleOptionsWindow:popupButton(cmd.eventBattleOptionsIndex)
+				elseif game.EventCmds.Battle:isa(cmd) then
+					ig.igText'Battle'
+					ig.igSameLine()
+					app.eventBattleOptionsWindow:popupButton(cmd.eventBattleOptionsIndex)
+
+				-- maps:
+				elseif game.EventCmds.SetMap2:isa(cmd) then	-- SetMap2 is a subclass of SetMap
+					ig.igText'SetMap2'
+					ig.igSameLine()
+					if app.mapWindow:popupButton(cmd.mapIndex) then
+						local mapWidth, mapHeight = app.tileWindow:getMapSize()
+						if mapWidth and mapHeight then
+							app.tileWindow:setIndex(cmd.x + mapWidth * cmd.y)
+						end
+						app:centerView(cmd.x, cmd.y)
+					end
+				elseif game.EventCmds.SetMap:isa(cmd) then
+					ig.igText'SetMap'
+					ig.igSameLine()
+					if app.mapWindow:popupButton(cmd.mapIndex) then
+						local mapWidth, mapHeight = app.tileWindow:getMapSize()
+						if mapWidth and mapHeight then
+							app.tileWindow:setIndex(cmd.x + mapWidth * cmd.y)
+						end
+						app:centerView(cmd.x, cmd.y)
+					end
+				elseif game.EventCmds.MovePartyToMap:isa(cmd) then
+					ig.igText('movePartyToMap '..cmd.partyIndex)
+					ig.igSameLine()
+					if app.mapWindow:popupButton(cmd.mapIndex) then
+						-- hmm, no x,y?
+					end
+
+				else
+				-- default:
+					ig.igText(string.trim(tostring(cmd):gsub('\n', '\\n')))
+				end
+
+				ig.igPopID()
 			end
+
 		end
-		ig.ImGuiListClipper_End(self.clipper)
 	end
+
 	ig.igEndChild()
 end
 

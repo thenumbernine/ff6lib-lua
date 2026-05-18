@@ -34,6 +34,10 @@ function ArrayWindow:setIndex(index)
 	self.index = index
 end
 
+function ArrayWindow:getCurIndex()
+	return self:getIndex(self.index)
+end
+
 function ArrayWindow:getIndexName(i) end
 
 function ArrayWindow:isOpen()

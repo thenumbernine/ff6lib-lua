@@ -728,8 +728,8 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 				end
 			end
 			if self.showTouchTriggers then
-				for i,e in ipairs(mapInfo.touchTriggers) do
-					local x, y = tonumber(e.pos.x), tonumber(e.pos.y)
+				for i,t in ipairs(mapInfo.touchTriggers) do
+					local x, y = tonumber(t.pos.x), tonumber(t.pos.y)
 					if leftPress
 					and x <= mx and mx < x+1
 					and y <= my and my < y+1

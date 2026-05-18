@@ -688,7 +688,9 @@ for _,cmd in ipairs(game.eventScriptCmds) do
 		print()
 		print(
 			('$%06x: '):format(cmd.addr)
-			..whatPointsToScriptAdAddr:concat'; '
+			..whatPointsToScriptAdAddr:mapi(function(x)
+				return (tolua(x, {indent=false}))
+			end):concat'; '
 		)
 	end
 	io.write(('$%06x'):format(cmd.addr), '\t')

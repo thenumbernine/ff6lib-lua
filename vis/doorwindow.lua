@@ -32,13 +32,7 @@ function DoorWindow:goThruDoor()
 	if not e then return end
 
 	self.app.mapWindow:setIndex(e.mapIndex, 0 ~= e.setParentMap)
-
-	-- new map should be loaded now
-	local mapWidth, mapHeight = self.app.tileWindow:getMapSize()
-	if mapWidth and mapHeight then
-		self.app.tileWindow:setIndex(e.dest.x + mapWidth * e.dest.y)
-	end
-
+	self.app.tileWindow:setXY(e.dest.x, e.dest.y)
 	self.app:centerView(e.dest.x, e.dest.y)
 end
 
