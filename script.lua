@@ -522,14 +522,25 @@ return function(game)
 	EventCmds.ChangeMapLayer = EventCmd:subclass{
 		cmd = 0x73,
 		argtypes = {uint8_t, uint8_t, uint8_t, uint8_t, uint8_t},
-		argnames = {'x', 'layer', 'y', 'w', 'h'},
-		extra = ', updateImmediately=true',
-		desc = 'changeMapLayer{layer=<?=layer?>, x=<?=x?>, y=<?=y?>, w=<?=w?>, h=<?=h?><?=extra?>}',
+		digest = function(self, read)
+			self.x = read(uint8_t)
+			local y = read(uint8_t)
+			self.y = bit.band(y, 0x3f)
+			self.layer = bit.rshift(y, 6)
+			self.w = read(uint8_t)
+			self.h = read(uint8_t)
+			self.data = table()
+			for i=0,self.w*self.h-1 do
+				self.data:insert(read(uint8_t))
+			end
+		end,
+		extra = ', refresh=true',
+		desc = "setMapLayer{layer=<?=layer+1?>, x=<?=x?>, y=<?=y?>, w=<?=w?>, h=<?=h?>, data={<?=data:concat', '?>}<?=extra?>}",
 	}
 
-	EventCmds.ChangeMapLayer2 = EventCmds.ChangeMapLayer:subclass{
+	EventCmds.ChangeMapLayerNoRefresh = EventCmds.ChangeMapLayer:subclass{
 		cmd = 0x74,
-		extra = '',
+		extra = '',	-- no refresh=true
 	}
 
 	EventCmds.RefreshMapLayerChanges = EventCmd:subclass{
@@ -987,7 +998,7 @@ return function(game)
 				local arg = read(uint16_t)
 				self.conds:insert{
 					mapFlagIndex = bit.band(0x3fff, arg),
-					value = bit.rshift(arg, 15),
+					value = 0 ~= bit.rshift(arg, 15),
 				}
 			end
 			self.destAddr = startaddr + read(uint24_t)
@@ -1001,7 +1012,13 @@ return function(game)
 				or 'goto '..('$%06x'):format(self.destAddr)
 			return "if "
 				..self.conds:mapi(function(cond)
-					return 'gameState.mapFlag'..cond.mapFlagIndex..' == '..cond.value
+					--[[ integer values ...
+					return 'gameState.mapFlag'..cond.mapFlagIndex..' == '..(cond.value and '1' or '0')
+					--]]
+					-- [[ boolean values ...
+					return (not cond.value and 'not ' or '')
+						..'gameState.mapFlag'..cond.mapFlagIndex
+					--]]
 				end):concat(self._and and ' and ' or ' or ')
 				..' then '..gotostmt..' end'
 		end,
@@ -1010,24 +1027,19 @@ return function(game)
 		EventCmds['Switch '..cmd] = Switch:subclass{cmd = cmd}
 	end
 
-	-- hmm there's 4 extra bits here ...
-	-- one or two belong to the high-bit of the flagIndex I bet
-	-- two more for set/clear/toggle?
-	-- 0xd2 0x28 means `set mapFlags[0x128] to true`
-	-- so ... which is 'true/false' and which is high-bit?
-	-- and how come 0-14 is used, and not 0-15?
 	for cmd=0xd0,0xdd do
-		EventCmds['ChangeFlag'..('0x%02x'):format(cmd)] = EventCmd:subclass{
+		EventCmds['SetFlag'..('0x%02x'):format(cmd)] = EventCmd:subclass{
 			cmd = cmd,
 			argtypes = {uint8_t},
 			getargs = function(self, flagIndex)
-				self.value = 0 ~= bit.band(1, cmd)
+				-- 0 = set, 1 = clear
+				self.value = 0 == bit.band(1, cmd)
 				self.flagIndex = bit.bor(
-					bit.lshift(bit.band(self.cmd, 6), 7),	-- move bits 1:2 to bits 8:9 ... ?
+					bit.lshift(bit.band(self.cmd, 0xe), 7),	-- move bits 1:3 to bits 8:10
 					flagIndex
 				)
 			end,
-			desc = 'gameState.mapFlags<?=flagIndex?> ~~= <?=tostring(value)?>',
+			desc = 'gameState.mapFlag<?=flagIndex?> = <?=tostring(value)?>',
 		}
 	end
 
@@ -1347,7 +1359,7 @@ return function(game)
 			cmd = cmd,
 			argtypes = {uint8_t},
 			-- not making sense of the json. what's the cmd for?
-			desc = 'gameState.eventFlags<?=args[1]?> ~~= true',
+			desc = 'gameState.eventFlag<?=args[1]?> ~~= true',
 		}
 	end
 
@@ -1457,9 +1469,12 @@ return function(game)
 	end
 
 
-	cmdset = EventCmds
-	objectScriptCmd = nil
 	for i,addr in ipairs(addrsInOrder) do
+
+		-- reset script decode state
+		cmdset = EventCmds
+		objectScriptCmd = nil
+
 		local nextaddr = addrsInOrder[i+1] or endaddr
 		while addr < nextaddr do
 			local function read(ctype)
