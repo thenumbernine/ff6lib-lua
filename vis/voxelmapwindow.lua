@@ -11,7 +11,6 @@ local vec2i = require 'vec-ffi.vec2i'
 local vec3i = require 'vec-ffi.vec3i'
 local box2i = require 'vec-ffi.box2i'
 local vector = require 'stl.vector-lua'
-local Font = require 'gui.font'
 local sdl = require 'sdl'
 local ig = require 'imgui'
 local Window = require 'ff6.vis.window'
@@ -174,9 +173,14 @@ function VoxelmapWindow:init(...)
 	VoxelmapWindow.super.init(self, ...)
 
 	-- TODO maybe move this to vis/app.lua
-	self.font = Font{
-		view = self.app.view,
-	}
+	xpcall(function()
+		local Font = require 'gui.font'
+		self.font = Font{
+			view = self.app.view,
+		}
+	end, function(err)
+		print(err..'\n'..debug.traceback())
+	end)
 
 	-- load the floodFillTilesPerMap here...
 	self.floodFillTilesPerMap = table()
@@ -822,6 +826,9 @@ function VoxelmapWindow:getWallOrCeilingTile(x,y)
 end
 
 function VoxelmapWindow:showTiles(mx, my, showHL)
+
+-- if anything goes wrong then just turn this function off
+xpcall(function()
 	local app = self.app
 	local game = app.game
 	local mapIndex = app.mapWindow.index
@@ -873,6 +880,11 @@ function VoxelmapWindow:showTiles(mx, my, showHL)
 		settable(uniforms.color, 1,1,1,1)
 		showHL()
 	end
+end, function(err)
+	print(err..'\n'..debug.traceback())
+	VoxelmapWindow.showTiles = function() end
+end)
+
 end
 
 return VoxelmapWindow
