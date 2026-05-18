@@ -683,9 +683,13 @@ print(game.positionedText)
 
 print'BEGIN EVENT SCRIPT'
 for _,cmd in ipairs(game.eventScriptCmds) do
-	if game.eventScriptAddrs[cmd.addr] then
+	local whatPointsToScriptAdAddr = game.eventScriptAddrs[cmd.addr]
+	if whatPointsToScriptAdAddr then
 		print()
-		print(('$%06x:'):format(cmd.addr))
+		print(
+			('$%06x: '):format(cmd.addr)
+			..whatPointsToScriptAdAddr:concat'; '
+		)
 	end
 	print(('$%06x'):format(cmd.addr), cmd)
 end

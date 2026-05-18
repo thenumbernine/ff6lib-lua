@@ -65,27 +65,27 @@ function EventScriptWindow:showIndexUI()
 					ig.igSameLine()
 
 					-- item links:
-					if game.ScriptCmds.GiveItem:isa(cmd) then
+					if game.EventCmds.GiveItem:isa(cmd) then
 						ig.igText'GiveItem'
 						ig.igSameLine()
 						app.itemWindow:popupButton(cmd.itemIndex)
-					elseif game.ScriptCmds.TakeItem:isa(cmd) then
+					elseif game.EventCmds.TakeItem:isa(cmd) then
 						ig.igText'TakeItem'
 						ig.igSameLine()
 						app.itemWindow:popupButton(cmd.itemIndex)
 
 					-- battles:
-					elseif game.ScriptCmds.TouchBattle:isa(cmd) then	-- TouchBattle is a subclass of Battle
+					elseif game.EventCmds.TouchBattle:isa(cmd) then	-- TouchBattle is a subclass of Battle
 						ig.igText'TouchBattle'
 						ig.igSameLine()
 						app.eventBattleOptionsWindow:popupButton(cmd.eventBattleOptionsIndex)
-					elseif game.ScriptCmds.Battle:isa(cmd) then
+					elseif game.EventCmds.Battle:isa(cmd) then
 						ig.igText'Battle'
 						ig.igSameLine()
 						app.eventBattleOptionsWindow:popupButton(cmd.eventBattleOptionsIndex)
 
 					-- maps:
-					elseif game.ScriptCmds.SetMap2:isa(cmd) then	-- SetMap2 is a subclass of SetMap
+					elseif game.EventCmds.SetMap2:isa(cmd) then	-- SetMap2 is a subclass of SetMap
 						ig.igText'SetMap2'
 						ig.igSameLine()
 						if app.mapWindow:popupButton(cmd.mapIndex) then
@@ -95,7 +95,7 @@ function EventScriptWindow:showIndexUI()
 							end
 							app:centerView(cmd.x, cmd.y)
 						end
-					elseif game.ScriptCmds.SetMap:isa(cmd) then
+					elseif game.EventCmds.SetMap:isa(cmd) then
 						ig.igText'SetMap'
 						ig.igSameLine()
 						if app.mapWindow:popupButton(cmd.mapIndex) then
@@ -105,7 +105,7 @@ function EventScriptWindow:showIndexUI()
 							end
 							app:centerView(cmd.x, cmd.y)
 						end
-					elseif game.ScriptCmds.MovePartyToMap:isa(cmd) then
+					elseif game.EventCmds.MovePartyToMap:isa(cmd) then
 						ig.igText('movePartyToMap '..cmd.partyIndex)
 						ig.igSameLine()
 						if app.mapWindow:popupButton(cmd.mapIndex) then

@@ -166,9 +166,10 @@ local SaveSlot = struct{
 
 		{name='mapx2', type=uint8_t},										-- 0x96b
 		{name='mapy2', type=uint8_t},										-- 0x96c
-		{name='unknown_96d', type=arrayType(uint8_t, -(0x96d - 0xa00))},	-- 0x96d - 0xa00
 
-		-- where are the npc flags? 1024 bits = 0x80 bytes
+		{name='unknown_96d', type=arrayType(uint8_t, -(0x96d - 0x9fe))},	-- 0x96d - 0x9fe
+
+		{name='checksum', type=uint16_t},									-- 0x9fe - 0xa00	-- byte sum of everything in this except the checksum
 	},
 }
 assert.eq(ffi.sizeof(SaveSlot), 0xa00)

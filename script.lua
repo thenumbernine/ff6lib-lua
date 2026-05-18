@@ -28,30 +28,6 @@ return function(game)
 
 	local uint24_t = game.uint24_t
 
-	-- event code, pointed into by NPCs and maybe other things
-
-	game.eventScriptAddrs = {}
-	-- collect script addrs from npcs
-	-- hmm should I use the master npc list or just which ones are in maps?
-	for mapIndex=0,countof(game.maps)-1 do
-		local mapInfo = game.getMap(mapIndex)
-		if mapInfo then
-			game.eventScriptAddrs[mapInfo.startEventScriptAddr] = true
-			for _,n in ipairs(mapInfo.npcs) do
-				local scriptAddr = n:getScriptAddr()
-				if scriptAddr then
-					game.eventScriptAddrs[scriptAddr] = true
-				end
-			end
-			for _,e in ipairs(mapInfo.touchTriggers) do
-				local scriptAddr = e:getScriptAddr()
-				if scriptAddr then
-					game.eventScriptAddrs[scriptAddr] = true
-				end
-			end
-		end
-	end
-
 	-- should I even bounds check?
 	local startaddr = ffi.offsetof(Game, 'eventScript')	-- 0xa0000
 	local endaddr = ffi.offsetof(Game, 'eventScript') + ffi.sizeof(game.eventScript)
@@ -70,8 +46,6 @@ return function(game)
 	-- TODO tempting to make this just a bunch of structs...
 	-- but some cmds are variable-length so ... I can have their args structs but can't have the object as a whole ... unless I make one struct per possible cmd-size ...
 	local class = require 'ext.class'
-	local ScriptCmds = {}
-	game.ScriptCmds = ScriptCmds
 
 	local Cmd = class()	-- parent abstract class
 	function Cmd:digest(read)
@@ -104,88 +78,115 @@ return function(game)
 		return template(self.desc, self)
 		--]]
 	end
-	ScriptCmds.Cmd = Cmd
 	-- only for template env
 	Cmd.game = game
 	Cmd.startaddr = startaddr
 
 
-	ScriptCmds.RunObject = Cmd:subclass{
+	-- here's some interpretation state-variables
+	-- that I should probably move into an interpretation-context-object
+	local cmdset
+	local objectScriptCmd
+
+	-- because we are using it in EventCmds:
+	local ObjectCmds = {}
+
+
+	-- event-commands:
+
+	-- this will hold cmds 0-255 for event-scripts
+	local EventCmds = {}
+	game.EventCmds = EventCmds
+	local EventCmd = Cmd:subclass()
+	EventCmds.EventCmd = EventCmd
+
+	-- and now during this duration (.length arg), we are using 'object-script' opcodes instead of 'event-script' opcodes...
+	EventCmds.ObjectScript = EventCmd:subclass{
 		argtypes = {uint8_t},
-		argnames = {'length'},
-		desc = "runObjectScript{"
-			.."object=<?=cmd?>"
-			..", length=<?=bit.band(0x7f, length)?>"
-			.."<?= 0 ~= bit.band(0x80, length) and ', block=true' or ''?>"
-			.."}",
+		getargs = function(self, arg)
+			--self.objectIndex = self.cmd
+			self.length = bit.band(arg, 0x7f)	-- in bytes, and the last byte is usually always 0xff <->> end-object-script
+			self.blocking = 0 ~= bit.band(arg, 0x80)
+		end,
+		digest = function(self, ...)
+			-- if it's an event-script command to start an object-script, then switch our opcodes...
+			-- maybe todo push?  or will exiting object-scripts always revert to event-scripts?
+			cmdset = ObjectCmds
+			assert.eq(objectScriptCmd, nil, "got two object-scripts before the first one ended...")
+			objectScriptCmd = self
+
+			return EventCmd.digest(self, ...)	-- call super
+		end,
+		desc = "fork(||do local obj=objs[<?=cmd?>] -- length=<?=length?><?= blocking and ', block=true' or ''?>"
+		-- then upon end, "end)" and if blocking then "joinAll()" on all previous object-script forks
 	}
 	for i=0x00,0x34 do
-		ScriptCmds['RunObject '..i] = ScriptCmds.RunObject:subclass{cmd=i}
+		EventCmds['ObjectScript '..i] = EventCmds.ObjectScript:subclass{cmd=i}
 	end
 
-	ScriptCmds.WaitForObject = Cmd:subclass{
+	EventCmds.WaitForObject = EventCmd:subclass{
 		cmd = 0x35,
 		argtypes = {uint8_t},
 		argnames = {'objectIndex'},
 		desc = "waitFor(objs[<?=objectIndex?>])",
 	}
 
-	ScriptCmds.EnableObjectPassability = Cmd:subclass{
+	EventCmds.EnableObjectPassability = EventCmd:subclass{
 		cmd = 0x36,
 		argtypes = {uint8_t},
 		argnames = {'objectIndex'},
 		desc = "objs[<?=objectIndex?>].solid = true",
 	}
 
-	ScriptCmds.ChangeObjectSprite = Cmd:subclass{
+	EventCmds.ChangeObjectSprite = EventCmd:subclass{
 		cmd = 0x37,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'objectIndex', 'spriteIndex'},
 		desc = 'objs[<?=objectIndex?>].sprite = <?=spriteIndex?>',
 	}
 
-	ScriptCmds.LockScreen = Cmd:subclass{
+	EventCmds.LockScreen = EventCmd:subclass{
 		cmd = 0x38,
 		desc = 'screenLocked = true',
 	}
 
-	ScriptCmds.UnlockScreen = Cmd:subclass{
+	EventCmds.UnlockScreen = EventCmd:subclass{
 		cmd = 0x39,
 		desc = 'screenLocked = false',
 	}
 
 
-	ScriptCmds.EnableUserControl = Cmd:subclass{
+	EventCmds.EnableUserControl = EventCmd:subclass{
 		cmd = 0x3a,
 		desc = "userControl = true",
 	}
 
-	ScriptCmds.DisableUserControl = Cmd:subclass{
+	EventCmds.DisableUserControl = EventCmd:subclass{
 		cmd = 0x3b,
 		desc = "userControl = false",
 	}
 
-	ScriptCmds.SetPartyCharacters = Cmd:subclass{
+	EventCmds.SetPartyCharacters = EventCmd:subclass{
 		cmd = 0x3c,
 		argtypes = {uint8_t, uint8_t, uint8_t, uint8_t},
 		desc = 'setPartyCharacters(<?=args:concat", "?>)',
 	}
 
-	ScriptCmds.CreateObject = Cmd:subclass{
+	EventCmds.CreateObject = EventCmd:subclass{
 		cmd = 0x3d,
 		argtypes = {uint8_t},
 		argnames = {'objectIndex'},
 		desc = "createObject(<?=objectIndex?>)",
 	}
 
-	ScriptCmds.DeleteObject = Cmd:subclass{
+	EventCmds.DeleteObject = EventCmd:subclass{
 		cmd = 0x3e,
 		argtypes = {uint8_t},
 		argnames = {'objectIndex'},
 		desc = "deleteObject(<?=objectIndex?>)",
 	}
 
-	ScriptCmds.SetCharacterParty = Cmd:subclass{
+	EventCmds.SetCharacterParty = EventCmd:subclass{
 		cmd = 0x3f,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'charIndex', 'partyIndex'},
@@ -198,7 +199,7 @@ return function(game)
 		end,
 	}
 
-	ScriptCmds.ChangeCharacterProperties = Cmd:subclass{
+	EventCmds.ChangeCharacterProperties = EventCmd:subclass{
 		cmd = 0x40,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'charIndex', 'propIndex'},
@@ -207,21 +208,21 @@ return function(game)
 		end,
 	}
 
-	ScriptCmds.ShowObject = Cmd:subclass{
+	EventCmds.ShowObject = EventCmd:subclass{
 		cmd = 0x41,
 		argtypes = {uint8_t},
 		argnames = {'objectIndex'},
 		desc = 'objs[<?=objectIndex?>].visible = true',
 	}
 
-	ScriptCmds.HideObject = Cmd:subclass{
+	EventCmds.HideObject = EventCmd:subclass{
 		cmd = 0x42,
 		argtypes = {uint8_t},
 		argnames = {'objectIndex'},
 		desc = 'objs[<?=objectIndex?>].visible = false',
 	}
 
-	ScriptCmds.ChangeObjectPalette = Cmd:subclass{
+	EventCmds.ChangeObjectPalette = EventCmd:subclass{
 		cmd = 0x43,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'objectIndex', 'paletteIndex'},
@@ -230,7 +231,7 @@ return function(game)
 		end,
 	}
 
-	ScriptCmds.ChangeObjectVehicle = Cmd:subclass{
+	EventCmds.ChangeObjectVehicle = EventCmd:subclass{
 		cmd = 0x44,
 		argtypes = {uint8_t, uint8_t},
 		getargs = function(self, objectIndex, arg)
@@ -246,24 +247,24 @@ return function(game)
 		end,
 	}
 
-	ScriptCmds.UpdateCharacterObjects = Cmd:subclass{
+	EventCmds.UpdateCharacterObjects = EventCmd:subclass{
 		cmd = 0x45,
 		desc = "update character objects",
 	}
 
-	ScriptCmds.SetActiveParty = Cmd:subclass{
+	EventCmds.SetActiveParty = EventCmd:subclass{
 		cmd = 0x46,
 		argtypes = {uint8_t},
 		argnames = {'partyIndex'},
 		desc = 'setActiveParty(<?=partyIndex?>)',
 	}
 
-	ScriptCmds.CreatePartyObject = Cmd:subclass{
+	EventCmds.CreatePartyObject = EventCmd:subclass{
 		cmd = 0x47,
 		desc = "createPartyObject()",
 	}
 
-	ScriptCmds.Dialog = Cmd:subclass{
+	EventCmds.Dialog = EventCmd:subclass{
 		cmd = 0x4b,
 		argtypes = {uint16_t},
 		getargs = function(self, arg)
@@ -292,22 +293,22 @@ return function(game)
 		end,
 	}
 
-	ScriptCmds.DialogDontWait = ScriptCmds.Dialog:subclass{
+	EventCmds.DialogDontWait = EventCmds.Dialog:subclass{
 		cmd = 0x48,
 		dontWait = true,
 	}
 
-	ScriptCmds.WaitForDialogWindow = Cmd:subclass{
+	EventCmds.WaitForDialogWindow = EventCmd:subclass{
 		cmd = 0x49,
 		desc = "waitForDialogWindow()",
 	}
 
-	ScriptCmds.WaitForDialogButtonPress = Cmd:subclass{
+	EventCmds.WaitForDialogButtonPress = EventCmd:subclass{
 		cmd = 0x4a,
 		desc = "waitForDialogButtonPress()",
 	}
 
-	ScriptCmds.Battle = Cmd:subclass{
+	EventCmds.Battle = EventCmd:subclass{
 		cmd = 0x4d,
 		argtypes = {uint8_t, uint8_t},
 		getargs = function(self, eventBattleOptionsIndex, arg)
@@ -325,22 +326,22 @@ return function(game)
 		end,
 	}
 
-	ScriptCmds.TouchBattle = ScriptCmds.Battle:subclass{
+	EventCmds.TouchBattle = EventCmds.Battle:subclass{
 		cmd = 0x4c,
 		touchBattle = true,
 	}
 
-	ScriptCmds.RandomBattle = Cmd:subclass{
+	EventCmds.RandomBattle = EventCmd:subclass{
 		cmd = 0x4e,
 		desc = "randomBattle()",
 	}
 
-	ScriptCmds.RestoreSavedGame = Cmd:subclass{
+	EventCmds.RestoreSavedGame = EventCmd:subclass{
 		cmd = 0x4f,
 		desc = "reloadSavedGame()",
 	}
 
-	ScriptCmds.ChangeBackgroundPalette = Cmd:subclass{
+	EventCmds.ChangeBackgroundPalette = EventCmd:subclass{
 		cmd = 0x50,
 		argtypes = {uint8_t},
 		argnames = {'arg'},
@@ -354,71 +355,71 @@ return function(game)
 		..'}',
 	}
 
-	ScriptCmds.ChangeBackgroundPaletteRange = ScriptCmds.ChangeBackgroundPalette:subclass{
+	EventCmds.ChangeBackgroundPaletteRange = EventCmds.ChangeBackgroundPalette:subclass{
 		cmd = 0x51,
 		argtypes = {uint8_t, uint8_t, uint8_t},
 		argnames = {'arg', 'firstColor', 'lastColor'},
 	}
 
-	ScriptCmds.ChangeSpritePalette = ScriptCmds.ChangeBackgroundPalette:subclass{
+	EventCmds.ChangeSpritePalette = EventCmds.ChangeBackgroundPalette:subclass{
 		cmd = 0x52,
 		what = 'Sprite',
 	}
 
-	ScriptCmds.ChangeBackgroundPaletteRange = ScriptCmds.ChangeBackgroundPaletteRange:subclass{
+	EventCmds.ChangeBackgroundPaletteRange = EventCmds.ChangeBackgroundPaletteRange:subclass{
 		cmd = 0x53,
 		what = 'Sprite',
 	}
 
-	ScriptCmds.DisableFixedColorMath = Cmd:subclass{
+	EventCmds.DisableFixedColorMath = EventCmd:subclass{
 		cmd = 0x54,
 		desc = 'disableFixedColorMath()',
 	}
 
-	ScriptCmds.FlashScreenColor = Cmd:subclass{
+	EventCmds.FlashScreenColor = EventCmd:subclass{
 		cmd = 0x55,
 		argtypes = {uint8_t},
 		desc = "flashScreenColor(<?=args[1]?>)",
 	}
 
-	ScriptCmds.SetFixedColorMathAdd = Cmd:subclass{
+	EventCmds.SetFixedColorMathAdd = EventCmd:subclass{
 		cmd = 0x56,
 		argtypes = {uint8_t},
 		argnames = {'arg'},
 		desc = 'setFixedColorMathAdd(<?=bit.band(7, arg)?>, <?=bit.band(3, bit.rshift(arg, 3))?>, <?=bit.band(3, bit.rshift(arg, 6))?>)',
 	}
 
-	ScriptCmds.SetFixedColorMathSub = Cmd:subclass{
+	EventCmds.SetFixedColorMathSub = EventCmd:subclass{
 		cmd = 0x57,
 		argtypes = {uint8_t},
 		argnames = {'arg'},
 		desc = 'setFixedColorMathSub(<?=bit.band(0x7, arg)?>, <?=bit.band(0x3, bit.rshift(arg, 3))?>, <?=bit.band(0x3, bit.rshift(arg, 6))?>)',
 	}
 
-	ScriptCmds.ShakeScreen = Cmd:subclass{
+	EventCmds.ShakeScreen = EventCmd:subclass{
 		cmd = 0x58,
 		argtypes = {uint8_t},
 		desc = 'shakeScreen(<?=args[1]?>)',
 	}
 
-	ScriptCmds.FadeInRate = Cmd:subclass{
+	EventCmds.FadeInRate = EventCmd:subclass{
 		cmd = 0x59,
 		argtypes = {uint8_t},
 		desc = 'fadeIn(<?=args[1]?>)',
 	}
 
-	ScriptCmds.FadeOutRate = Cmd:subclass{
+	EventCmds.FadeOutRate = EventCmd:subclass{
 		cmd = 0x5a,
 		argtypes = {uint8_t},
 		desc = 'fadeOut(<?=args[1]?>)'
 	}
 
-	ScriptCmds.StopFade = Cmd:subclass{
+	EventCmds.StopFade = EventCmd:subclass{
 		cmd = 0x5b,
 		desc = 'stopFade()',
 	}
 
-	ScriptCmds.WaitForFade = Cmd:subclass{
+	EventCmds.WaitForFade = EventCmd:subclass{
 		cmd = 0x5c,
 		desc = 'waitForFade()',
 	}
@@ -428,7 +429,7 @@ return function(game)
 		{0x70, 0x71, 0x72}
 	} do
 		for layer,cmd in ipairs(cmds) do
-			ScriptCmds['ScrollBackground'..('0x%02x'):format(cmd)] = Cmd:subclass{
+			EventCmds['ScrollBackground'..('0x%02x'):format(cmd)] = EventCmd:subclass{
 				cmd = cmd,
 				args = {uint8_t, uint8_t},
 				-- 1's comp is negative scrolling?
@@ -437,48 +438,48 @@ return function(game)
 		end
 	end
 
-	ScriptCmds.ChangeMapPalette = Cmd:subclass{
+	EventCmds.ChangeMapPalette = EventCmd:subclass{
 		cmd = 0x60,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'dst', 'src'},
 		desc = "changeMapPalette(<?=dst?>, <?=src?>)",
 	}
 
-	ScriptCmds.TintColors = Cmd:subclass{
+	EventCmds.TintColors = EventCmd:subclass{
 		cmd = 0x61,
 		argtypes = {uint8_t, uint8_t, uint8_t},
 		argnames = {'fixed', 'first', 'last'},
 		desc = 'tintColors{fixed=<?=fixed?>, first=<?=first?>, last=<?=last?>}',
 	}
 
-	ScriptCmds.PixelateScreen = Cmd:subclass{
+	EventCmds.PixelateScreen = EventCmd:subclass{
 		cmd = 0x62,
 		argtypes = {uint8_t},
 		desc = 'pixelateScreen(<?=args[1]?>)',
 	}
 
-	ScriptCmds.ShowLamp = Cmd:subclass{
+	EventCmds.ShowLamp = EventCmd:subclass{
 		cmd = 0x63,
 		argtypes = {uint8_t},
 		argnames = {'radius'},
 		desc = 'showLamp(<?=radius?>)',
 	}
 
-	ScriptCmds.SetMapAnimCounter = Cmd:subclass{
+	EventCmds.SetMapAnimCounter = EventCmd:subclass{
 		cmd = 0x64,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'tile', 'frame'},
 		desc = 'setMapAnimationCounter{tile=<?=tile?>, frame=<?=frame?>}',
 	}
 
-	ScriptCmds.SetMapAnimCounter = Cmd:subclass{
+	EventCmds.SetMapAnimCounter = EventCmd:subclass{
 		cmd = 0x65,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'tile', 'speed'},
 		desc = 'setMapAnimationSpeed{tile=<?=tile?>, speed=<?=speed?>}',
 	}
 
-	ScriptCmds.SetMap = Cmd:subclass{
+	EventCmds.SetMap = EventCmd:subclass{
 		cmd = 0x6a,
 		argtypes = {uint16_t, uint8_t, uint8_t, uint8_t},
 		getargs = function(self, arg, x, y, flags)
@@ -507,18 +508,18 @@ return function(game)
 		end,
 	}
 
-	ScriptCmds.SetMap2 = ScriptCmds.SetMap:subclass{
+	EventCmds.SetMap2 = EventCmds.SetMap:subclass{
 		cmd = 0x6b,
 	}
 
-	ScriptCmds.SetParentMap = Cmd:subclass{
+	EventCmds.SetParentMap = EventCmd:subclass{
 		cmd = 0x6c,
 		argtypes = {uint16_t, uint8_t, uint8_t, uint8_t},
 		argnames = {'map', 'dir', 'x', 'y'},
 		desc = 'setParentMap{map=<?=map?>, dir=<?=dir?>, x=<?=x?>, y=<?=y?>}',
 	}
 
-	ScriptCmds.ChangeMapLayer = Cmd:subclass{
+	EventCmds.ChangeMapLayer = EventCmd:subclass{
 		cmd = 0x73,
 		argtypes = {uint8_t, uint8_t, uint8_t, uint8_t, uint8_t},
 		argnames = {'x', 'layer', 'y', 'w', 'h'},
@@ -526,142 +527,142 @@ return function(game)
 		desc = 'changeMapLayer{layer=<?=layer?>, x=<?=x?>, y=<?=y?>, w=<?=w?>, h=<?=h?><?=extra?>}',
 	}
 
-	ScriptCmds.ChangeMapLayer2 = ScriptCmds.ChangeMapLayer:subclass{
+	EventCmds.ChangeMapLayer2 = EventCmds.ChangeMapLayer:subclass{
 		cmd = 0x74,
 		extra = '',
 	}
 
-	ScriptCmds.RefreshMapLayerChanges = Cmd:subclass{
+	EventCmds.RefreshMapLayerChanges = EventCmd:subclass{
 		cmd = 0x75,
 		desc = 'refreshMapLayerChanges()',
 	}
 
-	ScriptCmds.RestoreCharacterToFullHPMP = Cmd:subclass{
+	EventCmds.RestoreCharacterToFullHPMP = EventCmd:subclass{
 		cmd = 0x77,
 		argtypes = {uint8_t},
 		argnames = {'charIndex'},
 		desc = 'characters[<?=charIndex?>]:setFullHPMP()',
 	}
 
-	ScriptCmds.DisablePassabilityOfObject = Cmd:subclass{
+	EventCmds.DisablePassabilityOfObject = EventCmd:subclass{
 		cmd = 0x78,
 		argtypes = {uint8_t},
 		argnames = {'objectIndex'},
 		desc = 'objs[<?=objectIndex?>].solid = false',
 	}
 
-	ScriptCmds.MovePartyToMap = Cmd:subclass{
+	EventCmds.MovePartyToMap = EventCmd:subclass{
 		cmd = 0x79,
 		argtypes = {uint8_t, uint16_t},
 		argnames = {'partyIndex', 'mapIndex'},
 		desc = 'party[<?=partyIndex?>]:setMap(<?=mapIndex?>)',
 	}
 
-	ScriptCmds.ChangeObjectEvent = Cmd:subclass{
+	EventCmds.ChangeObjectEvent = EventCmd:subclass{
 		cmd = 0x7a,
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'objectIndex', 'newScriptAddrOfs'},
 		desc = "objs[<?=objectIndex?>].script = <?=('$%06x'):format(startaddr + newScriptAddrOfs)?>",
 	}
 
-	ScriptCmds.RestorePreviousParty = Cmd:subclass{
+	EventCmds.RestorePreviousParty = EventCmd:subclass{
 		cmd = 0x7b,
 		desc = 'restorePreviousParty()',
 	}
 
-	ScriptCmds.EnableCollisionEvent = Cmd:subclass{
+	EventCmds.EnableCollisionEvent = EventCmd:subclass{
 		cmd = 0x7c,
 		argtypes = {uint8_t},
 		argnames = {'index'},
 		desc = 'collisionEvents[<?=index?>].enabled = true',
 	}
 
-	ScriptCmds.DisableCollisionEvent = Cmd:subclass{
+	EventCmds.DisableCollisionEvent = EventCmd:subclass{
 		cmd = 0x7d,
 		argtypes = {uint8_t},
 		argnames = {'index'},
 		desc = 'collisionEvents[<?=index?>].enabled = false',
 	}
 
-	ScriptCmds.ChangeCurrentPartyPosition = Cmd:subclass{
+	EventCmds.ChangeCurrentPartyPosition = EventCmd:subclass{
 		cmd = 0x7e,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'x', 'y'},
 		desc = 'currentParty.pos = {<?=x?>, <?=y?>}',
 	}
 
-	ScriptCmds.ChangeCharacterName = Cmd:subclass{
+	EventCmds.ChangeCharacterName = EventCmd:subclass{
 		cmd = 0x7f,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'characterIndex', 'nameIndex'},
 		desc = "characters[<?=characterIndex?>].name = names[<?=nameIndex?>]",
 	}
 
-	ScriptCmds.GiveItem = Cmd:subclass{
+	EventCmds.GiveItem = EventCmd:subclass{
 		cmd = 0x80,
 		argtypes = {uint8_t},
 		argnames = {'itemIndex'},
 		desc = 'giveItem(<?=("%q"):format(tostring(game.itemNames[itemIndex]))?>)',
 	}
 
-	ScriptCmds.TakeItem = Cmd:subclass{
+	EventCmds.TakeItem = EventCmd:subclass{
 		cmd = 0x81,
 		argtypes = {uint8_t},
 		argnames = {'itemIndex'},
 		desc = 'takeItem(<?=("%q"):format(tostring(game.itemNames[itemIndex]))?>)',
 	}
 
-	ScriptCmds.ResetPreviousParty = Cmd:subclass {
+	EventCmds.ResetPreviousParty = EventCmd:subclass {
 		cmd = 0x82,
 		desc = 'resetPreviousParty()',
 	}
 
-	ScriptCmds.GiveGP = Cmd:subclass{
+	EventCmds.GiveGP = EventCmd:subclass{
 		cmd = 0x84,
 		argtypes = {uint16_t},
 		desc = 'giveGP(<?=args[1]?>)',
 	}
 
-	ScriptCmds.TakeGP = Cmd:subclass{
+	EventCmds.TakeGP = EventCmd:subclass{
 		cmd = 0x85,
 		argtypes = {uint16_t},
 		desc = 'takeGP(<?=args[1]?>)',
 	}
 
-	ScriptCmds.GiveEsper = Cmd:subclass{
+	EventCmds.GiveEsper = EventCmd:subclass{
 		cmd = 0x86,
 		argtypes = {uint8_t},
 		desc = 'giveEsper(<?=args[1]?>)',
 	}
 
-	ScriptCmds.TakeEsper = Cmd:subclass{
+	EventCmds.TakeEsper = EventCmd:subclass{
 		cmd = 0x87,
 		argtypes = {uint8_t},
 		desc = 'takeEsper(<?=args[1]?>)',
 	}
 
-	ScriptCmds.RemoveCharacterStatus = Cmd:subclass{
+	EventCmds.RemoveCharacterStatus = EventCmd:subclass{
 		cmd = 0x88,
 		argtypes = {uint8_t, uint16_t},
 		argnames = {'characterIndex', 'status'},
 		desc = "characters[<?=characterIndex?>].status &= ~0x<?=bit.tohex(status, 4)?>",
 	}
 
-	ScriptCmds.ToggleCharacterStatus = Cmd:subclass{
+	EventCmds.ToggleCharacterStatus = EventCmd:subclass{
 		cmd = 0x89,
 		argtypes = {uint8_t, uint16_t},
 		argnames = {'characterIndex', 'status'},
 		desc = "characters[<?=characterIndex?>].status ~~= 0x<?=bit.tohex(status, 4)?>",
 	}
 
-	ScriptCmds.SetCharacterStatus = Cmd:subclass{
+	EventCmds.SetCharacterStatus = EventCmd:subclass{
 		cmd = 0x8a,
 		argtypes = {uint8_t, uint16_t},
 		argnames = {'characterIndex', 'status'},
 		desc = "characters[<?=characterIndex?>].status |= 0x<?=bit.tohex(status, 4)?>",
 	}
 
-	ScriptCmds.GiveCharacterHP = Cmd:subclass{
+	EventCmds.GiveCharacterHP = EventCmd:subclass{
 		cmd = 0x8b,
 		argtypes = {uint8_t, uint8_t},
 		getargs = function(self, charIndex, signedAmount)
@@ -680,97 +681,97 @@ return function(game)
 		end,
 	}
 
-	ScriptCmds.GiveCharacterMP = ScriptCmds.GiveCharacterHP:subclass{
+	EventCmds.GiveCharacterMP = EventCmds.GiveCharacterHP:subclass{
 		cmd = 0x8c,
 		mp = true,
 	}
 
-	ScriptCmds.RemoveCharactersEquipment = Cmd:subclass{
+	EventCmds.RemoveCharactersEquipment = EventCmd:subclass{
 		cmd = 0x8d,
 		argtypes = {uint8_t},
 		desc = 'characters[<?=args[1]?>]:removeEquipment()',
 	}
 
-	ScriptCmds.MonsterInABox = Cmd:subclass{
+	EventCmds.MonsterInABox = EventCmd:subclass{
 		cmd = 0x8e,
 		desc = 'monsterInABoxBattle()',
 	}
 
-	ScriptCmds.UnlockAllSwdTechs = Cmd:subclass{
+	EventCmds.UnlockAllSwdTechs = EventCmd:subclass{
 		cmd = 0x8f,
 		desc = 'unlockAllSwdTechs()',
 	}
 
-	ScriptCmds.UnlockBumRush = Cmd:subclass{
+	EventCmds.UnlockBumRush = EventCmd:subclass{
 		cmd = 0x90,
 		desc = 'unlockBumRush()',
 	}
 
-	ScriptCmds.Sleep15 = Cmd:subclass{
+	EventCmds.Sleep15 = EventCmd:subclass{
 		cmd = 0x91,
 		desc = 'sleep(1/4)',
 	}
 
-	ScriptCmds.Sleep30 = Cmd:subclass{
+	EventCmds.Sleep30 = EventCmd:subclass{
 		cmd = 0x92,
 		desc = 'sleep(1/2)',
 	}
 
-	ScriptCmds.Sleep45 = Cmd:subclass{
+	EventCmds.Sleep45 = EventCmd:subclass{
 		cmd = 0x93,
 		desc = 'sleep(3/4)',
 	}
 
-	ScriptCmds.Sleep60 = Cmd:subclass{
+	EventCmds.Sleep60 = EventCmd:subclass{
 		cmd = 0x94,
 		desc = 'sleep(1)',
 	}
 
-	ScriptCmds.Sleep120 = Cmd:subclass{
+	EventCmds.Sleep120 = EventCmd:subclass{
 		cmd = 0x95,
 		desc = 'sleep(2)',
 	}
 
-	ScriptCmds.FadeIn = Cmd:subclass{
+	EventCmds.FadeIn = EventCmd:subclass{
 		cmd = 0x96,
 		desc = 'fadeIn()',
 	}
 
-	ScriptCmds.FadeOut = Cmd:subclass{
+	EventCmds.FadeOut = EventCmd:subclass{
 		cmd = 0x97,
 		desc = 'fadeOut()',
 	}
 
-	ScriptCmds.OpenCharacterNameChangeMenu = Cmd:subclass{
+	EventCmds.OpenCharacterNameChangeMenu = EventCmd:subclass{
 		cmd = 0x98,
 		argtypes = {uint8_t},
 		desc = 'characterNameChange(<?=args[1]?>)',
 	}
 
-	ScriptCmds.OpenSelectPartyMenu = Cmd:subclass{
+	EventCmds.OpenSelectPartyMenu = EventCmd:subclass{
 		cmd = 0x99,
 		argtypes = {uint8_t,uint8_t, uint8_t},
 		desc = 'openSelectPartyMenu(<?=args:concat", "?>)',
 	}
 
-	ScriptCmds.OpenColosseumMenu  = Cmd:subclass{
+	EventCmds.OpenColosseumMenu  = EventCmd:subclass{
 		cmd = 0x9a,
 		desc = 'openColosseumMenu()',
 	}
 
-	ScriptCmds.OpenShopMenu  = Cmd:subclass{
+	EventCmds.OpenShopMenu  = EventCmd:subclass{
 		cmd = 0x9b,
 		argtypes = {uint8_t},
 		desc = 'openShopMenu(<?=args[1]?>)',
 	}
 
-	ScriptCmds.OptimizeCharacterEquipment = Cmd:subclass{
+	EventCmds.OptimizeCharacterEquipment = EventCmd:subclass{
 		cmd = 0x9c,
 		argtypes = {uint8_t},
 		desc = 'characters[<?=args[1]?>]:optimizeEquipment()',
 	}
 
-	ScriptCmds.StartTimer = Cmd:subclass{
+	EventCmds.StartTimer = EventCmd:subclass{
 		cmd = 0xa0,
 		argtypes = {uint16_t, uint24_t},
 		argnames = {'duration', 'arg'},
@@ -781,70 +782,70 @@ return function(game)
 		..'}',
 	}
 
-	ScriptCmds.StopTimer = Cmd:subclass{
+	EventCmds.StopTimer = EventCmd:subclass{
 		cmd = 0xa1,
 		argtypes = {uint8_t},
 		desc = 'stopTimer(<?=args[1]?>)',
 	}
 
-	ScriptCmds.OpenFinalBattleMenu  = Cmd:subclass{
+	EventCmds.OpenFinalBattleMenu  = EventCmd:subclass{
 		cmd = 0x9d,
 		desc = 'openFinalBattleMenu()',
 	}
 
-	ScriptCmds.ShowPyramidObject = Cmd:subclass{
+	EventCmds.ShowPyramidObject = EventCmd:subclass{
 		cmd = 0xa7,
 		argtypes = {uint8_t},
 		desc = 'showPyramidObject(<?=args[1]?>)',
 	}
 
-	ScriptCmds.ShowFloatingIslandCutscene = Cmd:subclass{
+	EventCmds.ShowFloatingIslandCutscene = EventCmd:subclass{
 		cmd = 0xa8,
 		desc = 'cutscene"floating island"',
 	}
 
-	ScriptCmds.ShowTitleScreen = Cmd:subclass{
+	EventCmds.ShowTitleScreen = EventCmd:subclass{
 		cmd = 0xa9,
 		desc = 'showTitle()',
 	}
 
-	ScriptCmds.ShowIntro = Cmd:subclass{
+	EventCmds.ShowIntro = EventCmd:subclass{
 		cmd = 0xaa,
 		desc = 'cutscene"intro"',
 	}
 
-	ScriptCmds.OpenGameLoadMenu = Cmd:subclass{
+	EventCmds.OpenGameLoadMenu = EventCmd:subclass{
 		cmd = 0xab,
 		desc = 'loadGameMenu()',
 	}
 
-	ScriptCmds.LoadSavedCharacterObjectData = Cmd:subclass{
+	EventCmds.LoadSavedCharacterObjectData = EventCmd:subclass{
 		cmd = 0xac,
 		desc = 'loadSavedCharacterObjectData()',
 	}
 
-	ScriptCmds.ShowWoRCustscene = Cmd:subclass{
+	EventCmds.ShowWoRCustscene = EventCmd:subclass{
 		cmd = 0xad,
 		desc = 'cutscene"world of ruin"',
 	}
 
-	ScriptCmds.ShowMagitechFactoryCutscene = Cmd:subclass{
+	EventCmds.ShowMagitechFactoryCutscene = EventCmd:subclass{
 		cmd = 0xae,
 		desc = 'cutscene"magitech factory"',
 	}
 
-	ScriptCmds.BeginRepeat = Cmd:subclass{
+	EventCmds.BeginRepeat = EventCmd:subclass{
 		cmd = 0xb0,
 		argtypes = {uint8_t},
 		desc = 'for i=1,<?=args[1]?>',
 	}
 
-	ScriptCmds.EndRepeat = Cmd:subclass{
+	EventCmds.EndRepeat = EventCmd:subclass{
 		cmd = 0xb1,
 		desc = 'end--for',
 	}
 
-	ScriptCmds.Call = Cmd:subclass{
+	EventCmds.Call = EventCmd:subclass{
 		cmd = 0xb2,
 		argtypes = {uint24_t},
 		getargs = function(self, destAddrOfs)
@@ -855,7 +856,7 @@ return function(game)
 		end,
 	}
 
-	ScriptCmds.CallRepeat = Cmd:subclass{
+	EventCmds.CallRepeat = EventCmd:subclass{
 		cmd = 0xb3,
 		argtypes = {uint24_t, uint8_t},
 		getargs = function(self, destAddrOfs, count)
@@ -867,7 +868,7 @@ return function(game)
 		end,
 	}
 
-	ScriptCmds.Sleep = Cmd:subclass{
+	EventCmds.Sleep = EventCmd:subclass{
 		cmd = 0xb4,
 		argtypes = {uint8_t},
 		getargs = function(self, frames)
@@ -877,14 +878,14 @@ return function(game)
 		desc = 'sleep(<?=frames?>/60)'
 	}
 
-	ScriptCmds.SleepSeconds = Cmd:subclass{
+	EventCmds.SleepSeconds = EventCmd:subclass{
 		cmd = 0xb5,
 		argtypes = {uint8_t},
 		argnames = {'seconds'},
 		desc = 'sleep(<?=seconds?>)'
 	}
 
-	ScriptCmds.CallBasedOnDialogChoice = Cmd:subclass{
+	EventCmds.CallBasedOnDialogChoice = EventCmd:subclass{
 		cmd = 0xb6,
 		digest = function(self, read)
 			self.addrs = table()
@@ -904,14 +905,14 @@ return function(game)
 		end,
 	}
 
-	ScriptCmds.JumpBasedOnBattleSwitch = Cmd:subclass{
+	EventCmds.JumpBasedOnBattleSwitch = EventCmd:subclass{
 		cmd = 0xb7,
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'flagIndex', 'destAddrOfs'},
 		desc = 'if gameState.battleFlag<?=flagIndex?> then goto <?=("$%06x"):format(startaddr + destAddrOfs)?>',
 	}
 
-	local SetFlagCmd = Cmd:subclass{
+	local SetFlagCmd = EventCmd:subclass{
 		argtypes = {uint8_t},
 		argnames = {'flagIndex'},
 		-- value =
@@ -919,43 +920,43 @@ return function(game)
 		desc = 'gameState.<?=flagName?><?=flagIndex?> = <?=value?>',
 	}
 
-	ScriptCmds.SetBattleFlag = SetFlagCmd:subclass{
+	EventCmds.SetBattleFlag = SetFlagCmd:subclass{
 		cmd = 0xb8,
 		flagName = 'battleFlag',
 		value = true,
 	}
 
-	ScriptCmds.ClearBattleFlag = SetFlagCmd:subclass{
+	EventCmds.ClearBattleFlag = SetFlagCmd:subclass{
 		cmd = 0xb9,
 		flagName = 'battleFlag',
 		value = false,
 	}
 
-	ScriptCmds.ShowEndingCharacterCutscene = Cmd:subclass{
+	EventCmds.ShowEndingCharacterCutscene = EventCmd:subclass{
 		cmd = 0xba,
 		argtypes = {uint8_t},
 		desc = 'cutscene("ending character <?=args[1]?>")',
 	}
 
-	ScriptCmds.ShowEndCutscene = Cmd:subclass{
+	EventCmds.ShowEndCutscene = EventCmd:subclass{
 		cmd = 0xbb,
 		desc = 'cutscene"end"',
 	}
 
-	ScriptCmds.EndRepeatSwitch = Cmd:subclass{
+	EventCmds.EndRepeatSwitch = EventCmd:subclass{
 		cmd = 0xbc,
 		argtypes = {uint8_t},
 		desc = 'end--for switch',
 	}
 
-	ScriptCmds.Jump5050 = Cmd:subclass{
+	EventCmds.Jump5050 = EventCmd:subclass{
 		cmd = 0xbd,
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
 		desc = 'if math.random() < .5 then goto <?=("$%06x"):format(startaddr + destAddrOfs)?>',
 	}
 
-	ScriptCmds.JumpBasedOnCharacterSwitch = Cmd:subclass{
+	EventCmds.JumpBasedOnCharacterSwitch = EventCmd:subclass{
 		cmd = 0xbe,
 		digest = function(self, read)
 			local count = bit.band(0xf, read(uint8_t))
@@ -972,12 +973,12 @@ return function(game)
 		end,
 	}
 
-	ScriptCmds.ShowAirshipEndingCutscene = Cmd:subclass{
+	EventCmds.ShowAirshipEndingCutscene = EventCmd:subclass{
 		cmd = 0xbf,
 		desc = 'cutscene"airship ending"',
 	}
 
-	local Switch = Cmd:subclass{
+	local Switch = EventCmd:subclass{
 		digest = function(self, read)
 			local count = 1 + bit.band(self.cmd, 7)
 			self._and = 0 ~= bit.band(self.cmd, 8)
@@ -1006,11 +1007,11 @@ return function(game)
 		end,
 	}
 	for cmd=0xc0,0xcf do
-		ScriptCmds['Switch '..cmd] = Switch:subclass{cmd = cmd}
+		EventCmds['Switch '..cmd] = Switch:subclass{cmd = cmd}
 	end
 
 	for cmd=0xd0,0xdd do
-		ScriptCmds['ChangeFlag'..('0x%02x'):format(cmd)] = Cmd:subclass{
+		EventCmds['ChangeFlag'..('0x%02x'):format(cmd)] = EventCmd:subclass{
 			cmd = cmd,
 			argtypes = {uint8_t},
 			-- which flag is this?  #204 <=> "Song Override"
@@ -1019,48 +1020,48 @@ return function(game)
 	end
 
 	for cmd=0xde,0xe4 do
-		ScriptCmds['SetControlFlag'..('0x%02x'):format(cmd)] = Cmd:subclass{
+		EventCmds['SetControlFlag'..('0x%02x'):format(cmd)] = EventCmd:subclass{
 			cmd = cmd,
 			desc = 'setControlFlag '..('0x%02x'):format(cmd),
 		}
 	end
 
-	ScriptCmds.ShowCharacterPortrait = Cmd:subclass{
+	EventCmds.ShowCharacterPortrait = EventCmd:subclass{
 		cmd = 0xe7,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'characterIndex', 'portraitIndex'},
 		desc = "show character[<?=characterIndex?>] portrait[<?=portraitIndex?>] ",
 	}
 
-	ScriptCmds.VarSet = Cmd:subclass{
+	EventCmds.VarSet = EventCmd:subclass{
 		cmd = 0xe8,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'var', 'value'},
 		desc = 'vars[<?=var?>] = <?=value?>',
 	}
 
-	ScriptCmds.VarAdd = Cmd:subclass{
+	EventCmds.VarAdd = EventCmd:subclass{
 		cmd = 0xe9,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'var', 'value'},
 		desc = 'vars[<?=var?>] = vars[<?=var?>] + <?=value?>',
 	}
 
-	ScriptCmds.VarSub = Cmd:subclass{
+	EventCmds.VarSub = EventCmd:subclass{
 		cmd = 0xea,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'var', 'value'},
 		desc = 'vars[<?=var?>] = vars[<?=var?>] - <?=value?>',
 	}
 
-	ScriptCmds.VarCmp = Cmd:subclass{
+	EventCmds.VarCmp = EventCmd:subclass{
 		cmd = 0xeb,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'var', 'value'},
 		desc = 'vars[<?=var?>] = vars[<?=var?>] < <?=value?> and 1 or 0',	-- idk what this is really
 	}
 
-	ScriptCmds.PlaySongVol = Cmd:subclass{
+	EventCmds.PlaySongVol = EventCmd:subclass{
 		cmd = 0xef,
 		argtypes = {uint8_t, uint8_t},
 		desc = 'playSong{'
@@ -1070,144 +1071,393 @@ return function(game)
 		..'}',
 	}
 
-	ScriptCmds.PlaySong = Cmd:subclass{
+	EventCmds.PlaySong = EventCmd:subclass{
 		cmd = 0xf0,
 		argtypes = {uint8_t},
 		desc = 'playSong(<?=args[1]?>)',
 	}
 
-	ScriptCmds.PlaySongFadeIn = Cmd:subclass{
+	EventCmds.PlaySongFadeIn = EventCmd:subclass{
 		cmd = 0xf1,
 		argtypes = {uint8_t, uint8_t},
 		desc = 'fadeInSong{<?=args[1]?>, speed=<?=args[2]?>}',
 	}
 
-	ScriptCmds.PlaySongFadeOut = Cmd:subclass{
+	EventCmds.PlaySongFadeOut = EventCmd:subclass{
 		cmd = 0xf2,
 		argtypes = {uint8_t, uint8_t},
 		desc = 'fadeOutSong{speed=<?=args[1]?>}',
 	}
 
-	ScriptCmds.FadeInPrevSong = Cmd:subclass{
+	EventCmds.FadeInPrevSong = EventCmd:subclass{
 		cm = 0xf3,
 		argtypes = {uint8_t},
 		desc = 'fadeInPrevSong{speed=<?=args[1]?>}',
 	}
 
-	ScriptCmds.PlaySound = Cmd:subclass{
+	EventCmds.PlaySound = EventCmd:subclass{
 		cmd = 0xf4,
 		argtypes = {uint8_t},
 		argnames = {'sfx'},
 		desc = "playSound(<?=sfx?>)",
 	}
 
-	ScriptCmds.PlaySoundPan = Cmd:subclass{
+	EventCmds.PlaySoundPan = EventCmd:subclass{
 		cmd = 0xf5,
 		argtypes = {uint8_t, uint8_t, uint8_t},
 		argnames = {'sfx', 'pan', 'envelope'},
 		desc = 'playSound{sfx=<?=sfx?>, pan=<?=pan?>, envelope=<?=envelope?>}',
 	}
 
-	ScriptCmds.SPCInterrupt = Cmd:subclass{
+	EventCmds.SPCInterrupt = EventCmd:subclass{
 		cmd = 0xf6,
 		argtypes = {uint24_t},
 		argnames = {'destAddr'},
 		desc = 'spcInterrupt <?=destAddr?>',
 	}
 
-	ScriptCmds.WaitForSPC = Cmd:subclass{
+	EventCmds.WaitForSPC = EventCmd:subclass{
 		cmd = 0xf8,
 		desc = 'waitForSPC{port=2}',
 	}
 
-	ScriptCmds.SyncSPC = Cmd:subclass{
+	EventCmds.SyncSPC = EventCmd:subclass{
 		cmd = 0xf9,
 		argtypes = {uint8_t},
 		argnames = {'pos'},
 		desc = 'syncSPC{pos=<?=pos?>}',
 	}
 
-	ScriptCmds.WaitForSPC = Cmd:subclass{
+	EventCmds.WaitForSPC = EventCmd:subclass{
 		cmd = 0xfa,
 		desc = 'waitForSPC{port=3}',
 	}
 
-	ScriptCmds.Return = Cmd:subclass{
+	EventCmds.Return = EventCmd:subclass{
 		cmd = 0xfe,
 		desc = 'return',
 	}
 
-	ScriptCmds.EndScript = Cmd:subclass{
+	EventCmds.EndScript = EventCmd:subclass{
 		cmd = 0xff,
 		desc = 'endScript()',
 	}
 
-	-- ScriptCmds key by cmd (number) or by name (string)
-	for _,k in ipairs(table.keys(ScriptCmds)) do
-		local cl = ScriptCmds[k]
-		if cl.cmd then	-- some abstract classes are in ScriptCmds but don't have a .cmd
+	-- EventCmds key by cmd (number) or by name (string)
+	for _,k in ipairs(table.keys(EventCmds)) do
+		local cl = EventCmds[k]
+		if cl.cmd then	-- some abstract classes are in EventCmds but don't have a .cmd
 			assert.type(cl.cmd, 'number')
-			ScriptCmds[cl.cmd] = cl
+			EventCmds[cl.cmd] = cl
 		end
 	end
-
 	for i=0,255 do
-		if not ScriptCmds[i] then
-			ScriptCmds[i] = Cmd:subclass{
+		if not EventCmds[i] then
+			EventCmds[i] = EventCmd:subclass{
 				cmd = i,
 				desc = '??? '..('0x%02x'):format(i),
 			}
 		end
 	end
 
+
+
+
+	-- ok now comes object-commands
+
+	game.ObjectCmds = ObjectCmds
+	local ObjectCmd = Cmd:subclass()
+	game.ObjectCmd = ObjectCmd
+
+
+	ObjectCmds.PlayAnimation = ObjectCmd:subclass{
+		desc = "<?=0~=bit.band(0x40, cmd) and 'obj.hflip=true ' or ''?>"
+			.."obj:playAnimation(<?=bit.band(cmd, 0x3f)?>)",
+	}
+	for cmd=0,0x7f do
+		ObjectCmds['PlayAnimation '..cmd] = ObjectCmds.PlayAnimation:subclass{
+			cmd = cmd,
+		}
+	end
+
+	ObjectCmds.EnableAnimation = ObjectCmd:subclass{
+		cmd = 0xc6,
+		desc = 'obj:enableAnimation()',
+	}
+	ObjectCmds.DisableAnimation = ObjectCmd:subclass{
+		cmd = 0xc7,
+		desc = 'obj:disableAnimation()',
+	}
+
+	ObjectCmds.Branch = ObjectCmd:subclass{
+		--cmd = 0xfa,
+		argtypes = {uint8_t},
+		argnames = {'offset'},
+		desc = "<?=random and 'if math.random() < .5 then ' or ''?>goto PC<?=dir?><?=offset?>",
+	}
+	ObjectCmds.BranchBack50 = ObjectCmds.Branch:subclass{
+		cmd = 0xfa,
+		random = true,
+		dir = '-',
+	}
+	ObjectCmds.BranchFwd50 = ObjectCmds.Branch:subclass{
+		cmd = 0xfb,
+		random = true,
+		dir = '+',
+	}
+	ObjectCmds.BranchBack = ObjectCmds.Branch:subclass{
+		cmd = 0xfc,
+		random = false,
+		dir = '-',
+	}
+	ObjectCmds.BranchFwd = ObjectCmds.Branch:subclass{
+		cmd = 0xfd,
+		random = false,
+		dir = '+',
+	}
+
+	ObjectCmds.ChangeDir = ObjectCmd:subclass{
+		desc = 'obj:look(<?=bit.band(cmd, 3)?>)',
+	}
+	for cmd=0xcc,0xcf do
+		ObjectCmds['ChangeDir '..cmd] = ObjectCmds.ChangeDir:subclass{cmd = cmd}
+	end
+
+	ObjectCmds.EndScript = ObjectCmd:subclass{
+		cmd = 0xff,
+		digest = function(self, ...)
+			assert.ne(objectScriptCmd, nil, "got an object end-script when there was no objectScriptCmd set ...")
+			cmdset = EventCmds	-- back you go ...
+			objectScriptCmd = nil
+		end,
+		desc = 'end)',	-- and joinAll() if the objectScriptCmd had blocking ...
+	}
+
+	ObjectCmds.Jump = ObjectCmd:subclass{
+		cmd = 0xdc,
+		desc = 'obj:jump()',
+	}
+	ObjectCmds.JumpHigh = ObjectCmds.Jump:subclass{
+		cmd = 0xdd,
+		desc = 'obj:jumpHigh()',
+	}
+
+	ObjectCmds.Goto = ObjectCmd:subclass{
+		cmd = 0xf9,
+		argtypes = {uint24_t},
+		argnames = {'destAddrOfs'},
+		desc = 'goto <?=("$%06x"):format(startaddr + destAddrOfs)?>',
+	}
+
+	ObjectCmds.ChangeLayerPriority = ObjectCmd:subclass{
+		cmd = 0xc8,
+		argtypes = {uint8_t},
+		argnames = {'arg'},
+		-- is this applied to the current-object ?
+		-- 0=default 1=top sprite only, 2=foreground, 3=background
+		desc = 'changeLayerPriority(<?=arg?>)',
+	}
+
+	ObjectCmds.Move = ObjectCmd:subclass{
+		desc = 'obj.dir = <?=bit.band(cmd, 3)?>\n'
+			..'obj:walkForward(<?=bit.band(bit.rshift(cmd, 2), 7)?>)',
+	}
+	for cmd=0x80,0x9f do
+		ObjectCmds['Move '..cmd] = ObjectCmds.Move:subclass{cmd=cmd}
+	end
+
+	ObjectCmds.MoveDiagonal = ObjectCmd:subclass{
+		--[[
+		0: Up/Right 1×1,
+		1: Down/Right 1×1,
+		2: Down/Left 1×1,
+		3: Up/Left 1×1,
+		4: Up/Right 2×1,
+		5: Up/Right 1×2,
+		6: Down/Right 1×2,
+		7: Down/Right 2×1,
+		8: Down/Left 2×1,
+		9: Down/Left 1×2,
+		10: Up/Left 1×2,
+		11: Up/Left 2×1
+		--]]
+		desc = 'obj:moveDiagonal(<?=cmd?>)',
+	}
+	for cmd=0xa0,0xab do
+		ObjectCmds['MoveDiagonal '..cmd] = ObjectCmds.MoveDiagonal:subclass{cmd = cmd}
+	end
+
+	ObjectCmds.SetSpeed = ObjectCmd:subclass{
+		desc = 'obj:setSpeed(<?=bit.band(cmd, 0xf)?>)',
+	}
+	for cmd=0xc0,0xc5 do
+		ObjectCmds['SetSpeed '..cmd] = ObjectCmds.SetSpeed:subclass{cmd = cmd}
+	end
+
+	ObjectCmds.ChangeVehicle = ObjectCmd:subclass{
+		cmd = 0xc9,
+		argtypes = {uint8_t},
+		argnames = {'vehicleIndex'},
+		desc = 'obj:setVehicle{vehicle=<?=bit.band(0x7f, vehicleIndex)?>, showRider=<?=0 ~= bit.band(0x80, vehicleIndex)?>}',
+	}
+
+	ObjectCmds.ShowObject = ObjectCmd:subclass{
+		cmd = 0xd0,
+		desc = 'obj.visible = true',
+	}
+
+	ObjectCmds.HideObject = ObjectCmd:subclass{
+		cmd = 0xd1,
+		desc = 'obj.visible = false',
+	}
+
+	ObjectCmds.SetPos = ObjectCmd:subclass{
+		cmd = 0xd5,
+		argtypes = {uint8_t, uint8_t},
+		argnames = {'x', 'y'},
+		desc = 'obj:setPos(<?=x?>, <?=y?>)',
+	}
+
+	ObjectCmds.ScrollToObject = ObjectCmd:subclass{
+		cmd = 0xd7,
+		desc = 'obj:scrollTo()',
+	}
+
+	ObjectCmds.Sleep = ObjectCmd:subclass{
+		cmd = 0xe0,
+		argtypes = {uint8_t},
+		argnames = {'frames'},
+		desc = 'sleep(<?=frames?> * 4 / 60)',
+	}
+
+	for cmd=0xe1,0xe6 do
+		ObjectCmds['ChangeFlag'..('0x%02x'):format(cmd)] = ObjectCmd:subclass{
+			cmd = cmd,
+			argtypes = {uint8_t},
+			-- not making sense of the json. what's the cmd for?
+			desc = 'gameState.eventFlags<?=args[1]?> ~~= true',
+		}
+	end
+
+
+
+	-- map by-number for by-name
+	for _,k in ipairs(table.keys(ObjectCmds)) do
+		local cl = ObjectCmds[k]
+		if cl.cmd then
+			assert.type(cl.cmd, 'number')
+			ObjectCmds[cl.cmd] = cl
+		end
+	end
+	-- fill in empty numbers with unknowns
+	for i=0,255 do
+		if not ObjectCmds[i] then
+			ObjectCmds[i] = ObjectCmd:subclass{
+				cmd = i,
+				desc = '??? '..('0x%02x'):format(i),
+			}
+		end
+	end
+
+
+	-- useful function
+	local function readAndInc(ctype, addr)
+		ctype = ffi.typeof(ctype)
+		local ptrtype = ffi.typeof('$*', ctype)
+		local o = ffi.cast(ptrtype, rom + addr)[0]
+		addr = addr + ffi.sizeof(ctype)
+		-- if it's a primitive and bitness <= 32
+		if ctype == uint8_t
+		or ctype == int8_t
+		or ctype == uint16_t
+		or ctype == int16_t
+		or ctype == uint32_t
+		or ctype == int32_t
+		or ctype == float
+		or ctype == double
+		then
+			o = tonumber(o)
+		elseif ctype == uint24_t then
+			o = o:value()
+		else
+			o = ctype(o)
+		end
+		return o, addr
+	end
+
+
+	-- event code, pointed into by NPCs and maybe other things
+	game.eventScriptAddrs = {}
+
+	-- collect script addrs from npcs
+	-- hmm should I use the master npc list or just which ones are in maps?
+	-- should I cache disassembled chunks and only traverse instructions that are actually used? and track memory regions used?
+	for mapIndex=0,countof(game.maps)-1 do
+		local mapInfo = game.getMap(mapIndex)
+		if mapInfo then
+
+			-- if the mapIndex < 3 then it's a world-script, otherwise it's an event-script
+			-- ... right?
+			game.eventScriptAddrs[mapInfo.startEventScriptAddr] = game.eventScriptAddrs[mapInfo.startEventScriptAddr] or table()
+			game.eventScriptAddrs[mapInfo.startEventScriptAddr]:insert('map '..mapIndex..' startEventScriptAddr')
+
+			for npcIndex,n in ipairs(mapInfo.npcs) do
+				local scriptAddr = n:getScriptAddr()
+				if scriptAddr then
+					game.eventScriptAddrs[scriptAddr] = game.eventScriptAddrs[scriptAddr] or table()
+					game.eventScriptAddrs[scriptAddr]:insert('map '..mapIndex..' npc '..(npcIndex-1))
+				end
+			end
+
+			for touchTriggerIndex,t in ipairs(mapInfo.touchTriggers) do
+				local scriptAddr = t:getScriptAddr()
+				if scriptAddr then
+					-- if the mapIndex < 3 then it's a world-script, otherwise it's an event-script
+					game.eventScriptAddrs[scriptAddr] = game.eventScriptAddrs[scriptAddr] or table()
+					game.eventScriptAddrs[scriptAddr]:insert('map '..mapIndex..' touchTrigger '..(touchTriggerIndex-1))
+				end
+			end
+		end
+	end
+
+
+
 	game.eventScriptCmds = table()
 	game.eventScriptCmdIndexForAddr = {}
 
-game.oobEventScriptAddrs = table()	-- TODO handle these too
 	local addrsInOrder = table.keys(game.eventScriptAddrs):sort()
-		:filteri(function(addr)
-			if addr >= startaddr and addr < endaddr then return true end
-			if addr >= startaddr2 and addr < endaddr2 then return true end
-			game.oobEventScriptAddrs:insert(addr)
-print('TODO addr', number.hex(addr), 'oob!')	-- nothing found anymore, I guess that's good? does it matter?
-		end)
 
+	-- warn about OOB addrs...
+	for _,addr in ipairs(addrsInOrder) do
+		if not (addr >= startaddr and addr < endaddr)
+		and not (addr >= startaddr2 and addr < endaddr2)
+		then
+			print('TODO addr', number.hex(addr), 'oob!')	-- nothing found anymore, I guess that's good? does it matter?
+		end
+	end
+
+
+	cmdset = EventCmds
+	objectScriptCmd = nil
 	for i,addr in ipairs(addrsInOrder) do
 		local nextaddr = addrsInOrder[i+1] or endaddr
 		while addr < nextaddr do
-			local cmdaddr = addr
-			local cmd = rom[addr]
-			addr = addr + 1
-
 			local function read(ctype)
-				ctype = ffi.typeof(ctype)
-				local ptrtype = ffi.typeof('$*', ctype)
-				local o = ffi.cast(ptrtype, rom + addr)[0]
-				addr = addr + ffi.sizeof(ctype)
-				-- if it's a primitive and bitness <= 32
-				if ctype == uint8_t
-				or ctype == int8_t
-				or ctype == uint16_t
-				or ctype == int16_t
-				or ctype == uint32_t
-				or ctype == int32_t
-				or ctype == float
-				or ctype == double
-				then
-					o = tonumber(o)
-				elseif ctype == uint24_t then
-					o = o:value()
-				else
-					o = ctype(o)
-				end
+				local o
+				o, addr = readAndInc(ctype, addr)
 				return o
 			end
 
---DEBUG:assert.index(ScriptCmds, cmd, "failed to find class for script command")
-			local cl = ScriptCmds[cmd]
+			local cmdaddr = addr
+			local cmd = read(uint8_t)
+
+--DEBUG:assert.index(cmdset, cmd, "failed to find class for script command")
+			local cl = cmdset[cmd]
 --DEBUG:assert.eq(cl.class, cl, "class is not a class for command 0x"..number.hex(cmd))
 --DEBUG:assert.is(cl, Cmd, "somehow class of command 0x"..number.hex(cmd).." is not of Cmd")
 			local cmdobj = cl()
+
+			-- hmm instead of just 'read' with 'addr', how about a whole interpretation-state, with 'cmdset' too?
 			cmdobj:digest(read)
 
 			cmdobj.addr = cmdaddr
@@ -1215,4 +1465,21 @@ print('TODO addr', number.hex(addr), 'oob!')	-- nothing found anymore, I guess t
 			game.eventScriptCmdIndexForAddr[cmdaddr] = #game.eventScriptCmds
 		end
 	end
+
+
+
+
+	-- from addr to table-of-cmds, which should reassemble to produce the same bytes that is located at that addr to begin with *fingers crossed*
+	-- hmm this whole process is assuming the cmds are not reusing bytes for other cmds
+	-- hmmmmmm
+	-- maybe I should do this trace first and skip the global disasm
+	local traces = table()
+
+	-- returns a table of disassembled cmds for this addr
+	-- if it encounnters any gosubs/gotos then it'll disassemble and cache those as well
+	local function traceCode(addr, instrSet)
+
+	end
+
+
 end
