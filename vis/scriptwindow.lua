@@ -64,6 +64,14 @@ function EventScriptWindow:showIndexUI()
 					)
 					ig.igSameLine()
 
+					-- indent object-cmds since they are blocks of cmds from event-cmds
+					if game.ObjectCmd:isa(cmd)
+					and not game.ObjectCmds.EndScript:isa(cmd)
+					then
+						ig.igText('  ')
+						ig.igSameLine()
+					end
+
 					-- item links:
 					if game.EventCmds.GiveItem:isa(cmd) then
 						ig.igText'GiveItem'

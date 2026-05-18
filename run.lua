@@ -691,7 +691,15 @@ for _,cmd in ipairs(game.eventScriptCmds) do
 			..whatPointsToScriptAdAddr:concat'; '
 		)
 	end
-	print(('$%06x'):format(cmd.addr), cmd)
+	io.write(('$%06x'):format(cmd.addr), '\t')
+
+	if game.ObjectCmd:isa(cmd)
+	and not game.ObjectCmds.EndScript:isa(cmd)
+	then
+		io.write'\t'
+	end
+
+	print(cmd)
 end
 print()
 print'END EVENT SCRIPT'
