@@ -66,7 +66,7 @@ function EventScriptWindow:showIndexUI()
 	-- igGetContentRegionAvail returns in pixels
 	--local rowHeight = ig.igGetTextLineHeight()
 	local rowHeight = 24
-	local numRowsVisible = math.floor(self.availSpace.y / rowHeight)
+	local numRowsVisible = math.floor(self.availSpace.y / rowHeight) - 1
 	local count = #ar
 	local scrollMax = count - numRowsVisible - 1
 
@@ -88,26 +88,33 @@ function EventScriptWindow:showIndexUI()
 		0 --bit.bor(ig.ImGuiWindowFlags_NoScrollbar, ig.ImGuiWindowFlags_NoScrollWithMouse)
 	)
 
-	local wheel = ig.igGetIO().MouseWheel
-	if wheel ~= 0 and ig.igIsWindowHovered(0)
-	then
-		self.scrollOppositeWorldRow[0] = self.scrollOppositeWorldRow[0] + wheel * 3
-	end
-
-	if self.jumpRequested then
-		self.scrollOppositeWorldRow[0] = scrollMax - self.jumpRequested
-		self.jumpRequested = nil
-	end
-
-	if self.scrollOppositeWorldRow[0] < 0 then self.scrollOppositeWorldRow[0] = 0 end
-	if self.scrollOppositeWorldRow[0] > scrollMax then
-		self.scrollOppositeWorldRow[0] = scrollMax
-	end
-
 	ig.igGetContentRegionAvail(self.availSpace)
 
-	if ig.igBeginTable('ScriptWindowEvents', 1, 0, ig.ImVec2(), 0) then
-		ig.igTableSetupColumn('-', 0, 0, 0)	-- can I skip this?
+	if ig.igBeginTable(
+		'ScriptWindowEvents',
+		1,
+		bit.bor(ig.ImGuiTableFlags_ScrollX, ig.ImGuiTableFlags_RowBg, ig.ImGuiTableFlags_Borders),
+		ig.ImVec2(),
+		0
+	) then
+
+		local wheel = ig.igGetIO().MouseWheel
+		if wheel ~= 0 and ig.igIsWindowHovered(0)
+		then
+			self.scrollOppositeWorldRow[0] = self.scrollOppositeWorldRow[0] + wheel
+		end
+
+		if self.jumpRequested then
+			self.scrollOppositeWorldRow[0] = scrollMax - self.jumpRequested
+			self.jumpRequested = nil
+		end
+
+		if self.scrollOppositeWorldRow[0] < 0 then self.scrollOppositeWorldRow[0] = 0 end
+		if self.scrollOppositeWorldRow[0] > scrollMax then
+			self.scrollOppositeWorldRow[0] = scrollMax
+		end
+
+		ig.igTableSetupColumn('-', 0, 0, 0)--ig.ImGuiTableColumnFlags_WidthFixed, self.availSpace.x, 0)
 
 		-- TODO maybe turn this into a table to force its row height...
 		for visibleRowIndex = 0,numRowsVisible-1 do
