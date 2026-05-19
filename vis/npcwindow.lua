@@ -18,7 +18,14 @@ function NPCWindow:showIndexUI()
 			-- TODO how to edit script pointers?
 			self.app.scriptWindow:popupButtonForAddr(n:getScriptAddr())
 		else
-			self:editField(n, fieldname, ctype, field)
+			if self:editField(n, fieldname, ctype, field) then
+				-- if the user changed graphics or palette then reset the npc textures to rebake the palette etc
+				if fieldname == 'graphics'
+				or fieldname == 'palette'
+				then
+					self.app.mapWindow:refreshNPCTexs()
+				end
+			end
 		end
 	end
 end
