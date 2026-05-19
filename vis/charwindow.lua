@@ -4,7 +4,7 @@ local ArrayWindow = require 'ff6.vis.arraywindow'
 
 local CharWindow = ArrayWindow:subclass()
 
-CharWindow.name = 'characters'
+CharWindow.name = 'character'
 
 function CharWindow:getCount()
 	return self.app.game.numCharacters
@@ -18,7 +18,7 @@ function CharWindow:showIndexUI()
 	local app = self.app
 	local game = app.game
 
-	if self.index < 0 or self.index >= game.numCharacters then return end
+	if self.index < 0 or self.index >= self:getCount() then return end
 
 	if self.charSpriteTex then
 		local y = ig.igGetCursorPosY()
@@ -53,9 +53,7 @@ function CharWindow:setIndex(...)
 		self.charSpriteTex = nil
 	end
 	if self.index >= 0 and self.index < game.numMenuChars then
-		self.charSpriteTex = self:makeTex(
-			game.getMenuCharImage(self.index):rgba()
-		)
+		self.charSpriteTex = self:makeTex(game.getMenuCharImage(self.index))
 		-- how about another for the sprite sheet?
 	end
 end

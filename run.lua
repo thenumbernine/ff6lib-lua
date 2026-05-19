@@ -468,6 +468,7 @@ print((tolua({
 local readCharSprite = require 'ff6.charsprite'
 local totalPixels = 0
 -- [=[
+path'characters':mkdir()
 local chx, chy = 0, 0
 local sheetIndex = 0
 local charSheet = Image(256, 256, 1, 'uint8_t')

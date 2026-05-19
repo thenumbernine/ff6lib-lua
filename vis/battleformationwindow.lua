@@ -14,7 +14,9 @@ function BattleFormationWindow:getCount()
 end
 
 function BattleFormationWindow:getIndexName(i)
-	return self.app.game.getFormationName(i)
+	local game = self.app.game
+	if i < 0 or i >= game.countof(game.formations) then return end
+	return game.formations[i]:getDesc()
 end
 
 local availSize = ig.ImVec2()
@@ -30,6 +32,7 @@ function BattleFormationWindow:showIndexUI()
 		local y = ig.igGetCursorPosY()
 
 		-- same as in TileSheetWindow:showIndexUI
+		-- TODO make a method out of it
 		local viewWidth = 256
 		--local viewHeight = 224	-- full screen
 		local viewHeight = 152		-- ... minus the bottom menu?

@@ -17,11 +17,16 @@ function MonsterWindow:getIndexName(i)
 	return self.app.game.monsterNames[i]
 end
 
+local availSize = ig.ImVec2()
+local drawSize = ig.ImVec2()
+local uv0 = ig.ImVec2(0,0)
+local uv1 = ig.ImVec2(1,1)
 function MonsterWindow:showIndexUI()
 	local app = self.app
 	local game = app.game
 
 	if self.monsterSpriteTex then
+		--[[ fixed-size float-right
 		local y = ig.igGetCursorPosY()
 		ig.igSetCursorPosY(32)	-- or wherever y should be after the title bar
 		local avail = ig.ImVec2()
@@ -30,6 +35,39 @@ function MonsterWindow:showIndexUI()
 		ig.igSetCursorPosX(desiredX)
 		ig.igImage(self.monsterSpriteTex.id, self.monsterSpriteTex.imsize)
 		ig.igSetCursorPosY(y)
+		--]]
+		-- [[ size based on image
+		local y = ig.igGetCursorPosY()
+		ig.igGetContentRegionAvail(availSize)
+		availSize.x = availSize.x - 16	-- make room for scrollbar
+		availSize.y = availSize.y - 4
+		local scale = math.max(1, availSize.x / self.monsterSpriteTex.width)
+		drawSize.x = math.ceil(scale * self.monsterSpriteTex.width)
+		drawSize.y = math.ceil(scale * self.monsterSpriteTex.height)
+		ig.igImage(self.monsterSpriteTex.id, drawSize, uv0, uv1)
+		ig.igSetCursorPosY(y + math.ceil(self.monsterSpriteTex.height * scale) + 4)
+		--]]
+		--[[ size based on arbitrary specified width
+				-- pick these to be the largest monster sprite size ...
+		--[=[
+		local viewWidth = 128
+		local viewHeight = 128
+		--]=]
+		-- [=[
+		local viewHeight = math.max(self.monsterSpriteTex.width, self.monsterSpriteTex.height)
+		local viewWidth = viewHeight
+		--]=]
+		local y = ig.igGetCursorPosY()
+		ig.igGetContentRegionAvail(availSize)
+		availSize.x = availSize.x - 16	-- make room for scrollbar
+		availSize.y = availSize.y - 4
+		local scale = math.max(1, availSize.x / viewWidth)
+		uv1.y = viewHeight / self.monsterSpriteTex.height
+		drawSize.x = math.ceil(scale * self.monsterSpriteTex.width)
+		drawSize.y = math.ceil(scale * viewHeight)
+		ig.igImage(self.monsterSpriteTex.id, drawSize, uv0, uv1)
+		ig.igSetCursorPosY(y + math.ceil(viewHeight * scale) + 4)
+		--]]
 	end
 
 	if ig.igCollapsingHeader'fields' then
@@ -41,6 +79,20 @@ function MonsterWindow:showIndexUI()
 			else
 				self:editField(monster, fieldname, ctype, field)
 			end
+		end
+	end
+
+	-- pick the palette out of the MonsterSprite info and let the user edit it here ...
+	-- (I think everything else in MonsterSprite is specific to the tile layout etc)
+	if self.index >= 0 and self.index < game.countof(game.monsterSprites) then
+		local monsterSprite = game.monsterSprites[self.index]
+		self.__tmp = monsterSprite:getPaletteIndex()
+		if ig.luatableInputInt('palette', self, '__tmp') then
+			-- then set the palette ...
+			monsterSprite.palLo = bit.band(0xff, self.__tmp)
+			monsterSprite.palHi = bit.rshift(self.__tmp, 8)	-- only 7 bits
+			-- if we changed the palette then regen the sprite ...
+			self:refreshTex()
 		end
 	end
 
@@ -139,17 +191,21 @@ end
 function MonsterWindow:setIndex(...)
 	MonsterWindow.super.setIndex(self, ...)
 
-	-- clear cache
+	-- clear reverse-reference cache
 	self.battleFormationsWithThis = nil
 	self.colosseumBetsWithThis = nil
 
+	self:refreshTex()
+end
+
+function MonsterWindow:refreshTex()
 	-- refresh monster sprite
 	if self.monsterSpriteTex then
 		self.monsterSpriteTex:delete()
+		self.monsterSpriteTex = nil
 	end
-	self.monsterSpriteTex = self:makeTex(
-		readMonsterSprite(self.app.game, self.index)
-	)
+	if self.index < 0 or self.index >= self:getCount() then return end
+	self.monsterSpriteTex = self:makeTex(readMonsterSprite(self.app.game, self.index))
 end
 
 return MonsterWindow

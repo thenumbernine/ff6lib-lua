@@ -39,6 +39,7 @@ files = {
 	"vis/npcwindow.lua",
 	"vis/scriptwindow.lua",
 	"vis/spellwindow.lua",
+	"vis/spritewindow.lua",
 	"vis/tilesheetwindow.lua",
 	"vis/tilewindow.lua",
 	"vis/touchtriggerwindow.lua",

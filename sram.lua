@@ -272,21 +272,37 @@ for i=saveMin, saveMax do
 		end
 	end
 
+	local maxCols = 64	-- TODO curses?
+
 	print()
 	print'treasures:'
-	for i=0,bit.lshift(countof(save.treasureFlags),3)-1 do
-		local byteofs = bit.rshift(i,3)
-		local bitofs = bit.band(i, 7)
-		local mask = bit.lshift(1, bitofs)
-		local enabled = 0 ~= bit.band(mask, save.treasureFlags[byteofs])
-		local t = game.treasures + i
-		io.write(i, '\t', enabled and '✅' or '❌')
-		local sep = ''
-		for _,t in ipairs(treasuresForFlagIndex[i] or {}) do
-			io.write(sep, ' ', tostring(t.treasure)..' in maps '..t.maps:concat',')
-			sep = ';'
+	-- if sfc is provided then show long-form like we're doing
+	--  but if it's not then just show a matrix of checkboxes, since we can't get the names/locations anyways
+	if game then
+		for i=0,bit.lshift(countof(save.treasureFlags),3)-1 do
+			local byteofs = bit.rshift(i,3)
+			local bitofs = bit.band(i, 7)
+			local mask = bit.lshift(1, bitofs)
+			local enabled = 0 ~= bit.band(mask, save.treasureFlags[byteofs])
+			io.write(i, '\t', enabled and '✅' or '❌')
+			if treasuresForFlagIndex then
+				local sep = ''
+				for _,t in ipairs(treasuresForFlagIndex[i] or {}) do
+					io.write(sep, ' ', tostring(t.treasure)..' in maps '..t.maps:concat',')
+					sep = ';'
+				end
+			end
+			print()
 		end
-		print()
+	else
+		for i=0,bit.lshift(countof(save.treasureFlags),3)-1 do
+			local byteofs = bit.rshift(i,3)
+			local bitofs = bit.band(i, 7)
+			local mask = bit.lshift(1, bitofs)
+			local enabled = 0 ~= bit.band(mask, save.treasureFlags[byteofs])
+			io.write(enabled and '✅' or '❌')
+			if i % maxCols == maxCols-1 then print() end
+		end
 	end
 
 	local function align(n, s)
@@ -300,44 +316,61 @@ for i=saveMin, saveMax do
 	-- so ...
 	local formationsEnabled = {}
 	local monstersEnabled = {}
-	for i=0,bit.lshift(countof(save.battleFormationFlags),3)-1 do
+	local numFormationFlags = bit.lshift(countof(save.battleFormationFlags),3)
+	for i=0,numFormationFlags-1 do
 		local byteofs = bit.rshift(i,3)
 		local bitofs = bit.band(i, 7)
 		local mask = bit.lshift(1, bitofs)
 		local formationEnabled = 0 ~= bit.band(mask, save.battleFormationFlags[byteofs])
 		formationsEnabled[i] = formationEnabled
 		if formationEnabled then
-			local formation = game.formations + i
-			-- do I care about chooseNextFour as well?
-			for j=1,6 do
-				if formation:getMonsterActive(j) then
-					local monsterIndex = formation:getMonsterIndex(j)
-					monstersEnabled[monsterIndex] = true
+			local formation = game and game.formations + i
+			if formation then
+				-- do I care about chooseNextFour as well?
+				for j=1,6 do
+					if formation:getMonsterActive(j) then
+						local monsterIndex = formation:getMonsterIndex(j)
+						monstersEnabled[monsterIndex] = true
+					end
 				end
 			end
 		end
 	end
-	print()
-	print(
-		align(4+3+72, 'battle formations:')
-		..'monsters:'
-	)
-	for i=0,math.max(countof(game.monsters), bit.lshift(countof(save.battleFormationFlags),3))-1 do
-		local monsterEnabled
-		if i < countof(game.monsters) then
-			monsterEnabled = not not monstersEnabled[i]
-		end
+	if game then
+		print()
 		print(
-			align(4, i)								-- biggest is 3
-			..align(3, formationsEnabled[i] and '✅' or '❌')	-- biggest is 1 but it needs 2 spaces...
-			..align(72, game.getFormationName(i))	-- biggest is 70
-			..(monsterEnabled ~= nil and
-				align(4, i)
-				..align(3, monsterEnabled and '✅' or '❌')
-				..game.monsterNames[i]
-				or ''
-			)
+			align(4+3+72, 'battle formations:')
+			..'monsters:'
 		)
+		local rowCount = math.max(countof(game.monsters), numFormationFlags)
+		for i=0,rowCount-1 do
+			local monsterEnabled
+			if i < countof(game.monsters) then
+				monsterEnabled = not not monstersEnabled[i]
+			end
+			print(
+				align(4, i)											-- biggest is 3
+				..align(3, formationsEnabled[i] and '✅' or '❌')	-- biggest is 1 but it needs 2 spaces...
+				..align(72, game.formations[i]:getDesc() or 'formation #'..i)			-- biggest is 70
+				..(monsterEnabled ~= nil
+					and align(4, i)
+						..align(3, monsterEnabled and '✅' or '❌')
+						..(game.monsterNames[i] or 'monster #'..i)
+					or ''
+				)
+			)
+		end
+	else
+		print()
+		print'battle formations:'
+		for i=0,numFormationFlags-1 do
+			local byteofs = bit.rshift(i,3)
+			local bitofs = bit.band(i, 7)
+			local mask = bit.lshift(1, bitofs)
+			local enabled = formationsEnabled[i]
+			io.write(enabled and '✅' or '❌')
+			if i % maxCols == maxCols-1 then print() end
+		end
 	end
 end
 --]]

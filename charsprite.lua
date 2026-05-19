@@ -104,27 +104,16 @@ local function readCharSprite(game, charIndex, processFrame)
 	local palIndex = game.characterPaletteIndexes[charIndex]
 --print('charIndex', charIndex, 'palIndex', palIndex)
 --[[
-	if palIndex >= 8 then palIndex = 0 end	-- TODO or idk
+	if palIndex >= 8 then palIndex = 0 end		-- TODO or idk
 	if charIndex == 18 then palIndex = 8 end	-- special for morphed terra
 --]]
 -- [[
 	palIndex = bit.band(palIndex, 7)
 --]]
 
-	path'characters':mkdir()
-
 	local bitsPerPixel = 4
 
-	local numFrames
-	if charIndex < 22 then
-		numFrames = 41
-	elseif charIndex < 63 then
-		numFrames = 9
-	else
-		-- past 87 something is different
-		numFrames = 1
-	end
-
+	local numFrames = game.getNumFramesForCharSpriteSheet(charIndex)
 
 	for frameIndex=0,numFrames-1 do
 		local charBaseOffset = bit.band(

@@ -335,6 +335,9 @@ function App:onLoadROM(infn, mapIndex)
 	local CharWindow = require 'ff6.vis.charwindow'
 	self.charWindow = CharWindow{app=self}
 
+	local SpriteWindow = require 'ff6.vis.spritewindow'
+	self.spriteWindow = SpriteWindow{app=self}
+
 	local MonsterWindow = require 'ff6.vis.monsterwindow'
 	self.monsterWindow = MonsterWindow{app=self}
 
@@ -348,6 +351,7 @@ function App:onLoadROM(infn, mapIndex)
 	self.baseWindows = table()
 	self.baseWindows:append{
 		self.charWindow,
+		self.spriteWindow,
 		self.monsterWindow,
 		self.battleFormationWindow,
 		self.randomBattleOptionsWindow,

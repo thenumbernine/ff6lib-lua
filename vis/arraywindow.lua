@@ -332,6 +332,9 @@ function ArrayWindow:makeTex(image)
 		minFilter = gl.GL_NEAREST,
 		magFilter = gl.GL_NEAREST,
 	}
+	-- i'm storing the original pre-rgb-baking
+	-- and at least for the map layers, i'm storing .blend in its .image ...
+	-- it's a mess right now
 	tex.image = image	-- tempted to do this in gl...
 	-- so I don't have to keep dynamically allocating for the imgui api ...
 	tex.imsize = ig.ImVec2(tex.width, tex.height)

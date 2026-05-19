@@ -806,6 +806,26 @@ local Formation = ff6struct{
 			return formationSize[i-1]
 		end
 
+		-- __tostring?
+		mt.getDesc = function(self)
+			local monsterCounts = {}
+			for k=1,6 do
+				if self:getMonsterActive(k) then
+					local monsterIndex = self:getMonsterIndex(k)
+					local key = '#'..monsterIndex
+					if monsterIndex < game.numMonsters then
+						key = key ..':'..tostring(game.monsterNames[monsterIndex])
+					end
+					monsterCounts[key] = (monsterCounts[key] or 0) + 1
+				end
+			end
+			return table.keys(monsterCounts):sort():mapi(function(key)
+				local count = monsterCounts[key]
+				if count == 1 then return key end
+				return key..' x'..count
+			end):concat', '
+		end
+
 --[=[
 		mt.fieldToString = function(self, key, ctype)
 			if key:match'^monster%dhi$' then return nil end
@@ -1416,7 +1436,6 @@ local numLores = 24
 -- 1 frames for characters 63 through ...
 -- then 87 and on its a different frame table ...
 -- there's gotta be frame data somewhere ...
--- oh and all the palettes are messed up too
 local numCharacterSpriteFrames = 41
 
 -- number of sprited playable characters
@@ -1745,7 +1764,11 @@ local Treasure = ff6struct{
 			if self.type == 0 then
 				contents = 'empty=true'
 			elseif self.type == 1 then
-				contents = 'monsterBattle="'..tostring(game.getFormationName(game.monsterEventBattles[self.battleOrItemOrGP].s[0].formation))..'"'
+				local formationIndex = game.monsterEventBattles[self.battleOrItemOrGP].s[0].formation
+				local formation = formationIndex >= 0 and formationIndex < game.countof(game.formations) and game.formations + formationIndex
+				contents = 'monsterBattle="'..(
+					formation and formation:getDesc() or 'nil'
+				)..'"'
 			elseif self.type == 2 then
 				contents = 'item="'..tostring(gameC.itemNames[self.battleOrItemOrGP])..'"'
 			elseif self.type == 3 then
@@ -2728,28 +2751,72 @@ function game.getMenuCharImage(charIndex)
 	return im
 end
 
--- here or in Formation?
-function game.getFormationName(i)
-	if i < 0 or i >= countof(game.formations) then return end
-
-	local formation = game.formations + i
-	local monsterCounts = {}
-	for k=1,6 do
-		if formation:getMonsterActive(k) then
-			local monsterIndex = formation:getMonsterIndex(k)
-			local key = '#'..monsterIndex
-			if monsterIndex < game.numMonsters then
-				key = key ..':'..tostring(game.monsterNames[monsterIndex])
-			end
-			monsterCounts[key] = (monsterCounts[key] or 0) + 1
-		end
-	end
-	return table.keys(monsterCounts):sort():mapi(function(key)
-		local count = monsterCounts[key]
-		if count == 1 then return key end
-		return key..' x'..count
-	end):concat', '
+function game.getNumFramesForCharSpriteSheet(charIndex)
+	if charIndex < 0 or charIndex >= numCharacterSprites then return end
+	if charIndex < 22 then return 41 end
+	if charIndex < 63 then return 9 end
+	return 1
+	-- TODO past 87 something is different
 end
+
+-- [[ I guess this is somewhat standardized...
+-- this will give 8 cols wide of x 6 high of sprites for animation sheets
+local readCharSprite = require 'ff6.charsprite'
+function game.getCharSpriteSheetImage(charIndex)
+	local Image = require 'image'
+	local makePalette = require 'ff6.graphics'.makePalette
+
+	local numFrames = game.getNumFramesForCharSpriteSheet(charIndex)
+	local w, h
+	-- [[
+	if numFrames == 41 then
+		w = 16 * 8	-- 8 sprite cols, 16 pixels each
+		h = 24 * 6	-- 6 sprite rows, 24 pixels each
+	elseif numFrames == 9 then
+		w = 16 * 3
+		h = 24 * 3
+	elseif numFrames == 1 then
+		w = 16
+		h = 24
+	else
+		print'???'
+	end
+	-- ]]
+	local charSheet = Image(w, h, 1, uint8_t)
+	local palIndex = game.characterPaletteIndexes[charIndex]
+
+	-- 3 bits are used for the sprite sheet exporter ....
+	--palIndex = bit.band(palIndex, 7)
+	-- there's 32 char palettes so 5 bits needed for the whole range
+	-- ... hmm maybe there's not so many characterPaletteIndexes?
+	palIndex = bit.band(palIndex, 0x1f)
+	-- TODO what's in the rest of the bits?
+
+	charSheet.palette = makePalette(game, game.characterPalettes + palIndex, 4, 16)
+	local chx, chy = 0, 0
+	readCharSprite(game, charIndex, function(charIndex, frameIndex, im, palIndex, numFrames)
+		-- palIndex is always game.characterPaletteIndexes[charIndex]
+		-- [[
+		if chy + im.height > charSheet.height then
+			error("!!!OOB!!! make the sprite sheet bigger")
+		end
+		--]]
+		charSheet:pasteInto{
+			x = chx,
+			y = chy,
+			image = im,
+		}
+		chx = chx + im.width
+		if chx + im.width > charSheet.width then
+			chx = 0
+			chy = chy + im.height
+		end
+	end)
+	return charSheet
+end
+
+
+--]]
 
 --[[ 0xd1600
 					-- Game Genie code:
@@ -2785,8 +2852,8 @@ print'event battles'
 for i=0,0xff do
 	print(i,
 		game.monsterEventBattles[i].s[0] == game.monsterEventBattles[i].s[1],
-		game.getFormationName(game.monsterEventBattles[i].s[0].formation),
-		game.getFormationName(game.monsterEventBattles[i].s[1].formation)
+		game.formations[game.monsterEventBattles[i].s[0].formation]:getDesc(),
+		game.formations[game.monsterEventBattles[i].s[1].formation]:getDesc()
 	)
 end
 os.exit()
