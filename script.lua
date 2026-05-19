@@ -90,11 +90,17 @@ return function(game)
 		local addr = startaddr + addrOfs
 		local str
 		if addr == commonReturnAddr then
-			str = 'return' 	-- "call return" is gonna look weird :shrug:
+			--str = 'return' 	-- "call return" is gonna look weird :shrug:
+			return 'return'
 		else
 			str = ('$%06x'):format(addr)
 		end
-		return (op or 'goto')..' '..str
+		-- is it 'goto return' as in we jmp to the instruction and its a rts and so we return?
+		--  and therefore a 'goto return' is the same as just 'return'
+		-- but then how about the 'call' ... does that push to the same stack as whatever invoked the script in the first place,
+		--  such that 'call return' is a 'nop'?
+		--  or are all 'call return's erroneous, in that if the pc stack is different between invoking touch/event s and 'call' within the script, then a 'call return' would produce some kind of error?
+		return (op or 'goto ')..str
 	end
 
 
@@ -594,7 +600,7 @@ return function(game)
 		cmd = 0x7a,
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'objectIndex', 'newScriptAddrOfs'},
-		desc = "objs[<?=objectIndex?>].script = <?=('$%06x'):format(startaddr + newScriptAddrOfs)?>",
+		desc = "objs[<?=objectIndex?>].script = <?=getGotoOfsStr(newScriptAddrOfs, '')?>",
 	}
 
 	EventCmds.RestorePreviousParty = EventCmd:subclass{
@@ -882,7 +888,7 @@ return function(game)
 		cmd = 0xb2,
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
-		desc = "<?=getGotoOfsStr(destAddrOfs, 'call')?>",
+		desc = "<?=getGotoOfsStr(destAddrOfs, 'call ')?>",
 	}
 
 	EventCmds.CallRepeat = EventCmd:subclass{
@@ -892,7 +898,7 @@ return function(game)
 			self.destAddrOfs = destAddrOfs
 			self.count = count+1
 		end,
-		desc = 'for i=1,<?=count?> do <?=getGotoOfsStr(destAddrOfs)?> end',
+		desc = "for i=1,<?=count?> do <?=getGotoOfsStr(destAddrOfs, 'call ')?> end",
 	}
 
 	EventCmds.Sleep = EventCmd:subclass{
@@ -912,7 +918,7 @@ return function(game)
 		desc = 'sleep(<?=seconds?>)'
 	}
 
-	EventCmds.CallBasedOnDialogChoice = EventCmd:subclass{
+	EventCmds.CallForDialogResult = EventCmd:subclass{
 		cmd = 0xb6,
 		digest = function(self, read)
 			self.addrs = table()
@@ -932,7 +938,7 @@ return function(game)
 		end,
 	}
 
-	EventCmds.JumpBasedOnBattleSwitch = EventCmd:subclass{
+	EventCmds.JumpBasedOnBattleFlag = EventCmd:subclass{
 		cmd = 0xb7,
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'flagIndex', 'destAddrOfs'},
@@ -977,20 +983,31 @@ return function(game)
 		desc = 'if math.random() < .5 then <?=getGotoOfsStr(destAddrOfs)?>',
 	}
 
-	EventCmds.JumpBasedOnCharacterSwitch = EventCmd:subclass{
+	-- this is based on active char?
+	-- or whether you have the char in your party?
+	-- or based on opcode 0xe1?
+	EventCmds.JumpBasedOnNPCFlag = EventCmd:subclass{
 		cmd = 0xbe,
 		digest = function(self, read)
+			-- what's in the upper nibble here?
 			local count = bit.band(0xf, read(uint8_t))
-			self.addrs = table()
+			self.options = table()
 			for i=1,count do
-				self.addrs:insert(read(uint24_t))
+				local addr = read(uint24_t)
+				-- everything's says only 18 bits of address are used
+				-- and then the top 4 are the character
+				-- so there's 2 more bits left ...
+				self.options:insert{
+					characterIndex = bit.rshift(addr, 20),
+					addrOfs = bit.band(0x3ffff, addr),
+				}
 			end
 		end,
 		__tostring = function(self)
-			return "jump based on characterFlag, count="..#self.addrs
-				.." ??? = "..self.addrs:mapi(function(addr)
-					return (' $%06x'):format(addr)
-				end):concat' '
+			return 'gotoForCharacter({'
+			..self.options:mapi(function(option)
+				return '['..option.characterIndex..'] = '..Cmd.getGotoOfsStr(option.addrOfs)
+			end):concat', '..'})'
 		end,
 	}
 
@@ -1001,6 +1018,7 @@ return function(game)
 
 	-- common parent class for EventCmd and WorldCmd
 	local Switch = Cmd:subclass{
+		flagName = 'mapFlag',
 		digest = function(self, read)
 			local count = 1 + bit.band(self.cmd, 7)
 			self._and = 0 ~= bit.band(self.cmd, 8)
@@ -1008,28 +1026,23 @@ return function(game)
 			for i=1,count do
 				local arg = read(uint16_t)
 				self.conds:insert{
-					mapFlagIndex = bit.band(0x3fff, arg),
+					flagIndex = bit.band(0x3fff, arg),
 					value = 0 ~= bit.rshift(arg, 15),
 				}
 			end
 			self.destAddrOfs = read(uint24_t)
-		end,
-		__tostring = function(self)
-			-- which flag? npc flag? map flag? treasure flag? etc flag?
-			local gotostmt = self.getGotoOfsStr(self.destAddrOfs)
-			return "if "
-				..self.conds:mapi(function(cond)
-					--[[ integer values ...
-					return 'gameState.mapFlag'..cond.mapFlagIndex..' == '..(cond.value and '1' or '0')
-					--]]
-					-- [[ boolean values ...
+
+			-- precache:
+			self.condCode = self.conds:mapi(function(cond)
 					return (not cond.value and 'not ' or '')
-						..'gameState.mapFlag'..cond.mapFlagIndex
-					--]]
+						-- which flag? npc flag? map flag? treasure flag? etc flag?
+						..'gameState.'..self.flagName..cond.flagIndex
 				end):concat(self._and and ' and ' or ' or ')
-				..' then '..gotostmt..' end'
 		end,
+		desc = 'if <?=condCode?> then <?=getGotoOfsStr(destAddrOfs)?> end',
 	}
+	game.Cmds.Switch = Switch
+
 	-- in EventCmds for 0xc0-0xcf and in WorldCmds for 0xb0-0xbf
 	for cmd=0xc0,0xcf do
 		EventCmds['Switch '..cmd] = EventCmd:subclass(Switch, {cmd = cmd})

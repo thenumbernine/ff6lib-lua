@@ -2430,7 +2430,11 @@ Game = struct{
 		{name = 'WoBTileProps', type = arrayType(WorldTileProps, 0x100)},										-- 0x2e9b14 - 0x2e9d14
 		{name = 'WoRTileProps', type = arrayType(WorldTileProps, 0x100)},										-- 0x2e9d14 - 0x2e9f14
 
-		{name = 'unknown_2e9f14', type = arrayType(uint8_t, -(0x2e9f14 - 0x2ed434))},							-- 0x2e9f14 - 0x2ed434 = looks like more world tile props.
+		{name = 'unknown_2e9f14', type = arrayType(uint8_t, -(0x2e9f14 - 0x2eb269))},							-- 0x2e9f14 - 0x2eb269 = looks like more world tile props.
+
+		{name = 'vehicleEventAddrs', type = arrayType(uint24_t, 7)},											-- 0x2eb269 - 0x2eb27e
+
+		{name = 'unknown_2e9f14', type = arrayType(uint8_t, -(0x2eb27e - 0x2ed434))},							-- 0x2eb27e - 0x2ed434 = looks like more world tile props.
 
 		{name = 'WoBLayoutCompressed', type = arrayType(uint8_t, -(0x2ed434 - 0x2f114f))},						-- 0x2ed434 - 0x2f114f     World of Balance Map Data (compressed)
 		{name = 'WoBGfxDataCompressed', type = arrayType(uint8_t, -(0x2f114f - 0x2f3250))},						-- 0x2f114f - 0x2f3250     World of Balance Tile Graphics (compressed)
@@ -2542,6 +2546,7 @@ assertOffset('characters', 0x2d7ca0)
 --assertOffset('expForLevelUp', expForLevelUpAddr)
 assertOffset('longEsperBonusDescBase', 0x2dfe00)
 assertOffset('longEsperBonusDescOffsets', 0x2dffd0)
+assertOffset('SerpentTrenchGfxDataCompressed', 0x2fb631)
 
 gameC = ffi.cast(ptrType(Game), rom)
 

@@ -4,6 +4,8 @@ local ig = require 'imgui'
 local ArrayWindow = require 'ff6.vis.arraywindow'
 
 
+local scriptBaseAddr = 0xa0000
+
 local scriptDivider = {}
 
 local EventScriptWindow = ArrayWindow:subclass()
@@ -241,12 +243,63 @@ function EventScriptWindow:showIndexUI()
 								app.tileWindow:setXY(cmd.x, cmd.y)
 								app:centerView(cmd.x, cmd.y)
 							end
-
 						elseif game.EventCmds.MovePartyToMap:isa(cmd) then
 							ig.igText('movePartyToMap '..cmd.partyIndex)
 							ig.igSameLine()
 							if app.mapWindow:popupButton(cmd.mapIndex) then
 								-- hmm, no x,y?
+							end
+
+						-- scripts:
+						elseif game.EventCmds.Call:isa(cmd) then
+							ig.igText'call'
+							ig.igSameLine()
+							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
+						elseif game.EventCmds.CallRepeat:isa(cmd) then
+							ig.igText('for i=1,'..cmd.count..' call')
+							ig.igSameLine()
+							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
+						elseif game.EventCmds.JumpBasedOnBattleFlag:isa(cmd) then
+							ig.igText('if gameState.battleFlag'..cmd.flagIndex..' then goto')
+							ig.igSameLine()
+							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
+						elseif game.EventCmds.Jump5050:isa(cmd) then
+							ig.igText'if math.random() < .5 then goto'
+							ig.igSameLine()
+							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
+						elseif game.Cmds.Switch:isa(cmd) then
+							ig.igText('if '..cmd.condCode..' then goto')
+							ig.igSameLine()
+							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
+						elseif game.ObjectCmds.Goto:isa(cmd) then
+							ig.igText'goto'
+							ig.igSameLine()
+							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
+						elseif game.WorldCmds.IfKeyThenGoto:isa(cmd) then
+							ig.igText'if keypress then goto'
+							ig.igSameLine()
+							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
+						elseif game.WorldCmds.IfFacingThenGoto:isa(cmd) then
+							ig.igText('if dir=='..cmd.dir..' then goto')
+							ig.igSameLine()
+							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
+						elseif game.EventCmds.CallForDialogResult:isa(cmd) then
+							ig.igText'callForDialogResult'
+							for _,addr in ipairs(cmd.addrs) do
+								ig.igSameLine()
+								self:popupButtonForAddr(addr)
+							end
+						elseif game.EventCmds.ChangeObjectEvent:isa(cmd) then
+							ig.igText('objs['..cmd.objectIndex..'].script =')
+							ig.igSameLine()
+							self:popupButtonForAddr(scriptBaseAddr + cmd.newScriptAddrOfs)
+						elseif game.EventCmds.JumpBasedOnNPCFlag:isa(cmd) then
+							ig.igText'gotoForCharacter'
+							for _,option in ipairs(cmd.options) do
+								ig.igSameLine()
+								app.charWindow:popupButton(option.characterIndex)
+								ig.igSameLine()
+								self:popupButtonForAddr(scriptBaseAddr + option.addrOfs)
 							end
 
 						else
