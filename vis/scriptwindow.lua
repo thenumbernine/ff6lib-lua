@@ -64,7 +64,9 @@ function EventScriptWindow:showIndexUI()
 	--local numRowsVisible = 15
 	-- TODO determine by window size, or child panel within window...
 	-- igGetContentRegionAvail returns in pixels
-	local numRowsVisible = math.floor(self.availSpace.y / ig.igGetTextLineHeight())
+	--local rowHeight = ig.igGetTextLineHeight()
+	local rowHeight = 24
+	local numRowsVisible = math.floor(self.availSpace.y / rowHeight)
 	local count = #ar
 	local scrollMax = count - numRowsVisible - 1
 
@@ -104,147 +106,159 @@ function EventScriptWindow:showIndexUI()
 
 	ig.igGetContentRegionAvail(self.availSpace)
 
-	-- TODO maybe turn this into a table to force its row height...
-	for visibleRowIndex = 0,numRowsVisible-1 do
-		local i = (scrollMax - self.scrollOppositeWorldRow[0]) + visibleRowIndex
-		if i >= 0 and i < count then
-			local cmd = ar[1+i]
-			if cmd == scriptDivider then
-				ig.igSeparator()
-			elseif cmd
-			and not game.Cmd:isa(cmd)	-- i.e. this is just a marker, not for real Cmd's (some have a .what field too...)
-			and cmd.what
-			then
-				for j,what in ipairs(cmd.what) do
-					ig.igPushID_Int(j)
-					if what.startEventScriptAddr then
-						ig.igSameLine()
-						app.mapWindow:popupButton(what.mapIndex)
-					elseif what.npcIndex then
-						ig.igSameLine()
-						if ig.igButton('map '..what.mapIndex..' npc '..what.npcIndex) then
-							app.mapWindow:setIndex(what.mapIndex)
-							app.npcWindow:setIndex(what.npcIndex)
-							app.npcWindow.show[0] = true
-							local n = app.npcWindow:getCurIndex()
-							if n then
-								app:centerView(n.x, n.y)
+	if ig.igBeginTable('ScriptWindowEvents', 1, 0, ig.ImVec2(), 0) then
+		ig.igTableSetupColumn('-', 0, 0, 0)	-- can I skip this?
+
+		-- TODO maybe turn this into a table to force its row height...
+		for visibleRowIndex = 0,numRowsVisible-1 do
+			ig.igTableNextRow(0, rowHeight)
+			if ig.igTableSetColumnIndex(0) then
+
+				local i = (scrollMax - self.scrollOppositeWorldRow[0]) + visibleRowIndex
+				if i >= 0 and i < count then
+					local cmd = ar[1+i]
+					if cmd == scriptDivider then
+						ig.igSeparator()
+					elseif cmd
+					and not game.Cmd:isa(cmd)	-- i.e. this is just a marker, not for real Cmd's (some have a .what field too...)
+					and cmd.what
+					then
+						for j,what in ipairs(cmd.what) do
+							ig.igPushID_Int(j)
+							if what.startEventScriptAddr then
+								ig.igSameLine()
+								app.mapWindow:popupButton(what.mapIndex)
+							elseif what.npcIndex then
+								ig.igSameLine()
+								if ig.igButton('map '..what.mapIndex..' npc '..what.npcIndex) then
+									app.mapWindow:setIndex(what.mapIndex)
+									app.npcWindow:setIndex(what.npcIndex)
+									app.npcWindow.show[0] = true
+									local n = app.npcWindow:getCurIndex()
+									if n then
+										app:centerView(n.x, n.y)
+									end
+								end
+							elseif what.touchTriggerIndex then
+								ig.igSameLine()
+								if ig.igButton('map '..what.mapIndex..' touch '..what.touchTriggerIndex) then
+									app.mapWindow:setIndex(what.mapIndex)
+									app.touchTriggerWindow:setIndex(what.touchTriggerIndex)
+									app.touchTriggerWindow.show[0] = true
+									local t = app.touchTriggerWindow:getCurIndex()
+									if t then
+										app:centerView(t.pos.x, t.pos.y)
+									end
+								end
+							else
+								ig.igSameLine()
+								ig.igText'???'
 							end
+							ig.igPopID()
 						end
-					elseif what.touchTriggerIndex then
-						ig.igSameLine()
-						if ig.igButton('map '..what.mapIndex..' touch '..what.touchTriggerIndex) then
-							app.mapWindow:setIndex(what.mapIndex)
-							app.touchTriggerWindow:setIndex(what.touchTriggerIndex)
-							app.touchTriggerWindow.show[0] = true
-							local t = app.touchTriggerWindow:getCurIndex()
-							if t then
-								app:centerView(t.pos.x, t.pos.y)
+					elseif cmd then
+						ig.igPushID_Int(cmd.addr)
+
+						local color = 0x7f7f7f7f
+						if game.EventCmd:isa(cmd) then
+							color = 0x7f007f00
+						elseif game.ObjectCmd:isa(cmd) then
+							if game.ObjectCmds.EndScript:isa(cmd) then
+								color = 0x7f007f00
+							else
+								color = 0x7f00007f
 							end
+						elseif game.WorldCmd:isa(cmd) then
+							color = 0x7f7f0000
+						else
+							-- unknown?
 						end
-					else
+						local cursorPosY = ig.igGetCursorPosY()
+						local winPos = ig.ImVec2()
+						ig.igGetWindowPos(winPos)
+						local drawList = ig.igGetWindowDrawList()
+						ig.ImDrawList_AddRectFilled(
+							drawList,
+							ig.ImVec2(winPos.x, winPos.y + cursorPosY),
+							ig.ImVec2(winPos.x + self.availSpace.x, winPos.y + cursorPosY + rowHeight),
+							color,
+							4,		-- rounding
+							0		-- flags
+						)
+
+						ig.igText(
+							(i == self.index and '>' or ' ')
+							..('%06x: '):format(cmd.addr)
+						)
 						ig.igSameLine()
-						ig.igText'???'
-					end
-					ig.igPopID()
-				end
-			elseif cmd then
-				ig.igPushID_Int(cmd.addr)
 
-				local color = 0xff7f7f7f
-				if game.EventCmd:isa(cmd) then
-					color = 0xff00007f
-				elseif game.ObjectCmd:isa(cmd) then
-					color = 0xff007f00
-				elseif game.WorldCmd:isa(cmd) then
-					color = 0xff7f0000
-				else
-					-- unknown?
-				end
-				local cursorPosY = ig.igGetCursorPosY()
-				local winPos = ig.ImVec2()
-				ig.igGetWindowPos(winPos)
-				local drawList = ig.igGetWindowDrawList()
-				ig.ImDrawList_AddRectFilled(
-					drawList,
-					ig.ImVec2(winPos.x, winPos.y + cursorPosY),
-					ig.ImVec2(winPos.x + self.availSpace.x, winPos.y + cursorPosY + 16),
-					color,
-					4,		-- rounding
-					0		-- flags
-				)
-
-				ig.igText(
-					(i == self.index and '>' or ' ')
-					..('%06x: '):format(cmd.addr)
-				)
-				ig.igSameLine()
-
-				-- indent object-cmds since they are blocks of cmds from event-cmds
-				if game.ObjectCmd:isa(cmd)
-				and not game.ObjectCmds.EndScript:isa(cmd)
-				then
-					ig.igText('  ')
-					ig.igSameLine()
-				end
-
-				-- item links:
-				if game.EventCmds.GiveItem:isa(cmd) then
-					ig.igText'GiveItem'
-					ig.igSameLine()
-					app.itemWindow:popupButton(cmd.itemIndex)
-				elseif game.EventCmds.TakeItem:isa(cmd) then
-					ig.igText'TakeItem'
-					ig.igSameLine()
-					app.itemWindow:popupButton(cmd.itemIndex)
-
-				-- battles:
-				elseif game.EventCmds.TouchBattle:isa(cmd) then	-- TouchBattle is a subclass of Battle
-					ig.igText'TouchBattle'
-					ig.igSameLine()
-					app.eventBattleOptionsWindow:popupButton(cmd.eventBattleOptionsIndex)
-				elseif game.EventCmds.Battle:isa(cmd) then
-					ig.igText'Battle'
-					ig.igSameLine()
-					app.eventBattleOptionsWindow:popupButton(cmd.eventBattleOptionsIndex)
-
-				-- maps:
-				elseif game.EventCmds.SetMap2:isa(cmd) then	-- SetMap2 is a subclass of SetMap
-					ig.igText'SetMap2'
-					ig.igSameLine()
-					if app.mapWindow:popupButton(cmd.mapIndex) then
-						local mapWidth, mapHeight = app.tileWindow:getMapSize()
-						if mapWidth and mapHeight then
-							app.tileWindow:setIndex(cmd.x + mapWidth * cmd.y)
+						-- indent object-cmds since they are blocks of cmds from event-cmds
+						if game.ObjectCmd:isa(cmd)
+						and not game.ObjectCmds.EndScript:isa(cmd)
+						then
+							ig.igText('  ')
+							ig.igSameLine()
 						end
-						app:centerView(cmd.x, cmd.y)
-					end
-				elseif game.EventCmds.SetMap:isa(cmd) then
-					ig.igText'SetMap'
-					ig.igSameLine()
-					if app.mapWindow:popupButton(cmd.mapIndex) then
-						local mapWidth, mapHeight = app.tileWindow:getMapSize()
-						if mapWidth and mapHeight then
-							app.tileWindow:setIndex(cmd.x + mapWidth * cmd.y)
+
+						-- item links:
+						if game.EventCmds.GiveItem:isa(cmd) then
+							ig.igText'GiveItem'
+							ig.igSameLine()
+							app.itemWindow:popupButton(cmd.itemIndex)
+						elseif game.EventCmds.TakeItem:isa(cmd) then
+							ig.igText'TakeItem'
+							ig.igSameLine()
+							app.itemWindow:popupButton(cmd.itemIndex)
+
+						-- battles:
+						elseif game.EventCmds.TouchBattle:isa(cmd) then	-- TouchBattle is a subclass of Battle
+							ig.igText'TouchBattle'
+							ig.igSameLine()
+							app.eventBattleOptionsWindow:popupButton(cmd.eventBattleOptionsIndex)
+						elseif game.EventCmds.Battle:isa(cmd) then
+							ig.igText'Battle'
+							ig.igSameLine()
+							app.eventBattleOptionsWindow:popupButton(cmd.eventBattleOptionsIndex)
+
+						-- maps:
+						elseif game.EventCmds.SetMap2:isa(cmd) then	-- SetMap2 is a subclass of SetMap
+							ig.igText'SetMap2'
+							ig.igSameLine()
+							if app.mapWindow:popupButton(cmd.mapIndex) then
+								local mapWidth, mapHeight = app.tileWindow:getMapSize()
+								if mapWidth and mapHeight then
+									app.tileWindow:setIndex(cmd.x + mapWidth * cmd.y)
+								end
+								app:centerView(cmd.x, cmd.y)
+							end
+						elseif game.EventCmds.SetMap:isa(cmd) then
+							ig.igText'SetMap'
+							ig.igSameLine()
+							if app.mapWindow:popupButton(cmd.mapIndex) then
+								local mapWidth, mapHeight = app.tileWindow:getMapSize()
+								if mapWidth and mapHeight then
+									app.tileWindow:setIndex(cmd.x + mapWidth * cmd.y)
+								end
+								app:centerView(cmd.x, cmd.y)
+							end
+						elseif game.EventCmds.MovePartyToMap:isa(cmd) then
+							ig.igText('movePartyToMap '..cmd.partyIndex)
+							ig.igSameLine()
+							if app.mapWindow:popupButton(cmd.mapIndex) then
+								-- hmm, no x,y?
+							end
+
+						else
+						-- default:
+							ig.igText(string.trim(tostring(cmd):gsub('\n', '\\n')))
 						end
-						app:centerView(cmd.x, cmd.y)
-					end
-				elseif game.EventCmds.MovePartyToMap:isa(cmd) then
-					ig.igText('movePartyToMap '..cmd.partyIndex)
-					ig.igSameLine()
-					if app.mapWindow:popupButton(cmd.mapIndex) then
-						-- hmm, no x,y?
-					end
 
-				else
-				-- default:
-					ig.igText(string.trim(tostring(cmd):gsub('\n', '\\n')))
+						ig.igPopID()
+					end
 				end
-
-				ig.igPopID()
 			end
-
 		end
+		ig.igEndTable()
 	end
 
 	ig.igEndChild()

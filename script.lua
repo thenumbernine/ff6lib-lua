@@ -273,17 +273,18 @@ return function(game)
 		cmd = 0x4b,
 		argtypes = {uint16_t},
 		getargs = function(self, arg)
-			self.dialogIndex = bit.band(arg, 0x3fff)
+			self.dialogIndex = bit.band(0x3fff, arg)
 			self.showTextOnly = 0 ~= bit.band(0x4000, arg)
 			self.bottomOfScreen = 0 ~= bit.band(0x8000, arg)
 		end,
 		__tostring = function(self)
-			-- wait if it's +1 then how do you index dialog 0?
-			local str = ('%q'):format(game.dialog[self.dialogIndex+1])
+			local dlg = game.dialog[self.dialogIndex]
+			local str = dlg and ('%q'):format(dlg) or 'nil'
 			if self.dontWait
 			or self.showTextOnly
-			or self.bottomOfScreen then
-				return --'show dialog[0x'..number.hex(self.dialogIndex+1)..']:'
+			or self.bottomOfScreen
+			then
+				return --'show dialog[0x'..number.hex(self.dialogIndex)..']:'
 					'dialog('..('%q'):format(str)
 					..', {'
 					..table()
@@ -293,7 +294,7 @@ return function(game)
 					:concat','
 				..'})'
 			else
-				return 'dialog'..('%q'):format(game.dialog[self.dialogIndex+1])
+				return 'dialog'..('%q'):format(dlg)
 			end
 		end,
 	}

@@ -243,6 +243,7 @@ args:
 	addrBase = (optional) base of offsets, data by default
 	offsets = uint16_t[?] buffer in memory for offsets
 	compressed = boolean
+	extra = handle dialog's extra extended address stuff
 --]]
 function StringList:init(args)
 	self.name = assert(args.name)
@@ -264,6 +265,10 @@ function StringList:init(args)
 	for i=0,self.numOffsets-1 do
 		local offset = self.offsets[i]
 		if offset ~= 0xffff then
+			-- handle extra bank dialog stuff if necessary:
+			if args.extra then
+				offset = args.extra(i, offset) or offset
+			end
 			self[i] = strf(addrBase + offset)
 		end
 	end
@@ -1516,7 +1521,6 @@ assert.eq(ffi.sizeof(Shop), 9)
 
 local numMapNames = 448	-- 146 entries are used, the rest are 0xffff
 
-local numDialogs = 3328
 local numBattleDialogs = 0x100
 local numBattleDialog2s = 0x100
 local numBattleMessages = 0x100
@@ -2190,8 +2194,8 @@ Game = struct{
 		{name = 'unknown_051ec7', type = arrayType(uint8_t, -(0x051ec7 - 0x053c5f))},							-- 0x051ec7 - 0x053c5f
 
 		{name = 'brrSamplePtrs', type = arrayType(uint24_t, numBRRSamples)},									-- 0x053c5f - 0x053d1c -- BRR sample pointers (x63, 3 bytes each)
-		{name = 'brrLoopStartOfs', type = arrayType(uint16_t, numBRRSamples)},										-- 0x053d1c - 0x053d9a -- loop start pointers (x63, 2 bytes each)
-		{name = 'brrPitchMults', type = arrayType(uint16_t, numBRRSamples)},										-- 0x053d9a - 0x053e18 -- pitch multipliers (x63, 2 bytes each)
+		{name = 'brrLoopStartOfs', type = arrayType(uint16_t, numBRRSamples)},									-- 0x053d1c - 0x053d9a -- loop start pointers (x63, 2 bytes each)
+		{name = 'brrPitchMults', type = arrayType(uint16_t, numBRRSamples)},									-- 0x053d9a - 0x053e18 -- pitch multipliers (x63, 2 bytes each)
 		{name = 'adsrData', type = arrayType(uint16_t, numBRRSamples)},											-- 0x053e18 - 0x053e96 -- ADSR data (x63, 2 bytes each)
 
 		{name = 'unknown_053e96', type = arrayType(uint8_t, -(0x053e96 - 0x054a35))},							-- 0x053e96 - 0x054a35
@@ -2203,8 +2207,9 @@ Game = struct{
 		{name = 'theEndGraphics2', type = arrayType(uint8_t, -(0x09fe00 - 0x09ff00))},							-- 0x09fe00 - 0x09ff00 = 4bpp
 		{name = 'theEndPalette', type = Palette16_8},															-- 0x09ff00 - 0x0a0000
 		{name = 'eventScript', type = arrayType(uint8_t, -(0x0a0000 - 0x0ce600))},								-- 0x0a0000 - 0x0ce600
-		{name = 'dialogOffsets', type = arrayType(uint16_t, numDialogs)},										-- 0x0ce600 - 0x0d0000.  the first dialog offset points to the dialog which needs the bank byte to increment
-		{name = 'dialogBase', type = arrayType(uint8_t, -(0x0d0000 - 0x0ef100))},								-- 0x0d0000 - 0x0ef100 ... hmm, there are dangling npc-event-scripts from 0x0d200 to 0x0de302 ... in the middle of dialogBase
+		{name = 'dialogIndexForBankInc', type = uint16_t},														-- 0x0ce600 - 0x0ce602 = dialogs past this index need an additional 0x10000 added to their offset
+		{name = 'dialogOffsets', type = arrayType(uint16_t, -(0x0ce602 - 0x0d0000) / 2)},						-- 0x0ce602 - 0x0d0000
+		{name = 'dialogBase', type = arrayType(uint8_t, -(0x0d0000 - 0x0ef100))},								-- 0x0d0000 - 0x0ef100 ... hmm, there are dangling npc-event-scripts from 0x0d2000 to 0x0de302 ... in the middle of dialogBase
 		{name = 'mapNameBase', type = arrayType(uint8_t, -(0x0ef100 - 0x0ef600))},								-- 0x0ef100 - 0x0ef600
 
 		-- 0x0ef600 - 0x0ef648 looks like offsets into something
@@ -2469,7 +2474,7 @@ assertOffset('brrLoopStartOfs', 0x053d1c)
 assertOffset('brrPitchMults', 0x053d9a)
 assertOffset('adsrData', 0x053e18)
 assertOffset('brrSamples', 0x054a35)
-assertOffset('dialogOffsets', 0x0ce600)
+assertOffset('dialogOffsets', 0x0ce602)
 assertOffset('dialogBase', 0x0d0000)
 assertOffset('mapNameBase', 0x0ef100)
 assertOffset('rareItemDescOffsets', 0x0efb60)
@@ -2563,7 +2568,6 @@ game.numSwordTechs = numSwordTechs
 game.numBlitzes = numBlitzes
 game.numLores = numLores
 game.numMapNames = numMapNames
-game.numDialogs = numDialogs
 game.numBattleDialogs = numBattleDialogs
 game.numBattleDialog2s = numBattleDialog2s
 game.numBattleMessages = numBattleMessages
@@ -2613,6 +2617,11 @@ game.dialog = StringList{
 	data = gameC.dialogBase,
 	offsets = gameC.dialogOffsets,
 	compressed = true,
+	extra = function(index, offset)
+		if index >= gameC.dialogIndexForBankInc then
+			return offset + 0x10000
+		end
+	end,
 }
 
 game.battleDialog = StringList{
@@ -2855,6 +2864,31 @@ for i=0,0xff do
 		game.formations[game.monsterEventBattles[i].s[0].formation]:getDesc(),
 		game.formations[game.monsterEventBattles[i].s[1].formation]:getDesc()
 	)
+end
+os.exit()
+--]]
+
+--[[ dump all compressed dialog:
+do
+	print('all dialog strings decompressed:')
+	local ptr = game.dialogBase
+	local pend = ptr + ffi.sizeof(game.dialogBase)
+	for i=0,(pend-ptr)-1,32 do
+		io.write(('%06x: '):format(
+			i + ffi.offsetof(Game, 'dialogBase')
+		))
+		for j=0,31 do
+			io.write(('%02x '):format(ptr[i+j]))
+		end
+		print((compstr(ptr + i, 32):gsub('[\r\n]', ' ')))
+	end
+	os.exit()
+end
+--]]
+--[[
+for i=0,#game.dialog-1 do
+	local s = game.dialog[i]
+	print(i, (s and s:gsub('[\r\n]', ' ')))
 end
 os.exit()
 --]]
