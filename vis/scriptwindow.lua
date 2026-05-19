@@ -82,8 +82,8 @@ function EventScriptWindow:showIndexUI()
 	ig.igBeginChild(
 		'ScriptWindowEvents',
 		igzero,
-		ig.ImGuiChildFlags_None,
-		bit.bor(ig.ImGuiWindowFlags_NoScrollbar, ig.ImGuiWindowFlags_NoScrollWithMouse)
+		0, --ig.ImGuiChildFlags_None,
+		0 --bit.bor(ig.ImGuiWindowFlags_NoScrollbar, ig.ImGuiWindowFlags_NoScrollWithMouse)
 	)
 
 	local wheel = ig.igGetIO().MouseWheel

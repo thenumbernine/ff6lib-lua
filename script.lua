@@ -1645,29 +1645,30 @@ return function(game)
 
 		-- reset script decode state
 		startCmdSet = nil
+		local mapIndexes = game.eventScriptAddrs[startAddr]:mapi(function(info) return info.mapIndex end):sort()
 		for _,info in ipairs(game.eventScriptAddrs[startAddr]) do
 			if info.mapIndex < 3 then
 				if not startCmdSet then
 					startCmdSet = WorldCmds
-				else
+				elseif startCmdSet ~= WorldCmds then
 					-- this will happen with those generic 'return' functions...
-					print("!!! DANGER !!!! got an addr used for both world and non-world map script:", ('$%06x'):format(startAddr))
+					print("!!! DANGER !!!! got an addr used for both world and non-world map script:", ('$%06x'):format(startAddr), mapIndexes:mapi(tostring):concat', ')
 					break
 				end
 			else
 				-- maybe 'event' should be 'non-world' or nah?
 				if not startCmdSet then
 					startCmdSet = EventCmds
-				else
+				elseif startCmdSet ~= EventCmds then
 					-- this will happen with those generic 'return' functions...
-					print("!!! DANGER !!!! got an addr used for both world and non-world map script:", ('$%06x'):format(startAddr))
+					print("!!! DANGER !!!! got an addr used for both world and non-world map script:", ('$%06x'):format(startAddr), mapIndexes:mapi(tostring):concat', ')
 					break
 				end
 			end
 		end
 		-- default us to EventCmds?
 		if not startCmdSet then
-			print("!!! DANGER !!!! got an addr without a mapIndex set:", ('$%06x'):format(startAddr))
+			print("!!! DANGER !!!! got an addr without a mapIndex set:", ('$%06x'):format(startAddr), mapIndexes:mapi(tostring):concat', ')
 			startCmdSet = EventCmds
 		end
 
