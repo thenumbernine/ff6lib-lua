@@ -149,6 +149,35 @@ function EventScriptWindow:showIndexUI()
 			elseif cmd then
 				ig.igPushID_Int(cmd.addr)
 
+
+				--[[ not working
+				local color = 0xff7f7f7f
+				if game.EventCmd:isa(cmd) then
+					color = 0xff00007f
+				elseif game.ObjectCmd:isa(cmd) then
+					color = 0xff007f00
+				elseif game.WorldCmd:isa(cmd) then
+					color = 0xff7f0000
+				else
+					-- unknown?
+				end
+				ig.igPushStyleColor_U32(ig.ImGuiCol_FrameBg, color)
+				--]]
+				--[[
+				local bgColor = ig.igGetStyle().Colors[ig.ImGuiCol_FrameBg]
+				local pushR, pushG, pushB, pushA = bgColor.x, bgColor.y, bgColor.z, bgColor.w
+				if game.EventCmd:isa(cmd) then
+					bgColor.x, bgColor.y, bgColor.z, bgColor.w = .5, 0, 0, 1
+				elseif game.ObjectCmd:isa(cmd) then
+					bgColor.x, bgColor.y, bgColor.z, bgColor.w = 0, .5, 0, 1
+				elseif game.WorldCmd:isa(cmd) then
+					bgColor.x, bgColor.y, bgColor.z, bgColor.w = 0, 0, .5, 1
+				else
+					-- unknown?
+					bgColor.x, bgColor.y, bgColor.z, bgColor.w = .5, .5, .5, 1
+				end
+				--]]
+
 				ig.igText(
 					(i == self.index and '>' or ' ')
 					..('%06x: '):format(cmd.addr)
@@ -215,6 +244,13 @@ function EventScriptWindow:showIndexUI()
 				-- default:
 					ig.igText(string.trim(tostring(cmd):gsub('\n', '\\n')))
 				end
+
+				--[[
+				ig.igPopStyleColor(1)
+				--]]
+				--[[
+				bgColor.x, bgColor.y, bgColor.z, bgColor.w = pushR, pushG, pushB, pushA
+				--]]
 
 				ig.igPopID()
 			end

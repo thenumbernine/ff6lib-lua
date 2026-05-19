@@ -104,7 +104,7 @@ return function(game)
 	local EventCmds = {}
 	game.EventCmds = EventCmds
 	local EventCmd = Cmd:subclass()
-	EventCmds.EventCmd = EventCmd
+	game.EventCmd = EventCmd
 
 	-- and now during this duration (.length arg), we are using 'object-script' opcodes instead of 'event-script' opcodes...
 	EventCmds.ObjectScript = EventCmd:subclass{
