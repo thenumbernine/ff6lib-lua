@@ -8,7 +8,7 @@ This is a visualizer of all the FF6 data.
 
 It shows maps, doors, NPCs, touch-triggers, treasure chests ... monster formations, encounters, event scripts, character baseline stats ... the list goes on.
 
-The mouse controls attempt to be intuitiive.  Double-click doors to travel through them.  Double-click events to jump to that location in the event script.
+The mouse controls attempt to be intuitiive.  Double-click doors to travel through them.  Double-click events or NPCs to jump to that location in the event script.
 
 I've got some animation stuff working as well.  Torches flicker and gears turn.
 

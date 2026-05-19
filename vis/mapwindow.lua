@@ -8,6 +8,7 @@ local Image = require 'image'
 local gl = require 'gl'
 local GLTex2D = require 'gl.tex2d'
 local ig = require 'imgui'
+local makePalette = require 'ff6.graphics'.makePalette
 local ArrayWindow = require 'ff6.vis.arraywindow'
 
 local vis_util = require 'ff6.vis.util'
@@ -32,6 +33,8 @@ local MapWindow = ArrayWindow:subclass()
 MapWindow.name = 'map'
 
 function MapWindow:init(...)
+	self.npcTexs = table()
+
 	MapWindow.super.init(self, ...)
 
 	-- for door #511 ...
@@ -469,6 +472,34 @@ function MapWindow:setIndex(newIndex, pushStack)
 	end
 
 	self:refreshBattleBgTex()
+
+	self:refreshNPCTexs()
+end
+
+function MapWindow:refreshNPCTexs()
+	local app = self.app
+	local game = app.game
+
+	-- load sprite sheet per npc that uses it
+	-- TODO refresh this whenever any npc graphic or palette changes
+	-- double TODO is circumvent imgui and just render to a UI as-is, no palette baking required.
+	for i=#self.npcTexs,1,-1 do
+		self.npcTexs[i]:delete()
+		self.npcTexs[i] = nil
+	end
+
+	local mapIndex = self.index
+	local mapInfo = game.getMap(mapIndex)
+	if not mapInfo then return end
+
+	for i,n in ipairs(mapInfo.npcs) do
+		local img = game.getCharSpriteSheetImage(n.graphics)
+		-- hmm TODO get single frame instead of whole sheet?
+		img = img:copy{x=0, y=0, width=16, height=24}
+		local palette = bit.band(n.palette, 7)
+		img.palette = makePalette(game, game.characterPalettes[palette], 4, 16)
+		self.npcTexs[i] = self:makeTex(img)
+	end
 end
 
 -- refresh upon map index change, or for world maps, upon tile index change

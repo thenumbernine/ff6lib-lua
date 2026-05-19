@@ -36,7 +36,7 @@ end
 
 local function readpixellinear(tile, x, y, bpp)
 	assert.eq(bpp, 4)
-	
+
 	local index = x + 8 * y
 	local data = tile[bit.rshift(index, 1)]
 	if bit.band(index, 1) ~= 0 then data = bit.rshift(data, 4) end

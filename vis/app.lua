@@ -96,6 +96,55 @@ void main() {
 		},
 	}
 
+	self.rgbaTexObj = GLSceneObject{
+		program = {
+			version = 'latest',
+			precision = 'best',
+			vertexCode = [[
+in vec2 vertex;
+out vec2 tcv;
+uniform mat4 mvProjMat;
+uniform vec4 bbox;
+void main() {
+	tcv = vertex;
+	gl_Position = mvProjMat * vec4(
+		bbox.x + bbox.z * vertex.x,
+		bbox.y + bbox.w * vertex.y,
+		0.,
+		1.);
+}
+]],
+			fragmentCode = [[
+uniform sampler2D tex;
+in vec2 tcv;
+out vec4 fragColor;
+void main() {
+	fragColor = texture(tex, tcv);
+
+	// GL_ALPHA_TEST isn't in GLES3:
+	if (fragColor.a < .5) discard;
+}
+]],
+			uniforms = {
+				tex = 0,
+			},
+		},
+		vertexes = {
+			data = {
+				0, 0,
+				1, 0,
+				0, 1,
+				1, 1,
+			},
+			dim = 2,
+		},
+		geometry = {
+			mode = gl.GL_TRIANGLE_STRIP,
+		},
+		uniforms = {
+			bbox = {0,0,1,1},
+		},
+	}
 
 	local colorsForBits = table{
 		vec3d(1,.5,0),
@@ -628,6 +677,8 @@ function App:update()
 			local uniforms = rectObj.uniforms
 			uniforms.mvProjMat = view.mvProjMat.ptr
 
+			self.rgbaTexObj.uniforms.mvProjMat = view.mvProjMat.ptr
+
 			local function showHL()
 				local x,y,w,h = table.unpack(uniforms.bbox)
 				local eps = .1
@@ -805,18 +856,28 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 			if self.showNPCs then
 				for i,n in ipairs(mapInfo.npcs) do
 					local x, y = tonumber(n.x), tonumber(n.y)
-					if leftPress
+					if (leftPress or leftDoubleClick)
 					and x <= mx and mx < x+1
 					and y <= my and my < y+1
 					then
 						self.npcWindow:setIndex(i-1)
 						self.npcWindow.show[0] = true
+						if leftDoubleClick then
+							self.scriptWindow:openScriptAddr(n:getScriptAddr())
+						end
 					end
 					settable(uniforms.bbox, x, y, 1, 1)
 					settable(uniforms.color, 0,1,1,.5)
 					rectObj:draw()
 					if i-1 == self.npcWindow.index then
 						showHL()
+					end
+
+					local tex = self.mapWindow.npcTexs[i]
+					if tex then
+						self.rgbaTexObj.texs[1] = tex
+						settable(self.rgbaTexObj.uniforms.bbox, x,y-1,1,1.5)
+						self.rgbaTexObj:draw()
 					end
 				end
 			end
