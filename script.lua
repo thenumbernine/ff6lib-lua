@@ -82,10 +82,25 @@ return function(game)
 		return template(self.desc, self)
 		--]]
 	end
-	game.Cmd = Cmd	-- parent-class of all script cmds
 	-- only for template env
 	Cmd.game = game
 	Cmd.startaddr = startaddr
+	-- useful for the template env:
+	Cmd.getGotoOfsStr = function(addrOfs, op)
+		local addr = startaddr + addrOfs
+		local str
+		if addr == commonReturnAddr then
+			str = 'return' 	-- "call return" is gonna look weird :shrug:
+		else
+			str = ('$%06x'):format(addr)
+		end
+		return (op or 'goto')..' '..str
+	end
+
+
+	-- generic cmds when you need a superclass transcending any specific cmdset:
+	game.Cmds = {}
+	game.Cmds.Cmd = Cmd	-- parent-class of all script cmds
 
 
 	-- here's some interpretation state-variables
@@ -513,6 +528,7 @@ return function(game)
 			..'}'
 		end,
 	}
+	game.Cmds.SetMap = SetMap
 
 	EventCmds.SetMap = EventCmd:subclass(SetMap, {cmd = 0x6a})
 	EventCmds.SetMap2 = EventCmd:subclass(SetMap, {cmd = 0x6b})
@@ -853,7 +869,8 @@ return function(game)
 	EventCmds.BeginRepeat = EventCmd:subclass{
 		cmd = 0xb0,
 		argtypes = {uint8_t},
-		desc = 'for i=1,<?=args[1]?>',
+		argnames = {'count'},
+		desc = 'for i=1,<?=count+1?>',
 	}
 
 	EventCmds.EndRepeat = EventCmd:subclass{
@@ -864,24 +881,18 @@ return function(game)
 	EventCmds.Call = EventCmd:subclass{
 		cmd = 0xb2,
 		argtypes = {uint24_t},
-		getargs = function(self, destAddrOfs)
-			self.destAddr = startaddr + destAddrOfs
-		end,
-		__tostring = function(self)
-			return ('call $%06x'):format(self.destAddr)
-		end,
+		argnames = {'destAddrOfs'},
+		desc = "<?=getGotoOfsStr(destAddrOfs, 'call')?>",
 	}
 
 	EventCmds.CallRepeat = EventCmd:subclass{
 		cmd = 0xb3,
 		argtypes = {uint24_t, uint8_t},
 		getargs = function(self, destAddrOfs, count)
-			self.destAddr = startaddr + destAddrOfs
-			self.count = count
+			self.destAddrOfs = destAddrOfs
+			self.count = count+1
 		end,
-		__tostring = function(self)
-			return ('for i=1,%d do call $%06x end'):format(self.count, self.destAddr)
-		end,
+		desc = 'for i=1,<?=count?> do <?=getGotoOfsStr(destAddrOfs)?> end',
 	}
 
 	EventCmds.Sleep = EventCmd:subclass{
@@ -911,8 +922,8 @@ return function(game)
 			end
 		end,
 		__tostring = function(self)
-			-- TODO is it 'jump' or is it 'call'?
-			-- cuz if it's jump then the the next instruction after "want to learn about espers?" shouldn't be a 'return', because each jump option there has its own return ...
+			-- TODO is it 'goto' or is it 'call'?
+			-- cuz if it's goto then the the next instruction after "want to learn about espers?" shouldn't be a 'return', because each jump option there has its own return ...
 			return 'callForDialogChoice('
 				..self.addrs:mapi(function(addr)
 					return (' $%06x'):format(addr)
@@ -925,7 +936,7 @@ return function(game)
 		cmd = 0xb7,
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'flagIndex', 'destAddrOfs'},
-		desc = 'if gameState.battleFlag<?=flagIndex?> then goto <?=("$%06x"):format(startaddr + destAddrOfs)?>',
+		desc = 'if gameState.battleFlag<?=flagIndex?> then <?=getGotoOfsStr(destAddrOfs)?>',
 	}
 
 	local EventSetBattleFlag = EventCmd:subclass{
@@ -963,7 +974,7 @@ return function(game)
 		cmd = 0xbd,
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
-		desc = 'if math.random() < .5 then goto <?=("$%06x"):format(startaddr + destAddrOfs)?>',
+		desc = 'if math.random() < .5 then <?=getGotoOfsStr(destAddrOfs)?>',
 	}
 
 	EventCmds.JumpBasedOnCharacterSwitch = EventCmd:subclass{
@@ -1001,15 +1012,11 @@ return function(game)
 					value = 0 ~= bit.rshift(arg, 15),
 				}
 			end
-			self.destAddr = startaddr + read(uint24_t)
+			self.destAddrOfs = read(uint24_t)
 		end,
 		__tostring = function(self)
 			-- which flag? npc flag? map flag? treasure flag? etc flag?
-			local gotostmt =
-				-- used often enough as a return stmt...
-				self.destAddr == commonReturnAddr
-				and 'return'
-				or 'goto '..('$%06x'):format(self.destAddr)
+			local gotostmt = self.getGotoOfsStr(self.destAddrOfs)
 			return "if "
 				..self.conds:mapi(function(cond)
 					--[[ integer values ...
@@ -1323,7 +1330,7 @@ return function(game)
 		cmd = 0xf9,
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
-		desc = 'goto <?=("$%06x"):format(startaddr + destAddrOfs)?>',
+		desc = '<?=getGotoOfsStr(destAddrOfs)?>',
 	}
 
 	ObjectCmds.Branch = ObjectCmd:subclass{
@@ -1479,14 +1486,14 @@ return function(game)
 		cmd = 0xd4,
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
-		desc = 'if keypress then goto <?=("$%06x"):format(startaddr + destAddrOfs)?>',
+		desc = 'if keypress then <?=getGotoOfsStr(destAddrOfs)?>',
 	}
 
 	WorldCmds.IfFacingThenGoto = WorldCmd:subclass{
 		cmd = 0xd5,
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'dir', 'destAddrOfs'},
-		desc = 'if dir==<?=dir?> then goto <?=("$%06x"):format(startaddr + destAddrOfs)?>',
+		desc = 'if dir==<?=dir?> then <?=getGotoOfsStr(destAddrOfs)?>',
 	}
 
 	-- also EventCmds 0x96

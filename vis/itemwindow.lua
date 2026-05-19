@@ -141,10 +141,7 @@ function ItemWindow:showIndexUI()
 				local t = info.treasure
 				-- just like doorWindow...
 				-- new map should be loaded now
-				local mapWidth, mapHeight = app.tileWindow:getMapSize()
-				if mapWidth and mapHeight then
-					app.tileWindow:setIndex(t.pos.x + mapWidth * t.pos.y)
-				end
+				app.tileWindow:setXY(t.pos.x, t.pos.y)
 				app:centerView(t.pos.x, t.pos.y)
 			end
 			ig.igPopID()

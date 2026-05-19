@@ -127,7 +127,7 @@ function EventScriptWindow:showIndexUI()
 					if cmd == scriptDivider then
 						ig.igSeparator()
 					elseif cmd
-					and not game.Cmd:isa(cmd)	-- i.e. this is just a marker, not for real Cmd's (some have a .what field too...)
+					and not game.Cmds.Cmd:isa(cmd)	-- i.e. this is just a marker, not for real Cmd's (some have a .what field too...)
 					and cmd.what
 					then
 						for j,what in ipairs(cmd.what) do
@@ -228,26 +228,20 @@ function EventScriptWindow:showIndexUI()
 							app.eventBattleOptionsWindow:popupButton(cmd.eventBattleOptionsIndex)
 
 						-- maps:
-						elseif game.EventCmds.SetMap2:isa(cmd) then	-- SetMap2 is a subclass of SetMap
-							ig.igText'SetMap2'
+						elseif game.Cmds.SetMap:isa(cmd)
+						or game.EventCmds.SetParentMap:isa(cmd)	-- maybe SetParentMap should be a SetMap?
+						then
+							ig.igText(
+								game.EventCmds.SetParentMap:isa(cmd)
+								and 'setParentMap'
+								or 'setMap'
+							)
 							ig.igSameLine()
 							if app.mapWindow:popupButton(cmd.mapIndex) then
-								local mapWidth, mapHeight = app.tileWindow:getMapSize()
-								if mapWidth and mapHeight then
-									app.tileWindow:setIndex(cmd.x + mapWidth * cmd.y)
-								end
+								app.tileWindow:setXY(cmd.x, cmd.y)
 								app:centerView(cmd.x, cmd.y)
 							end
-						elseif game.EventCmds.SetMap:isa(cmd) then
-							ig.igText'SetMap'
-							ig.igSameLine()
-							if app.mapWindow:popupButton(cmd.mapIndex) then
-								local mapWidth, mapHeight = app.tileWindow:getMapSize()
-								if mapWidth and mapHeight then
-									app.tileWindow:setIndex(cmd.x + mapWidth * cmd.y)
-								end
-								app:centerView(cmd.x, cmd.y)
-							end
+
 						elseif game.EventCmds.MovePartyToMap:isa(cmd) then
 							ig.igText('movePartyToMap '..cmd.partyIndex)
 							ig.igSameLine()

@@ -149,10 +149,7 @@ function RandomBattleOptionsWindow:showIndexUI(...)
 
 				-- just like doorWindow...
 				-- new map should be loaded now
-				local mapWidth, mapHeight = self.app.tileWindow:getMapSize()
-				if mapWidth and mapHeight then
-					self.app.tileWindow:setIndex(x + mapWidth * y)
-				end
+				self.app.tileWindow:setXY(x, y)
 				self.app:centerView(x, y)
 			end
 			ig.igPopID()
@@ -223,10 +220,7 @@ function EventBattleOptionsWindow:showIndexUI(...)
 				local t = info.treasure
 				-- just like doorWindow...
 				-- new map should be loaded now
-				local mapWidth, mapHeight = self.app.tileWindow:getMapSize()
-				if mapWidth and mapHeight then
-					self.app.tileWindow:setIndex(t.pos.x + mapWidth * t.pos.y)
-				end
+				self.app.tileWindow:setXY(t.pos.x, t.pos.y)
 				self.app:centerView(t.pos.x, t.pos.y)
 			end
 			ig.igPopID()
