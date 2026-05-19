@@ -4,7 +4,7 @@ local ArrayWindow = require 'ff6.vis.arraywindow'
 
 local TouchTriggerWindow = ArrayWindow:subclass()
 
-TouchTriggerWindow.name = 'event trigger'
+TouchTriggerWindow.name = 'touch trigger'
 
 function TouchTriggerWindow:getArray()
 	local mapInfo = self.app.mapWindow:getMapInfo()

@@ -166,17 +166,17 @@ function EventScriptWindow:showIndexUI()
 					elseif cmd then
 						ig.igPushID_Int(cmd.addr)
 
-						local color = 0x7f7f7f7f
+						local color = 0x3f7f7f7f
 						if game.EventCmd:isa(cmd) then
-							color = 0x7f007f00
+							color = 0x3f007f00
 						elseif game.ObjectCmd:isa(cmd) then
 							if game.ObjectCmds.EndScript:isa(cmd) then
-								color = 0x7f007f00
+								color = 0x3f007f00
 							else
-								color = 0x7f00007f
+								color = 0x3f00007f
 							end
 						elseif game.WorldCmd:isa(cmd) then
-							color = 0x7f7f0000
+							color = 0x3f7f0000
 						else
 							-- unknown?
 						end

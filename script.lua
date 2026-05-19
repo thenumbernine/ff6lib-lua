@@ -1528,10 +1528,19 @@ return function(game)
 		desc = 'figaroSubmerge()',
 	}
 
+	--[[ everything8215 has this listed in his WorldScript as an opcode,
+	--  but in the functions themselves it is clearly a return
 	WorldCmds.FigaroEmerge = WorldCmd:subclass{
 		cmd = 0xfe,
 		desc = 'figaroEmerge()',
 	}
+	--]]
+	-- [[
+	WorldCmds.Return = WorldCmd:subclass{
+		cmd = 0xfe,
+		desc = 'return',
+	}
+	--]]
 
 	WorldCmds.EndScript = WorldCmd:subclass{
 		cmd = 0xff,
@@ -1650,25 +1659,25 @@ return function(game)
 		local nextAddr = addrsInOrder[i+1] or endaddr
 
 		-- reset script decode state
-		startCmdSet = nil
-		local mapIndexes = game.eventScriptAddrs[startAddr]:mapi(function(info) return info.mapIndex end):sort()
-		for _,info in ipairs(game.eventScriptAddrs[startAddr]) do
-			if info.mapIndex < 3 then
-				if not startCmdSet then
-					startCmdSet = WorldCmds
-				elseif startCmdSet ~= WorldCmds then
-					if startAddr ~= commonReturnAddr then
+		if startAddr == commonReturnAddr then
+			startCmdSet = EventCmds	-- so it is a return
+		else
+			startCmdSet = nil
+			local mapIndexes = game.eventScriptAddrs[startAddr]:mapi(function(info) return info.mapIndex end):sort()
+			for _,info in ipairs(game.eventScriptAddrs[startAddr]) do
+				if info.mapIndex < 3 then
+					if not startCmdSet then
+						startCmdSet = WorldCmds
+					elseif startCmdSet ~= WorldCmds then
 						-- this will happen with those generic 'return' functions...
 						print("!!! DANGER !!! got an addr used for both world and non-world map script:", ('$%06x'):format(startAddr), mapIndexes:mapi(tostring):concat', ')
 						break
 					end
-				end
-			else
-				-- maybe 'event' should be 'non-world' or nah?
-				if not startCmdSet then
-					startCmdSet = EventCmds
-				elseif startCmdSet ~= EventCmds then
-					if startAddr ~= commonReturnAddr then
+				else
+					-- maybe 'event' should be 'non-world' or nah?
+					if not startCmdSet then
+						startCmdSet = EventCmds
+					elseif startCmdSet ~= EventCmds then
 						-- this will happen with those generic 'return' functions...
 						print("!!! DANGER !!! got an addr used for both world and non-world map script:", ('$%06x'):format(startAddr), mapIndexes:mapi(tostring):concat', ')
 						break
