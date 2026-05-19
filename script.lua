@@ -85,6 +85,7 @@ return function(game)
 
 	-- here's some interpretation state-variables
 	-- that I should probably move into an interpretation-context-object
+	local startCmdSet
 	local cmdset
 	local objectScriptCmd
 
@@ -114,7 +115,6 @@ return function(game)
 			cmdset = ObjectCmds
 			assert.eq(objectScriptCmd, nil, "got two object-scripts before the first one ended...")
 			objectScriptCmd = self
-
 			return EventCmd.digest(self, ...)	-- call super
 		end,
 		desc = "fork(||do local obj=objs[<?=cmd?>] -- length=<?=length?><?= blocking and ', block=true' or ''?>"
@@ -479,8 +479,8 @@ return function(game)
 		desc = 'setMapAnimationSpeed{tile=<?=tile?>, speed=<?=speed?>}',
 	}
 
-	EventCmds.SetMap = EventCmd:subclass{
-		cmd = 0x6a,
+	-- used in EventCmds and WorldCmds
+	local SetMap = Cmd:subclass{
 		argtypes = {uint16_t, uint8_t, uint8_t, uint8_t},
 		getargs = function(self, arg, x, y, flags)
 			self.x = x
@@ -508,9 +508,8 @@ return function(game)
 		end,
 	}
 
-	EventCmds.SetMap2 = EventCmds.SetMap:subclass{
-		cmd = 0x6b,
-	}
+	EventCmds.SetMap = EventCmd:subclass(SetMap, {cmd = 0x6a})
+	EventCmds.SetMap2 = EventCmd:subclass(SetMap, {cmd = 0x6b})
 
 	EventCmds.SetParentMap = EventCmd:subclass{
 		cmd = 0x6c,
@@ -923,23 +922,17 @@ return function(game)
 		desc = 'if gameState.battleFlag<?=flagIndex?> then goto <?=("$%06x"):format(startaddr + destAddrOfs)?>',
 	}
 
-	local SetFlagCmd = EventCmd:subclass{
+	local EventSetBattleFlag = EventCmd:subclass{
 		argtypes = {uint8_t},
 		argnames = {'flagIndex'},
-		-- value =
-		-- flagName =
-		desc = 'gameState.<?=flagName?><?=flagIndex?> = <?=value?>',
+		desc = 'gameState.battleFlag<?=flagIndex?> = <?=value?>',
 	}
-
-	EventCmds.SetBattleFlag = SetFlagCmd:subclass{
+	EventCmds.SetBattleFlag = EventSetBattleFlag:subclass{
 		cmd = 0xb8,
-		flagName = 'battleFlag',
 		value = true,
 	}
-
-	EventCmds.ClearBattleFlag = SetFlagCmd:subclass{
+	EventCmds.ClearBattleFlag = EventSetBattleFlag:subclass{
 		cmd = 0xb9,
-		flagName = 'battleFlag',
 		value = false,
 	}
 
@@ -989,7 +982,8 @@ return function(game)
 		desc = 'cutscene"airship ending"',
 	}
 
-	local Switch = EventCmd:subclass{
+	-- common parent class for EventCmd and WorldCmd
+	local Switch = Cmd:subclass{
 		digest = function(self, read)
 			local count = 1 + bit.band(self.cmd, 7)
 			self._and = 0 ~= bit.band(self.cmd, 8)
@@ -1023,8 +1017,9 @@ return function(game)
 				..' then '..gotostmt..' end'
 		end,
 	}
+	-- in EventCmds for 0xc0-0xcf and in WorldCmds for 0xb0-0xbf
 	for cmd=0xc0,0xcf do
-		EventCmds['Switch '..cmd] = Switch:subclass{cmd = cmd}
+		EventCmds['Switch '..cmd] = EventCmd:subclass(Switch, {cmd = cmd})
 	end
 
 	for cmd=0xd0,0xdd do
@@ -1188,99 +1183,20 @@ return function(game)
 
 
 	-- ok now comes object-commands
-
 	game.ObjectCmds = ObjectCmds
 	local ObjectCmd = Cmd:subclass()
 	game.ObjectCmd = ObjectCmd
 
-
-	ObjectCmds.PlayAnimation = ObjectCmd:subclass{
+	-- also in WorldCmds
+	ObjectCmds.Action = ObjectCmd:subclass{
 		desc = "<?=0~=bit.band(0x40, cmd) and 'obj.hflip=true ' or ''?>"
-			.."obj:playAnimation(<?=bit.band(cmd, 0x3f)?>)",
+			.."obj:doAction(<?=bit.band(cmd, 0x3f)?>)",
 	}
 	for cmd=0,0x7f do
-		ObjectCmds['PlayAnimation '..cmd] = ObjectCmds.PlayAnimation:subclass{
+		ObjectCmds['Action '..cmd] = ObjectCmds.Action:subclass{
 			cmd = cmd,
 		}
 	end
-
-	ObjectCmds.EnableAnimation = ObjectCmd:subclass{
-		cmd = 0xc6,
-		desc = 'obj:enableAnimation()',
-	}
-	ObjectCmds.DisableAnimation = ObjectCmd:subclass{
-		cmd = 0xc7,
-		desc = 'obj:disableAnimation()',
-	}
-
-	ObjectCmds.Branch = ObjectCmd:subclass{
-		--cmd = 0xfa,
-		argtypes = {uint8_t},
-		argnames = {'offset'},
-		desc = "<?=random and 'if math.random() < .5 then ' or ''?>goto PC<?=dir?><?=offset?>",
-	}
-	ObjectCmds.BranchBack50 = ObjectCmds.Branch:subclass{
-		cmd = 0xfa,
-		random = true,
-		dir = '-',
-	}
-	ObjectCmds.BranchFwd50 = ObjectCmds.Branch:subclass{
-		cmd = 0xfb,
-		random = true,
-		dir = '+',
-	}
-	ObjectCmds.BranchBack = ObjectCmds.Branch:subclass{
-		cmd = 0xfc,
-		random = false,
-		dir = '-',
-	}
-	ObjectCmds.BranchFwd = ObjectCmds.Branch:subclass{
-		cmd = 0xfd,
-		random = false,
-		dir = '+',
-	}
-
-	ObjectCmds.ChangeDir = ObjectCmd:subclass{
-		desc = 'obj:look(<?=bit.band(cmd, 3)?>)',
-	}
-	for cmd=0xcc,0xcf do
-		ObjectCmds['ChangeDir '..cmd] = ObjectCmds.ChangeDir:subclass{cmd = cmd}
-	end
-
-	ObjectCmds.EndScript = ObjectCmd:subclass{
-		cmd = 0xff,
-		digest = function(self, ...)
-			assert.ne(objectScriptCmd, nil, "got an object end-script when there was no objectScriptCmd set ...")
-			cmdset = EventCmds	-- back you go ...
-			objectScriptCmd = nil
-		end,
-		desc = 'end)',	-- and joinAll() if the objectScriptCmd had blocking ...
-	}
-
-	ObjectCmds.Jump = ObjectCmd:subclass{
-		cmd = 0xdc,
-		desc = 'obj:jump()',
-	}
-	ObjectCmds.JumpHigh = ObjectCmds.Jump:subclass{
-		cmd = 0xdd,
-		desc = 'obj:jumpHigh()',
-	}
-
-	ObjectCmds.Goto = ObjectCmd:subclass{
-		cmd = 0xf9,
-		argtypes = {uint24_t},
-		argnames = {'destAddrOfs'},
-		desc = 'goto <?=("$%06x"):format(startaddr + destAddrOfs)?>',
-	}
-
-	ObjectCmds.ChangeLayerPriority = ObjectCmd:subclass{
-		cmd = 0xc8,
-		argtypes = {uint8_t},
-		argnames = {'arg'},
-		-- is this applied to the current-object ?
-		-- 0=default 1=top sprite only, 2=foreground, 3=background
-		desc = 'changeLayerPriority(<?=arg?>)',
-	}
 
 	ObjectCmds.Move = ObjectCmd:subclass{
 		desc = 'obj.dir = <?=bit.band(cmd, 3)?> '
@@ -1318,12 +1234,37 @@ return function(game)
 		ObjectCmds['SetSpeed '..cmd] = ObjectCmds.SetSpeed:subclass{cmd = cmd}
 	end
 
+	ObjectCmds.EnableAnimation = ObjectCmd:subclass{
+		cmd = 0xc6,
+		desc = 'obj:enableAnimation()',
+	}
+	ObjectCmds.DisableAnimation = ObjectCmd:subclass{
+		cmd = 0xc7,
+		desc = 'obj:disableAnimation()',
+	}
+
+	ObjectCmds.ChangeLayerPriority = ObjectCmd:subclass{
+		cmd = 0xc8,
+		argtypes = {uint8_t},
+		argnames = {'arg'},
+		-- is this applied to the current-object ?
+		-- 0=default 1=top sprite only, 2=foreground, 3=background
+		desc = 'changeLayerPriority(<?=arg?>)',
+	}
+
 	ObjectCmds.ChangeVehicle = ObjectCmd:subclass{
 		cmd = 0xc9,
 		argtypes = {uint8_t},
 		argnames = {'vehicleIndex'},
 		desc = 'obj:setVehicle{vehicle=<?=bit.band(0x7f, vehicleIndex)?>, showRider=<?=0 ~= bit.band(0x80, vehicleIndex)?>}',
 	}
+
+	ObjectCmds.ChangeDir = ObjectCmd:subclass{
+		desc = 'obj:look(<?=bit.band(cmd, 3)?>)',
+	}
+	for cmd=0xcc,0xcf do
+		ObjectCmds['ChangeDir '..cmd] = ObjectCmds.ChangeDir:subclass{cmd = cmd}
+	end
 
 	ObjectCmds.ShowObject = ObjectCmd:subclass{
 		cmd = 0xd0,
@@ -1347,6 +1288,15 @@ return function(game)
 		desc = 'obj:scrollTo()',
 	}
 
+	ObjectCmds.Jump = ObjectCmd:subclass{
+		cmd = 0xdc,
+		desc = 'obj:jump()',
+	}
+	ObjectCmds.JumpHigh = ObjectCmds.Jump:subclass{
+		cmd = 0xdd,
+		desc = 'obj:jumpHigh()',
+	}
+
 	ObjectCmds.Sleep = ObjectCmd:subclass{
 		cmd = 0xe0,
 		argtypes = {uint8_t},
@@ -1363,8 +1313,56 @@ return function(game)
 		}
 	end
 
+	ObjectCmds.Goto = ObjectCmd:subclass{
+		cmd = 0xf9,
+		argtypes = {uint24_t},
+		argnames = {'destAddrOfs'},
+		desc = 'goto <?=("$%06x"):format(startaddr + destAddrOfs)?>',
+	}
 
-	-- map by-number for by-name
+	ObjectCmds.Branch = ObjectCmd:subclass{
+		--cmd = 0xfa,
+		argtypes = {uint8_t},
+		argnames = {'offset'},
+		desc = "<?=random and 'if math.random() < .5 then ' or ''?>goto PC<?=dir?><?=offset?>",
+	}
+	ObjectCmds.BranchBack50 = ObjectCmds.Branch:subclass{
+		cmd = 0xfa,
+		random = true,
+		dir = '-',
+	}
+	ObjectCmds.BranchFwd50 = ObjectCmds.Branch:subclass{
+		cmd = 0xfb,
+		random = true,
+		dir = '+',
+	}
+	ObjectCmds.BranchBack = ObjectCmds.Branch:subclass{
+		cmd = 0xfc,
+		random = false,
+		dir = '-',
+	}
+	ObjectCmds.BranchFwd = ObjectCmds.Branch:subclass{
+		cmd = 0xfd,
+		random = false,
+		dir = '+',
+	}
+
+	-- also in EventEmds ... and WorldCmds ... basically everywhere
+	ObjectCmds.EndScript = ObjectCmd:subclass{
+		cmd = 0xff,
+		digest = function(self, ...)
+			assert.ne(objectScriptCmd, nil, "got an object end-script when there was no objectScriptCmd set ...")
+			if self.addr ~= objectScriptCmd.addr + objectScriptCmd.length + 1 then
+				print("!!! DANGER !!! object-script length doesn't align with end-of-script cmd:", ('$%06x'):format(self.addr), 'vs', ('$%06x'):format(objectScriptCmd.addr + objectScriptCmd.length + 1))
+			end
+			cmdset = startCmdSet	-- back you go ...
+			objectScriptCmd = nil
+		end,
+		desc = 'end)',	-- and joinAll() if the objectScriptCmd had blocking ...
+	}
+
+
+	-- map the by-number for by-name
 	for _,k in ipairs(table.keys(ObjectCmds)) do
 		local cl = ObjectCmds[k]
 		if cl.cmd then
@@ -1381,6 +1379,179 @@ return function(game)
 			}
 		end
 	end
+
+
+
+	-- now comes world-commands
+	-- this is the opcodes of the touch triggers in the world maps
+	local WorldCmds = {}
+	game.WorldCmds = WorldCmds
+	local WorldCmd = Cmd:subclass()
+	game.WorldCmd = WorldCmd
+
+	-- same as in ObjectCmds
+	WorldCmds.Action = WorldCmd:subclass{
+		desc = "<?=0~=bit.band(0x40, cmd) and 'obj.hflip=true ' or ''?>"
+			.."obj:doAction(<?=bit.band(cmd, 0x3f)?>)",
+	}
+	for cmd=0,0x7f do
+		WorldCmds['Action '..cmd] = WorldCmds.Action:subclass{
+			cmd = cmd,
+		}
+	end
+
+	-- also in WorldCmds
+	WorldCmds.Move = WorldCmd:subclass{
+		desc = 'obj.dir = <?=bit.band(cmd, 3)?> '
+			..'obj:walkForward(<?=bit.band(bit.rshift(cmd, 2), 7)?>)',
+	}
+	for cmd=0x80,0x9f do
+		WorldCmds['Move '..cmd] = WorldCmds.Move:subclass{cmd=cmd}
+	end
+
+	-- also in WorldCmds
+	WorldCmds.MoveDiagonal = WorldCmd:subclass{
+		desc = 'obj:moveDiagonal(<?=cmd?>)',
+	}
+	for cmd=0xa0,0xab do
+		WorldCmds['MoveDiagonal '..cmd] = WorldCmds.MoveDiagonal:subclass{cmd = cmd}
+	end
+
+
+	-- in EventCmds as 0x6a, 0x6b
+	WorldCmds.SetMap = WorldCmd:subclass(SetMap, {cmd = 0xd2})
+	WorldCmds.SetMap2 = WorldCmd:subclass(SetMap, {cmd = 0xd3})
+
+	-- in EventCmds for 0xc0-0xcf and in WorldCmds for 0xb0-0xbf
+	for cmd=0xb0,0xbf do
+		WorldCmds['Switch '..cmd] = WorldCmd:subclass(Switch, {cmd = cmd})
+	end
+
+	-- same as in ObjectCmds
+	WorldCmds.SetSpeed = WorldCmd:subclass{
+		desc = 'obj:setSpeed(<?=bit.band(cmd, 0xf)?>)',
+	}
+	for cmd=0xc0,0xc5 do
+		WorldCmds['SetSpeed '..cmd] = WorldCmds.SetSpeed:subclass{cmd = cmd}
+	end
+
+	-- kinda like EventCmds EventSetBattleFlag but with a bigger arg
+	local WorldSetFlag = WorldCmd:subclass{
+		argtypes = {uint16_t},
+		argnames = {'flagIndex'},
+		desc = 'gameState.mapFlag<?=flagIndex?> = <?=value?>',
+	}
+	WorldCmds.SetBattleFlag = WorldSetFlag:subclass{
+		cmd = 0xb8,
+		value = true,
+	}
+	WorldCmds.ClearBattleFlag = WorldSetFlag:subclass{
+		cmd = 0xb9,
+		value = false,
+	}
+
+	-- same as in ObjectCmds
+	WorldCmds.ChangeDir = WorldCmd:subclass{
+		desc = 'obj:look(<?=bit.band(cmd, 3)?>)',
+	}
+	for cmd=0xcc,0xcf do
+		WorldCmds['ChangeDir '..cmd] = WorldCmds.ChangeDir:subclass{cmd = cmd}
+	end
+
+	-- same as ObjectCmds, but with the current-object being the party sprite ...
+	WorldCmds.ShowObject = WorldCmd:subclass{
+		cmd = 0xd0,
+		desc = 'obj.visible = true',
+	}
+
+	WorldCmds.HideObject = WorldCmd:subclass{
+		cmd = 0xd1,
+		desc = 'obj.visible = false',
+	}
+
+	WorldCmds.IfKeyThenGoto = WorldCmd:subclass{
+		cmd = 0xd4,
+		argtypes = {uint24_t},
+		argnames = {'destAddrOfs'},
+		desc = 'if keypress then goto <?=("$%06x"):format(startaddr + destAddrOfs)?>',
+	}
+
+	WorldCmds.IfFacingThenGoto = WorldCmd:subclass{
+		cmd = 0xd5,
+		argtypes = {uint8_t, uint24_t},
+		argnames = {'dir', 'destAddrOfs'},
+		desc = 'if dir==<?=dir?> then goto <?=("$%06x"):format(startaddr + destAddrOfs)?>',
+	}
+
+	-- also EventCmds 0x96
+	WorldCmds.FadeIn = WorldCmd:subclass{
+		cmd = 0xd8,
+		desc = 'fadeIn()',
+	}
+
+	-- also EventCmds 0x97
+	WorldCmds.FadeOut = WorldCmd:subclass{
+		cmd = 0xd9,
+		desc = 'fadeOut()',
+	}
+
+	WorldCmds.ShowMiniMap = WorldCmd:subclass{
+		cmd = 0xdd,
+		desc = 'miniMapVisible = true',
+	}
+	WorldCmds.HideMiniMap = WorldCmd:subclass{
+		cmd = 0xdf,
+		desc = 'miniMapVisible = false',
+	}
+
+	-- also in ObjectCmds
+	WorldCmds.Sleep = WorldCmd:subclass{
+		cmd = 0xe0,
+		argtypes = {uint8_t},
+		argnames = {'frames'},
+		desc = 'sleep(<?=frames?> * 4 / 60)',
+	}
+
+	WorldCmds.ChangeToShip = WorldCmd:subclass{
+		cmd = 0xfc,
+		desc = 'changeToShip()',
+	}
+
+	WorldCmds.FigaroSubmerge = WorldCmd:subclass{
+		cmd = 0xfd,
+		desc = 'figaroSubmerge()',
+	}
+
+	WorldCmds.FigaroEmerge = WorldCmd:subclass{
+		cmd = 0xfe,
+		desc = 'figaroEmerge()',
+	}
+
+	WorldCmds.EndScript = WorldCmd:subclass{
+		cmd = 0xff,
+		desc = 'endScript()',
+	}
+
+
+	-- map the by-number for by-name
+	for _,k in ipairs(table.keys(WorldCmds)) do
+		local cl = WorldCmds[k]
+		if cl.cmd then
+			assert.type(cl.cmd, 'number')
+			WorldCmds[cl.cmd] = cl
+		end
+	end
+	-- fill in empty numbers with unknowns
+	for i=0,255 do
+		if not WorldCmds[i] then
+			WorldCmds[i] = WorldCmd:subclass{
+				cmd = i,
+				desc = '??? '..('0x%02x'):format(i),
+			}
+		end
+	end
+
+
 
 
 	-- useful function
@@ -1469,14 +1640,42 @@ return function(game)
 	end
 
 
-	for i,addr in ipairs(addrsInOrder) do
+	for i,startAddr in ipairs(addrsInOrder) do
+		local nextAddr = addrsInOrder[i+1] or endaddr
 
 		-- reset script decode state
-		cmdset = EventCmds
+		startCmdSet = nil
+		for _,info in ipairs(game.eventScriptAddrs[startAddr]) do
+			if info.mapIndex < 3 then
+				if not startCmdSet then
+					startCmdSet = WorldCmds
+				else
+					-- this will happen with those generic 'return' functions...
+					print("!!! DANGER !!!! got an addr used for both world and non-world map script:", ('$%06x'):format(startAddr))
+					break
+				end
+			else
+				-- maybe 'event' should be 'non-world' or nah?
+				if not startCmdSet then
+					startCmdSet = EventCmds
+				else
+					-- this will happen with those generic 'return' functions...
+					print("!!! DANGER !!!! got an addr used for both world and non-world map script:", ('$%06x'):format(startAddr))
+					break
+				end
+			end
+		end
+		-- default us to EventCmds?
+		if not startCmdSet then
+			print("!!! DANGER !!!! got an addr without a mapIndex set:", ('$%06x'):format(startAddr))
+			startCmdSet = EventCmds
+		end
+
+		cmdset = startCmdSet
 		objectScriptCmd = nil
 
-		local nextaddr = addrsInOrder[i+1] or endaddr
-		while addr < nextaddr do
+		local addr = startAddr
+		while addr < nextAddr do
 			local function read(ctype)
 				local o
 				o, addr = readAndInc(ctype, addr)
@@ -1491,13 +1690,17 @@ return function(game)
 --DEBUG:assert.eq(cl.class, cl, "class is not a class for command 0x"..number.hex(cmd))
 --DEBUG:assert.is(cl, Cmd, "somehow class of command 0x"..number.hex(cmd).." is not of Cmd")
 			local cmdobj = cl()
+			cmdobj.addr = cmdaddr
 
 			-- hmm instead of just 'read' with 'addr', how about a whole interpretation-state, with 'cmdset' too?
 			cmdobj:digest(read)
 
-			cmdobj.addr = cmdaddr
 			game.eventScriptCmds:insert(cmdobj)
 			game.eventScriptCmdIndexForAddr[cmdaddr] = #game.eventScriptCmds
+		end
+
+		if objectScriptCmd then
+			print('!!! DANGER !!! event-script ended still inside an object-script:', ('$%06x'):format(startAddr))
 		end
 	end
 
