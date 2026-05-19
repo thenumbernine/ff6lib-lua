@@ -109,7 +109,10 @@ function EventScriptWindow:showIndexUI()
 			local cmd = ar[1+i]
 			if cmd == scriptDivider then
 				ig.igSeparator()
-			elseif cmd and cmd.what then
+			elseif cmd
+			and not game.Cmd:isa(cmd)	-- i.e. this is just a marker, not for real Cmd's (some have a .what field too...)
+			and cmd.what
+			then
 				for j,what in ipairs(cmd.what) do
 					ig.igPushID_Int(j)
 					if what.startEventScriptAddr then
