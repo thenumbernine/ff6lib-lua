@@ -25,6 +25,68 @@ local romsize = game.romsize
 
 local countof = game.countof
 
+
+
+
+
+local function align(n, s)
+	s = tostring(s)
+	return s..(' '):rep(n - #s)
+end
+
+print'BEGIN EVENT SCRIPT'
+for _,cmdobj in ipairs(game.eventScriptCmds) do
+	local whatPointsToScriptAdAddr = game.eventScriptAddrs[cmdobj.addr]
+	if whatPointsToScriptAdAddr then
+		print()
+		print(
+			('$%06x: '):format(cmdobj.addr)
+			..whatPointsToScriptAdAddr:mapi(function(x)
+				return (tolua(x, {indent=false}))
+			end):concat'; '
+		)
+	end
+
+	io.write(('$%06x'):format(cmdobj.addr), '\t')
+
+	-- TODO for cmds too big, put their data on multiple lines?
+	io.write(align(
+		24,
+		ffi.string(rom + cmdobj.addr, cmdobj.sizeInBytes)
+			:gsub('.', function(b)
+				return ('%02x '):format(b:byte())
+			end)
+	))
+
+	if game.ObjectCmd:isa(cmdobj)
+	and not game.ObjectCmds.EndScript:isa(cmdobj)
+	then
+		io.write'\t'
+	end
+
+	print((tostring(cmdobj)
+		:gsub('\t', '\\t')
+		:gsub('\r', '\\r')
+		:gsub('\n', '\\n')
+	))
+end
+print()
+print'END EVENT SCRIPT'
+print()
+
+do return end
+
+
+
+
+
+
+
+
+
+
+
+
 for i=0,countof(game.spells)-1 do
 	print('spell #'..i)
 	print('Name="'..game.getSpellName(i)..'"')
@@ -680,50 +742,6 @@ print(game.battleDialog)
 print(game.battleDialog2)
 print(game.battleMessages)
 print(game.positionedText)
-
-local function align(n, s)
-	s = tostring(s)
-	return s..(' '):rep(n - #s)
-end
-
-print'BEGIN EVENT SCRIPT'
-for _,cmd in ipairs(game.eventScriptCmds) do
-	local whatPointsToScriptAdAddr = game.eventScriptAddrs[cmd.addr]
-	if whatPointsToScriptAdAddr then
-		print()
-		print(
-			('$%06x: '):format(cmd.addr)
-			..whatPointsToScriptAdAddr:mapi(function(x)
-				return (tolua(x, {indent=false}))
-			end):concat'; '
-		)
-	end
-	io.write(('$%06x'):format(cmd.addr), '\t')
-
-	-- TODO for cmds too big, put their data on multiple lines?
-	io.write(align(
-		24,
-		ffi.string(rom + cmd.addr, cmd.sizeInBytes)
-			:gsub('.', function(b)
-				return ('%02x '):format(b:byte())
-			end)
-	))
-
-	if game.ObjectCmd:isa(cmd)
-	and not game.ObjectCmds.EndScript:isa(cmd)
-	then
-		io.write'\t'
-	end
-
-	print((tostring(cmd)
-		:gsub('\t', '\\t')
-		:gsub('\r', '\\r')
-		:gsub('\n', '\\n')
-	))
-end
-print()
-print'END EVENT SCRIPT'
-print()
 
 
 print('setzer airship palette = '..game.setzerAirshipPalette)

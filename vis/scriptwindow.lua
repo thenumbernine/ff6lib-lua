@@ -284,7 +284,7 @@ function EventScriptWindow:showIndexUI()
 							ig.igText'if math.random() < .5 then goto'
 							ig.igSameLine()
 							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
-						elseif game.Cmds.Switch:isa(cmd) then
+						elseif game.Cmds.Cond:isa(cmd) then
 							ig.igText('if '..cmd.condCode..' then goto')
 							ig.igSameLine()
 							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)

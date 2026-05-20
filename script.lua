@@ -41,15 +41,15 @@ return function(game)
 	local uint24_t = game.uint24_t
 
 	-- should I even bounds check?
-	local startaddr = ffi.offsetof(Game, 'eventScript')	-- 0xa0000
-	local endaddr = ffi.offsetof(Game, 'eventScript') + ffi.sizeof(game.eventScript)
+	local scriptBaseAddr = ffi.offsetof(Game, 'eventScript')	-- 0xa0000
+	local scriptBaseAddrEnd = ffi.offsetof(Game, 'eventScript') + ffi.sizeof(game.eventScript)
 
-	local startaddr2 = ffi.offsetof(Game, 'dialogBase')
-	local endaddr2 = ffi.offsetof(Game, 'dialogBase') + ffi.sizeof(game.dialogBase)
+	local scriptBaseAddr2 = ffi.offsetof(Game, 'dialogBase')
+	local scriptBaseAddrEnd2 = ffi.offsetof(Game, 'dialogBase') + ffi.sizeof(game.dialogBase)
 
 --DEBUG:print('event script ranges:')
---DEBUG:print(('$%06x-$%06x'):format(startaddr, endaddr))
---DEBUG:print(('$%06x-$%06x'):format(startaddr2, endaddr2))
+--DEBUG:print(('$%06x-$%06x'):format(scriptBaseAddr, scriptBaseAddrEnd))
+--DEBUG:print(('$%06x-$%06x'):format(scriptBaseAddr2, scriptBaseAddrEnd2))
 
 	-- how to generate this in a modular way that both outputs and is reusable later
 	-- for now I will insert in-order and provide an address lookup table to the index in this table
@@ -92,10 +92,10 @@ return function(game)
 	end
 	-- only for template env
 	Cmd.game = game
-	Cmd.startaddr = startaddr
+	Cmd.scriptBaseAddr = scriptBaseAddr
 	-- useful for the template env:
 	Cmd.getGotoOfsStr = function(addrOfs, op)
-		local addr = startaddr + addrOfs
+		local addr = scriptBaseAddr + addrOfs
 		local str
 		if addr == commonReturnAddr then
 			--str = 'return' 	-- "call return" is gonna look weird :shrug:
@@ -561,7 +561,8 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 
 			-- another 'gotcha' ...
 			-- looks like if we set-map to maps 0-2 then we should also change our (underlying, non-vehicle) cmdset to world?
--- TODO this isn't good .. we gotta trace through each branch to properly find out how to interpet things.
+-- TODO doing this isn't good .. we gotta trace through each branch to properly find out how to interpet things.
+-- need more than a state-stack
 			if self.mapIndex < 3 then
 				stateStack[1].cmdset = WorldCmds
 			else
@@ -677,6 +678,13 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'objectIndex', 'newScriptAddrOfs'},
 		desc = "objs[<?=objectIndex?>].script = <?=getGotoOfsStr(newScriptAddrOfs, '')?>",
+
+		getBranchAddrs = function(self)
+			return {
+				-- this will always use event-cmds, whereas typical getBranchAddrs for branch/goto/call will preserve cmdset
+				{addr=scriptBaseAddr + self.newScriptAddrOfs, cmdset=EventCmds},
+			}
+		end,
 	}
 
 	EventCmds.RestorePreviousParty = EventCmd:subclass{
@@ -891,7 +899,7 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 		argnames = {'duration', 'arg'},
 		desc = 'startTimer{'
 			..'duration=<?=duration?>'
-			..', addr=<?=startaddr + bit.band(0x3ffff, arg)?>'
+			..', addr=<?=scriptBaseAddr + bit.band(0x3ffff, arg)?>'
 			..', flags=<?=bit.rshift(arg, 20)?>'
 		..'}',
 	}
@@ -965,16 +973,26 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
 		desc = "<?=getGotoOfsStr(destAddrOfs, 'call ')?>",
+
+		getBranchAddrs = function(self)
+			return {
+				{addr=scriptBaseAddr + self.destAddrOfs},
+			}
+		end,
 	}
 
 	EventCmds.CallRepeat = EventCmd:subclass{
 		cmd = 0xb3,
-		argtypes = {uint24_t, uint8_t},
-		getargs = function(self, destAddrOfs, count)
-			self.destAddrOfs = destAddrOfs
-			self.count = count+1
-		end,
+		argtypes = {uint8_t, uint24_t},
+		argnames = {'count', 'destAddrOfs'},
 		desc = "for i=1,<?=count?> do <?=getGotoOfsStr(destAddrOfs, 'call ')?> end",
+
+		-- used by decompiler to determine where else to go
+		getBranchAddrs = function(self)
+			return {
+				{addr=scriptBaseAddr + self.destAddrOfs},
+			}
+		end,
 	}
 
 	EventCmds.Sleep = EventCmd:subclass{
@@ -1000,7 +1018,7 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 			self.addrs = table()
 if not lastDialogPromptCount then error("required choices but no dialog at "..('$%06x'):format(self.addr)) end
 			for i=1,lastDialogPromptCount do
-				self.addrs:insert(startaddr + read(uint24_t))
+				self.addrs:insert(scriptBaseAddr + read(uint24_t))
 			end
 		end,
 		__tostring = function(self)
@@ -1019,6 +1037,12 @@ if not lastDialogPromptCount then error("required choices but no dialog at "..('
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'flagIndex', 'destAddrOfs'},
 		desc = 'if gameState.battleFlag<?=flagIndex?> then <?=getGotoOfsStr(destAddrOfs)?>',
+
+		getBranchAddrs = function(self)
+			return {
+				{addr=scriptBaseAddr + self.destAddrOfs},
+			}
+		end,
 	}
 
 	local EventSetBattleFlag = EventCmd:subclass{
@@ -1057,6 +1081,12 @@ if not lastDialogPromptCount then error("required choices but no dialog at "..('
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
 		desc = 'if math.random() < .5 then <?=getGotoOfsStr(destAddrOfs)?>',
+
+		getBranchAddrs = function(self)
+			return {
+				{addr=scriptBaseAddr + self.destAddrOfs},
+			}
+		end,
 	}
 
 	-- this is based on active char?
@@ -1085,6 +1115,12 @@ if not lastDialogPromptCount then error("required choices but no dialog at "..('
 				return '['..option.characterIndex..'] = '..Cmd.getGotoOfsStr(option.addrOfs)
 			end):concat', '..'})'
 		end,
+
+		getBranchAddrs = function(self)
+			return self.options:mapi(function(option)
+				return {addr=scriptBaseAddr + option.addrOfs}
+			end)
+		end,
 	}
 
 	EventCmds.ShowAirshipEndingCutscene = EventCmd:subclass{
@@ -1093,7 +1129,7 @@ if not lastDialogPromptCount then error("required choices but no dialog at "..('
 	}
 
 	-- common parent class for EventCmd and WorldCmd
-	local Switch = Cmd:subclass{
+	local Cond = Cmd:subclass{
 		flagName = 'mapFlag',
 		digest = function(self, read)
 			local count = 1 + bit.band(self.cmd, 7)
@@ -1116,12 +1152,18 @@ if not lastDialogPromptCount then error("required choices but no dialog at "..('
 				end):concat(self._and and ' and ' or ' or ')
 		end,
 		desc = 'if <?=condCode?> then <?=getGotoOfsStr(destAddrOfs)?> end',
+
+		getBranchAddrs = function(self)
+			return {
+				{addr=scriptBaseAddr + self.destAddrOfs},
+			}
+		end,
 	}
-	Cmds.Switch = Switch
+	Cmds.Cond = Cond
 
 	-- in EventCmds for 0xc0-0xcf and in WorldCmds for 0xb0-0xbf
 	for cmd=0xc0,0xcf do
-		EventCmds['Switch '..cmd] = EventCmd:subclass(Switch, {cmd = cmd})
+		EventCmds['Cond '..cmd] = EventCmd:subclass(Cond, {cmd = cmd})
 	end
 
 	for cmd=0xd0,0xdd do
@@ -1265,10 +1307,12 @@ if not lastDialogPromptCount then error("required choices but no dialog at "..('
 	EventCmds.Return = EventCmd:subclass{
 		cmd = 0xfe,
 		desc = 'return',
+		endTrace = true,
 	}
 	EventCmds.EndScript = EventCmd:subclass{
 		cmd = 0xff,
 		desc = 'endScript()',
+		endTrace = true,
 	}
 
 	-- EventCmds key by cmd (number) or by name (string)
@@ -1323,11 +1367,9 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 	ObjectCmds.Move = ObjectCmd:subclass{
 		digest = function(self, read)
 			self.dir = bit.band(self.cmd, 3)
-			self.dist = bit.band(bit.rshift(self.cmd, 2), 7)
+			self.dist = bit.band(bit.rshift(self.cmd, 2), 7) + 1
 			self.descstr = 'obj.dir = '..self.dir
-			if self.dist ~= 0 then
-				self.descstr = self.descstr .. ' obj:walkForward('..self.dist..')'
-			end
+				..' obj:walkForward('..self.dist..')'
 		end,
 		-- 'desc' is fed thru 'template' so...
 		__tostring = function(self) return self.descstr end,
@@ -1450,6 +1492,13 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
 		desc = '<?=getGotoOfsStr(destAddrOfs)?>',
+
+		getBranchAddrs = function(self)
+			return {
+				{addr=scriptBaseAddr + self.destAddrOfs},
+			}
+		end,
+		endTrace = true,
 	}
 
 	ObjectCmds.Branch = ObjectCmd:subclass{
@@ -1571,7 +1620,7 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 
 	-- in EventCmds for 0xc0-0xcf and in WorldCmds for 0xb0-0xbf
 	for cmd=0xb0,0xbf do
-		WorldCmds['Switch '..cmd] = WorldCmd:subclass(Switch, {cmd = cmd})
+		WorldCmds['Cond '..cmd] = WorldCmd:subclass(Cond, {cmd = cmd})
 	end
 
 	-- same as in ObjectCmds
@@ -1620,6 +1669,12 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
 		desc = 'if keypress then <?=getGotoOfsStr(destAddrOfs)?>',
+
+		getBranchAddrs = function(self)
+			return {
+				{addr=scriptBaseAddr + self.destAddrOfs},
+			}
+		end,
 	}
 
 	WorldCmds.IfFacingThenGoto = WorldCmd:subclass{
@@ -1627,6 +1682,12 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'dir', 'destAddrOfs'},
 		desc = 'if dir==<?=dir?> then <?=getGotoOfsStr(destAddrOfs)?>',
+
+		getBranchAddrs = function(self)
+			return {
+				{addr=scriptBaseAddr + self.destAddrOfs},
+			}
+		end,
 	}
 
 	-- also EventCmds 0x96, 0x97
@@ -1678,12 +1739,14 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 	WorldCmds.Return = WorldCmd:subclass{
 		cmd = 0xfe,
 		desc = 'return',
+		endTrace = true,
 	}
 	--]]
 
 	WorldCmds.EndScript = WorldCmd:subclass{
 		cmd = 0xff,
 		desc = 'endScript()',
+		endTrace = true,
 	}
 
 	-- map the by-number for by-name
@@ -1723,7 +1786,7 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 
 	-- also in EventCmds for 0xc0-0xcf and in WorldCmds for 0xb0-0xbf
 	for cmd=0xb0,0xbf do
-		VehicleCmds['Switch '..cmd] = VehicleCmd:subclass(Switch, {cmd = cmd})
+		VehicleCmds['Cond '..cmd] = VehicleCmd:subclass(Cond, {cmd = cmd})
 	end
 
 	VehicleCmds.Unknown_C0 = VehicleCmd:subclass{
@@ -1921,6 +1984,7 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 		end,
 		-- is a vehicle end-script on par with a world/event end-script, or is it more like object end-script that just ends the object-section ?
 		desc = 'endScript()',
+		endTrace = true,
 	}
 
 	-- map the by-number for by-name
@@ -1971,111 +2035,55 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 	end
 
 
+	--[[
+	TODO here instead of assuming the next-in-order address marks the end ...
+	- we should be tracing until 'return'
+	- and upon branch, recursive call the trace ...
+	- and then warn if we ever trace over the same code block but offset or with a different opcode set...
+	- and then ... i should be properly decoding world-vs-events, and also not decoding extra things past 'return'
+	--]]
+
+	game.eventScriptCmds = table()
+
 	-- event code, pointed into by NPCs and maybe other things
 	game.eventScriptAddrs = {}
 
-	-- collect script addrs from npcs
-	-- hmm should I use the master npc list or just which ones are in maps?
-	-- should I cache disassembled chunks and only traverse instructions that are actually used? and track memory regions used?
-	for mapIndex=0,countof(game.maps)-1 do
-		local mapInfo = game.getMap(mapIndex)
-		if mapInfo then
+	-- remember where we've started from so we don't go over the same area twice
+	-- TODO this but for the state of decoding as well
+	local haveDecodedFrom = {}
 
-			-- if the mapIndex < 3 then it's a world-script, otherwise it's an event-script
-			-- ... right?
-			game.eventScriptAddrs[mapInfo.startEventScriptAddr] = game.eventScriptAddrs[mapInfo.startEventScriptAddr] or table()
-			game.eventScriptAddrs[mapInfo.startEventScriptAddr]:insert{
-				type = 'startEventScriptAddr',
-				mapIndex = mapIndex,
-			}
+	local function decompileFrom(args)
+		local startAddr = assert.index(args, 'addr')
+		local startCmdSet = assert.index(args, 'cmdset')
+		local reverseRefInfo = args.reverseRefInfo
 
-			for npcIndex,n in ipairs(mapInfo.npcs) do
-				local scriptAddr = n:getScriptAddr()
-				if scriptAddr then
-					game.eventScriptAddrs[scriptAddr] = game.eventScriptAddrs[scriptAddr] or table()
-					game.eventScriptAddrs[scriptAddr]:insert{
-						npcIndex = npcIndex-1,
-						mapIndex = mapIndex,
-					}
-				end
-			end
-
-			for touchTriggerIndex,t in ipairs(mapInfo.touchTriggers) do
-				local scriptAddr = t:getScriptAddr()
-				if scriptAddr then
-					-- if the mapIndex < 3 then it's a world-script, otherwise it's an event-script
-					game.eventScriptAddrs[scriptAddr] = game.eventScriptAddrs[scriptAddr] or table()
-					game.eventScriptAddrs[scriptAddr]:insert{
-						touchTriggerIndex = touchTriggerIndex-1,
-						mapIndex = mapIndex,
-					}
-				end
-			end
-		end
-	end
+print('decompiling from '..require'ext.tolua'(reverseRefInfo, {indent=false}))
+		game.eventScriptAddrs[startAddr] = game.eventScriptAddrs[startAddr] or table()
+		game.eventScriptAddrs[startAddr]:insert(reverseRefInfo)
 
 
-
-	game.eventScriptCmds = table()
-	game.eventScriptCmdIndexForAddr = {}
-
-	local addrsInOrder = table.keys(game.eventScriptAddrs):sort()
-
-	-- warn about OOB addrs...
-	for _,addr in ipairs(addrsInOrder) do
-		if not (addr >= startaddr and addr < endaddr)
-		and not (addr >= startaddr2 and addr < endaddr2)
-		then
-			print('TODO addr', number.hex(addr), 'oob!')	-- nothing found anymore, I guess that's good? does it matter?
-		end
-	end
-
-
-	for i,startAddr in ipairs(addrsInOrder) do
-		local nextAddr = addrsInOrder[i+1] or endaddr
+		-- make sure we haven't decoded this already
+		-- hmm TODO maybe someday I'll return the decoded block and store that by the caller instead of storing per-cmd per-addr....
+		if haveDecodedFrom[startAddr] then return end
+		haveDecodedFrom[startAddr] = true
 
 		-- reset script decode state
-		local startCmdSet
-		if startAddr == commonReturnAddr then
-			startCmdSet = EventCmds	-- so it is a return
-		else
-			startCmdSet = nil
-			local mapIndexes = game.eventScriptAddrs[startAddr]:mapi(function(info) return info.mapIndex end):sort()
-			for _,info in ipairs(game.eventScriptAddrs[startAddr]) do
-				if info.mapIndex < 3 then
-					if not startCmdSet then
-						startCmdSet = WorldCmds
-					elseif startCmdSet ~= WorldCmds then
-						-- this will happen with those generic 'return' functions...
-						print("!!! DANGER !!! got an addr used for both world and non-world map script:", ('$%06x'):format(startAddr), mapIndexes:mapi(tostring):concat', ')
-						break
-					end
-				else
-					-- maybe 'event' should be 'non-world' or nah?
-					if not startCmdSet then
-						startCmdSet = EventCmds
-					elseif startCmdSet ~= EventCmds then
-						-- this will happen with those generic 'return' functions...
-						print("!!! DANGER !!! got an addr used for both world and non-world map script:", ('$%06x'):format(startAddr), mapIndexes:mapi(tostring):concat', ')
-						break
-					end
-				end
-			end
-		end
-		-- default us to EventCmds?
-		if not startCmdSet then
-			print("!!! DANGER !!! got an addr without a mapIndex set:", ('$%06x'):format(startAddr), mapIndexes:mapi(tostring):concat', ')
-			startCmdSet = EventCmds
-		end
-
 		lastDialogPromptCount = nil
+
+		-- not sure about this
 		stateStack = table()
 		stateStack:insert{
 			cmdset = startCmdSet,
 		}
 
+		local branchInfos = table()
+
 		local addr = startAddr
-		while addr < nextAddr do
+-- [==[ debugging:
+print(('BEGIN $%06x'):format(startAddr))
+--]==]
+
+		while true do
 			local function read(ctype)
 				local o
 				o, addr = readAndInc(ctype, addr)
@@ -2101,29 +2109,13 @@ assert.gt(#stateStack, 0, "someone popped the last cmdset...")
 			cmdobj.sizeInBytes = addr - cmdaddr
 
 			game.eventScriptCmds:insert(cmdobj)
-			game.eventScriptCmdIndexForAddr[cmdaddr] = #game.eventScriptCmds
 
-
-
---[====[ debugging, copied out of run.lua
-local function align(n, s)
-	s = tostring(s)
-	return s..(' '):rep(n - #s)
-end
-
-	local whatPointsToScriptAdAddr = game.eventScriptAddrs[cmdobj.addr]
-	if whatPointsToScriptAdAddr then
-		print()
-		print(
-			('$%06x: '):format(cmdobj.addr)
-			..whatPointsToScriptAdAddr:mapi(function(x)
-				return (require 'ext.tolua'(x, {indent=false}))
-			end):concat'; '
-		)
-	end
+-- [==[ debug print as we go
 	io.write(('$%06x'):format(cmdobj.addr), '\t')
-
-	-- TODO for cmds too big, put their data on multiple lines?
+	local function align(n, s)
+		s = tostring(s)
+		return s..(' '):rep(n - #s)
+	end
 	io.write(align(
 		24,
 		ffi.string(rom + cmdobj.addr, cmdobj.sizeInBytes)
@@ -2131,45 +2123,161 @@ end
 				return ('%02x '):format(b:byte())
 			end)
 	))
-
 	if game.ObjectCmd:isa(cmdobj)
 	and not game.ObjectCmds.EndScript:isa(cmdobj)
 	then
 		io.write'\t'
 	end
-
 	print((tostring(cmdobj)
 		:gsub('\t', '\\t')
 		:gsub('\r', '\\r')
 		:gsub('\n', '\\n')
 	))
---]====]
+--]==]
+
+			if cmdobj.getBranchAddrs then
+				-- decode branches ... now or later?
+				for _,info in ipairs(cmdobj:getBranchAddrs()) do
+					branchInfos:insert{
+						addr = assert.index(args, 'addr'),
+						cmdset = info.cmdset or stateStack[1].cmdset,	-- make sure we record the current cmdset
+						reverseRefInfo = {branchAddr = cmdaddr},
+					}
+				end
+			end
+
+			if cmdobj.endTrace then break end
 		end
+
+-- [==[ debugging:
+print(('END $%06x'):format(startAddr))
+print()
+--]==]
 
 		assert.ge(#stateStack, 1, "somehow we popped all our states...")
 
 		if stateStack:last().objectScriptCmd then
 			print('!!! DANGER !!! event-script ended still inside an object-script:',
 				('script start = $%06x'):format(startAddr),
-				('next script start = $%06x'):format(nextAddr),
 				('object-script start = $%06x'):format(stateStack:last().objectScriptCmd.addr)
 			)
+		end
+
+		for _,info in ipairs(branchInfos) do
+			decompileFrom(info)
 		end
 	end
 
 
---[=[
-	-- from addr to table-of-cmds, which should reassemble to produce the same bytes that is located at that addr to begin with *fingers crossed*
-	-- hmm this whole process is assuming the cmds are not reusing bytes for other cmds
-	-- hmmmmmm
-	-- maybe I should do this trace first and skip the global disasm
-	local traces = table()
+	-- collect script addrs from npcs
+	-- hmm should I use the master npc list or just which ones are in maps?
+	-- should I cache disassembled chunks and only traverse instructions that are actually used? and track memory regions used?
+	for mapIndex=0,countof(game.maps)-1 do
+		local mapInfo = game.getMap(mapIndex)
+		if mapInfo then
 
-	-- returns a table of disassembled cmds for this addr
-	-- if it encounnters any gosubs/gotos then it'll disassemble and cache those as well
-	local function traceCode(addr, instrSet)
+			local function decodeForMap(startAddr, reverseRefInfo)
+				local startCmdSet = mapIndex < 3 and WorldCmds or EventCmds
+				-- even if world-map is using commonReturnAddr, stillu se EventCmds, cuz I think this is the only address that could either be EventCmds or WorldCmds
+				if startAddr == commonReturnAddr then
+					startCmdSet = EventCmds
+				end
 
+				return decompileFrom{
+					addr = startAddr,
+					cmdset = startCmdSet,
+					reverseRefInfo = reverseRefInfo,
+				}
+			end
+
+			-- if the mapIndex < 3 then it's a world-script, otherwise it's an event-script
+			-- ... right?
+			decodeForMap(mapInfo.startEventScriptAddr, {
+				type = 'startEventScriptAddr',
+				mapIndex = mapIndex,
+			})
+
+			for npcIndex,n in ipairs(mapInfo.npcs) do
+				local scriptAddr = n:getScriptAddr()
+				if scriptAddr then
+					decodeForMap(scriptAddr, {
+						npcIndex = npcIndex-1,
+						mapIndex = mapIndex,
+					})
+				end
+			end
+
+			for touchTriggerIndex,t in ipairs(mapInfo.touchTriggers) do
+				local scriptAddr = t:getScriptAddr()
+				if scriptAddr then
+					-- if the mapIndex < 3 then it's a world-script, otherwise it's an event-script
+					decodeForMap(scriptAddr, {
+						touchTriggerIndex = touchTriggerIndex-1,
+						mapIndex = mapIndex,
+					})
+				end
+			end
+		end
 	end
---]=]
+
+	--[[ add builtins?
+	for addr,name in pairs{
+		[0xca0000] = 'no event',
+		[0xca0001] = 'wait for dialogue window',
+		[0xca0003] = 'game start',
+		[0xca0008] = 'chest: item',
+		[0xca000c] = 'chest: spell',
+		[0xca0010] = 'chest: gp',
+		[0xca0014] = 'chest: empty',
+		[0xca0018] = 'random battle',
+		[0xca0034] = 'tent',
+		[0xca0039] = 'warp/warp stone',
+		[0xca0040] = 'chest: monster-in-a-box',
+		[0xca0078] = 'falcon: deck',
+		[0xca009d] = 'doom gaze',
+		[0xca00ea] = 'tent: animation',
+		[0xca0108] = 'warp: animation',
+		[0xca015e] = 'tent: animation (world)',
+		[0xca01a2] = 'kefka's tower',
+		[0xca0405] = 'phoenix cave',
+		[0xca057d] = 'final battle/ending',
+		[0xca5ade] = 'floating island: cinematic',
+		[0xca5e33] = 'new game',
+		[0xca5ea9] = 'post-battle',
+		[0xca5eb3] = 'return',
+		[0xca5eb4] = 'return (world)',
+		[0xcaca64] = 'check facing direction',
+		[0xcacd31] = 'inn: no dream',
+		[0xcacd3c] = 'inn: normal',
+		[0xcacd5b] = 'inn: dream 1',
+		[0xcacdd9] = 'inn: dream 2',
+		[0xcace51] = 'inn: dream 3',
+		[0xcacefe] = 'inn: dream 4',
+		[0xcacf67] = 'inn: fade out',
+		[0xcacf96] = 'inn: fade in',
+		[0xcb69ff] = 'not enough gp',
+		[0xcc985b] = 'prologue',
+		[0xcc9aeb] = 'save point',
+		[0xcce566] = 'game over',
+	} do
+		game.eventScriptAddrs[addr] = table{{builtin=name}}
+	end
+	for addr,name in pairs{
+		[0xcaa6c0] = 'blackjack book',
+	} do
+		game.eventScriptAddrs[addr] = table{{builtin=name, cmdset=VehicleCmds}}
+	end
+	--]]
+
+	-- is this a good idea, or should I double-check by storing trace address ranges and make sure none overlap so that i'm not inserting cmds between/ontop one another?
+	game.eventScriptCmds:sort(function(a,b) return a.addr < b.addr end)
+
+	-- and now I have to recalculate eventScriptCmdIndexForAddr
+	game.eventScriptCmdIndexForAddr = {}
+	for i,cmd in ipairs(game.eventScriptCmds) do
+		if cmd.addr then
+			game.eventScriptCmdIndexForAddr[cmd.addr] = i
+		end
+	end
 
 end
