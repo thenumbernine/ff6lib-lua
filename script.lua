@@ -105,8 +105,9 @@ return function(game)
 
 
 	-- generic cmds when you need a superclass transcending any specific cmdset:
-	game.Cmds = {}
-	game.Cmds.Cmd = Cmd	-- parent-class of all script cmds
+	local Cmds = {}
+	game.Cmds = Cmds
+	Cmds.Cmd = Cmd	-- parent-class of all script cmds
 
 
 	-- here's some interpretation state-variables
@@ -335,8 +336,7 @@ return function(game)
 		desc = "waitForDialogButtonPress()",
 	}
 
-	EventCmds.Battle = EventCmd:subclass{
-		cmd = 0x4d,
+	local Battle = Cmd:subclass{
 		argtypes = {uint8_t, uint8_t},
 		getargs = function(self, eventBattleOptionsIndex, arg)
 			self.eventBattleOptionsIndex = eventBattleOptionsIndex	-- index into game.monsterEventBattles[]
@@ -345,18 +345,23 @@ return function(game)
 			self.noBlur = 0 ~= bit.band(0x80, arg)
 		end,
 		__tostring = function(self)
-			return (self.touchBattle and 'touchBattle' or 'battle')
-				..' eventBattleOptionsIndex='..self.eventBattleOptionsIndex
-				..' background='..bit.band(0x3f, self.battleBG)
-				..(self.noSound and ' no sound' or '')
-				..(self.noBlur and ' no blur' or '')
+			return 'battle{'
+				..'eventBattleOptionsIndex='..self.eventBattleOptionsIndex
+				..', background='..bit.band(0x3f, self.battleBG)
+				..(self.noSound and ', noSound=true' or '')
+				..(self.noBlur and ', noBlur=true' or '')
+				..(self.extra and ', '..self.extra or '')
+				..'}'
 		end,
 	}
+	Cmds.Battle = Battle
 
-	EventCmds.TouchBattle = EventCmds.Battle:subclass{
+	EventCmds.Battle = EventCmd:subclass(Battle, {cmd = 0x4d})
+
+	EventCmds.TouchBattle = EventCmd:subclass(Battle, {
 		cmd = 0x4c,
-		touchBattle = true,
-	}
+		extra = "onTouch=true",
+	})
 
 	EventCmds.RandomBattle = EventCmd:subclass{
 		cmd = 0x4e,
@@ -534,7 +539,7 @@ return function(game)
 			..'}'
 		end,
 	}
-	game.Cmds.SetMap = SetMap
+	Cmds.SetMap = SetMap
 
 	EventCmds.SetMap = EventCmd:subclass(SetMap, {cmd = 0x6a})
 	EventCmds.SetMap2 = EventCmd:subclass(SetMap, {cmd = 0x6b})
@@ -1041,7 +1046,7 @@ return function(game)
 		end,
 		desc = 'if <?=condCode?> then <?=getGotoOfsStr(destAddrOfs)?> end',
 	}
-	game.Cmds.Switch = Switch
+	Cmds.Switch = Switch
 
 	-- in EventCmds for 0xc0-0xcf and in WorldCmds for 0xb0-0xbf
 	for cmd=0xc0,0xcf do
@@ -1182,7 +1187,6 @@ return function(game)
 		cmd = 0xfe,
 		desc = 'return',
 	}
-
 	EventCmds.EndScript = EventCmd:subclass{
 		cmd = 0xff,
 		desc = 'endScript()',
@@ -1334,8 +1338,10 @@ return function(game)
 		ObjectCmds['ChangeFlag'..('0x%02x'):format(cmd)] = ObjectCmd:subclass{
 			cmd = cmd,
 			argtypes = {uint8_t},
+			argnames = {'flagIndex'},
 			-- not making sense of the json. what's the cmd for?
-			desc = 'gameState.eventFlag<?=args[1]?> ~~= true',
+			-- I think similar to EventCmds 0xd0-0xdd ?
+			desc = 'gameState.eventFlag<?=flagIndex?> ~~= true',
 		}
 	end
 
@@ -1426,7 +1432,7 @@ return function(game)
 		}
 	end
 
-	-- also in WorldCmds
+	-- also in ObjectCmds
 	WorldCmds.Move = WorldCmd:subclass{
 		desc = 'obj.dir = <?=bit.band(cmd, 3)?> '
 			..'obj:walkForward(<?=bit.band(bit.rshift(cmd, 2), 7)?>)',
@@ -1489,7 +1495,6 @@ return function(game)
 		cmd = 0xd0,
 		desc = 'obj.visible = true',
 	}
-
 	WorldCmds.HideObject = WorldCmd:subclass{
 		cmd = 0xd1,
 		desc = 'obj.visible = false',
@@ -1509,18 +1514,17 @@ return function(game)
 		desc = 'if dir==<?=dir?> then <?=getGotoOfsStr(destAddrOfs)?>',
 	}
 
-	-- also EventCmds 0x96
+	-- also EventCmds 0x96, 0x97
 	WorldCmds.FadeIn = WorldCmd:subclass{
 		cmd = 0xd8,
 		desc = 'fadeIn()',
 	}
-
-	-- also EventCmds 0x97
 	WorldCmds.FadeOut = WorldCmd:subclass{
 		cmd = 0xd9,
 		desc = 'fadeOut()',
 	}
 
+	-- also VehicleCmds 0xdd 0xdf
 	WorldCmds.ShowMiniMap = WorldCmd:subclass{
 		cmd = 0xdd,
 		desc = 'miniMapVisible = true',
@@ -1567,7 +1571,6 @@ return function(game)
 		desc = 'endScript()',
 	}
 
-
 	-- map the by-number for by-name
 	for _,k in ipairs(table.keys(WorldCmds)) do
 		local cl = WorldCmds[k]
@@ -1587,6 +1590,239 @@ return function(game)
 	end
 
 
+
+	-- now for vehicle cmds
+	-- I guess whether these vs EventCmds are used is game state based, so there's no static measure for when in the script engine to decode as one vs the other ...
+	local VehicleCmds = {}
+	game.VehicleCmds = VehicleCmds
+	local VehicleCmd = Cmd:subclass()
+	game.VehicleCmd = VehicleCmd
+
+	for cmd=0,0x7f do
+		VehicleCmds['MoveVehicle '..cmd] = VehicleCmd:subclass{
+			cmd = cmd,
+			argtypes = {uint8_t},
+			argnames = {'dist'},
+			desc = "moveVehicle{dir=<?=cmd?>, dist=<?=dist?>}",
+		}
+	end
+
+	-- also in EventCmds for 0xc0-0xcf and in WorldCmds for 0xb0-0xbf
+	for cmd=0xb0,0xbf do
+		VehicleCmds['Switch '..cmd] = VehicleCmd:subclass(Switch, {cmd = cmd})
+	end
+
+	VehicleCmds.Unknown_C0 = VehicleCmd:subclass{
+		cmd = 0xc0,
+		argtypes = {uint8_t},
+		desc = "unknown_c0(<?=args:mapi(tostring):concat', '?>)",
+	}
+
+	-- how does this work?
+	VehicleCmds.ChangeCameraDir = VehicleCmd:subclass{
+		cmd = 0xc1,
+		argtypes = {uint16_t},
+		desc = "changeCameraDir(<?=args[1]?>)",
+	}
+	VehicleCmds.ChangeMoveDir = VehicleCmd:subclass{
+		cmd = 0xc2,
+		argtypes = {uint16_t},
+		desc = "changeMoveDir(<?=args[1]?>)",
+	}
+	VehicleCmds.ChangeDirC3 = VehicleCmd:subclass{
+		cmd = 0xc3,
+		argtypes = {uint16_t},
+		desc = "changeDirC3(<?=args[1]?>)",
+	}
+	VehicleCmds.ChangeDirC4 = VehicleCmd:subclass{
+		cmd = 0xc4,
+		argtypes = {uint16_t},
+		desc = "changeDirC4(<?=args[1]?>)",
+	}
+
+	VehicleCmds.SetAirshipAltitude = VehicleCmd:subclass{
+		cmd = 0xc5,
+		argtypes = {uint16_t},
+		argnames = {'alt'},
+		desc = "airship.alt = <?=alt?>",
+	}
+
+	VehicleCmds.MoveForward = VehicleCmd:subclass{
+		cmd = 0xc6,
+		argtypes = {uint16_t},
+		argnames = {'speed'},
+		desc = "airship:moveFwd{speed=<?=speed?>}",
+	}
+
+	VehicleCmds.SetAirshipPos = VehicleCmd:subclass{
+		cmd = 0xc7,
+		argtypes = {uint8_t, uint8_t},
+		argnames = {'x', 'y'},
+		desc = "airship:setPos(<?=x?>, <?=y?>)",
+	}
+
+	-- TODO consolidate all these set/clear/toggle/whatever flags across different opcode sets
+	VehicleCmds.SetFlag = VehicleCmd:subclass{
+		cmd = 0xc8,
+		argtypes = {uint16_t},
+		argnames = {'flagIndex'},
+		desc = 'gameState.mapFlags<?=flagIndex?> = true',
+	}
+	VehicleCmds.ClearFlag = VehicleCmd:subclass{
+		cmd = 0xc9,
+		argtypes = {uint16_t},
+		argnames = {'flagIndex'},
+		desc = 'gameState.mapFlags<?=flagIndex?> = false',
+	}
+
+	for cmd=0xca,0xcf do
+		VehicleCmds['VehicleBattle '..cmd] = VehicleCmd:subclass(Battle, {cmd=cmd})
+	end
+
+	-- also WorldCmds 0xd0, 0xd1
+	VehicleCmds.ShowObject = VehicleCmd:subclass{
+		cmd = 0xd0,
+		desc = 'obj.visible = true',
+	}
+	VehicleCmds.HideObject = VehicleCmd:subclass{
+		cmd = 0xd1,
+		desc = 'obj.visible = false',
+	}
+
+	-- also EventCmds 0x6a, 0x6b and WorldCmds 0xd2, 0xd3
+	VehicleCmds.SetMap = VehicleCmd:subclass(SetMap, {cmd = 0xd2})
+	VehicleCmds.SetMap2 = VehicleCmd:subclass(SetMap, {cmd = 0xd3})
+
+	-- also WorldCmds 0xd8, 0xd9
+	VehicleCmds.FadeIn = VehicleCmd:subclass{
+		cmd = 0xd8,
+		desc = 'fadeIn()',
+	}
+	VehicleCmds.FadeOut = VehicleCmd:subclass{
+		cmd = 0xd9,
+		desc = 'fadeOut()',
+	}
+
+	VehicleCmds.ShowDirArrows = VehicleCmd:subclass{
+		cmd = 0xda,
+		desc = 'vehicleDirArrows = "show"',
+	}
+	VehicleCmds.LockDirArrows = VehicleCmd:subclass{
+		cmd = 0xdb,
+		desc = 'vehicleDirArrows = "lock"',
+	}
+	VehicleCmds.HideDirArrows = VehicleCmd:subclass{
+		cmd = 0xdc,
+		desc = 'vehicleDirArrows = "hide"',
+	}
+
+	-- also WorldCmds 0xdd 0xdf
+	VehicleCmds.ShowMiniMap = VehicleCmd:subclass{
+		cmd = 0xdd,
+		desc = 'miniMapVisible = true',
+	}
+
+	VehicleCmds.Unknown_DE = VehicleCmd:subclass{
+		cmd = 0xde,
+		argtypes = {uint8_t, uint8_t},
+		desc = "unknown_de(<?=args:mapi(tostring):concat', '?>)",
+	}
+
+	VehicleCmds.HideMiniMap = VehicleCmd:subclass{
+		cmd = 0xdf,
+		desc = 'miniMapVisible = false',
+	}
+
+	-- also in ObjectCmds and WorldCmds
+	VehicleCmds.Sleep = VehicleCmd:subclass{
+		cmd = 0xe0,
+		argtypes = {uint8_t},
+		argnames = {'frames'},
+		desc = 'sleep(<?=frames?> * 4 / 60)',
+	}
+
+	VehicleCmds.Cinematic_EndingAirship = VehicleCmd:subclass{
+		cmd = 0xf2,
+		desc = "showEndingAirship()",
+	}
+	VehicleCmds.Cinematic_LightOfJudgment1 = VehicleCmd:subclass{
+		cmd = 0xf3,
+		desc = "showLightOfJudgment1()",
+	}
+
+	VehicleCmds.ChangeVehicleGraphicToFalcon = VehicleCmd:subclass{
+		cmd = 0xf4,
+		desc = 'vehicle.graphic = "falcon"',
+	}
+
+	VehicleCmds.Cinematic_LightOfJudgment2 = VehicleCmd:subclass{
+		cmd = 0xf5,
+		desc = "showLightOfJudgment2()",
+	}
+	VehicleCmds.Cinematic_F6 = VehicleCmd:subclass{
+		cmd = 0xf6,
+		desc = "showCinematicF6()",
+	}
+	VehicleCmds.ChangeVehicleGraphicToBird = VehicleCmd:subclass{
+		cmd = 0xf7,
+		desc = 'vehicle.graphic = "bird"',
+	}
+	VehicleCmds.Cinematic_LightOfJudgment3 = VehicleCmd:subclass{
+		cmd = 0xf8,
+		desc = "showLightOfJudgment3()",
+	}
+	VehicleCmds.Cinematic_LightOfJudgment4 = VehicleCmd:subclass{
+		cmd = 0xf9,
+		desc = "showLightOfJudgment4()",
+	}
+	VehicleCmds.Cinematic_FalconRiseFromWater = VehicleCmd:subclass{
+		cmd = 0xfa,
+		desc = "showFalconRiseFromWater()",
+	}
+	VehicleCmds.Cinematic_AirshipSmoking = VehicleCmd:subclass{
+		cmd = 0xfb,
+		desc = "showAirshipSmoking()",
+	}
+	VehicleCmds.Cinematic_AirshipCrashing = VehicleCmd:subclass{
+		cmd = 0xfc,
+		desc = "showAirshipCrashing()",
+	}
+	VehicleCmds.ChangeVehicleGraphicToMorphedTerra= VehicleCmd:subclass{
+		cmd = 0xfd,
+		desc = 'vehicle.graphic = "morphed_terra"',
+	}
+	-- another 0xFE opcode, like FigaroEmerge, I am suspicous this will not always be used ...
+	VehicleCmds.Cinematic_VectorApproach = VehicleCmd:subclass{
+		cmd = 0xfe,
+		desc = "showVectorApproach()",
+	}
+
+	-- one common EndScript class?
+	VehicleCmds.EndScript = VehicleCmd:subclass{
+		cmd = 0xff,
+		desc = 'endScript()',
+	}
+
+	-- map the by-number for by-name
+	for _,k in ipairs(table.keys(VehicleCmds)) do
+		local cl = VehicleCmds[k]
+		if cl.cmd then
+			assert.type(cl.cmd, 'number')
+			VehicleCmds[cl.cmd] = cl
+		end
+	end
+	-- fill in empty numbers with unknowns
+	for i=0,255 do
+		if not VehicleCmds[i] then
+			VehicleCmds[i] = VehicleCmd:subclass{
+				cmd = i,
+				desc = '??? '..('0x%02x'):format(i),
+			}
+		end
+	end
+
+
+	-- still to do, monster-script maybe?
 
 
 	-- useful function
@@ -1735,6 +1971,9 @@ return function(game)
 			-- hmm instead of just 'read' with 'addr', how about a whole interpretation-state, with 'cmdset' too?
 			cmdobj:digest(read)
 
+			-- track all bytes used here, in case someone cares?
+			cmdobj.sizeInBytes = addr - cmdaddr
+
 			game.eventScriptCmds:insert(cmdobj)
 			game.eventScriptCmdIndexForAddr[cmdaddr] = #game.eventScriptCmds
 		end
@@ -1745,8 +1984,7 @@ return function(game)
 	end
 
 
-
-
+--[=[
 	-- from addr to table-of-cmds, which should reassemble to produce the same bytes that is located at that addr to begin with *fingers crossed*
 	-- hmm this whole process is assuming the cmds are not reusing bytes for other cmds
 	-- hmmmmmm
@@ -1758,6 +1996,6 @@ return function(game)
 	local function traceCode(addr, instrSet)
 
 	end
-
+--]=]
 
 end

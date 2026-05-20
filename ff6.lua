@@ -1803,7 +1803,8 @@ tostringOmitEmpty = true,
 		mt.typeToString = fieldsToHex
 
 		mt.getScriptAddr = function(self)
-			--if self.vehicle == 0 and and self.showRider_or_specialGraphics ~= 0 then return end
+			--if self.vehicle == 0 and self.showRider_or_specialGraphics ~= 0 then return end
+			-- ... or does that determine vehicle vs event opcodes?
 			return self.script + ffi.offsetof(Game, 'eventScript')
 		end
 	end,

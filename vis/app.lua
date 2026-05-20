@@ -854,7 +854,8 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 				end
 			end
 			if self.showNPCs then
-				for i,n in ipairs(mapInfo.npcs) do
+				for _,i in ipairs(self.mapWindow.npcOrder) do
+					local n = mapInfo.npcs[i]
 					local x, y = tonumber(n.x), tonumber(n.y)
 					if (leftPress or leftDoubleClick)
 					and x <= mx and mx < x+1

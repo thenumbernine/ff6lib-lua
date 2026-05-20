@@ -463,6 +463,12 @@ function MapWindow:setIndex(newIndex, pushStack)
 	end
 --]]
 
+	-- save a list of NPC indexes in y-order for the renderer
+	-- I should refresh this when any of their y-positions change, but I'm lazy
+	self.npcOrder = range(#mapInfo.npcs):sort(function(a,b)
+		return mapInfo.npcs[a].y < mapInfo.npcs[b].y
+	end)
+
 	-- start us off centered at the first door we find
 	if mapInfo.doors then
 		local e = mapInfo.doors[1]

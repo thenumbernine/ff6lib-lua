@@ -221,11 +221,11 @@ function EventScriptWindow:showIndexUI()
 
 						-- battles:
 						elseif game.EventCmds.TouchBattle:isa(cmd) then	-- TouchBattle is a subclass of Battle
-							ig.igText'TouchBattle'
+							ig.igText'touchBattle'
 							ig.igSameLine()
 							app.eventBattleOptionsWindow:popupButton(cmd.eventBattleOptionsIndex)
 						elseif game.EventCmds.Battle:isa(cmd) then
-							ig.igText'Battle'
+							ig.igText'battle'
 							ig.igSameLine()
 							app.eventBattleOptionsWindow:popupButton(cmd.eventBattleOptionsIndex)
 
