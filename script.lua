@@ -2215,7 +2215,8 @@ assert.gt(#stateStack, 0, "someone popped the last cmdset...")
 						--]]
 
 						reverseRefInfo = {
-							branchFromAddr = ('$%06x'):format(cmdaddr),
+							branchFromAddr = cmdaddr,
+							--branchFromAddr = ('$%06x'):format(cmdaddr),	-- just for debugging
 							--cmdsetName = cmdsetName[info.cmdset or stateStack[1].cmdset],
 						},
 					}

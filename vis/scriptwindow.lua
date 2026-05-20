@@ -140,6 +140,7 @@ function EventScriptWindow:showIndexUI()
 
 				local i = (scrollMax - self.scrollOppositeWorldRow[0]) + visibleRowIndex
 				if i >= 0 and i < count then
+					ig.igPushID_Int(i)
 					local cmd = ar[1+i]
 					if cmd == scriptDivider then
 						ig.igSeparator()
@@ -173,6 +174,11 @@ function EventScriptWindow:showIndexUI()
 									if t then
 										app:centerView(t.pos.x, t.pos.y)
 									end
+								end
+							elseif what.branchFromAddr then
+								ig.igSameLine()
+								if ig.igButton(('branch from $%06x'):format(what.branchFromAddr)) then
+									self:openScriptAddr(what.branchFromAddr)
 								end
 							else
 								ig.igSameLine()
@@ -327,6 +333,7 @@ function EventScriptWindow:showIndexUI()
 						ig.igPopID()
 					end
 				end
+				ig.igPopID()
 			end
 		end
 		ig.igEndTable()
