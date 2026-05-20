@@ -1,4 +1,7 @@
 --[[
+still todo:
+- 0a5ada ... needs to change to world-cmds somehow, but idk what determines this, proly need to trace cmd flow better
+
 if battleanim.lua has battle-animation-scripts
 then should i call this events.lua for event-scripts?
 --]]
@@ -113,8 +116,11 @@ return function(game)
 	-- here's some interpretation state-variables
 	-- that I should probably move into an interpretation-context-object
 	local stateStack
+	local lastDialogPromptCount
 
 	-- because we are using it in EventCmds:
+	local EventCmds = {}
+	local WorldCmds = {}
 	local ObjectCmds = {}
 	local VehicleCmds = {}
 
@@ -122,7 +128,6 @@ return function(game)
 	-- event-commands:
 
 	-- this will hold cmds 0-255 for event-scripts
-	local EventCmds = {}
 	game.EventCmds = EventCmds
 	local EventCmd = Cmd:subclass()
 	game.EventCmd = EventCmd
@@ -303,6 +308,11 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 			self.dialogIndex = bit.band(0x3fff, arg)
 			self.showTextOnly = 0 ~= bit.band(0x4000, arg)
 			self.bottomOfScreen = 0 ~= bit.band(0x8000, arg)
+
+			local dlg = game.dialog[self.dialogIndex]
+			if dlg then
+				lastDialogPromptCount = select(2, dlg:gsub('%[PROMPT%]', '%0'))
+			end
 		end,
 		__tostring = function(self)
 			local dlg = game.dialog[self.dialogIndex]
@@ -468,9 +478,17 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 		for layer,cmd in ipairs(cmds) do
 			EventCmds['ScrollBackground'..('0x%02x'):format(cmd)] = EventCmd:subclass{
 				cmd = cmd,
-				args = {uint8_t, uint8_t},
+				argtypes = {int8_t, int8_t},
+				argnames = {'hscroll', 'vscroll'},
+				layer = layer,
+				_1scomp = _1scomp==1,
 				-- 1's comp is negative scrolling?
-				desc = 'scrollBackgroundLayer{layer='..layer..(_1scomp==1 and ', 1sCompliment=true' or '')..'}',
+				desc = 'scrollBackgroundLayer{'
+					..'layer=<?=layer?>'
+					..'<?=_1scomp and ", 1sCompliment=true" or ""?>'
+					..', hscroll=<?=hscroll?>'
+					..', vscroll=<?=vscroll?>'
+					..'}',
 			}
 		end
 	end
@@ -534,6 +552,15 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 			-- off by 1 in the event entering Mt Kolts.
 			-- not off by 1 in the event when entering the figaro caves from the figaro castle basement.
 			self.mapIndex = bit.band(arg, 0x1ff)
+
+
+			-- another 'gotcha' ...
+			-- looks like if we set-map to maps 0-2 then we should also change our (underlying, non-vehicle) cmdset to world?
+			if self.mapIndex < 3 then
+				stateStack[1].cmdset = WorldCmds
+			else
+				stateStack[1].cmdset = EventCmds
+			end
 
 
 			if self.vehicle == 0 then
@@ -965,8 +992,8 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 		cmd = 0xb6,
 		digest = function(self, read)
 			self.addrs = table()
-			local choices = 2	-- TODO depends on previous dialog text prompt count
-			for i=1,choices do
+if not lastDialogPromptCount then error("required choices but no dialog at "..('$%06x'):format(self.addr)) end
+			for i=1,lastDialogPromptCount do
 				self.addrs:insert(startaddr + read(uint24_t))
 			end
 		end,
@@ -1116,35 +1143,35 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 
 	EventCmds.ShowCharacterPortrait = EventCmd:subclass{
 		cmd = 0xe7,
-		argtypes = {uint8_t, uint8_t},
-		argnames = {'characterIndex', 'portraitIndex'},
-		desc = "show character[<?=characterIndex?>] portrait[<?=portraitIndex?>] ",
+		argtypes = {uint8_t},
+		argnames = {'characterIndex'},
+		desc = "showPortraitForCharacter(<?=characterIndex?>)",
 	}
 
 	EventCmds.VarSet = EventCmd:subclass{
 		cmd = 0xe8,
-		argtypes = {uint8_t, uint8_t},
+		argtypes = {uint8_t, uint16_t},
 		argnames = {'var', 'value'},
 		desc = 'vars[<?=var?>] = <?=value?>',
 	}
 
 	EventCmds.VarAdd = EventCmd:subclass{
 		cmd = 0xe9,
-		argtypes = {uint8_t, uint8_t},
+		argtypes = {uint8_t, uint16_t},
 		argnames = {'var', 'value'},
 		desc = 'vars[<?=var?>] = vars[<?=var?>] + <?=value?>',
 	}
 
 	EventCmds.VarSub = EventCmd:subclass{
 		cmd = 0xea,
-		argtypes = {uint8_t, uint8_t},
+		argtypes = {uint8_t, uint16_t},
 		argnames = {'var', 'value'},
 		desc = 'vars[<?=var?>] = vars[<?=var?>] - <?=value?>',
 	}
 
 	EventCmds.VarCmp = EventCmd:subclass{
 		cmd = 0xeb,
-		argtypes = {uint8_t, uint8_t},
+		argtypes = {uint8_t, uint16_t},
 		argnames = {'var', 'value'},
 		desc = 'vars[<?=var?>] = vars[<?=var?>] < <?=value?> and 1 or 0',	-- idk what this is really
 	}
@@ -1152,10 +1179,11 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 	EventCmds.PlaySongVol = EventCmd:subclass{
 		cmd = 0xef,
 		argtypes = {uint8_t, uint8_t},
+		argnames = {'song', 'volume'},
 		desc = 'playSong{'
-			..'<?=bit.band(0x7f, args[1])?>'
-			..'<?=0~=bit.band(0x80,args[1]) and "altStart=true, " or ""?>'
-			..', volume=<?=args[2]?>'
+			..'<?=bit.band(0x7f, song)?>'
+			..'<?=0 ~= bit.band(0x80, song) and "altStart=true, " or ""?>'
+			..', volume=<?=volume?>'
 		..'}',
 	}
 
@@ -1262,9 +1290,22 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 	local ObjectCmd = Cmd:subclass()
 	game.ObjectCmd = ObjectCmd
 
+	local function popObjectCmdSet(addr, dontDoTheProbablyWrongEndAddrCheck)
+		assert.gt(#stateStack, 1, "tried to pop a cmdset when the stack would become empty")
+		local prevState = stateStack:remove()
+assert.eq(prevState.cmdset, ObjectCmds, "got ObjectCmds.EndScript when it wasn't in the object cmdset...")
+		local objectScriptCmd = prevState.objectScriptCmd
+assert.ne(objectScriptCmd, nil, "got an object end-script when there was no objectScriptCmd set ...")
+		if not dontDoTheProbablyWrongEndAddrCheck
+		and addr ~= objectScriptCmd.addr + objectScriptCmd.length + 1
+		then
+			print("!!! DANGER !!! object-script length doesn't align with end-of-script cmd:", ('$%06x'):format(addr), 'vs', ('$%06x'):format(objectScriptCmd.addr + objectScriptCmd.length + 1))
+		end
+	end
+
 	-- also in WorldCmds
 	ObjectCmds.Action = ObjectCmd:subclass{
-		desc = "<?=0~=bit.band(0x40, cmd) and 'obj.hflip=true ' or ''?>"
+		desc = "<?=0 ~= bit.band(0x40, cmd) and 'obj.hflip=true ' or ''?>"
 			.."obj:doAction(<?=bit.band(cmd, 0x3f)?>)",
 	}
 	for cmd=0,0x7f do
@@ -1274,8 +1315,16 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 	end
 
 	ObjectCmds.Move = ObjectCmd:subclass{
-		desc = 'obj.dir = <?=bit.band(cmd, 3)?> '
-			..'obj:walkForward(<?=bit.band(bit.rshift(cmd, 2), 7)?>)',
+		digest = function(self, read)
+			self.dir = bit.band(self.cmd, 3)
+			self.dist = bit.band(bit.rshift(self.cmd, 2), 7)
+			self.descstr = 'obj.dir = '..self.dir
+			if self.dist ~= 0 then
+				self.descstr = self.descstr .. ' obj:walkForward('..self.dist..')'
+			end
+		end,
+		-- 'desc' is fed thru 'template' so...
+		__tostring = function(self) return self.descstr end,
 	}
 	for cmd=0x80,0x9f do
 		ObjectCmds['Move '..cmd] = ObjectCmds.Move:subclass{cmd=cmd}
@@ -1417,6 +1466,27 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 		cmd = 0xfc,
 		random = false,
 		dir = '-',
+		-- [=[
+		digest = function(self, ...)
+			ObjectCmds.Branch.digest(self, ...)
+
+			-- this will end an object-script...
+			-- or TODO should I just do proper tracing and just redirect the object-opcode trace to PC+-offset ?
+			-- namely 0xa2dd4 -> a2dd6 ... does anyone jump to a2dd6, or is a2dd4's branch unconditional, such that no more decoding makes any sense?
+			-- in fact, nope, adding this command makes more problems than solutions
+			-- TODO TODO this whole block of script
+			-- even when only applying to branch-back ...
+			-- or maybe this should only happen if our object-script length has expired?
+			-- only for select operations still? or for any operation i.e. move to loop below?
+			local objectScriptCmd = stateStack:last().objectScriptCmd
+			if objectScriptCmd
+			and self.addr
+				== objectScriptCmd.addr + objectScriptCmd.length
+			then
+				popObjectCmdSet(self.addr, true)
+			end
+		end,
+		--]=]
 	}
 	ObjectCmds.BranchFwd = ObjectCmds.Branch:subclass{
 		cmd = 0xfd,
@@ -1428,14 +1498,7 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 	ObjectCmds.EndScript = ObjectCmd:subclass{
 		cmd = 0xff,
 		digest = function(self, ...)
-assert.gt(#stateStack, 1, "tried to pop a cmdset when the stack would become empty")
-			local prevState = stateStack:remove()
-assert.eq(prevState.cmdset, ObjectCmds, "got ObjectCmds.EndScript when it wasn't in the object cmdset...")
-			local objectScriptCmd = prevState.objectScriptCmd
-assert.ne(objectScriptCmd, nil, "got an object end-script when there was no objectScriptCmd set ...")
-			if self.addr ~= objectScriptCmd.addr + objectScriptCmd.length + 1 then
-				print("!!! DANGER !!! object-script length doesn't align with end-of-script cmd:", ('$%06x'):format(self.addr), 'vs', ('$%06x'):format(objectScriptCmd.addr + objectScriptCmd.length + 1))
-			end
+			popObjectCmdSet(self.addr)
 		end,
 		desc = 'end)',	-- and joinAll() if the objectScriptCmd had blocking ...
 	}
@@ -1463,14 +1526,13 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 
 	-- now comes world-commands
 	-- this is the opcodes of the touch triggers in the world maps
-	local WorldCmds = {}
 	game.WorldCmds = WorldCmds
 	local WorldCmd = Cmd:subclass()
 	game.WorldCmd = WorldCmd
 
 	-- same as in ObjectCmds
 	WorldCmds.Action = WorldCmd:subclass{
-		desc = "<?=0~=bit.band(0x40, cmd) and 'obj.hflip=true ' or ''?>"
+		desc = "<?=0 ~= bit.band(0x40, cmd) and 'obj.hflip=true ' or ''?>"
 			.."obj:doAction(<?=bit.band(cmd, 0x3f)?>)",
 	}
 	for cmd=0,0x7f do
@@ -1707,7 +1769,6 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 		desc = "airship:setPos(<?=x?>, <?=y?>)",
 	}
 
-	-- TODO consolidate all these set/clear/toggle/whatever flags across different opcode sets
 	VehicleCmds.SetFlag = VehicleCmd:subclass{
 		cmd = 0xc8,
 		argtypes = {uint16_t},
@@ -2001,6 +2062,7 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 			startCmdSet = EventCmds
 		end
 
+		lastDialogPromptCount = nil
 		stateStack = table()
 		stateStack:insert{
 			cmdset = startCmdSet,
@@ -2076,14 +2138,16 @@ end
 		:gsub('\n', '\\n')
 	))
 --]====]
-
-
 		end
 
 		assert.ge(#stateStack, 1, "somehow we popped all our states...")
 
 		if stateStack:last().objectScriptCmd then
-			print('!!! DANGER !!! event-script ended still inside an object-script:', ('$%06x'):format(startAddr))
+			print('!!! DANGER !!! event-script ended still inside an object-script:',
+				('script start = $%06x'):format(startAddr),
+				('next script start = $%06x'):format(nextAddr),
+				('object-script start = $%06x'):format(stateStack:last().objectScriptCmd.addr)
+			)
 		end
 	end
 
