@@ -58,7 +58,22 @@ function EventScriptWindow:showIndexUI()
 
 	local ar = self:getArray()
 
-	ig.igInputInt('current opposite-world row', self.scrollOppositeWorldRow)
+	do
+		self.__tmp = ''
+		local cmd = self:getIndex(self.index)
+		if cmd and cmd.addr then
+			self.__tmp = ('%06x'):format(cmd.addr)
+		end
+		if ig.luatableInputText('addr', self, '__tmp', ig.ImGuiInputTextFlags_EnterReturnsTrue) then
+			local addr = tonumber(self.__tmp, 16)
+			if addr then
+				self:openScriptAddr(addr)
+			end
+		end
+	end
+
+	-- gahhhh
+	--ig.igInputInt('current opposite-world row', self.scrollOppositeWorldRow)
 
 	ig.igGetContentRegionAvail(self.availSpace)
 	self.availSpace.x = 18

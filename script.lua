@@ -382,8 +382,8 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 		cmd = 0x50,
 		argtypes = {uint8_t},
 		argnames = {'arg'},
-		what = 'Background',
-		desc = 'change<?=what?>Palette{'
+		paletteName = 'Background',
+		desc = 'change<?=paletteName?>Palette{'
 			..'func=<?=bit.band(3, bit.rshift(arg, 6))?>'
 			..', color=<?=bit.band(7, bit.rshift(arg, 2))?>'
 			..', intensity=<?=bit.band(3, arg)?>'
@@ -400,12 +400,12 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 
 	EventCmds.ChangeSpritePalette = EventCmds.ChangeBackgroundPalette:subclass{
 		cmd = 0x52,
-		what = 'Sprite',
+		paletteName = 'Sprite',
 	}
 
-	EventCmds.ChangeBackgroundPaletteRange = EventCmds.ChangeBackgroundPaletteRange:subclass{
+	EventCmds.ChangeSpritePaletteRange = EventCmds.ChangeBackgroundPaletteRange:subclass{
 		cmd = 0x53,
-		what = 'Sprite',
+		paletteName = 'Sprite',
 	}
 
 	EventCmds.DisableFixedColorMath = EventCmd:subclass{
@@ -1168,19 +1168,26 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 	EventCmds.PlaySongFadeIn = EventCmd:subclass{
 		cmd = 0xf1,
 		argtypes = {uint8_t, uint8_t},
-		desc = 'fadeInSong{<?=args[1]?>, speed=<?=args[2]?>}',
+		argnames = {'song', 'speed'},
+		desc = 'fadeInSong{'
+			..'song=<?=song?>'
+			..', speed=<?=bit.band(0x7f, speed)?>'
+			..'<?=0 ~= bit.band(0x80, speed) and ", altStart=true" or ""?>'
+			..'}',
 	}
 
 	EventCmds.PlaySongFadeOut = EventCmd:subclass{
 		cmd = 0xf2,
-		argtypes = {uint8_t, uint8_t},
-		desc = 'fadeOutSong{speed=<?=args[1]?>}',
+		argtypes = {uint8_t},
+		argnames = {'speed'},
+		desc = 'fadeOutSong{speed=<?=speed?>}',
 	}
 
 	EventCmds.FadeInPrevSong = EventCmd:subclass{
-		cm = 0xf3,
+		cmd = 0xf3,
 		argtypes = {uint8_t},
-		desc = 'fadeInPrevSong{speed=<?=args[1]?>}',
+		argnames = {'speed'},
+		desc = 'fadeInPrevSong{speed=<?=speed?>}',
 	}
 
 	EventCmds.PlaySound = EventCmd:subclass{
