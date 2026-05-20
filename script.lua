@@ -1839,6 +1839,13 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 	-- one common EndScript class?
 	VehicleCmds.EndScript = VehicleCmd:subclass{
 		cmd = 0xff,
+		digest = function(self, ...)
+			-- assert we're in a vehicle state and pop state
+			assert.gt(#stateStack, 1, "how did we get here?")
+			assert.eq(stateStack:last().cmdset, VehicleCmds, "how did we get here?")
+			stateStack:remove()
+		end,
+		-- is a vehicle end-script on par with a world/event end-script, or is it more like object end-script that just ends the object-section ?
 		desc = 'endScript()',
 	}
 

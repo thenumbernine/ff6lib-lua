@@ -670,11 +670,11 @@ for i=0,countof(game.touchTriggerOfs)-1 do
 		or (game.touchTriggerOfs[i+1] - ofs) / ffi.sizeof(game.TouchTrigger)
 	print('touchTriggers[0x'..i:hex()..']:')
 	for index=startIndex,endIndex-1 do
-		local e = game.touchTriggers[index]
-		local scriptAddr = e:getScriptAddr()
+		local t = game.touchTriggers[index]
+		local scriptAddr = t:getScriptAddr()
 		print('\t0x'..index:hex()
 			..(scriptAddr and (' script=$%06x'):format(scriptAddr) or '')
-			..' = '..e)
+			..' = '..t)
 	end
 end
 print()

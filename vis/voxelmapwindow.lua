@@ -641,19 +641,22 @@ function VoxelmapWindow:updateWindow()
 							lprint('', 'movementIsUnknown_TODO = '..n.movement..',')
 						end
 						lprint('', 'walkSpeed = 6 * '..n.speed..',')
-						lprint('', 'onAct = function(ent, clientEnt, client)')
 
 						local addr = n:getScriptAddr()
-						local nextaddr = addrsInOrder[addrsInOrder:find(addr)+1]
+						if addr then
+							lprint('', 'onAct = function(ent, clientEnt, client)')
 
-						local startCmdIndex = game.eventScriptCmdIndexForAddr[addr]
-						local endCmdIndex = (game.eventScriptCmdIndexForAddr[nextaddr] or #game.eventScriptCmds+1)-1
+							local nextaddr = addrsInOrder[addrsInOrder:find(addr)+1]
 
-						for i=startCmdIndex, endCmdIndex do
-							lprint('', '', ''..tostring(game.eventScriptCmds[i]))
+							local startCmdIndex = game.eventScriptCmdIndexForAddr[addr]
+							local endCmdIndex = (game.eventScriptCmdIndexForAddr[nextaddr] or #game.eventScriptCmds+1)-1
+
+							for i=startCmdIndex, endCmdIndex do
+								lprint('', '', ''..tostring(game.eventScriptCmds[i]))
+							end
+
+							lprint('', 'end,')
 						end
-
-						lprint('', 'end,')
 						lprint'}'
 					end
 

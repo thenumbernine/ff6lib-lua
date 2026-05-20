@@ -1,3 +1,4 @@
+local ig = require 'imgui'
 local ArrayWindow = require 'ff6.vis.arraywindow'
 
 local NPCWindow = ArrayWindow:subclass()
@@ -15,8 +16,13 @@ function NPCWindow:showIndexUI()
 
 	for fieldname, ctype, field in n:fielditer() do
 		if fieldname == 'script' then
+			--self:editField(n, fieldname, ctype, field)
 			-- TODO how to edit script pointers?
-			self.app.scriptWindow:popupButtonForAddr(n:getScriptAddr())
+			local addr = n:getScriptAddr()
+			if addr then
+				--ig.igSameLine()
+				self.app.scriptWindow:popupButtonForAddr(addr)
+			end
 		elseif fieldname == 'graphics' then
 			-- add in the ref to spritewindow on the rhs
 			if self:editRef(self.app.spriteWindow, n, fieldname) then

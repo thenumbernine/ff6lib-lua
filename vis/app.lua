@@ -792,7 +792,10 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 						self.touchTriggerWindow:setIndex(i-1)
 						self.touchTriggerWindow.show[0] = true
 						if leftDoubleClick then
-							self.scriptWindow:openScriptAddr(t:getScriptAddr())
+							local addr = t:getScriptAddr()
+							if addr then
+								self.scriptWindow:openScriptAddr(addr)
+							end
 						end
 					end
 					settable(uniforms.bbox, x, y, 1, 1)
@@ -854,31 +857,38 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 				end
 			end
 			if self.showNPCs then
-				for _,i in ipairs(self.mapWindow.npcOrder) do
-					local n = mapInfo.npcs[i]
-					local x, y = tonumber(n.x), tonumber(n.y)
-					if (leftPress or leftDoubleClick)
-					and x <= mx and mx < x+1
-					and y <= my and my < y+1
-					then
-						self.npcWindow:setIndex(i-1)
-						self.npcWindow.show[0] = true
-						if leftDoubleClick then
-							self.scriptWindow:openScriptAddr(n:getScriptAddr())
-						end
-					end
-					settable(uniforms.bbox, x, y, 1, 1)
-					settable(uniforms.color, 0,1,1,.5)
-					rectObj:draw()
-					if i-1 == self.npcWindow.index then
-						showHL()
-					end
+				if self.mapWindow.npcOrder then	-- if not then there's no mapInfo
+					for _,i in ipairs(self.mapWindow.npcOrder) do
+						local n = mapInfo.npcs[i]
+						if n then	-- when is npcOrder going out of sync with the current map??????
+							local x, y = tonumber(n.x), tonumber(n.y)
+							if (leftPress or leftDoubleClick)
+							and x <= mx and mx < x+1
+							and y <= my and my < y+1
+							then
+								self.npcWindow:setIndex(i-1)
+								self.npcWindow.show[0] = true
+								if leftDoubleClick then
+									local addr = n:getScriptAddr()
+									if addr then
+										self.scriptWindow:openScriptAddr(addr)
+									end
+								end
+							end
+							settable(uniforms.bbox, x, y, 1, 1)
+							settable(uniforms.color, 0,1,1,.5)
+							rectObj:draw()
+							if i-1 == self.npcWindow.index then
+								showHL()
+							end
 
-					local tex = self.mapWindow.npcTexs[i]
-					if tex then
-						self.rgbaTexObj.texs[1] = tex
-						settable(self.rgbaTexObj.uniforms.bbox, x,y-1,1,1.5)
-						self.rgbaTexObj:draw()
+							local tex = self.mapWindow.npcTexs[i]
+							if tex then
+								self.rgbaTexObj.texs[1] = tex
+								settable(self.rgbaTexObj.uniforms.bbox, x,y-1,1,1.5)
+								self.rgbaTexObj:draw()
+							end
+						end
 					end
 				end
 			end

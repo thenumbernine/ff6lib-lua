@@ -182,6 +182,8 @@ function MapWindow:setIndex(newIndex, pushStack)
 	local app = self.app
 	local game = app.game
 
+	self.npcOrder = nil
+
 	local oldIndex = self.index
 
 	-- special case for map 0x511 = parent map
@@ -217,6 +219,12 @@ function MapWindow:setIndex(newIndex, pushStack)
 		print("map "..mapIndex.." missing")
 		return
 	end
+
+	-- save a list of NPC indexes in y-order for the renderer
+	-- I should refresh this when any of their y-positions change, but I'm lazy
+	self.npcOrder = range(#mapInfo.npcs):sort(function(a,b)
+		return mapInfo.npcs[a].y < mapInfo.npcs[b].y
+	end)
 
 	-- refresh the monster random battle options to reflect the map's
 	if self.index < 2 then
@@ -462,12 +470,6 @@ function MapWindow:setIndex(newIndex, pushStack)
 		end
 	end
 --]]
-
-	-- save a list of NPC indexes in y-order for the renderer
-	-- I should refresh this when any of their y-positions change, but I'm lazy
-	self.npcOrder = range(#mapInfo.npcs):sort(function(a,b)
-		return mapInfo.npcs[a].y < mapInfo.npcs[b].y
-	end)
 
 	-- start us off centered at the first door we find
 	if mapInfo.doors then

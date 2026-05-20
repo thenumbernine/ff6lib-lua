@@ -1803,7 +1803,14 @@ tostringOmitEmpty = true,
 		mt.typeToString = fieldsToHex
 
 		mt.getScriptAddr = function(self)
-			--if self.vehicle == 0 and self.showRider_or_specialGraphics ~= 0 then return end
+			-- this seems to be the biggest correlator ...
+			if self.showRider_or_specialGraphics ~= 0
+			-- and i guess this too?
+			and self.vehicle_or_speed == 0
+			then
+				return
+			end
+
 			-- ... or does that determine vehicle vs event opcodes?
 			return self.script + ffi.offsetof(Game, 'eventScript')
 		end
@@ -1838,7 +1845,7 @@ end,
 
 						{name='unknown_2_2', type='uint32_t:3'},			-- 2.2-2.4
 						{name='scrollingLayer', type='uint32_t:1'},			-- 2.5 = 0=layer1, 1=layer2
-						{name='flag', type='uint32_t:10'},				-- 2.6-3.7
+						{name='flag', type='uint32_t:10'},					-- 2.6-3.7
 					},
 				}},
 
