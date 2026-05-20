@@ -129,6 +129,13 @@ return function(game)
 	local ObjectCmds = {}
 	local VehicleCmds = {}
 
+	local cmdsetName = {
+		[EventCmds] = 'EventCmds',
+		[WorldCmds] = 'WorldCmds',
+		[ObjectCmds] = 'ObjectCmds',
+		[VehicleCmds] = 'VehicleCmds',
+	}
+
 
 	-- event-commands:
 
@@ -563,12 +570,13 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 			-- looks like if we set-map to maps 0-2 then we should also change our (underlying, non-vehicle) cmdset to world?
 -- TODO doing this isn't good .. we gotta trace through each branch to properly find out how to interpet things.
 -- need more than a state-stack
-			if self.mapIndex < 3 then
+			if self.mapIndex < 2
+			or self.mapIndex == 511	-- ... and the previous map was a world map ... ?
+			then
 				stateStack[1].cmdset = WorldCmds
 			else
 				stateStack[1].cmdset = EventCmds
 			end
-
 
 			if self.vehicle == 0 then
 				-- now if we are clearing vehicle...
@@ -1172,13 +1180,15 @@ if not lastDialogPromptCount then error("required choices but no dialog at "..('
 			argtypes = {uint8_t},
 			getargs = function(self, flagIndex)
 				-- 0 = set, 1 = clear
-				self.value = 0 == bit.band(1, cmd)
+				self.value = 0 == bit.band(1, self.cmd)
 				self.flagIndex = bit.bor(
 					bit.lshift(bit.band(self.cmd, 0xe), 7),	-- move bits 1:3 to bits 8:10
 					flagIndex
 				)
+				self.descstr = 'gameState.mapFlag'..self.flagIndex
+					..' = '..tostring(self.value)
 			end,
-			desc = 'gameState.mapFlag<?=flagIndex?> = <?=tostring(value)?>',
+			__tostring = function(self) return self.descstr end,
 		}
 	end
 
@@ -2050,7 +2060,7 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 
 	-- remember where we've started from so we don't go over the same area twice
 	-- TODO this but for the state of decoding as well
-	local haveDecodedFrom = {}
+	local decompileTraces = {}
 
 	local function decompileFrom(args)
 		local startAddr = assert.index(args, 'addr')
@@ -2066,8 +2076,45 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {indent=false}))
 
 		-- make sure we haven't decoded this already
 		-- hmm TODO maybe someday I'll return the decoded block and store that by the caller instead of storing per-cmd per-addr....
-		if haveDecodedFrom[startAddr] then return end
-		haveDecodedFrom[startAddr] = true
+		--[[
+		if decompileTraces[startAddr] then
+			if decompileTraces[startAddr].cmdset ~= startCmdSet then
+				print('!!! DANGER !!!',
+					('$%06x'):format(startAddr),
+					'decoding address from differing cmdset!',
+					cmdsetName[decompileTraces[startAddr].cmdset],
+					'vs',
+					cmdsetName[startCmdSet]
+				)
+			end
+			return
+		end
+		--]]
+		-- [[
+		for _,trace in pairs(decompileTraces) do
+			local cmd = trace.cmdObjForAddr[startAddr]
+			if cmd then
+				if trace.cmdset ~= startCmdSet then
+					print('!!! DANGER !!!',
+						('$%06x'):format(startAddr),
+						'decoding address from differing cmdset!',
+						cmdsetName[trace.cmdset],
+						'vs',
+						cmdsetName[startCmdSet]
+					)
+				end
+				-- then we can return
+				return
+			end
+		end
+		--]]
+
+		local trace = {}
+		decompileTraces[startAddr] = trace
+		trace.addr = startAddr
+		trace.cmdset = startCmdSet
+		trace.cmds = table()
+		trace.cmdObjForAddr = {}	-- keys are cmds[i].addr
 
 		-- reset script decode state
 		lastDialogPromptCount = nil
@@ -2077,6 +2124,12 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {indent=false}))
 		stateStack:insert{
 			cmdset = startCmdSet,
 		}
+
+		if args.inVehicle then
+			stateStack:insert{
+				cmdset = VehicleCmds,
+			}
+		end
 
 		local branchInfos = table()
 
@@ -2111,6 +2164,8 @@ assert.gt(#stateStack, 0, "someone popped the last cmdset...")
 			cmdobj.sizeInBytes = addr - cmdaddr
 
 			game.eventScriptCmds:insert(cmdobj)
+			trace.cmds:insert(cmdobj)
+			trace.cmdObjForAddr[cmdaddr] = cmdobj
 
 --[==[ debugging print as we go
 	io.write(('$%06x'):format(cmdobj.addr), '\t')
@@ -2141,15 +2196,24 @@ assert.gt(#stateStack, 0, "someone popped the last cmdset...")
 				-- decode branches ... now or later?
 				for _,info in ipairs(cmdobj:getBranchAddrs()) do
 					branchInfos:insert{
-						addr = assert.index(args, 'addr'),
+						addr = assert.index(info, 'addr'),
 						cmdset = info.cmdset or stateStack[1].cmdset,	-- make sure we record the current cmdset
-						reverseRefInfo = {branchAddr = cmdaddr},
+						--[[ maybe this isn't a good determination?
+						inVehicle = stateStack:last().cmdset == VehicleCmds,	-- right now stateStack is just 1 or 2 in size, and 2 is always VehicleCmds, and 1 is always not...
+						--]]
+						reverseRefInfo = {
+							branchFromAddr = ('$%06x'):format(cmdaddr),
+							--cmdsetName = cmdsetName[info.cmdset or stateStack[1].cmdset],
+						},
 					}
 				end
 			end
 
 			if cmdobj.endTrace then break end
 		end
+
+		-- set this before trying recursive, so they know this trace's address interval
+		trace.endAddr = addr
 
 --[==[ debugging:
 print(('END $%06x'):format(startAddr))
@@ -2179,20 +2243,29 @@ print()
 		if mapInfo then
 
 			local function decodeForMap(startAddr, reverseRefInfo)
-				local startCmdSet = mapIndex < 3 and WorldCmds or EventCmds
+				local startCmdSet = mapIndex < 2 and WorldCmds or EventCmds
+
 				-- even if world-map is using commonReturnAddr, stillu se EventCmds, cuz I think this is the only address that could either be EventCmds or WorldCmds
 				if startAddr == commonReturnAddr then
 					startCmdSet = EventCmds
 				end
 
+				-- blackjack book starts as 'inVehicle':
+				local inVehicle
+				if startAddr == 0x0aa6c0 then
+					-- can I do this?
+					inVehicle = true
+				end
+
 				return decompileFrom{
 					addr = startAddr,
 					cmdset = startCmdSet,
+					inVehicle = inVehicle,
 					reverseRefInfo = reverseRefInfo,
 				}
 			end
 
-			-- if the mapIndex < 3 then it's a world-script, otherwise it's an event-script
+			-- if the mapIndex < 2 then it's a world-script, otherwise it's an event-script
 			-- ... right?
 			decodeForMap(mapInfo.startEventScriptAddr, {
 				type = 'startEventScriptAddr',
@@ -2212,7 +2285,7 @@ print()
 			for touchTriggerIndex,t in ipairs(mapInfo.touchTriggers) do
 				local scriptAddr = t:getScriptAddr()
 				if scriptAddr then
-					-- if the mapIndex < 3 then it's a world-script, otherwise it's an event-script
+					-- if the mapIndex < 2 then it's a world-script, otherwise it's an event-script
 					decodeForMap(scriptAddr, {
 						touchTriggerIndex = touchTriggerIndex-1,
 						mapIndex = mapIndex,
@@ -2224,48 +2297,48 @@ print()
 
 	--[[ add builtins?
 	for addr,name in pairs{
-		[0xca0000] = 'no event',
-		[0xca0001] = 'wait for dialogue window',
-		[0xca0003] = 'game start',
-		[0xca0008] = 'chest: item',
-		[0xca000c] = 'chest: spell',
-		[0xca0010] = 'chest: gp',
-		[0xca0014] = 'chest: empty',
-		[0xca0018] = 'random battle',
-		[0xca0034] = 'tent',
-		[0xca0039] = 'warp/warp stone',
-		[0xca0040] = 'chest: monster-in-a-box',
-		[0xca0078] = 'falcon: deck',
-		[0xca009d] = 'doom gaze',
-		[0xca00ea] = 'tent: animation',
-		[0xca0108] = 'warp: animation',
-		[0xca015e] = 'tent: animation (world)',
-		[0xca01a2] = 'kefka's tower',
-		[0xca0405] = 'phoenix cave',
-		[0xca057d] = 'final battle/ending',
-		[0xca5ade] = 'floating island: cinematic',
-		[0xca5e33] = 'new game',
-		[0xca5ea9] = 'post-battle',
-		[0xca5eb3] = 'return',
-		[0xca5eb4] = 'return (world)',
-		[0xcaca64] = 'check facing direction',
-		[0xcacd31] = 'inn: no dream',
-		[0xcacd3c] = 'inn: normal',
-		[0xcacd5b] = 'inn: dream 1',
-		[0xcacdd9] = 'inn: dream 2',
-		[0xcace51] = 'inn: dream 3',
-		[0xcacefe] = 'inn: dream 4',
-		[0xcacf67] = 'inn: fade out',
-		[0xcacf96] = 'inn: fade in',
-		[0xcb69ff] = 'not enough gp',
-		[0xcc985b] = 'prologue',
-		[0xcc9aeb] = 'save point',
-		[0xcce566] = 'game over',
+		[0x0a0000] = 'no event',
+		[0x0a0001] = 'wait for dialogue window',
+		[0x0a0003] = 'game start',
+		[0x0a0008] = 'chest: item',
+		[0x0a000c] = 'chest: spell',
+		[0x0a0010] = 'chest: gp',
+		[0x0a0014] = 'chest: empty',
+		[0x0a0018] = 'random battle',
+		[0x0a0034] = 'tent',
+		[0x0a0039] = 'warp/warp stone',
+		[0x0a0040] = 'chest: monster-in-a-box',
+		[0x0a0078] = 'falcon: deck',
+		[0x0a009d] = 'doom gaze',
+		[0x0a00ea] = 'tent: animation',
+		[0x0a0108] = 'warp: animation',
+		[0x0a015e] = 'tent: animation (world)',
+		[0x0a01a2] = 'kefka's tower',
+		[0x0a0405] = 'phoenix cave',
+		[0x0a057d] = 'final battle/ending',
+		[0x0a5ade] = 'floating island: cinematic',
+		[0x0a5e33] = 'new game',
+		[0x0a5ea9] = 'post-battle',
+		[0x0a5eb3] = 'return',
+		[0x0a5eb4] = 'return (world)',
+		[0x0aca64] = 'check facing direction',
+		[0x0acd31] = 'inn: no dream',
+		[0x0acd3c] = 'inn: normal',
+		[0x0acd5b] = 'inn: dream 1',
+		[0x0acdd9] = 'inn: dream 2',
+		[0x0ace51] = 'inn: dream 3',
+		[0x0acefe] = 'inn: dream 4',
+		[0x0acf67] = 'inn: fade out',
+		[0x0acf96] = 'inn: fade in',
+		[0x0b69ff] = 'not enough gp',
+		[0x0c985b] = 'prologue',
+		[0x0c9aeb] = 'save point',
+		[0x0ce566] = 'game over',
 	} do
 		game.eventScriptAddrs[addr] = table{{builtin=name}}
 	end
 	for addr,name in pairs{
-		[0xcaa6c0] = 'blackjack book',
+		[0x0aa6c0] = 'blackjack book',
 	} do
 		game.eventScriptAddrs[addr] = table{{builtin=name, cmdset=VehicleCmds}}
 	end
@@ -2279,6 +2352,59 @@ print()
 	for i,cmd in ipairs(game.eventScriptCmds) do
 		if cmd.addr then
 			game.eventScriptCmdIndexForAddr[cmd.addr] = i
+		end
+	end
+
+
+	local sortedTraces = table.values(decompileTraces)
+	sortedTraces:sort(function(a,b) return a.addr < b.addr end)
+	for i=#sortedTraces-1,1,-1 do
+		local a = sortedTraces[i]
+		local b = sortedTraces[i+1]
+		-- if they have the same ending
+		-- then chances are the smaller half decoded first then the larger earlier half
+		if a.addr < b.addr and a.endAddr == b.endAddr then
+--print('found possible subset', ('$%06x'):format(a.addr), ('$%06x'):format(b.addr), ('$%06x'):format(b.endAddr))
+			-- but first verify
+			-- make sure the cmdsets match
+			if a.cmdset ~= b.cmdset then
+--print("...but cmdset didn't match")
+			else
+				-- make sure all the cmds match
+				local allmatch = true
+				for j,bcmd in ipairs(b.cmds) do
+					local acmd = a.cmds[#a.cmds-#b.cmds+j]
+					if acmd.addr ~= bcmd.addr then
+--print('...but cmd addr at '..('$%06x'):format(acmd.addr)..' vs '..('$%06x'):format(bcmd.addr).." didn't match")
+						allmatch = false
+					end
+					if getmetatable(acmd) ~= getmetatable(bcmd) then
+--print('...but cmd metatable at '..('$%06x'):format(acmd.addr).." didn't match")
+						allmatch = false
+						break
+					end
+				end
+				if allmatch then
+--print('removing subset trace', b.addr)
+					decompileTraces[b.addr] = nil
+					sortedTraces:remove(i+1)
+				end
+			end
+		end
+	end
+
+	-- double-check collisions
+	local sortedTraces = table.values(decompileTraces)
+	sortedTraces:sort(function(a,b) return a.addr < b.addr end)
+	for i=2,#sortedTraces do
+		local a = sortedTraces[i-1]
+		local b = sortedTraces[i]
+		if b.addr < a.endAddr then
+			print('- collision detected between '
+				..('$%06x'):format(a.addr)..' - '..('$%06x'):format(a.endAddr)
+				..' and '
+				..('$%06x'):format(b.addr)..' - '..('$%06x'):format(b.endAddr)
+			)
 		end
 	end
 
