@@ -1080,8 +1080,9 @@ if not lastDialogPromptCount then error("required choices but no dialog at "..('
 
 	EventCmds.EndRepeatSwitch = EventCmd:subclass{
 		cmd = 0xbc,
-		argtypes = {uint8_t},
-		desc = 'end--for switch',
+		argtypes = {uint16_t},
+		argnames = {'cond'},
+		desc = 'if cond <?=cond?> then break',
 	}
 
 	EventCmds.Jump5050 = EventCmd:subclass{
@@ -2139,6 +2140,14 @@ print(('BEGIN $%06x'):format(startAddr))
 --]==]
 
 		while true do
+			if not (
+				(scriptBaseAddr <= addr and addr < scriptBaseAddrEnd)
+				or (scriptBaseAddr2 <= addr and addr < scriptBaseAddrEnd2)
+			) then
+print('!!! script oob !!! '..('$%06x'):format(addr))
+				break
+			end
+
 			local function read(ctype)
 				local o
 				o, addr = readAndInc(ctype, addr)
@@ -2198,9 +2207,13 @@ assert.gt(#stateStack, 0, "someone popped the last cmdset...")
 					branchInfos:insert{
 						addr = assert.index(info, 'addr'),
 						cmdset = info.cmdset or stateStack[1].cmdset,	-- make sure we record the current cmdset
+
 						--[[ maybe this isn't a good determination?
 						inVehicle = stateStack:last().cmdset == VehicleCmds,	-- right now stateStack is just 1 or 2 in size, and 2 is always VehicleCmds, and 1 is always not...
 						--]]
+						-- [[ in fact disabling it solves most problems but not all (0a8c15)
+						--]]
+
 						reverseRefInfo = {
 							branchFromAddr = ('$%06x'):format(cmdaddr),
 							--cmdsetName = cmdsetName[info.cmdset or stateStack[1].cmdset],
