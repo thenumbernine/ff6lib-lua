@@ -23,15 +23,16 @@ function NPCWindow:showIndexUI()
 				-- if we modified the value then refresh npc textures
 				self.app.mapWindow:refreshNPCTexs()
 			end
-		else
-			if self:editField(n, fieldname, ctype, field) then
-				-- if the user changed graphics or palette then reset the npc textures to rebake the palette etc
-				if fieldname == 'graphics'
-				or fieldname == 'palette'
-				then
-					self.app.mapWindow:refreshNPCTexs()
-				end
+		elseif fieldname == 'palette' then
+			-- use a spinner for palette
+			self.__tmp = n[fieldname]
+			if ig.luatableInputInt(fieldname, self, '__tmp') then
+				n[fieldname] = self.__tmp
+				-- ... and refresh tex when you're done
+				self.app.mapWindow:refreshNPCTexs()
 			end
+		else
+			self:editField(n, fieldname, ctype, field)
 		end
 	end
 end

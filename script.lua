@@ -112,12 +112,11 @@ return function(game)
 
 	-- here's some interpretation state-variables
 	-- that I should probably move into an interpretation-context-object
-	local startCmdSet
-	local cmdset
-	local objectScriptCmd
+	local stateStack
 
 	-- because we are using it in EventCmds:
 	local ObjectCmds = {}
+	local VehicleCmds = {}
 
 
 	-- event-commands:
@@ -139,9 +138,15 @@ return function(game)
 		digest = function(self, ...)
 			-- if it's an event-script command to start an object-script, then switch our opcodes...
 			-- maybe todo push?  or will exiting object-scripts always revert to event-scripts?
-			cmdset = ObjectCmds
-			assert.eq(objectScriptCmd, nil, "got two object-scripts before the first one ended...")
-			objectScriptCmd = self
+assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds?")
+
+			assert.eq(stateStack:last().objectScriptCmd, nil, "got two object-scripts before the first one ended...")
+
+			stateStack:insert{
+				cmdset = assert(ObjectCmds),
+				objectScriptCmd = self,
+			}
+
 			return EventCmd.digest(self, ...)	-- call super
 		end,
 		desc = "fork(||do local obj=objs[<?=cmd?>] -- length=<?=length?><?= blocking and ', block=true' or ''?>"
@@ -518,11 +523,44 @@ return function(game)
 			self.x = x
 			self.y = y
 			self.flags = flags
+
+			-- does setting vehicle imply switching to vehicle opcodes?
+			--  if so, then does setting vehicle to nonzero in ObjectCmds.ChangeVehicle or EventCmds.ChangeObjectVehicle also do this?
+			--  also is it for event cmds, world cmds, or vehicle cmds? (ironic for vehicle cmds, you already need to be in this state...)
+			self.vehicle = bit.band(3, flags)
+
 			self.arg = arg
 			-- hmm why is the map index off by 1? and not always too?
 			-- off by 1 in the event entering Mt Kolts.
 			-- not off by 1 in the event when entering the figaro caves from the figaro castle basement.
 			self.mapIndex = bit.band(arg, 0x1ff)
+
+
+			if self.vehicle == 0 then
+				-- now if we are clearing vehicle...
+				-- if we were not in vehicle then nothing
+				-- if we were in vehicle ... then pop state
+				if stateStack:last().cmdset == VehicleCmds then
+					stateStack:remove()
+				end
+				assert.ge(#stateStack, 1, "popped our last state stack when leaving vehicle state...")
+				assert.ne(stateStack:last().cmdset, VehicleCmds, "popped vehicle state and still ended up in vehicle state...")
+			else
+				-- you can set from the base event/world cmdset
+				-- or you can also set while in the vehicle cmdset (in which case, don't push anything on the stack...)
+				--assert.len(stateStack, 1, "tried to set-map set-vehicle within a sub-state!")
+
+				-- switching to vehicle state doesn't track length like switching to object state does
+				-- hmm are the two orthogonal or not?
+				-- i.e. can we switch-to-object, switch-to-vehicle, then end object script (while still processing vehicle cmds)
+				-- I guess never since there is no Object SetMap
+				-- so we're safe there.
+				if stateStack:last().cmdset ~= VehicleCmds then
+					stateStack:insert{
+						cmdset = VehicleCmds,
+					}
+				end
+			end
 		end,
 		__tostring = function(self)
 			return "setMap{"
@@ -532,7 +570,7 @@ return function(game)
 				..(self.mapIndex >= 3 and 0 ~= bit.band(0x0800, self.arg) and ", showMapTitle=true" or '')
 				..(", dir="..bit.band(3, bit.rshift(self.arg, 12)))
 				..(", pos={"..('0x%02x'):format(self.x)..", "..('0x%02x'):format(self.y).."}")
-				..(", vehicle="..bit.band(3, self.flags))
+				..(", vehicle="..self.vehicle)
 				..(self.mapIndex >= 3 and 0 ~= bit.band(0x20, self.flags) and ", noSizeUpdate=true" or '')
 				..(self.mapIndex >= 3 and 0 ~= bit.band(0x40, self.flags) and ", manualFadeIn=true" or '')
 				..(self.mapIndex >= 3 and 0 ~= bit.band(0x80, self.flags) and ", enableEapEvent=true" or '')
@@ -1383,12 +1421,14 @@ return function(game)
 	ObjectCmds.EndScript = ObjectCmd:subclass{
 		cmd = 0xff,
 		digest = function(self, ...)
-			assert.ne(objectScriptCmd, nil, "got an object end-script when there was no objectScriptCmd set ...")
+assert.gt(#stateStack, 1, "tried to pop a cmdset when the stack would become empty")
+			local prevState = stateStack:remove()
+assert.eq(prevState.cmdset, ObjectCmds, "got ObjectCmds.EndScript when it wasn't in the object cmdset...")
+			local objectScriptCmd = prevState.objectScriptCmd
+assert.ne(objectScriptCmd, nil, "got an object end-script when there was no objectScriptCmd set ...")
 			if self.addr ~= objectScriptCmd.addr + objectScriptCmd.length + 1 then
 				print("!!! DANGER !!! object-script length doesn't align with end-of-script cmd:", ('$%06x'):format(self.addr), 'vs', ('$%06x'):format(objectScriptCmd.addr + objectScriptCmd.length + 1))
 			end
-			cmdset = startCmdSet	-- back you go ...
-			objectScriptCmd = nil
 		end,
 		desc = 'end)',	-- and joinAll() if the objectScriptCmd had blocking ...
 	}
@@ -1593,7 +1633,6 @@ return function(game)
 
 	-- now for vehicle cmds
 	-- I guess whether these vs EventCmds are used is game state based, so there's no static measure for when in the script engine to decode as one vs the other ...
-	local VehicleCmds = {}
 	game.VehicleCmds = VehicleCmds
 	local VehicleCmd = Cmd:subclass()
 	game.VehicleCmd = VehicleCmd
@@ -1752,7 +1791,7 @@ return function(game)
 
 	VehicleCmds.ChangeVehicleGraphicToFalcon = VehicleCmd:subclass{
 		cmd = 0xf4,
-		desc = 'vehicle.graphic = "falcon"',
+		desc = 'vehicle.graphics = "falcon"',
 	}
 
 	VehicleCmds.Cinematic_LightOfJudgment2 = VehicleCmd:subclass{
@@ -1765,7 +1804,7 @@ return function(game)
 	}
 	VehicleCmds.ChangeVehicleGraphicToBird = VehicleCmd:subclass{
 		cmd = 0xf7,
-		desc = 'vehicle.graphic = "bird"',
+		desc = 'vehicle.graphics = "bird"',
 	}
 	VehicleCmds.Cinematic_LightOfJudgment3 = VehicleCmd:subclass{
 		cmd = 0xf8,
@@ -1789,7 +1828,7 @@ return function(game)
 	}
 	VehicleCmds.ChangeVehicleGraphicToMorphedTerra= VehicleCmd:subclass{
 		cmd = 0xfd,
-		desc = 'vehicle.graphic = "morphed_terra"',
+		desc = 'vehicle.graphics = "morphed_terra"',
 	}
 	-- another 0xFE opcode, like FigaroEmerge, I am suspicous this will not always be used ...
 	VehicleCmds.Cinematic_VectorApproach = VehicleCmd:subclass{
@@ -1915,6 +1954,7 @@ return function(game)
 		local nextAddr = addrsInOrder[i+1] or endaddr
 
 		-- reset script decode state
+		local startCmdSet
 		if startAddr == commonReturnAddr then
 			startCmdSet = EventCmds	-- so it is a return
 		else
@@ -1947,8 +1987,10 @@ return function(game)
 			startCmdSet = EventCmds
 		end
 
-		cmdset = startCmdSet
-		objectScriptCmd = nil
+		stateStack = table()
+		stateStack:insert{
+			cmdset = startCmdSet,
+		}
 
 		local addr = startAddr
 		while addr < nextAddr do
@@ -1961,6 +2003,8 @@ return function(game)
 			local cmdaddr = addr
 			local cmd = read(uint8_t)
 
+assert.gt(#stateStack, 0, "someone popped the last cmdset...")
+			local cmdset = assert.index(stateStack:last(), 'cmdset')
 --DEBUG:assert.index(cmdset, cmd, "failed to find class for script command")
 			local cl = cmdset[cmd]
 --DEBUG:assert.eq(cl.class, cl, "class is not a class for command 0x"..number.hex(cmd))
@@ -1976,9 +2020,55 @@ return function(game)
 
 			game.eventScriptCmds:insert(cmdobj)
 			game.eventScriptCmdIndexForAddr[cmdaddr] = #game.eventScriptCmds
+
+
+
+--[====[ debugging, copied out of run.lua
+local function align(n, s)
+	s = tostring(s)
+	return s..(' '):rep(n - #s)
+end
+
+	local whatPointsToScriptAdAddr = game.eventScriptAddrs[cmdobj.addr]
+	if whatPointsToScriptAdAddr then
+		print()
+		print(
+			('$%06x: '):format(cmdobj.addr)
+			..whatPointsToScriptAdAddr:mapi(function(x)
+				return (require 'ext.tolua'(x, {indent=false}))
+			end):concat'; '
+		)
+	end
+	io.write(('$%06x'):format(cmdobj.addr), '\t')
+
+	-- TODO for cmds too big, put their data on multiple lines?
+	io.write(align(
+		24,
+		ffi.string(rom + cmdobj.addr, cmdobj.sizeInBytes)
+			:gsub('.', function(b)
+				return ('%02x '):format(b:byte())
+			end)
+	))
+
+	if game.ObjectCmd:isa(cmdobj)
+	and not game.ObjectCmds.EndScript:isa(cmdobj)
+	then
+		io.write'\t'
+	end
+
+	print((tostring(cmdobj)
+		:gsub('\t', '\\t')
+		:gsub('\r', '\\r')
+		:gsub('\n', '\\n')
+	))
+--]====]
+
+
 		end
 
-		if objectScriptCmd then
+		assert.ge(#stateStack, 1, "somehow we popped all our states...")
+
+		if stateStack:last().objectScriptCmd then
 			print('!!! DANGER !!! event-script ended still inside an object-script:', ('$%06x'):format(startAddr))
 		end
 	end

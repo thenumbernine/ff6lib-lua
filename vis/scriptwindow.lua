@@ -177,6 +177,8 @@ function EventScriptWindow:showIndexUI()
 							else
 								color = 0x3f00007f
 							end
+						elseif game.VehicleCmd:isa(cmd) then
+							color = 0x3f007f7f
 						elseif game.WorldCmd:isa(cmd) then
 							color = 0x3f7f0000
 						else

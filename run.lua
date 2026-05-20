@@ -681,6 +681,10 @@ print(game.battleDialog2)
 print(game.battleMessages)
 print(game.positionedText)
 
+local function align(n, s)
+	s = tostring(s)
+	return s..(' '):rep(n - #s)
+end
 
 print'BEGIN EVENT SCRIPT'
 for _,cmd in ipairs(game.eventScriptCmds) do
@@ -696,13 +700,26 @@ for _,cmd in ipairs(game.eventScriptCmds) do
 	end
 	io.write(('$%06x'):format(cmd.addr), '\t')
 
+	-- TODO for cmds too big, put their data on multiple lines?
+	io.write(align(
+		24,
+		ffi.string(rom + cmd.addr, cmd.sizeInBytes)
+			:gsub('.', function(b)
+				return ('%02x '):format(b:byte())
+			end)
+	))
+
 	if game.ObjectCmd:isa(cmd)
 	and not game.ObjectCmds.EndScript:isa(cmd)
 	then
 		io.write'\t'
 	end
 
-	print(cmd)
+	print((tostring(cmd)
+		:gsub('\t', '\\t')
+		:gsub('\r', '\\r')
+		:gsub('\n', '\\n')
+	))
 end
 print()
 print'END EVENT SCRIPT'
