@@ -2057,7 +2057,9 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 		local startCmdSet = assert.index(args, 'cmdset')
 		local reverseRefInfo = args.reverseRefInfo
 
+--[==[ debugging
 print('decompiling from '..require'ext.tolua'(reverseRefInfo, {indent=false}))
+--]==]
 		game.eventScriptAddrs[startAddr] = game.eventScriptAddrs[startAddr] or table()
 		game.eventScriptAddrs[startAddr]:insert(reverseRefInfo)
 
@@ -2079,7 +2081,7 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {indent=false}))
 		local branchInfos = table()
 
 		local addr = startAddr
--- [==[ debugging:
+--[==[ debugging:
 print(('BEGIN $%06x'):format(startAddr))
 --]==]
 
@@ -2110,7 +2112,7 @@ assert.gt(#stateStack, 0, "someone popped the last cmdset...")
 
 			game.eventScriptCmds:insert(cmdobj)
 
--- [==[ debug print as we go
+--[==[ debugging print as we go
 	io.write(('$%06x'):format(cmdobj.addr), '\t')
 	local function align(n, s)
 		s = tostring(s)
@@ -2149,7 +2151,7 @@ assert.gt(#stateStack, 0, "someone popped the last cmdset...")
 			if cmdobj.endTrace then break end
 		end
 
--- [==[ debugging:
+--[==[ debugging:
 print(('END $%06x'):format(startAddr))
 print()
 --]==]
