@@ -1,6 +1,11 @@
 --[[
 still todo:
 - 0a5ada ... needs to change to world-cmds somehow, but idk what determines this, proly need to trace cmd flow better
+- 0a5edc ... is another of these.
+	the start of the routine is map #0 i.e. world-map-cmds
+	... then the condition before is "set map to 242 and return"
+	but that is changing my cmdset to map #242 and off map #0 ...
+	... hmmmmm
 
 if battleanim.lua has battle-animation-scripts
 then should i call this events.lua for event-scripts?
@@ -556,6 +561,7 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 
 			-- another 'gotcha' ...
 			-- looks like if we set-map to maps 0-2 then we should also change our (underlying, non-vehicle) cmdset to world?
+-- TODO this isn't good .. we gotta trace through each branch to properly find out how to interpet things.
 			if self.mapIndex < 3 then
 				stateStack[1].cmdset = WorldCmds
 			else
