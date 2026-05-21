@@ -190,17 +190,17 @@ function EventScriptWindow:showIndexUI()
 						ig.igPushID_Int(cmd.addr)
 
 						local color = 0x3f7f7f7f
-						if game.EventCmd:isa(cmd) then
+						if cmd.cmdset == 'EventCmds' then
 							color = 0x3f007f00
-						elseif game.ObjectCmd:isa(cmd) then
+						elseif cmd.cmdset == 'ObjectCmds' then
 							if game.ObjectCmds.EndScript:isa(cmd) then
 								color = 0x3f007f00
 							else
 								color = 0x3f00007f
 							end
-						elseif game.VehicleCmd:isa(cmd) then
+						elseif cmd.cmdset =='VehicleCmds' then
 							color = 0x3f007f7f
-						elseif game.WorldCmd:isa(cmd) then
+						elseif cmd.cmdset == 'WorldCmds' then
 							color = 0x3f7f0000
 						else
 							-- unknown?
@@ -225,7 +225,7 @@ function EventScriptWindow:showIndexUI()
 						ig.igSameLine()
 
 						-- indent object-cmds since they are blocks of cmds from event-cmds
-						if game.ObjectCmd:isa(cmd)
+						if cmd.cmdset == 'ObjectCmds'
 						and not game.ObjectCmds.EndScript:isa(cmd)
 						then
 							ig.igText('  ')

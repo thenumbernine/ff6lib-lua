@@ -129,13 +129,6 @@ return function(game)
 	local ObjectCmds = {}
 	local VehicleCmds = {}
 
-	local cmdsetName = {
-		[EventCmds] = 'EventCmds',
-		[WorldCmds] = 'WorldCmds',
-		[ObjectCmds] = 'ObjectCmds',
-		[VehicleCmds] = 'VehicleCmds',
-	}
-
 
 	-- event-commands:
 
@@ -160,7 +153,7 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 			assert.eq(stateStack:last().objectScriptCmd, nil, "got two object-scripts before the first one ended...")
 
 			stateStack:insert{
-				cmdset = assert(ObjectCmds),
+				cmdset = 'ObjectCmds',
 				objectScriptCmd = self,
 			}
 
@@ -573,20 +566,20 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 			if self.mapIndex < 2
 			or self.mapIndex == 511	-- ... and the previous map was a world map ... ?
 			then
-				stateStack[1].cmdset = WorldCmds
+				stateStack[1].cmdset = 'WorldCmds'
 			else
-				stateStack[1].cmdset = EventCmds
+				stateStack[1].cmdset = 'EventCmds'
 			end
 
 			if self.vehicle == 0 then
 				-- now if we are clearing vehicle...
 				-- if we were not in vehicle then nothing
 				-- if we were in vehicle ... then pop state
-				if stateStack:last().cmdset == VehicleCmds then
+				if stateStack:last().cmdset == 'VehicleCmds' then
 					stateStack:remove()
 				end
-				assert.ge(#stateStack, 1, "popped our last state stack when leaving vehicle state...")
-				assert.ne(stateStack:last().cmdset, VehicleCmds, "popped vehicle state and still ended up in vehicle state...")
+assert.ge(#stateStack, 1, "popped our last state stack when leaving vehicle state...")
+assert.ne(stateStack:last().cmdset, 'VehicleCmds', "popped vehicle state and still ended up in vehicle state...")
 			else
 				-- you can set from the base event/world cmdset
 				-- or you can also set while in the vehicle cmdset (in which case, don't push anything on the stack...)
@@ -597,9 +590,9 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 				-- i.e. can we switch-to-object, switch-to-vehicle, then end object script (while still processing vehicle cmds)
 				-- I guess never since there is no Object SetMap
 				-- so we're safe there.
-				if stateStack:last().cmdset ~= VehicleCmds then
+				if stateStack:last().cmdset ~= 'VehicleCmds' then
 					stateStack:insert{
-						cmdset = VehicleCmds,
+						cmdset = 'VehicleCmds',
 					}
 				end
 			end
@@ -690,7 +683,7 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 		getBranchAddrs = function(self)
 			return {
 				-- this will always use event-cmds, whereas typical getBranchAddrs for branch/goto/call will preserve cmdset
-				{addr=scriptBaseAddr + self.newScriptAddrOfs, cmdset=EventCmds},
+				{addr = scriptBaseAddr + self.newScriptAddrOfs, cmdset = 'EventCmds'},
 			}
 		end,
 	}
@@ -1352,9 +1345,9 @@ if not lastDialogPromptCount then error("required choices but no dialog at "..('
 	game.ObjectCmd = ObjectCmd
 
 	local function popObjectCmdSet(addr, dontDoTheProbablyWrongEndAddrCheck)
-		assert.gt(#stateStack, 1, "tried to pop a cmdset when the stack would become empty")
+assert.gt(#stateStack, 1, "tried to pop a cmdset when the stack would become empty")
 		local prevState = stateStack:remove()
-assert.eq(prevState.cmdset, ObjectCmds, "got ObjectCmds.EndScript when it wasn't in the object cmdset...")
+assert.eq(prevState.cmdset, 'ObjectCmds', "got ObjectCmds.EndScript when it wasn't in the object cmdset...")
 		local objectScriptCmd = prevState.objectScriptCmd
 assert.ne(objectScriptCmd, nil, "got an object end-script when there was no objectScriptCmd set ...")
 		if not dontDoTheProbablyWrongEndAddrCheck
@@ -1988,9 +1981,9 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 	VehicleCmds.EndScript = VehicleCmd:subclass{
 		cmd = 0xff,
 		digest = function(self, ...)
-			-- assert we're in a vehicle state and pop state
-			assert.gt(#stateStack, 1, "how did we get here?")
-			assert.eq(stateStack:last().cmdset, VehicleCmds, "how did we get here?")
+-- assert we're in a vehicle state and pop state
+assert.gt(#stateStack, 1, "how did we get here?")
+assert.eq(stateStack:last().cmdset, 'VehicleCmds', "how did we get here?")
 			stateStack:remove()
 		end,
 		-- is a vehicle end-script on par with a world/event end-script, or is it more like object end-script that just ends the object-section ?
@@ -2064,8 +2057,9 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 	local decompileTraces = {}
 
 	local function decompileFrom(args)
-		local startAddr = assert.index(args, 'addr')
-		local startCmdSet = assert.index(args, 'cmdset')
+		local startAddr = args.addr
+		local startCmdSet = args.cmdset
+assert.type(startCmdSet, 'string')
 		local reverseRefInfo = args.reverseRefInfo
 
 --[==[ debugging
@@ -2083,9 +2077,9 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {indent=false}))
 				print('!!! DANGER !!!',
 					('$%06x'):format(startAddr),
 					'decoding address from differing cmdset!',
-					cmdsetName[decompileTraces[startAddr].cmdset],
+					decompileTraces[startAddr].cmdset,
 					'vs',
-					cmdsetName[startCmdSet]
+					startCmdSet
 				)
 			end
 			return
@@ -2099,9 +2093,9 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {indent=false}))
 					print('!!! DANGER !!!',
 						('$%06x'):format(startAddr),
 						'decoding address from differing cmdset!',
-						cmdsetName[trace.cmdset],
+						trace.cmdset,
 						'vs',
-						cmdsetName[startCmdSet]
+						startCmdSet
 					)
 				end
 				-- then we can return
@@ -2128,13 +2122,19 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {indent=false}))
 
 		if args.inVehicle then
 			stateStack:insert{
-				cmdset = VehicleCmds,
+				cmdset = 'VehicleCmds',
 			}
 		end
 
 		local branchInfos = table()
 
 		local addr = startAddr
+		local function read(ctype)
+			local o
+			o, addr = readAndInc(ctype, addr)
+			return o
+		end
+
 --[==[ debugging:
 print(('BEGIN $%06x'):format(startAddr))
 --]==]
@@ -2148,23 +2148,16 @@ print('!!! script oob !!! '..('$%06x'):format(addr))
 				break
 			end
 
-			local function read(ctype)
-				local o
-				o, addr = readAndInc(ctype, addr)
-				return o
-			end
-
 			local cmdaddr = addr
 			local cmd = read(uint8_t)
 
 assert.gt(#stateStack, 0, "someone popped the last cmdset...")
-			local cmdset = assert.index(stateStack:last(), 'cmdset')
---DEBUG:assert.index(cmdset, cmd, "failed to find class for script command")
-			local cl = cmdset[cmd]
---DEBUG:assert.eq(cl.class, cl, "class is not a class for command 0x"..number.hex(cmd))
---DEBUG:assert.is(cl, Cmd, "somehow class of command 0x"..number.hex(cmd).." is not of Cmd")
+			local cmdset = stateStack:last().cmdset
+assert.type(cmdset, 'string')
+			local cl = game[cmdset][cmd]
 			local cmdobj = cl()
 			cmdobj.addr = cmdaddr
+			cmdobj.cmdset = cmdset
 
 			-- hmm instead of just 'read' with 'addr', how about a whole interpretation-state, with 'cmdset' too?
 			cmdobj:digest(read)
@@ -2208,16 +2201,15 @@ assert.gt(#stateStack, 0, "someone popped the last cmdset...")
 						addr = assert.index(info, 'addr'),
 						cmdset = info.cmdset or stateStack[1].cmdset,	-- make sure we record the current cmdset
 
-						--[[ maybe this isn't a good determination?
-						inVehicle = stateStack:last().cmdset == VehicleCmds,	-- right now stateStack is just 1 or 2 in size, and 2 is always VehicleCmds, and 1 is always not...
+						-- [[ maybe this isn't a good determination?
+						inVehicle = stateStack:last().cmdset == 'VehicleCmds',	-- right now stateStack is just 1 or 2 in size, and 2 is always VehicleCmds, and 1 is always not...
 						--]]
 						-- [[ in fact disabling it solves most problems but not all (0a8c15)
 						--]]
 
 						reverseRefInfo = {
 							branchFromAddr = cmdaddr,
-							--branchFromAddr = ('$%06x'):format(cmdaddr),	-- just for debugging
-							--cmdsetName = cmdsetName[info.cmdset or stateStack[1].cmdset],
+							cmdset = info.cmdset or stateStack[1].cmdset,
 						},
 					}
 				end
@@ -2257,11 +2249,11 @@ print()
 		if mapInfo then
 
 			local function decodeForMap(startAddr, reverseRefInfo)
-				local startCmdSet = mapIndex < 2 and WorldCmds or EventCmds
+				local startCmdSet = mapIndex < 2 and 'WorldCmds' or 'EventCmds'
 
 				-- even if world-map is using commonReturnAddr, stillu se EventCmds, cuz I think this is the only address that could either be EventCmds or WorldCmds
 				if startAddr == commonReturnAddr then
-					startCmdSet = EventCmds
+					startCmdSet = 'EventCmds'
 				end
 
 				-- blackjack book starts as 'inVehicle':
@@ -2354,7 +2346,7 @@ print()
 	for addr,name in pairs{
 		[0x0aa6c0] = 'blackjack book',
 	} do
-		game.eventScriptAddrs[addr] = table{{builtin=name, cmdset=VehicleCmds}}
+		game.eventScriptAddrs[addr] = table{{builtin = name, cmdset = 'VehicleCmds'}}
 	end
 	--]]
 

@@ -38,17 +38,35 @@ print'BEGIN EVENT SCRIPT'
 for _,cmdobj in ipairs(game.eventScriptCmds) do
 	local whatPointsToScriptAdAddr = game.eventScriptAddrs[cmdobj.addr]
 	if whatPointsToScriptAdAddr then
+		-- print header
 		print()
 		print(
 			('$%06x: '):format(cmdobj.addr)
 			..whatPointsToScriptAdAddr:mapi(function(x)
-				return (tolua(x, {indent=false}))
+				return (tolua(x, {
+					indent = false,
+					serializeForType = {
+						number = function(state, x, tab, luapath, keyRef)
+							return ('$%06x'):format(x)
+						end,
+					},
+				}))
 			end):concat'; '
 		)
 	end
 
+	-- print addr
 	io.write(('$%06x'):format(cmdobj.addr), '\t')
 
+	-- print shorthand cmdset
+	io.write(({
+		EventCmds = 'EV ',
+		WorldCmds = 'WO ',
+		ObjectCmds = 'OB ',
+		VehicleCmds = 'VE ',
+	})[cmdobj.cmdset])
+
+	-- print out bytes
 	-- TODO for cmds too big, put their data on multiple lines?
 	io.write(align(
 		24,
@@ -61,7 +79,7 @@ for _,cmdobj in ipairs(game.eventScriptCmds) do
 	if game.ObjectCmd:isa(cmdobj)
 	and not game.ObjectCmds.EndScript:isa(cmdobj)
 	then
-		io.write'\t'
+		io.write'    '
 	end
 
 	print((tostring(cmdobj)
