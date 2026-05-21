@@ -556,15 +556,29 @@ assert.len(self.trace.stateStack, 1, "can we go from something to event-cmds to 
 
 			-- another 'gotcha' ...
 			-- looks like if we set-map to maps 0-2 then we should also change our (underlying, non-vehicle) cmdset to world?
--- TODO doing this isn't good .. we gotta trace through each branch to properly find out how to interpet things.
--- need more than a state-stack
-			if self.mapIndex < 2
-			or self.mapIndex == 511	-- ... and the previous map was a world map ... ?
-			then
-				self.trace.stateStack[1].cmdset = 'WorldCmds'
+			local newCmdSet
+			if self.mapIndex < 3 then
+				newCmdSet = 'WorldCmds'
+			elseif self.mapIndex == 511 then
+				-- now we have to track previous map ... ?
+				-- I guess there's only a few of these ...
+				newCmdSet = ({
+					[0x0a00e3] = 'WorldCmds',	-- from map touch, specifically doomgaze
+					[0x0a7a86] = 'EventCmds',	-- branch
+					[0x0a8ff0] = 'EventCmds',	-- branch
+					[0x0af4c1] = 'WorldCmds',	-- branch
+					[0x0af4d7] = 'WorldCmds',	-- branch
+					[0x0af4f3] = 'WorldCmds',	-- branch, so it matters
+					[0x0af567] = 'EventCmds',	-- branch, so it matters
+					[0x0af596] = 'EventCmds',	-- branch
+					[0x0b4505] = 'EventCmds',	-- branch
+					[0x0b67f7] = 'WorldCmds',	-- branch ... everything8215's event_main.asm says first set to World ... then after endScript set to Events ... does endScript always set cmdset to Events?
+					[0x0c3383] = 'EventCmds',	-- branch
+				})[self.addr] or error("TODO "..('$%06x'):format(self.addr))
 			else
-				self.trace.stateStack[1].cmdset = 'EventCmds'
+				newCmdSet = 'EventCmds'
 			end
+			self.trace.stateStack[1].cmdset = newCmdSet
 
 			if self.vehicle == 0 then
 				-- now if we are clearing vehicle...
@@ -1025,6 +1039,12 @@ assert.ne(self.trace.stateStack:last().cmdset, 'VehicleCmds', "popped vehicle st
 					return (' $%06x'):format(addr)
 				end):concat' '
 				..')'
+		end,
+
+		getBranchAddrs = function(self)
+			return self.addrs:mapi(function(addr)
+				return {addr=addr}
+			end)
 		end,
 	}
 
@@ -2187,12 +2207,12 @@ assert.type(cmdset, 'string')
 			if cmdobj.getBranchAddrs then
 				-- decode branches ... now or later?
 				for _,newBranch in ipairs(cmdobj:getBranchAddrs()) do
-					newBranch.cmdset = newBranch.cmdset or trace.stateStack[1].cmdset	-- make sure we record the current cmdset
+					newBranch.cmdset = newBranch.cmdset or trace.stateStack[1].cmdset		-- make sure we record the current cmdset
 					newBranch.inVehicle = trace.stateStack:last().cmdset == 'VehicleCmds'	-- right now trace.stateStack is just 1 or 2 in size, and 2 is always VehicleCmds, and 1 is always not...
 					newBranch.lastDialogPromptCount = trace.lastDialogPromptCount
 					newBranch.reverseRefInfo = {
 						branchFromAddr = cmdaddr,
-						cmdset = newBranch.cmdset or trace.stateStack[1].cmdset,
+						cmdset = newBranch.cmdset,
 					}
 					newBranches:insert(newBranch)
 				end
@@ -2232,7 +2252,7 @@ print()
 		if mapInfo then
 
 			local function decodeForMap(startAddr, reverseRefInfo)
-				local startCmdSet = mapIndex < 2 and 'WorldCmds' or 'EventCmds'
+				local startCmdSet = mapIndex < 3 and 'WorldCmds' or 'EventCmds'
 
 				-- even if world-map is using commonReturnAddr, stillu se EventCmds, cuz I think this is the only address that could either be EventCmds or WorldCmds
 				if startAddr == commonReturnAddr then
@@ -2254,7 +2274,7 @@ print()
 				}
 			end
 
-			-- if the mapIndex < 2 then it's a world-script, otherwise it's an event-script
+			-- if the mapIndex < 3 then it's a world-script, otherwise it's an event-script
 			-- ... right?
 			decodeForMap(mapInfo.startEventScriptAddr, {
 				type = 'startEventScriptAddr',
@@ -2274,7 +2294,7 @@ print()
 			for touchTriggerIndex,t in ipairs(mapInfo.touchTriggers) do
 				local scriptAddr = t:getScriptAddr()
 				if scriptAddr then
-					-- if the mapIndex < 2 then it's a world-script, otherwise it's an event-script
+					-- if the mapIndex < 3 then it's a world-script, otherwise it's an event-script
 					decodeForMap(scriptAddr, {
 						touchTriggerIndex = touchTriggerIndex-1,
 						mapIndex = mapIndex,
