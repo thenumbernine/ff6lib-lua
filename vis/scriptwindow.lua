@@ -180,6 +180,9 @@ function EventScriptWindow:showIndexUI()
 								if ig.igButton(('branch from $%06x'):format(what.branchFromAddr)) then
 									self:openScriptAddr(what.branchFromAddr)
 								end
+							elseif what.builtin then
+								ig.igSameLine()
+								ig.igText(tostring(what.builtin))
 							else
 								ig.igSameLine()
 								ig.igText'???'

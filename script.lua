@@ -876,12 +876,12 @@ assert.ne(self.trace.stateStack:last().cmdset, 'VehicleCmds', "popped vehicle st
 		desc = 'openSelectPartyMenu(<?=args:concat", "?>)',
 	}
 
-	EventCmds.OpenColosseumMenu  = EventCmd:subclass{
+	EventCmds.OpenColosseumMenu = EventCmd:subclass{
 		cmd = 0x9a,
 		desc = 'openColosseumMenu()',
 	}
 
-	EventCmds.OpenShopMenu  = EventCmd:subclass{
+	EventCmds.OpenShopMenu = EventCmd:subclass{
 		cmd = 0x9b,
 		argtypes = {uint8_t},
 		desc = 'openShopMenu(<?=args[1]?>)',
@@ -891,6 +891,11 @@ assert.ne(self.trace.stateStack:last().cmdset, 'VehicleCmds', "popped vehicle st
 		cmd = 0x9c,
 		argtypes = {uint8_t},
 		desc = 'characters[<?=args[1]?>]:optimizeEquipment()',
+	}
+
+	EventCmds.OpenFinalBattleMenu = EventCmd:subclass{
+		cmd = 0x9d,
+		desc = 'openFinalBattleMenu()',
 	}
 
 	EventCmds.StartTimer = EventCmd:subclass{
@@ -910,9 +915,19 @@ assert.ne(self.trace.stateStack:last().cmdset, 'VehicleCmds', "popped vehicle st
 		desc = 'stopTimer(<?=args[1]?>)',
 	}
 
-	EventCmds.OpenFinalBattleMenu  = EventCmd:subclass{
-		cmd = 0x9d,
-		desc = 'openFinalBattleMenu()',
+	EventCmds.ClearOverlay = EventCmd:subclass{
+		cmd = 0xa2,
+		desc = 'clearOverlay()',
+	}
+
+	EventCmds.ColosseumBattle = EventCmd:subclass{
+		cmd = 0xaf,
+		desc = 'colosseumBattle()',
+	}
+
+	EventCmds.HidePyramidObject = EventCmd:subclass{
+		cmd = 0xa6,
+		desc = 'hidePyramidObject()',
 	}
 
 	EventCmds.ShowPyramidObject = EventCmd:subclass{
@@ -1296,6 +1311,11 @@ assert.ne(self.trace.stateStack:last().cmdset, 'VehicleCmds', "popped vehicle st
 		desc = 'spcInterrupt <?=destAddr?>',
 	}
 
+	EventCmds.ContinueSong = EventCmd:subclass{
+		cmd = 0xf7,
+		desc = 'continueSong()',
+	}
+
 	EventCmds.WaitForSPC = EventCmd:subclass{
 		cmd = 0xf8,
 		desc = 'waitForSPC{port=2}',
@@ -1311,6 +1331,11 @@ assert.ne(self.trace.stateStack:last().cmdset, 'VehicleCmds', "popped vehicle st
 	EventCmds.WaitForSPC = EventCmd:subclass{
 		cmd = 0xfa,
 		desc = 'waitForSPC{port=3}',
+	}
+
+	EventCmds.WaitForSound = EventCmd:subclass{
+		cmd = 0xfb,
+		desc = 'waitforSound()',
 	}
 
 	EventCmds.Return = EventCmd:subclass{
@@ -1639,6 +1664,14 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 	for cmd=0xc0,0xc5 do
 		WorldCmds['SetSpeed '..cmd] = WorldCmds.SetSpeed:subclass{cmd = cmd}
 	end
+
+	-- also VehicleCmds
+	WorldCmds.SetAirshipPos = WorldCmd:subclass{
+		cmd = 0xc7,
+		argtypes = {uint8_t, uint8_t},
+		argnames = {'x', 'y'},
+		desc = "airship:setPos(<?=x?>, <?=y?>)",
+	}
 
 	-- like VehicleCmds SetFlag
 	local WorldSetFlag = WorldCmd:subclass{
@@ -2343,7 +2376,6 @@ print()
 		[0x0a0034] = "tent",
 		[0x0a0039] = "warp/warp stone",
 		[0x0a0040] = "chest: monster-in-a-box",
-		--[0x0a0078] = "falcon: deck",	-- what's wrong with this one?
 		[0x0a009d] = "doom gaze",
 		[0x0a00ea] = "tent: animation",
 		[0x0a0108] = "warp: animation",
@@ -2373,6 +2405,15 @@ print()
 		decompileFrom{
 			addr = addr,
 			cmdset = 'EventCmds',
+			reverseRefInfo = {builtin = name},
+		}
+	end
+	for addr,name in pairs{
+		[0x0a0078] = "falcon: deck",
+	} do
+		decompileFrom{
+			addr = addr,
+			cmdset = 'WorldCmds',
 			reverseRefInfo = {builtin = name},
 		}
 	end
