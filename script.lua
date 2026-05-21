@@ -1630,18 +1630,18 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 		WorldCmds['SetSpeed '..cmd] = WorldCmds.SetSpeed:subclass{cmd = cmd}
 	end
 
-	-- kinda like EventCmds EventSetBattleFlag but with a bigger arg
+	-- like VehicleCmds SetFlag
 	local WorldSetFlag = WorldCmd:subclass{
 		argtypes = {uint16_t},
 		argnames = {'flagIndex'},
 		desc = 'gameState.mapFlag<?=flagIndex?> = <?=value?>',
 	}
-	WorldCmds.SetBattleFlag = WorldSetFlag:subclass{
-		cmd = 0xb8,
+	WorldCmds.SetFlag = WorldSetFlag:subclass{
+		cmd = 0xc8,
 		value = true,
 	}
-	WorldCmds.ClearBattleFlag = WorldSetFlag:subclass{
-		cmd = 0xb9,
+	WorldCmds.ClearFlag = WorldSetFlag:subclass{
+		cmd = 0xc9,
 		value = false,
 	}
 
@@ -1837,17 +1837,19 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 		desc = "airship:setPos(<?=x?>, <?=y?>)",
 	}
 
-	VehicleCmds.SetFlag = VehicleCmd:subclass{
-		cmd = 0xc8,
+	-- like WorldSetFlag
+	local VehicleSetFlag = VehicleCmd:subclass{
 		argtypes = {uint16_t},
 		argnames = {'flagIndex'},
-		desc = 'gameState.mapFlags<?=flagIndex?> = true',
+		desc = 'gameState.mapFlag<?=flagIndex?> = <?=value?>',
 	}
-	VehicleCmds.ClearFlag = VehicleCmd:subclass{
+	VehicleCmds.SetFlag = VehicleSetFlag:subclass{
+		cmd = 0xc8,
+		value = true,
+	}
+	VehicleCmds.ClearFlag = VehicleSetFlag:subclass{
 		cmd = 0xc9,
-		argtypes = {uint16_t},
-		argnames = {'flagIndex'},
-		desc = 'gameState.mapFlags<?=flagIndex?> = false',
+		value = false,
 	}
 
 	for cmd=0xca,0xcf do
@@ -2075,12 +2077,12 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {
 			local cmdobj = trace.cmdObjForAddr[startAddr]
 			if cmdobj then
 				if cmdobj.cmdset ~= startCmdSet then
-					print('!!! DANGER !!!',
-						('$%06x'):format(startAddr),
-						'decoding address from differing cmdset!',
-						cmdobj.cmdset,
-						'vs',
-						startCmdSet
+					print('!!! DANGER !!! '
+						..('$%06x'):format(startAddr)
+						..' decoding address from differing cmdset!'
+						..' previous cmdset '..cmdobj.cmdset
+						..' from trace at '..('$%06x'):format(trace.addr)
+						..' vs new cmdset '..startCmdSet
 					)
 				else
 					return
@@ -2185,27 +2187,13 @@ assert.type(cmdset, 'string')
 			if cmdobj.getBranchAddrs then
 				-- decode branches ... now or later?
 				for _,newBranch in ipairs(cmdobj:getBranchAddrs()) do
-assert.index(newBranch, 'addr')
 					newBranch.cmdset = newBranch.cmdset or trace.stateStack[1].cmdset	-- make sure we record the current cmdset
-
-					--[[
-					maybe this isn't a good determination?
-					in fact disabling it solves most problems but not all (0a8c15)
-ok ok ok ok
-$0a8b4c	VE b0 b7 01 15 8c 00       if not gameState.mapFlag439 then goto $0a8c15 end
-here's a command where we jump from vehicle state and preserve vehicle state
-maybe we just also have to track prompt state as well ...
-hopefully not object state too ...
-					--]]
 					newBranch.inVehicle = trace.stateStack:last().cmdset == 'VehicleCmds'	-- right now trace.stateStack is just 1 or 2 in size, and 2 is always VehicleCmds, and 1 is always not...
-
 					newBranch.lastDialogPromptCount = trace.lastDialogPromptCount
-
 					newBranch.reverseRefInfo = {
 						branchFromAddr = cmdaddr,
 						cmdset = newBranch.cmdset or trace.stateStack[1].cmdset,
 					}
-
 					newBranches:insert(newBranch)
 				end
 			end
