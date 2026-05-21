@@ -294,7 +294,7 @@ function EventScriptWindow:showIndexUI()
 							ig.igText('if '..cmd.condCode..' then goto')
 							ig.igSameLine()
 							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
-						elseif game.ObjectCmds.Goto:isa(cmd) then
+						elseif game.ObjectCmds.Call:isa(cmd) then
 							ig.igText'goto'
 							ig.igSameLine()
 							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)

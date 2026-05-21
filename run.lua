@@ -26,10 +26,6 @@ local romsize = game.romsize
 local countof = game.countof
 
 
-
-os.exit()
-
-
 local function align(n, s)
 	s = tostring(s)
 	return s..(' '):rep(n - #s)
@@ -92,17 +88,6 @@ end
 print()
 print'END EVENT SCRIPT'
 print()
-
-do return end
-
-
-
-
-
-
-
-
-
 
 
 

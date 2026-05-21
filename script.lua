@@ -559,22 +559,12 @@ assert.len(self.trace.stateStack, 1, "can we go from something to event-cmds to 
 			local newCmdSet
 			if self.mapIndex < 3 then
 				newCmdSet = 'WorldCmds'
+			--[[ this used to be here but it seems there are random cmdset changes between arbitrary commands
+			-- so I just moved all the conditional stuff into the tracer
 			elseif self.mapIndex == 511 then
 				-- now we have to track previous map ... ?
 				-- I guess there's only a few of these ...
-				newCmdSet = ({
-					[0x0a00e3] = 'WorldCmds',	-- from map touch, specifically doomgaze
-					[0x0a7a86] = 'EventCmds',	-- branch
-					[0x0a8ff0] = 'EventCmds',	-- branch
-					[0x0af4c1] = 'WorldCmds',	-- branch
-					[0x0af4d7] = 'WorldCmds',	-- branch
-					[0x0af4f3] = 'WorldCmds',	-- branch, so it matters
-					[0x0af567] = 'EventCmds',	-- branch, so it matters
-					[0x0af596] = 'EventCmds',	-- branch
-					[0x0b4505] = 'EventCmds',	-- branch
-					[0x0b67f7] = 'WorldCmds',	-- branch ... everything8215's event_main.asm says first set to World ... then after endScript set to Events ... does endScript always set cmdset to Events?
-					[0x0c3383] = 'EventCmds',	-- branch
-				})[self.addr] or error("TODO "..('$%06x'):format(self.addr))
+			--]]
 			else
 				newCmdSet = 'EventCmds'
 			end
@@ -1506,18 +1496,18 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 		}
 	end
 
-	ObjectCmds.Goto = ObjectCmd:subclass{
+	-- "goto" or "call" ?
+	ObjectCmds.Call = ObjectCmd:subclass{
 		cmd = 0xf9,
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
-		desc = '<?=getGotoOfsStr(destAddrOfs)?>',
+		desc = "<?=getGotoOfsStr(destAddrOfs, ' call')?>",
 
 		getBranchAddrs = function(self)
 			return {
 				{addr=scriptBaseAddr + self.destAddrOfs},
 			}
 		end,
-		endTrace = true,
 	}
 
 	ObjectCmds.Branch = ObjectCmd:subclass{
@@ -2079,7 +2069,7 @@ assert.eq(self.trace.stateStack:last().cmdset, 'VehicleCmds', "how did we get he
 assert.type(startCmdSet, 'string')
 		local reverseRefInfo = args.reverseRefInfo
 
--- [==[ debugging
+--[==[ debugging
 print('decompiling from '..require'ext.tolua'(reverseRefInfo, {
 	indent = false,
 	serializeForType = {
@@ -2092,26 +2082,17 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {
 		game.eventScriptAddrs[startAddr] = game.eventScriptAddrs[startAddr] or table()
 		game.eventScriptAddrs[startAddr]:insert(reverseRefInfo)
 
-		-- make sure we haven't decoded this already
-		for _,trace in pairs(decompileTraces) do
-			local cmdobj = trace.cmdObjForAddr[startAddr]
-			if cmdobj then
-				if cmdobj.cmdset ~= startCmdSet then
-					print('!!! DANGER !!! '
-						..('$%06x'):format(startAddr)
-						..' decoding address from differing cmdset!'
-						..' previous cmdset '..cmdobj.cmdset
-						..' from trace at '..('$%06x'):format(trace.addr)
-						..' vs new cmdset '..startCmdSet
-					)
-				else
-					return
-				end
+		-- force override addrs here
+		do
+			local newCmdSet = ({
+				[0x0a5eb4] = 'EventCmds',	-- end-script used by event and world cmds
+			})[startAddr]
+			if newCmdSet then
+				startCmdSet = newCmdSet
 			end
 		end
 
 		local trace = {}
-		decompileTraces[startAddr] = trace
 		trace.addr = startAddr
 		trace.cmds = table()
 		trace.cmdObjForAddr = {}	-- keys are cmds[i].addr
@@ -2129,6 +2110,26 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {
 			}
 		end
 
+		-- make sure we haven't decoded this already
+		for _,otherTrace in pairs(decompileTraces) do
+			local cmdobj = otherTrace.cmdObjForAddr[startAddr]
+			if cmdobj then
+				if cmdobj.cmdset ~= trace.stateStack:last().cmdset then
+					print('!!! DANGER !!! '
+						..('$%06x'):format(startAddr)
+						..' decoding address from differing cmdset!'
+						..' previous cmdset '..cmdobj.cmdset
+						..' from trace at '..('$%06x'):format(otherTrace.cmds[1].addr)
+						..' vs new cmdset '..trace.stateStack:last().cmdset
+					)
+				else
+					return
+				end
+			end
+		end
+
+		decompileTraces[startAddr] = trace
+
 		local newBranches = table()
 
 		local addr = startAddr
@@ -2138,7 +2139,7 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {
 			return o
 		end
 
--- [==[ debugging:
+--[==[ debugging:
 print(('BEGIN $%06x'):format(startAddr))
 --]==]
 
@@ -2173,7 +2174,7 @@ assert.type(cmdset, 'string')
 			trace.cmds:insert(cmdobj)
 			trace.cmdObjForAddr[cmdaddr] = cmdobj
 
--- [==[ debugging print as we go
+--[==[ debugging print as we go
 	io.write(('$%06x'):format(cmdobj.addr), '\t')
 	io.write(({
 		EventCmds = 'EV ',
@@ -2218,13 +2219,38 @@ assert.type(cmdset, 'string')
 				end
 			end
 
+			-- this is gonna go before cmds very soon
+			local newCmdSet = ({
+				-- these are all SetMap's:
+				[0x0a00e3] = 'WorldCmds',	-- from map touch, specifically doomgaze
+				[0x0a7a86] = 'EventCmds',	-- branch
+				[0x0a8ff0] = 'EventCmds',	-- branch
+				[0x0af4c1] = 'WorldCmds',	-- branch
+				[0x0af4d7] = 'WorldCmds',	-- branch
+				[0x0af4f3] = 'WorldCmds',	-- branch, so it matters
+				[0x0af567] = 'EventCmds',	-- branch, so it matters
+				[0x0af596] = 'EventCmds',	-- branch
+				[0x0b4505] = 'EventCmds',	-- branch
+				[0x0b67f7] = 'WorldCmds',	-- branch ... everything8215's event_main.asm says first set to World ... then after endScript set to Events ... does endScript always set cmdset to Events?
+				[0x0c3383] = 'EventCmds',	-- branch
+				-- sometimes just a goto, or a conditional-goto will change things?
+				[0x0af4c7] = 'EventCmds',	-- $0af4c7	WO b0 76 01 b4 5e 00       if not gameState.mapFlag374 then goto $0a5eb4 end
+				[0x0af4dd] = 'EventCmds',	-- $0af4dd	WO b0 76 01 b4 5e 00       if not gameState.mapFlag374 then goto $0a5eb4 end
+				[0x0a8ca8] = 'EventCmds',	-- $0a8ca8	VE b0 27 01 e3 8b 00       if not gameState.mapFlag295 then goto $0a8be3 end
+			})[cmdaddr]
+			if newCmdSet then
+				for i=2,#trace.stateStack do trace.stateStack[i] = nil end	-- clear VehicleCmds too
+				trace.stateStack[1].cmdset = newCmdSet
+			end
+
+
 			if cmdobj.endTrace then break end
 		end
 
 		-- set this before trying recursive, so they know this trace's address interval
 		trace.endAddr = addr
 
--- [==[ debugging:
+--[==[ debugging:
 print(('END $%06x'):format(startAddr))
 print()
 --]==]
@@ -2364,7 +2390,7 @@ print()
 		end
 	end
 
---[=[ remove subsets
+-- [=[ remove subsets
 	local sortedTraces = table.values(decompileTraces)
 	sortedTraces:sort(function(a,b) return a.addr < b.addr end)
 	for i=#sortedTraces-1,1,-1 do
