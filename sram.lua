@@ -151,7 +151,11 @@ local SaveSlot = struct{
 
 		{name='unknown_81d', type=arrayType(uint8_t, -(0x81d - 0x840))},	-- 0x81d - 0x840 = 23 bytes ...
 
-		{name='treasureFlags', type=arrayType(uint8_t, 0x40)},				-- 0x840 - 0x880 = "treasure bits" here: https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:field_ram&s[]=%2Asram%2A#fffsave_ram
+		-- past flag 48==0x30 it is something else ... right?
+		{name='treasureFlags', type=arrayType(uint8_t, 0x30)},				-- 0x840 - 0x870 = "treasure bits" here: https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:field_ram&s[]=%2Asram%2A#fffsave_ram
+
+		{name='unknown_870', type=arrayType(uint8_t, 0x10)},				-- 0x870 - 0x880
+
 		{name='mapFlags', type=arrayType(uint8_t, 0x60)},					-- 0x880 - 0x8e0 = 768 = 0x300 flags /8 = 0x60 bytes. everything8215's "mapSwitches", or this page's "event bits": https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:field_ram&s[]=%2Asram%2A#fffsave_ram
 		{name='npcFlags', type=arrayType(uint8_t, 0x80)},					-- 0x8e0 - 0x960
 
