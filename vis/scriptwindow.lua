@@ -150,9 +150,9 @@ function EventScriptWindow:showIndexUI()
 					then
 						for j,what in ipairs(cmd.what) do
 							ig.igPushID_Int(j)
-							if what.startEventScriptAddr then
+							if what.type == 'startEventScriptAddr' then
 								ig.igSameLine()
-								app.mapWindow:popupButton(what.mapIndex)
+								app.mapWindow:popupButton(what.mapIndex, 'onstart')
 							elseif what.npcIndex then
 								ig.igSameLine()
 								if ig.igButton('map '..what.mapIndex..' npc '..what.npcIndex) then
@@ -185,7 +185,7 @@ function EventScriptWindow:showIndexUI()
 								ig.igText(tostring(what.builtin))
 							else
 								ig.igSameLine()
-								ig.igText'???'
+								ig.igText(require 'ext.tolua'(what))
 							end
 							ig.igPopID()
 						end

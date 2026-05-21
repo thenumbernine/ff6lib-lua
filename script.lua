@@ -143,7 +143,7 @@ return function(game)
 		digest = function(self, ...)
 			-- if it's an event-script command to start an object-script, then switch our opcodes...
 			-- maybe todo push?  or will exiting object-scripts always revert to event-scripts?
-assert.len(self.trace.stateStack, 1, "can we go from something to event-cmds to object-cmds?")
+--DEBUG:assert.len(self.trace.stateStack, 1, "can we go from something to event-cmds to object-cmds?")
 
 			assert.eq(self.trace.stateStack:last().objectScriptCmd, nil, "got two object-scripts before the first one ended...")
 
@@ -577,8 +577,8 @@ assert.len(self.trace.stateStack, 1, "can we go from something to event-cmds to 
 				if self.trace.stateStack:last().cmdset == 'VehicleCmds' then
 					self.trace.stateStack:remove()
 				end
-assert.ge(#self.trace.stateStack, 1, "popped our last state stack when leaving vehicle state...")
-assert.ne(self.trace.stateStack:last().cmdset, 'VehicleCmds', "popped vehicle state and still ended up in vehicle state...")
+--DEBUG:assert.ge(#self.trace.stateStack, 1, "popped our last state stack when leaving vehicle state...")
+--DEBUG:assert.ne(self.trace.stateStack:last().cmdset, 'VehicleCmds', "popped vehicle state and still ended up in vehicle state...")
 			else
 				-- you can set from the base event/world cmdset
 				-- or you can also set while in the vehicle cmdset (in which case, don't push anything on the stack...)
@@ -1375,11 +1375,11 @@ assert.ne(self.trace.stateStack:last().cmdset, 'VehicleCmds', "popped vehicle st
 	game.ObjectCmd = ObjectCmd
 
 	local function popObjectCmdSet(trace, addr, dontDoTheProbablyWrongEndAddrCheck)
-assert.gt(#trace.stateStack, 1, "tried to pop a cmdset when the stack would become empty")
+--DEBUG:assert.gt(#trace.stateStack, 1, "tried to pop a cmdset when the stack would become empty")
 		local prevState = trace.stateStack:remove()
-assert.eq(prevState.cmdset, 'ObjectCmds', "got ObjectCmds.EndScript when it wasn't in the object cmdset...")
+--DEBUG:assert.eq(prevState.cmdset, 'ObjectCmds', "got ObjectCmds.EndScript when it wasn't in the object cmdset...")
 		local objectScriptCmd = prevState.objectScriptCmd
-assert.ne(objectScriptCmd, nil, "got an object end-script when there was no objectScriptCmd set ...")
+--DEBUG:assert.ne(objectScriptCmd, nil, "got an object end-script when there was no objectScriptCmd set ...")
 		if not dontDoTheProbablyWrongEndAddrCheck
 		and addr ~= objectScriptCmd.addr + objectScriptCmd.length + 1
 		then
@@ -2022,8 +2022,8 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 		cmd = 0xff,
 		digest = function(self, ...)
 -- assert we're in a vehicle state and pop state
-assert.gt(#self.trace.stateStack, 1, "how did we get here?")
-assert.eq(self.trace.stateStack:last().cmdset, 'VehicleCmds', "how did we get here?")
+--DEBUG:assert.gt(#self.trace.stateStack, 1, "how did we get here?")
+--DEBUG:assert.eq(self.trace.stateStack:last().cmdset, 'VehicleCmds', "how did we get here?")
 			self.trace.stateStack:remove()
 		end,
 		-- is a vehicle end-script on par with a world/event end-script, or is it more like object end-script that just ends the object-section ?
@@ -2099,7 +2099,7 @@ assert.eq(self.trace.stateStack:last().cmdset, 'VehicleCmds', "how did we get he
 	local function decompileFrom(args)
 		local startAddr = args.addr
 		local startCmdSet = args.cmdset
-assert.type(startCmdSet, 'string')
+--DEBUG:assert.type(startCmdSet, 'string')
 		local reverseRefInfo = args.reverseRefInfo
 
 --[==[ debugging
@@ -2188,9 +2188,9 @@ print('!!! script oob !!! '..('$%06x'):format(addr))
 			local cmdaddr = addr
 			local cmd = read(uint8_t)
 
-assert.gt(#trace.stateStack, 0, "someone popped the last cmdset...")
+--DEBUG:assert.gt(#trace.stateStack, 0, "someone popped the last cmdset...")
 			local cmdset = trace.stateStack:last().cmdset
-assert.type(cmdset, 'string')
+--DEBUG:assert.type(cmdset, 'string')
 			local cl = game[cmdset][cmd]
 			local cmdobj = cl()
 			cmdobj.trace = trace
