@@ -118,10 +118,6 @@ return function(game)
 	Cmds.Cmd = Cmd	-- parent-class of all script cmds
 
 
-	-- here's some interpretation state-variables
-	-- that I should probably move into an interpretation-context-object
-	local stateStack
-
 	-- because we are using it in EventCmds:
 	local EventCmds = {}
 	local WorldCmds = {}
@@ -147,11 +143,11 @@ return function(game)
 		digest = function(self, ...)
 			-- if it's an event-script command to start an object-script, then switch our opcodes...
 			-- maybe todo push?  or will exiting object-scripts always revert to event-scripts?
-assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds?")
+assert.len(self.trace.stateStack, 1, "can we go from something to event-cmds to object-cmds?")
 
-			assert.eq(stateStack:last().objectScriptCmd, nil, "got two object-scripts before the first one ended...")
+			assert.eq(self.trace.stateStack:last().objectScriptCmd, nil, "got two object-scripts before the first one ended...")
 
-			stateStack:insert{
+			self.trace.stateStack:insert{
 				cmdset = 'ObjectCmds',
 				objectScriptCmd = self,
 			}
@@ -565,32 +561,32 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 			if self.mapIndex < 2
 			or self.mapIndex == 511	-- ... and the previous map was a world map ... ?
 			then
-				stateStack[1].cmdset = 'WorldCmds'
+				self.trace.stateStack[1].cmdset = 'WorldCmds'
 			else
-				stateStack[1].cmdset = 'EventCmds'
+				self.trace.stateStack[1].cmdset = 'EventCmds'
 			end
 
 			if self.vehicle == 0 then
 				-- now if we are clearing vehicle...
 				-- if we were not in vehicle then nothing
 				-- if we were in vehicle ... then pop state
-				if stateStack:last().cmdset == 'VehicleCmds' then
-					stateStack:remove()
+				if self.trace.stateStack:last().cmdset == 'VehicleCmds' then
+					self.trace.stateStack:remove()
 				end
-assert.ge(#stateStack, 1, "popped our last state stack when leaving vehicle state...")
-assert.ne(stateStack:last().cmdset, 'VehicleCmds', "popped vehicle state and still ended up in vehicle state...")
+assert.ge(#self.trace.stateStack, 1, "popped our last state stack when leaving vehicle state...")
+assert.ne(self.trace.stateStack:last().cmdset, 'VehicleCmds', "popped vehicle state and still ended up in vehicle state...")
 			else
 				-- you can set from the base event/world cmdset
 				-- or you can also set while in the vehicle cmdset (in which case, don't push anything on the stack...)
-				--assert.len(stateStack, 1, "tried to set-map set-vehicle within a sub-state!")
+				--assert.len(self.trace.stateStack, 1, "tried to set-map set-vehicle within a sub-state!")
 
 				-- switching to vehicle state doesn't track length like switching to object state does
 				-- hmm are the two orthogonal or not?
 				-- i.e. can we switch-to-object, switch-to-vehicle, then end object script (while still processing vehicle cmds)
 				-- I guess never since there is no Object SetMap
 				-- so we're safe there.
-				if stateStack:last().cmdset ~= 'VehicleCmds' then
-					stateStack:insert{
+				if self.trace.stateStack:last().cmdset ~= 'VehicleCmds' then
+					self.trace.stateStack:insert{
 						cmdset = 'VehicleCmds',
 					}
 				end
@@ -1343,9 +1339,9 @@ assert.ne(stateStack:last().cmdset, 'VehicleCmds', "popped vehicle state and sti
 	local ObjectCmd = Cmd:subclass()
 	game.ObjectCmd = ObjectCmd
 
-	local function popObjectCmdSet(addr, dontDoTheProbablyWrongEndAddrCheck)
-assert.gt(#stateStack, 1, "tried to pop a cmdset when the stack would become empty")
-		local prevState = stateStack:remove()
+	local function popObjectCmdSet(trace, addr, dontDoTheProbablyWrongEndAddrCheck)
+assert.gt(#trace.stateStack, 1, "tried to pop a cmdset when the stack would become empty")
+		local prevState = trace.stateStack:remove()
 assert.eq(prevState.cmdset, 'ObjectCmds', "got ObjectCmds.EndScript when it wasn't in the object cmdset...")
 		local objectScriptCmd = prevState.objectScriptCmd
 assert.ne(objectScriptCmd, nil, "got an object end-script when there was no objectScriptCmd set ...")
@@ -1536,12 +1532,12 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 			-- even when only applying to branch-back ...
 			-- or maybe this should only happen if our object-script length has expired?
 			-- only for select operations still? or for any operation i.e. move to loop below?
-			local objectScriptCmd = stateStack:last().objectScriptCmd
+			local objectScriptCmd = self.trace.stateStack:last().objectScriptCmd
 			if objectScriptCmd
 			and self.addr
 				== objectScriptCmd.addr + objectScriptCmd.length
 			then
-				popObjectCmdSet(self.addr, true)
+				popObjectCmdSet(self.trace, self.addr, true)
 			end
 		end,
 		--]=]
@@ -1556,7 +1552,7 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 	ObjectCmds.EndScript = ObjectCmd:subclass{
 		cmd = 0xff,
 		digest = function(self, ...)
-			popObjectCmdSet(self.addr)
+			popObjectCmdSet(self.trace, self.addr)
 		end,
 		desc = 'end)',	-- and joinAll() if the objectScriptCmd had blocking ...
 	}
@@ -1981,9 +1977,9 @@ assert.ne(objectScriptCmd, nil, "got an object end-script when there was no obje
 		cmd = 0xff,
 		digest = function(self, ...)
 -- assert we're in a vehicle state and pop state
-assert.gt(#stateStack, 1, "how did we get here?")
-assert.eq(stateStack:last().cmdset, 'VehicleCmds', "how did we get here?")
-			stateStack:remove()
+assert.gt(#self.trace.stateStack, 1, "how did we get here?")
+assert.eq(self.trace.stateStack:last().cmdset, 'VehicleCmds', "how did we get here?")
+			self.trace.stateStack:remove()
 		end,
 		-- is a vehicle end-script on par with a world/event end-script, or is it more like object end-script that just ends the object-section ?
 		desc = 'endScript()',
@@ -2100,13 +2096,13 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {
 		trace.lastDialogPromptCount = args.lastDialogPromptCount
 
 		-- not sure about this
-		stateStack = table()
-		stateStack:insert{
+		trace.stateStack = table()
+		trace.stateStack:insert{
 			cmdset = startCmdSet,
 		}
 
 		if args.inVehicle then
-			stateStack:insert{
+			trace.stateStack:insert{
 				cmdset = 'VehicleCmds',
 			}
 		end
@@ -2136,8 +2132,8 @@ print('!!! script oob !!! '..('$%06x'):format(addr))
 			local cmdaddr = addr
 			local cmd = read(uint8_t)
 
-assert.gt(#stateStack, 0, "someone popped the last cmdset...")
-			local cmdset = stateStack:last().cmdset
+assert.gt(#trace.stateStack, 0, "someone popped the last cmdset...")
+			local cmdset = trace.stateStack:last().cmdset
 assert.type(cmdset, 'string')
 			local cl = game[cmdset][cmd]
 			local cmdobj = cl()
@@ -2190,7 +2186,7 @@ assert.type(cmdset, 'string')
 				-- decode branches ... now or later?
 				for _,newBranch in ipairs(cmdobj:getBranchAddrs()) do
 assert.index(newBranch, 'addr')
-					newBranch.cmdset = newBranch.cmdset or stateStack[1].cmdset	-- make sure we record the current cmdset
+					newBranch.cmdset = newBranch.cmdset or trace.stateStack[1].cmdset	-- make sure we record the current cmdset
 
 					--[[
 					maybe this isn't a good determination?
@@ -2201,13 +2197,13 @@ here's a command where we jump from vehicle state and preserve vehicle state
 maybe we just also have to track prompt state as well ...
 hopefully not object state too ...
 					--]]
-					newBranch.inVehicle = stateStack:last().cmdset == 'VehicleCmds'	-- right now stateStack is just 1 or 2 in size, and 2 is always VehicleCmds, and 1 is always not...
+					newBranch.inVehicle = trace.stateStack:last().cmdset == 'VehicleCmds'	-- right now trace.stateStack is just 1 or 2 in size, and 2 is always VehicleCmds, and 1 is always not...
 
 					newBranch.lastDialogPromptCount = trace.lastDialogPromptCount
 
 					newBranch.reverseRefInfo = {
 						branchFromAddr = cmdaddr,
-						cmdset = newBranch.cmdset or stateStack[1].cmdset,
+						cmdset = newBranch.cmdset or trace.stateStack[1].cmdset,
 					}
 
 					newBranches:insert(newBranch)
@@ -2225,12 +2221,12 @@ print(('END $%06x'):format(startAddr))
 print()
 --]==]
 
-		assert.ge(#stateStack, 1, "somehow we popped all our states...")
+		assert.ge(#trace.stateStack, 1, "somehow we popped all our states...")
 
-		if stateStack:last().objectScriptCmd then
+		if trace.stateStack:last().objectScriptCmd then
 			print('!!! DANGER !!! event-script ended still inside an object-script:',
 				('script start = $%06x'):format(startAddr),
-				('object-script start = $%06x'):format(stateStack:last().objectScriptCmd.addr)
+				('object-script start = $%06x'):format(trace.stateStack:last().objectScriptCmd.addr)
 			)
 		end
 
