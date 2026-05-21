@@ -121,7 +121,6 @@ return function(game)
 	-- here's some interpretation state-variables
 	-- that I should probably move into an interpretation-context-object
 	local stateStack
-	local lastDialogPromptCount
 
 	-- because we are using it in EventCmds:
 	local EventCmds = {}
@@ -316,7 +315,7 @@ assert.len(stateStack, 1, "can we go from something to event-cmds to object-cmds
 
 			local dlg = game.dialog[self.dialogIndex]
 			if dlg then
-				lastDialogPromptCount = select(2, dlg:gsub('%[PROMPT%]', '%0'))
+				self.trace.lastDialogPromptCount = select(2, dlg:gsub('%[PROMPT%]', '%0'))
 			end
 		end,
 		__tostring = function(self)
@@ -1017,8 +1016,8 @@ assert.ne(stateStack:last().cmdset, 'VehicleCmds', "popped vehicle state and sti
 		cmd = 0xb6,
 		digest = function(self, read)
 			self.addrs = table()
-if not lastDialogPromptCount then error("required choices but no dialog at "..('$%06x'):format(self.addr)) end
-			for i=1,lastDialogPromptCount do
+			if not self.trace.lastDialogPromptCount then error("required choices but no dialog at "..('$%06x'):format(self.addr)) end
+			for i=1,self.trace.lastDialogPromptCount do
 				self.addrs:insert(scriptBaseAddr + read(uint24_t))
 			end
 		end,
@@ -2062,57 +2061,43 @@ assert.eq(stateStack:last().cmdset, 'VehicleCmds', "how did we get here?")
 assert.type(startCmdSet, 'string')
 		local reverseRefInfo = args.reverseRefInfo
 
---[==[ debugging
-print('decompiling from '..require'ext.tolua'(reverseRefInfo, {indent=false}))
+-- [==[ debugging
+print('decompiling from '..require'ext.tolua'(reverseRefInfo, {
+	indent = false,
+	serializeForType = {
+		number = function(state, x, tab, luapath, keyRef)
+			return ('$%06x'):format(x)
+		end,
+	},
+}))
 --]==]
 		game.eventScriptAddrs[startAddr] = game.eventScriptAddrs[startAddr] or table()
 		game.eventScriptAddrs[startAddr]:insert(reverseRefInfo)
 
-
 		-- make sure we haven't decoded this already
-		-- hmm TODO maybe someday I'll return the decoded block and store that by the caller instead of storing per-cmd per-addr....
-		--[[
-		if decompileTraces[startAddr] then
-			if decompileTraces[startAddr].cmdset ~= startCmdSet then
-				print('!!! DANGER !!!',
-					('$%06x'):format(startAddr),
-					'decoding address from differing cmdset!',
-					decompileTraces[startAddr].cmdset,
-					'vs',
-					startCmdSet
-				)
-			end
-			return
-		end
-		--]]
-		-- [[
 		for _,trace in pairs(decompileTraces) do
-			local cmd = trace.cmdObjForAddr[startAddr]
-			if cmd then
-				if trace.cmdset ~= startCmdSet then
+			local cmdobj = trace.cmdObjForAddr[startAddr]
+			if cmdobj then
+				if cmdobj.cmdset ~= startCmdSet then
 					print('!!! DANGER !!!',
 						('$%06x'):format(startAddr),
 						'decoding address from differing cmdset!',
-						trace.cmdset,
+						cmdobj.cmdset,
 						'vs',
 						startCmdSet
 					)
+				else
+					return
 				end
-				-- then we can return
-				return
 			end
 		end
-		--]]
 
 		local trace = {}
 		decompileTraces[startAddr] = trace
 		trace.addr = startAddr
-		trace.cmdset = startCmdSet
 		trace.cmds = table()
 		trace.cmdObjForAddr = {}	-- keys are cmds[i].addr
-
-		-- reset script decode state
-		lastDialogPromptCount = nil
+		trace.lastDialogPromptCount = args.lastDialogPromptCount
 
 		-- not sure about this
 		stateStack = table()
@@ -2126,7 +2111,7 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {indent=false}))
 			}
 		end
 
-		local branchInfos = table()
+		local newBranches = table()
 
 		local addr = startAddr
 		local function read(ctype)
@@ -2135,7 +2120,7 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {indent=false}))
 			return o
 		end
 
---[==[ debugging:
+-- [==[ debugging:
 print(('BEGIN $%06x'):format(startAddr))
 --]==]
 
@@ -2156,6 +2141,7 @@ assert.gt(#stateStack, 0, "someone popped the last cmdset...")
 assert.type(cmdset, 'string')
 			local cl = game[cmdset][cmd]
 			local cmdobj = cl()
+			cmdobj.trace = trace
 			cmdobj.addr = cmdaddr
 			cmdobj.cmdset = cmdset
 
@@ -2169,8 +2155,14 @@ assert.type(cmdset, 'string')
 			trace.cmds:insert(cmdobj)
 			trace.cmdObjForAddr[cmdaddr] = cmdobj
 
---[==[ debugging print as we go
+-- [==[ debugging print as we go
 	io.write(('$%06x'):format(cmdobj.addr), '\t')
+	io.write(({
+		EventCmds = 'EV ',
+		WorldCmds = 'WO ',
+		ObjectCmds = 'OB ',
+		VehicleCmds = 'VE ',
+	})[cmdobj.cmdset])
 	local function align(n, s)
 		s = tostring(s)
 		return s..(' '):rep(n - #s)
@@ -2185,7 +2177,7 @@ assert.type(cmdset, 'string')
 	if game.ObjectCmd:isa(cmdobj)
 	and not game.ObjectCmds.EndScript:isa(cmdobj)
 	then
-		io.write'\t'
+		io.write'    '
 	end
 	print((tostring(cmdobj)
 		:gsub('\t', '\\t')
@@ -2196,22 +2188,29 @@ assert.type(cmdset, 'string')
 
 			if cmdobj.getBranchAddrs then
 				-- decode branches ... now or later?
-				for _,info in ipairs(cmdobj:getBranchAddrs()) do
-					branchInfos:insert{
-						addr = assert.index(info, 'addr'),
-						cmdset = info.cmdset or stateStack[1].cmdset,	-- make sure we record the current cmdset
+				for _,newBranch in ipairs(cmdobj:getBranchAddrs()) do
+assert.index(newBranch, 'addr')
+					newBranch.cmdset = newBranch.cmdset or stateStack[1].cmdset	-- make sure we record the current cmdset
 
-						-- [[ maybe this isn't a good determination?
-						inVehicle = stateStack:last().cmdset == 'VehicleCmds',	-- right now stateStack is just 1 or 2 in size, and 2 is always VehicleCmds, and 1 is always not...
-						--]]
-						-- [[ in fact disabling it solves most problems but not all (0a8c15)
-						--]]
+					--[[
+					maybe this isn't a good determination?
+					in fact disabling it solves most problems but not all (0a8c15)
+ok ok ok ok
+$0a8b4c	VE b0 b7 01 15 8c 00       if not gameState.mapFlag439 then goto $0a8c15 end
+here's a command where we jump from vehicle state and preserve vehicle state
+maybe we just also have to track prompt state as well ...
+hopefully not object state too ...
+					--]]
+					newBranch.inVehicle = stateStack:last().cmdset == 'VehicleCmds'	-- right now stateStack is just 1 or 2 in size, and 2 is always VehicleCmds, and 1 is always not...
 
-						reverseRefInfo = {
-							branchFromAddr = cmdaddr,
-							cmdset = info.cmdset or stateStack[1].cmdset,
-						},
+					newBranch.lastDialogPromptCount = trace.lastDialogPromptCount
+
+					newBranch.reverseRefInfo = {
+						branchFromAddr = cmdaddr,
+						cmdset = newBranch.cmdset or stateStack[1].cmdset,
 					}
+
+					newBranches:insert(newBranch)
 				end
 			end
 
@@ -2221,7 +2220,7 @@ assert.type(cmdset, 'string')
 		-- set this before trying recursive, so they know this trace's address interval
 		trace.endAddr = addr
 
---[==[ debugging:
+-- [==[ debugging:
 print(('END $%06x'):format(startAddr))
 print()
 --]==]
@@ -2235,8 +2234,8 @@ print()
 			)
 		end
 
-		for _,info in ipairs(branchInfos) do
-			decompileFrom(info)
+		for _,newBranch in ipairs(newBranches) do
+			decompileFrom(newBranch)
 		end
 	end
 
@@ -2361,7 +2360,7 @@ print()
 		end
 	end
 
-
+--[=[ remove subsets
 	local sortedTraces = table.values(decompileTraces)
 	sortedTraces:sort(function(a,b) return a.addr < b.addr end)
 	for i=#sortedTraces-1,1,-1 do
@@ -2369,35 +2368,38 @@ print()
 		local b = sortedTraces[i+1]
 		-- if they have the same ending
 		-- then chances are the smaller half decoded first then the larger earlier half
-		if a.addr < b.addr and a.endAddr == b.endAddr then
+		if a.addr < b.addr
+		and a.endAddr == b.endAddr
+		then
 --print('found possible subset', ('$%06x'):format(a.addr), ('$%06x'):format(b.addr), ('$%06x'):format(b.endAddr))
 			-- but first verify
-			-- make sure the cmdsets match
-			if a.cmdset ~= b.cmdset then
---print("...but cmdset didn't match")
-			else
-				-- make sure all the cmds match
-				local allmatch = true
-				for j,bcmd in ipairs(b.cmds) do
-					local acmd = a.cmds[#a.cmds-#b.cmds+j]
-					if acmd.addr ~= bcmd.addr then
+			-- make sure all the cmds match
+			local allmatch = true
+			for j,bcmd in ipairs(b.cmds) do
+				local acmd = a.cmds[#a.cmds-#b.cmds+j]
+				if acmd.addr ~= bcmd.addr then
 --print('...but cmd addr at '..('$%06x'):format(acmd.addr)..' vs '..('$%06x'):format(bcmd.addr).." didn't match")
-						allmatch = false
-					end
-					if getmetatable(acmd) ~= getmetatable(bcmd) then
+					allmatch = false
+					break
+				end
+				if acmd.cmdset ~= bcmd.cmdset then
+					allmatch = false
+					break
+				end
+				if getmetatable(acmd) ~= getmetatable(bcmd) then
 --print('...but cmd metatable at '..('$%06x'):format(acmd.addr).." didn't match")
-						allmatch = false
-						break
-					end
+					allmatch = false
+					break
 				end
-				if allmatch then
+			end
+			if allmatch then
 --print('removing subset trace', b.addr)
-					decompileTraces[b.addr] = nil
-					sortedTraces:remove(i+1)
-				end
+				decompileTraces[b.addr] = nil
+				sortedTraces:remove(i+1)
 			end
 		end
 	end
+--]=]
 
 	-- double-check collisions
 	local sortedTraces = table.values(decompileTraces)

@@ -27,6 +27,7 @@ local countof = game.countof
 
 
 
+os.exit()
 
 
 local function align(n, s)
