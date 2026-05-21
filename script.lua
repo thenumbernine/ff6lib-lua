@@ -2330,54 +2330,65 @@ print()
 		end
 	end
 
-	--[[ add builtins?
+	-- [[ add builtins?
 	for addr,name in pairs{
-		[0x0a0000] = 'no event',
-		[0x0a0001] = 'wait for dialogue window',
-		[0x0a0003] = 'game start',
-		[0x0a0008] = 'chest: item',
-		[0x0a000c] = 'chest: spell',
-		[0x0a0010] = 'chest: gp',
-		[0x0a0014] = 'chest: empty',
-		[0x0a0018] = 'random battle',
-		[0x0a0034] = 'tent',
-		[0x0a0039] = 'warp/warp stone',
-		[0x0a0040] = 'chest: monster-in-a-box',
-		[0x0a0078] = 'falcon: deck',
-		[0x0a009d] = 'doom gaze',
-		[0x0a00ea] = 'tent: animation',
-		[0x0a0108] = 'warp: animation',
-		[0x0a015e] = 'tent: animation (world)',
-		[0x0a01a2] = 'kefka's tower',
-		[0x0a0405] = 'phoenix cave',
-		[0x0a057d] = 'final battle/ending',
-		[0x0a5ade] = 'floating island: cinematic',
-		[0x0a5e33] = 'new game',
-		[0x0a5ea9] = 'post-battle',
-		[0x0a5eb3] = 'return',
-		[0x0a5eb4] = 'return (world)',
-		[0x0aca64] = 'check facing direction',
-		[0x0acd31] = 'inn: no dream',
-		[0x0acd3c] = 'inn: normal',
-		[0x0acd5b] = 'inn: dream 1',
-		[0x0acdd9] = 'inn: dream 2',
-		[0x0ace51] = 'inn: dream 3',
-		[0x0acefe] = 'inn: dream 4',
-		[0x0acf67] = 'inn: fade out',
-		[0x0acf96] = 'inn: fade in',
-		[0x0b69ff] = 'not enough gp',
-		[0x0c985b] = 'prologue',
-		[0x0c9aeb] = 'save point',
-		[0x0ce566] = 'game over',
+		[0x0a0000] = "no event",
+		[0x0a0001] = "wait for dialogue window",
+		[0x0a0003] = "game start",
+		[0x0a0008] = "chest: item",
+		[0x0a000c] = "chest: spell",
+		[0x0a0010] = "chest: gp",
+		[0x0a0014] = "chest: empty",
+		[0x0a0018] = "random battle",
+		[0x0a0034] = "tent",
+		[0x0a0039] = "warp/warp stone",
+		[0x0a0040] = "chest: monster-in-a-box",
+		--[0x0a0078] = "falcon: deck",	-- what's wrong with this one?
+		[0x0a009d] = "doom gaze",
+		[0x0a00ea] = "tent: animation",
+		[0x0a0108] = "warp: animation",
+		[0x0a015e] = "tent: animation (world)",
+		[0x0a01a2] = "kefka's tower",
+		[0x0a0405] = "phoenix cave",
+		[0x0a057d] = "final battle/ending",
+		[0x0a5ade] = "floating island: cinematic",
+		[0x0a5e33] = "new game",
+		[0x0a5ea9] = "post-battle",
+		[0x0a5eb3] = "return",
+		[0x0a5eb4] = "return (world)",
+		[0x0aca64] = "check facing direction",
+		[0x0acd31] = "inn: no dream",
+		[0x0acd3c] = "inn: normal",
+		[0x0acd5b] = "inn: dream 1",
+		[0x0acdd9] = "inn: dream 2",
+		[0x0ace51] = "inn: dream 3",
+		[0x0acefe] = "inn: dream 4",
+		[0x0acf67] = "inn: fade out",
+		[0x0acf96] = "inn: fade in",
+		[0x0b69ff] = "not enough gp",
+		[0x0c985b] = "prologue",
+		[0x0c9aeb] = "save point",
+		[0x0ce566] = "game over",
 	} do
-		game.eventScriptAddrs[addr] = table{{builtin=name}}
+		decompileFrom{
+			addr = addr,
+			cmdset = 'EventCmds',
+			reverseRefInfo = {builtin = name},
+		}
 	end
 	for addr,name in pairs{
-		[0x0aa6c0] = 'blackjack book',
+		[0x0aa6c0] = "blackjack book",
 	} do
-		game.eventScriptAddrs[addr] = table{{builtin = name, cmdset = 'VehicleCmds'}}
+		decompileFrom{
+			addr = addr,
+			cmdset = 'EventCmds',
+			inVehicle = true,
+			reverseRefInfo = {builtin = name},
+		}
 	end
 	--]]
+
+
 
 	-- is this a good idea, or should I double-check by storing trace address ranges and make sure none overlap so that i'm not inserting cmds between/ontop one another?
 	game.eventScriptCmds:sort(function(a,b) return a.addr < b.addr end)

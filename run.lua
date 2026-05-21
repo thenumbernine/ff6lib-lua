@@ -89,6 +89,8 @@ print()
 print'END EVENT SCRIPT'
 print()
 
+do return end
+
 
 
 for i=0,countof(game.spells)-1 do
