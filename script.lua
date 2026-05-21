@@ -1027,7 +1027,7 @@ return function(game)
 		desc = 'sleep(<?=seconds?>)'
 	}
 
-	EventCmds.CallForDialogResult = EventCmd:subclass{
+	EventCmds.GotoForDialogResult = EventCmd:subclass{
 		cmd = 0xb6,
 		digest = function(self, read)
 			self.addrs = table()
@@ -1039,7 +1039,7 @@ return function(game)
 		__tostring = function(self)
 			-- TODO is it 'goto' or is it 'call'?
 			-- cuz if it's goto then the the next instruction after "want to learn about espers?" shouldn't be a 'return', because each jump option there has its own return ...
-			return 'callForDialogChoice('
+			return 'gotoForDialogChoice('
 				..self.addrs:mapi(function(addr)
 					return (' $%06x'):format(addr)
 				end):concat' '
