@@ -1791,6 +1791,119 @@ local Treasure = ff6struct{
 }
 assert.eq(ffi.sizeof(Treasure), 5)
 
+--[[
+NPC types: normal, special, animated
+separate structures or separate anonymous unions? thanks to bitfield alignment there would be lots of matching identical names, welp, the compiler can pick and it won't matter.
+
+struct NPCNormal {
+	// not-special-specific:
+	uint32_t scriptAddr:18;			-- 0.0-2.1
+
+	// shared in common
+	uint16_t palette:3;				-- 2.2-2.4
+	uint16_t scrollingLayer:1;		-- 2.5
+	uint16_t flag:10;				-- 2.6-3.7
+	uint8_t x:7;					-- 4.0-4.6
+
+	// not-special-specific:
+	uint8_t showRider:1;			-- 4.7
+
+	// shared in common
+	uint8_t y:6;					-- 5.0-5.5
+	uint8_t speed:2;				-- 5.6-5.7
+	uint8_t graphics;				-- 6.0-6.7
+	uint8_t movement:4;				-- 7.0-7.3
+	uint8_t spritePriority:2;		-- 7.4-7.5
+
+	// normal-specific:
+	uint8_t vehicle:2;				-- 7.6-7.7
+	uint8_t dir:2;					-- 8.0-8.1
+	uint8_t dontTurnToPlayer:1;		-- 8.2
+
+	// shared in common
+	uint8_t layerPriority:2;		-- 8.3-8.4
+
+	// special-specific
+	uint8_t unknown_8_5:3;			-- 8.5-8.7
+};
+
+struct NPCAnimated {
+	// not-special-specific:
+	uint32_t scriptAddr:18;			-- 0.0-2.1
+
+	// shared in common
+	uint16_t palette:3;				-- 2.2-2.4
+	uint16_t scrollingLayer:1;		-- 2.5
+	uint16_t flag:10;				-- 2.6-3.7
+	uint8_t x:7;					-- 4.0-4.6
+
+	// not-special-specific:
+	uint8_t showRider:1;			-- 4.7
+
+	// shared in common
+	uint8_t y:6;					-- 5.0-5.5
+	uint8_t speed:2;				-- 5.6-5.7
+	uint8_t graphics;				-- 6.0-6.7
+	uint8_t movement:4;				-- 7.0-7.3
+	uint8_t spritePriority:2;		-- 7.4-7.5
+
+	// animated-specific
+	uint8_t animationSpeed:2;		-- 7.6-7.7
+	uint8_t animationType:2;		-- 8.0-8.1
+	uint8_t unused_8_2:1;			-- 8.2
+
+	// shared in common
+	uint8_t layerPriority:2;		-- 8.3-8.4
+
+	// animation-specific:
+	uint8_t animationFrame:3;		-- 8.5-8.7
+};
+
+struct NPCSpecialGraphics {
+	// special-specific:
+	uint8_t vramAddr:7;				-- 0.0-0.6
+	uint8_t hflip:1;				-- 0.7
+	uint8_t masterNPC:5;			-- 1.0-1.4
+	uint8_t masterOffset:3;			-- 1.5-1.7
+	uint16_t masterOffsetAxis :1;	-- 2.0 = 0=x, 1=y
+	uint16_t isSlave:1;				-- 2.1
+
+	// shared in common
+	uint16_t palette:3;				-- 2.2-2.4
+	uint16_t scrollingLayer:1;		-- 2.5
+	uint16_t flag:10;				-- 2.6-3.7
+	uint8_t x:7;					-- 4.0-4.6
+
+	// special-specific:
+	//  everything8215's npc_prop.asm calls this "is_special", but if it is also used to store "showRider" then we need another condition
+	uint8_t alwaysTrue:1;			-- 4.7
+
+	// shared in common
+	uint8_t y:6;					-- 5.0-5.5
+	uint8_t speed:2;				-- 5.6-5.7
+	uint8_t graphics;				-- 6.0-6.7
+	uint8_t movement:4;				-- 7.0-7.3
+	uint8_t spritePriority:2;		-- 7.4-7.5
+
+	// special-specific:
+	uint8_t isSpecial:2;			-- 7.6-7.7 ... or is this isNotSpecial ?
+
+	// can't tell if this is shared in common with special and animated but not normal .. or if it is just animation specific
+	uint8_t animationType:2;		-- 8.0-8.1
+
+	// special-specific:
+	uint8_t is32x32:1;				-- 8.2
+
+	// shared in common
+	uint8_t layerPriority:2;		-- 8.3-8.4
+
+	// special-specific
+	uint8_t unknown_8_5:3;			-- 8.5-8.7
+};
+
+--]]
+
+
 
 local NPC = struct{
 	ctypeOnly = true,
@@ -1815,6 +1928,7 @@ tostringOmitEmpty = true,
 			return self.script + ffi.offsetof(Game, 'eventScript')
 		end
 	end,
+
 	fields = {
 		{type=struct{
 			union = true,
@@ -1827,6 +1941,7 @@ tostringOmitEmpty = true,
 metatable = function(mt)
 	mt.typeToString = fieldsToHex
 end,
+
 			fields = {
 				{type=struct{
 					anonymous = true,
@@ -1843,7 +1958,7 @@ end,
 						-- offset 0xa0000 (game.eventScript)
 						{name='script', type='uint32_t:18'},				-- 0.0-2.1
 
-						{name='unknown_2_2', type='uint32_t:3'},			-- 2.2-2.4
+						{name='palette', type='uint32_t:3'},				-- 2.2-2.4
 						{name='scrollingLayer', type='uint32_t:1'},			-- 2.5 = 0=layer1, 1=layer2
 						{name='flag', type='uint32_t:10'},					-- 2.6-3.7
 					},
@@ -1864,11 +1979,12 @@ end,
 						{name='vramAddr', type='uint8_t:7'},				-- 0.0-0.6
 						{name='hflip', type='uint8_t:1'},					-- 0.7
 						{name='masterNPC', type='uint8_t:5'},				-- 1.0-1.4
-						{name='offset', type='uint8_t:3'},					-- 1.5-1.7
-						{name='offsetDir', type='uint8_t:1'},				-- 2.0 = 0=right, 1=down
-						{name='slaveNPC', type='uint8_t:1'},				-- 2.1
-						{name='palette', type='uint8_t:3'},					-- 2.2-2.4
-						{name='unused_2_5', type='uint8_t:3'},				-- 2.5-2.7
+						{name='masterOffset', type='uint8_t:3'},			-- 1.5-1.7
+						{name='masterOffsetAxis', type='uint16_t:1'},		-- 2.0 = 0=x, 1=y
+						{name='isSlave', type='uint16_t:1'},				-- 2.1
+						{name='palette', type='uint16_t:3'},				-- 2.2-2.4
+						{name='scrollingLayer', type='uint16_t:1'},			-- 2.5 = 0=layer1, 1=layer2
+						{name='flag', type='uint16_t:10'},					-- 2.6-3.7
 					},
 				}},
 			},
