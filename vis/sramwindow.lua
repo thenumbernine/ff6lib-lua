@@ -9,6 +9,12 @@ SRAMWindow.characterIndex = 0
 
 SRAMWindow.name = 'sram'
 
+function SRAMWindow:getIndex(i)
+	if not self.app.game or not self.app.sram then return end
+	if i <= 0 or i > self:getCount() then return end
+	return self.app.sram.saves.s + i
+end
+
 function SRAMWindow:getCount()
 	if not self.app.sram then return end
 	return 3
@@ -17,8 +23,8 @@ end
 function SRAMWindow:showIndexUI()
 	local app = self.app
 	local game = app.game
-	if not app.sram or not game then return end
-	local save = app.sram.saves.s + self.index
+	local save = self:getCurIndex()
+	if not save then return end
 
 	ig.igSeparator()
 	if ig.igCollapsingHeader'save fields:' then
@@ -267,8 +273,8 @@ function SRAMWindow:refreshMonstersEnabled()
 		local byteofs = bit.rshift(i, 3)
 		local bitofs = bit.band(i, 7)
 		local mask = bit.lshift(1, bitofs)
-		local formationEnabled = 0 ~= bit.band(mask, save.battleFormationFlags[byteofs])
-		if formationEnabled then
+		local enabled = 0 ~= bit.band(mask, save.battleFormationFlags[byteofs])
+		if enabled then
 			local formation = game.formations + i
 			-- do I care about chooseNextFour as well?
 			for j=1,6 do

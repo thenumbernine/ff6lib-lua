@@ -40,7 +40,8 @@ function BattleOptionsWindow:getIndexName(i)
 end
 
 function BattleOptionsWindow:showIndexUI()
-	local game = self.app.game
+	local app = self.app
+	local game = app.game
 	local battleEntries = game[self.gameField] + self.index
 	local formationCounts = {}
 	ig.igPushID_Str('battleEntries '..self.name)
@@ -52,9 +53,23 @@ function BattleOptionsWindow:showIndexUI()
 		ig.igText(self:getProbStr(j))
 		ig.igSameLine()
 
-		self:editRef(self.app.battleFormationWindow, formationEntry, 'formation')
+		local hasFormation
+		local save = app.sramWindow:getCurIndex()
+		if save then
+			hasFormation = 0 ~= bit.band(
+				bit.lshift(1, bit.band(formationEntry.formation, 7)),
+				save.battleFormationFlags[bit.rshift(formationEntry.formation, 3)]
+			)
+			ig.igPushStyleColor_U32(ig.ImGuiCol_FrameBg, hasFormation and 0x3f007f00 or 0x3f00007f)
+		end
+
+		self:editRef(app.battleFormationWindow, formationEntry, 'formation')
 
 		ig.luatableCheckbox('choose from next four', formationEntry, 'chooseFromNextFour')
+
+		if hasFormation ~= nil then
+			ig.igPopStyleColor(1)
+		end
 
 		ig.igPopID()
 	end

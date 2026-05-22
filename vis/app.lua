@@ -837,7 +837,6 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 					then
 						self.worldEncounterSectorWindow:open(i)
 						if leftDoubleClick then
-print('got double click')
 							-- if we double-clicked then also bring up the battle-formation for the terrain-type
 							-- TODO
 							-- but is the terrain-type just the background?
