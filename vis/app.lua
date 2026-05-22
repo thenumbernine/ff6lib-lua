@@ -717,12 +717,64 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 					local w, h = 32, 32
 
 					local i = bit.bor(sectorIndex, bit.lshift(self.mapWindow.index, 6))
-					if leftPress
+					if (leftPress or leftDoubleClick)
 					and x <= mx and mx < x+w
 					and y <= my and my < y+h
 					then
 						self.worldEncounterSectorWindow:setIndex(i)
 						self.worldEncounterSectorWindow.show[0] = true
+						if leftDoubleClick then
+print('got double click')
+							-- if we double-clicked then also bring up the battle-formation for the terrain-type
+							-- TODO
+							-- but is the terrain-type just the background?
+							-- no, because terrain is 2 bits and background is 4 bits in WorldTileProps
+							--[[
+							backgrounds:	terrain:
+							wob:
+							0 = grass		0 = grass
+							3 = forest		1 = forest
+							2 = desert		2 = desert
+							6 = veldt		... special code
+							wor:
+							4 = grass		0 = grass
+							1 = forest		1 = forest
+							2 = desert		2 = desert
+							5 = dirt		3 = dirt
+							--]]
+							local tilePropsPtr = self.tileWindow:getPropsPtr()
+							if tilePropsPtr then
+								local battleBgIndex = ffi.cast(ffi.typeof('$*', game.WorldTileProps), tilePropsPtr).battleBG
+								local terrainTypeIndex
+								if battleBgIndex == 0 or battleBgIndex == 4 then
+									terrainTypeIndex = 0	-- grass
+								elseif battleBgIndex == 1 or battleBgIndex == 3 then
+									terrainTypeIndex = 1	-- forest
+								elseif battleBgIndex == 2 then
+									terrainTypeIndex = 2	-- desert
+								elseif battleBgIndex == 5 then
+									terrainTypeIndex = 3	-- dirt
+								elseif battleBgIndex == 6 then
+									-- veldt
+								elseif battleBgIndex == 7 then
+									-- WoR ocean
+								end
+								if terrainTypeIndex then
+									-- open the formation for this type
+									local randomBattlesPerTerrain = game.worldSectorRandomBattlesPerTerrain + self.worldEncounterSectorWindow.index
+									local formationIndex = randomBattlesPerTerrain[game.terrainTypes[terrainTypeIndex+1]]
+									self.randomBattleOptionsWindow.show[0] = true
+									self.randomBattleOptionsWindow:setIndex(formationIndex)
+
+									-- and change the battle formation window too?
+									if formationIndex < game.numFormations then
+										local battleEntries = game.monsterRandomBattles + formationIndex
+										self.battleFormationWindow.show[0] = true
+										self.battleFormationWindow:setIndex(battleEntries.s[0].formation)
+									end
+								end
+							end
+						end
 					end
 					settable(uniforms.color, .7, .7, .7, .5)
 					settable(uniforms.bbox, x, y, w, h)

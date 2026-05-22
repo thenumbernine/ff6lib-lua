@@ -179,4 +179,24 @@ function TileWindow:setIndex(index, ...)
 	end
 end
 
+-- get a uint16_t* for the properties of the current tile
+function TileWindow:getPropsPtr()
+	local app = self.app
+	local game = app.game
+
+	local mapIndex = app.mapWindow.index
+	local mapInfo = game.getMap(mapIndex)
+
+	local tilePropsData = mapInfo.tilePropsData
+	if not tilePropsData then return end
+
+	local layouts = mapInfo.layouts
+	local layout1Data = layouts[1] and layouts[1].data
+	if not layout1Data then return end
+	local layoutptr = ffi.cast(uint8_t_p, layout1Data)
+
+	local tilePropsPtr = ffi.cast(uint16_t_p, tilePropsData)
+	return tilePropsPtr + layoutptr[self.index]
+end
+
 return TileWindow

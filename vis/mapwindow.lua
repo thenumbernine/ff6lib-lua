@@ -528,7 +528,11 @@ function MapWindow:refreshBattleBgTex()
 	local mapIndex = self.index
 	local mapInfo = game.getMap(mapIndex)
 
+	-- TODO use tilewindow for getting the tile props?
+	-- but I guess background is map-specific, and only tile-specific in world maps...
 	if mapIndex < 2 then
+		-- should this be a map or a tile window function?
+		-- i'll store it per map, idk why
 		-- then we have to refresh this every time the tile window changes tiles ...
 		local tilePropsData = mapInfo.tilePropsData
 		local layouts = mapInfo.layouts
@@ -544,7 +548,6 @@ function MapWindow:refreshBattleBgTex()
 				battleBgIndex = tilePropsPtr[layoutptr[tileIndex]].battleBG
 			end
 		end
-
 	else
 		local map = mapInfo.map
 		battleBgIndex = map.battleBG
