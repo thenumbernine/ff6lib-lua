@@ -2320,7 +2320,7 @@ local SaveSlot = struct{
 
 		{name='unknown_965', type=arrayType(uint8_t, -(0x965 - 0x96b))},	-- 0x965 - 0x96b
 
-		{name='mapPos2', type=XY8b},										-- 0x96b - 0x96c
+		{name='lastTownPos', type=XY8b},									-- 0x96b - 0x96c
 
 		{name='unknown_96d', type=arrayType(uint8_t, -(0x96d - 0x9fe))},	-- 0x96d - 0x9fe
 

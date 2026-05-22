@@ -228,16 +228,11 @@ function EventBattleOptionsWindow:showIndexUI(...)
 	if not self.eventScriptCmdsWithThis then
 		self.eventScriptCmdsWithThis = table()
 		for _,cmd in ipairs(game.eventScriptCmds) do
-			local cmdname
-			for _,checkcmdname in ipairs{'TouchBattle', 'Battle'} do
-				if game.EventCmds[checkcmdname]:isa(cmd) then
+			if game.Cmds.Battle:isa(cmd)
+			and cmd.eventBattleOptionsIndex == self.index
+			then
 --DEBUG:print(('battle at $%06x with eventBattleOptionsIndex %d'):format(cmd.addr, cmd.eventBattleOptionsIndex))
-					cmdname = checkcmdname
-					break
-				end
-			end
-			if cmdname and cmd.eventBattleOptionsIndex == self.index then
-				self.eventScriptCmdsWithThis:insert{addr=cmd.addr, cmdname=cmdname}
+				self.eventScriptCmdsWithThis:insert(cmd.addr)
 			end
 		end
 	end
@@ -246,8 +241,8 @@ function EventBattleOptionsWindow:showIndexUI(...)
 	if #self.eventScriptCmdsWithThis == 0 then
 		ig.igText'...none'
 	else
-		for _,info in ipairs(self.eventScriptCmdsWithThis) do
-			app.scriptWindow:popupButtonForAddr(info.addr, info.cmdname)
+		for _,addr in ipairs(self.eventScriptCmdsWithThis) do
+			app.scriptWindow:popupButtonForAddr(addr)
 		end
 	end
 	-- TODO I guess there's events, monsters, objects, vehicles, world scripts ... this is just events ...

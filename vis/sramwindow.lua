@@ -64,10 +64,10 @@ function SRAMWindow:showIndexUI()
 		app.tileWindow:setXY(save.mapPos.x, save.mapPos.y)
 		app:centerView(save.mapPos.x, save.mapPos.y)
 	end
-	if ig.igButton'goto mapPos2...' then
+	if ig.igButton'goto lastTownPos...' then
 		app.mapWindow:open(save.map)
-		app.tileWindow:setXY(save.mapPos2.x, save.mapPos2.y)
-		app:centerView(save.mapPos2.x, save.mapPos2.y)
+		app.tileWindow:setXY(save.lastTownPos.x, save.lastTownPos.y)
+		app:centerView(save.lastTownPos.x, save.lastTownPos.y)
 	end
 	if ig.igButton'goto airshipPos...' then
 		app.mapWindow:open(0)	-- TODO how to tell if the airship is in WoB or WoR?
