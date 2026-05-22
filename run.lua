@@ -89,6 +89,25 @@ print()
 print'END EVENT SCRIPT'
 print()
 
+do
+	local function addrtostr(x) return ('$%06x'):format(x) end
+	local function check(a,b)
+		if a.endAddr > b.addr then
+			print('!!! collision between '..a:printInterval()..' and '..b:printInterval())
+		elseif a.endAddr < b.addr then
+			print('! empty region from '..addrtostr(a.endAddr)..' and '..addrtostr(b.addr))
+		end
+	end
+	local sortedTraces = table.values(game.decompileTraces)
+	sortedTraces:sort(function(a,b) return a.addr < b.addr end)
+	-- TODO ends as well
+	for i=1,#sortedTraces-1 do
+		check(sortedTraces[i], sortedTraces[i+1])
+	end
+	print()
+end
+--os.exit()
+
 
 for i=0,countof(game.spells)-1 do
 	print('spell #'..i)

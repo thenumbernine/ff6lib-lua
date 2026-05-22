@@ -2096,6 +2096,11 @@ return function(game)
 	-- TODO this but for the state of decoding as well
 	local decompileTraces = {}
 
+	local Trace = class()
+	function Trace:printInterval()
+		return ('$%06x'):format(self.addr)..' - '..('$%06x'):format(self.endAddr)
+	end
+
 	local function decompileFrom(args)
 		local startAddr = args.addr
 		local startCmdSet = args.cmdset
@@ -2125,7 +2130,7 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {
 			end
 		end
 
-		local trace = {}
+		local trace = Trace()
 		trace.addr = startAddr
 		trace.cmds = table()
 		trace.cmdObjForAddr = {}	-- keys are cmds[i].addr
@@ -2255,6 +2260,7 @@ print('!!! script oob !!! '..('$%06x'):format(addr))
 			-- this is gonna go before cmds very soon
 			local newCmdSet = ({
 				-- these are all SetMap's:
+				[0x0a0096] = 'WorldCmds',	-- doomgaze defeated - the setmap sets vehicle but I guess don't?
 				[0x0a00e3] = 'WorldCmds',	-- from map touch, specifically doomgaze
 				[0x0a7a86] = 'EventCmds',	-- branch
 				[0x0a8ff0] = 'EventCmds',	-- branch
@@ -2319,9 +2325,9 @@ print()
 				end
 
 				-- blackjack book starts as 'inVehicle':
+				-- needed especially for scripts that branch into this address
 				local inVehicle
 				if startAddr == 0x0aa6c0 then
-					-- can I do this?
 					inVehicle = true
 				end
 
@@ -2409,7 +2415,13 @@ print()
 		}
 	end
 	for addr,name in pairs{
+		[0x0a004f] = 'world tent',
+		[0x0a0059] = 'airship ground',
+		[0x0a0068] = 'airship deck',
 		[0x0a0078] = "falcon: deck",
+		[0x0a0088] = "enter phoenix cave",
+		[0x0a008f] = "enter gogo's lair",
+		[0x0a0096] = "doom gaze defeated",
 	} do
 		decompileFrom{
 			addr = addr,
@@ -2418,6 +2430,7 @@ print()
 		}
 	end
 	for addr,name in pairs{
+		[0x0a007f] = "enter kefka's tower",
 		[0x0aa6c0] = "blackjack book",
 	} do
 		decompileFrom{
@@ -2490,12 +2503,9 @@ print()
 		local a = sortedTraces[i-1]
 		local b = sortedTraces[i]
 		if b.addr < a.endAddr then
-			print('- collision detected between '
-				..('$%06x'):format(a.addr)..' - '..('$%06x'):format(a.endAddr)
-				..' and '
-				..('$%06x'):format(b.addr)..' - '..('$%06x'):format(b.endAddr)
-			)
+			print('!!! collision detected between '..a:printInterval()..' and '..b:printInterval())
 		end
 	end
 
+	game.decompileTraces = decompileTraces
 end
