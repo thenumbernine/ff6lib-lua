@@ -902,11 +902,22 @@ return function(game)
 		cmd = 0xa0,
 		argtypes = {uint16_t, uint24_t},
 		argnames = {'duration', 'arg'},
+		getargs = function(self, duration, arg)
+			self.duration = duration
+			self.destAddrOfs = bit.band(0x3ffff, arg)
+			self.flags = bit.rshift(arg, 20)
+		end,
 		desc = 'startTimer{'
 			..'duration=<?=duration?>'
-			..', addr=<?=scriptBaseAddr + bit.band(0x3ffff, arg)?>'
-			..', flags=<?=bit.rshift(arg, 20)?>'
+			..', addr=<?=getGotoOfsStr(destAddrOfs)?>'
+			..', flags=<?=flags?>'
 		..'}',
+
+		getBranchAddrs = function(self)
+			return {
+				{addr=scriptBaseAddr + self.destAddrOfs},
+			}
+		end,
 	}
 
 	EventCmds.StopTimer = EventCmd:subclass{

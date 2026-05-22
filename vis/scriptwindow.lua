@@ -315,6 +315,12 @@ function EventScriptWindow:showIndexUI()
 								ig.igSameLine()
 								self:popupButtonForAddr(addr)
 							end
+						elseif game.EventCmds.StartTimer:isa(cmd) then
+							ig.igText('start timer, addr=')
+							ig.igSameLine()
+							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
+							ig.igSameLine()
+							ig.igText(' duration='..cmd.duration..', flags='..cmd.flags)
 						elseif game.EventCmds.ChangeObjectEvent:isa(cmd) then
 							ig.igText('objs['..cmd.objectIndex..'].script =')
 							ig.igSameLine()
@@ -372,7 +378,7 @@ end
 
 -- popupButton is based on index, so this is based on address
 function EventScriptWindow:popupButtonForAddr(addr, extraText)
-	local text = ('event $%06x'):format(addr)
+	local text = ('$%06x'):format(addr)
 	if extraText then text = text .. ' ' .. extraText end
 	if ig.igButton(text) then
 		self:openScriptAddr(addr)

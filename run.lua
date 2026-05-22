@@ -106,7 +106,7 @@ do
 	end
 	print()
 end
---os.exit()
+os.exit()
 
 
 for i=0,countof(game.spells)-1 do
