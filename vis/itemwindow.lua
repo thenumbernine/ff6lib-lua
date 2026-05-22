@@ -135,8 +135,7 @@ function ItemWindow:showIndexUI()
 				info.mapIndex,
 				'treasure #'..info.treasureIndex
 			) then
-				app.treasureWindow.show[0] = true
-				app.treasureWindow:setIndex(info.treasureIndex-1)
+				app.treasureWindow:open(info.treasureIndex-1)
 
 				local t = info.treasure
 				-- just like doorWindow...
@@ -184,8 +183,7 @@ function ItemWindow:showIndexUI()
 			ig.igSameLine()
 
 			if ig.igButton(info.field) then
-				self.app.charWindow.show[0] = true
-				self.app.charWindow:setIndex(info.charIndex)
+				self.app.charWindow:open(info.charIndex)
 			end
 
 			ig.igPopID()

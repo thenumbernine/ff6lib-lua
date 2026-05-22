@@ -139,13 +139,11 @@ function RandomBattleOptionsWindow:showIndexUI(...)
 
 			ig.igSameLine()
 			if ig.igButton(info.terrain) then
-				self.app.mapWindow.show[0] = true
-				self.app.mapWindow:setIndex(mapIndex)
+				self.app.mapWindow:open(mapIndex)
 
 				-- just like doorWindow...
 				-- and treasureWindow below ...
-				self.app.worldEncounterSectorWindow.show[0] = true
-				self.app.worldEncounterSectorWindow:setIndex(info.sectorIndex)
+				self.app.worldEncounterSectorWindow:open(info.sectorIndex)
 
 				-- just like doorWindow...
 				-- new map should be loaded now
@@ -214,8 +212,7 @@ function EventBattleOptionsWindow:showIndexUI(...)
 				info.mapIndex,
 				'treasure #'..info.treasureIndex
 			) then
-				self.app.treasureWindow.show[0] = true
-				self.app.treasureWindow:setIndex(info.treasureIndex-1)
+				self.app.treasureWindow:open(info.treasureIndex-1)
 
 				local t = info.treasure
 				-- just like doorWindow...

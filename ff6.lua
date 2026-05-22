@@ -2272,23 +2272,23 @@ local SaveSlot = struct{
 	tostringOmitEmpty = true,
 
 	fields = {
-		{name='characters', type=CharacterSave16},								-- 0x000 - 0x250
+		{name='characters', type=CharacterSave16},							-- 0x000 - 0x250
 		{name='raster', type=vec16ub},										-- 0x250 - 0x260
 		{name='gold', type=uint24_t},										-- 0x260 - 0x263
 		{name='time', type=uint24_t},										-- 0x263 - 0x266	-- in 30hz increments?
 		{name='steps', type=uint24_t},										-- 0x266 - 0x269
-		{name='itemTypes', type=arrayType(ItemRef, 256)},				-- 0x269 - 0x369
+		{name='itemTypes', type=arrayType(ItemRef, 256)},					-- 0x269 - 0x369
 		{name='itemCounts', type=arrayType(uint8_t, 256)},					-- 0x369 - 0x469
-		{name='esperFlags', type=uint32_t},									-- 0x469 - 0x46d
+		{name='esperFlags', type=arrayType(uint8_t, 4)},					-- 0x469 - 0x46d
 		{name='activeGroup', type=uint8_t},									-- 0x46d - 0x46e	-- for when you are in multi-party mode? like phoenix cave / kefka's tower?
 		{name='spellsLearned', type=arrayType(uint8_t, 12 * 54)},			-- 0x46e - 0x6f6 ... spell learned[12][54]
 		{name='unknown_6f6', type=uint8_t},									-- 0x6f6 - 0x6f7
-		{name='swdtechFlags', type=uint8_t},								-- 0x6f7 - 0x6f8	-- wait, in-rom it is 12 bytes per swdtech (right?)
+		{name='swdtechFlags', type=arrayType(uint8_t, 1)},					-- 0x6f7 - 0x6f8	-- wait, in-rom it is 12 bytes per swdtech (right?)
 		{name='swdtechNames', type=Str12_4},								-- 0x6f6 - 0x728
-		{name='blitzFlags', type=uint8_t},									-- 0x728 - 0x729
-		{name='loreFlags', type=uint24_t},									-- 0x729 - 0x72c
+		{name='blitzFlags', type=arrayType(uint8_t, 1)},					-- 0x728 - 0x729
+		{name='loreFlags', type=arrayType(uint8_t, 3)},						-- 0x729 - 0x72c
 		{name='rageFlags', type=arrayType(uint8_t, 32)},					-- 0x72c - 0x74c
-		{name='danceFlags', type=uint8_t},									-- 0x74c - 0x74d
+		{name='danceFlags', type=arrayType(uint8_t, 1)},					-- 0x74c - 0x74d
 
 		{name='unknown_74d', type=arrayType(uint8_t, -(0x74d - 0x7c7))},	-- 0x74d - 0x7c7
 
@@ -2313,17 +2313,14 @@ local SaveSlot = struct{
 		{name='mapFlags', type=arrayType(uint8_t, 0x60)},					-- 0x880 - 0x8e0 = 768 = 0x300 flags /8 = 0x60 bytes. everything8215's "mapSwitches", or this page's "event bits": https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:field_ram&s[]=%2Asram%2A#fffsave_ram
 		{name='npcFlags', type=arrayType(uint8_t, 0x80)},					-- 0x8e0 - 0x960
 
-		{name='mapx', type=uint8_t},										-- 0x960 - 0x961
-		{name='mapy', type=uint8_t},										-- 0x961 - 0x962
-		{name='airshipx', type=uint8_t},									-- 0x962 - 0x963
-		{name='airshipy', type=uint8_t},									-- 0x963 - 0x964
+		{name='mapPos', type=XY8b},											-- 0x960 - 0x962
+		{name='airshipPos', type=XY8b},										-- 0x962 - 0x964
 
 		{name='map', type=uint8_t},											-- 0x964 - 0x965
 
 		{name='unknown_965', type=arrayType(uint8_t, -(0x965 - 0x96b))},	-- 0x965 - 0x96b
 
-		{name='mapx2', type=uint8_t},										-- 0x96b
-		{name='mapy2', type=uint8_t},										-- 0x96c
+		{name='mapPos2', type=XY8b},										-- 0x96b - 0x96c
 
 		{name='unknown_96d', type=arrayType(uint8_t, -(0x96d - 0x9fe))},	-- 0x96d - 0x9fe
 
@@ -2960,6 +2957,7 @@ game.EquipFlags = EquipFlags
 game.Effect1 = Effect1
 game.Effect2 = Effect2
 game.Effect3 = Effect3
+game.Effect4 = Effect4
 game.Element = Element
 game.Targetting = Targetting
 game.Spell = Spell
@@ -3016,6 +3014,7 @@ game.WorldSectorRandomBattleEncounterRates = WorldSectorRandomBattleEncounterRat
 game.Game = Game
 
 game.CharacterSave = CharacterSave
+game.CharacterSave16 = CharacterSave16
 game.SaveSlot = SaveSlot
 game.SRAM = SRAM
 

@@ -874,7 +874,7 @@ xpcall(function()
 			and x <= mx and mx <= x+1
 			and y <= my and my <= y+1
 			then
-				self.show[0] = true
+				self:open()
 			end
 		end
 

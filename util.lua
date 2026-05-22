@@ -31,6 +31,10 @@ local uint24_t = ff6struct{
 		mt.value = function(self)
 			return bit.bor(self.lo, bit.lshift(self.hi, 16))
 		end
+		mt.setValue = function(self, x)
+			self.lo = bit.band(x, 0xffff)
+			self.hi = bit.band(bit.rshift(x, 16), 0xff)
+		end
 	end,
 }
 assert.eq(ffi.sizeof(uint24_t), 3)

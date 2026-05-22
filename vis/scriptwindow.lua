@@ -156,9 +156,8 @@ function EventScriptWindow:showIndexUI()
 							elseif what.npcIndex then
 								ig.igSameLine()
 								if ig.igButton('map '..what.mapIndex..' npc '..what.npcIndex) then
-									app.mapWindow:setIndex(what.mapIndex)
-									app.npcWindow:setIndex(what.npcIndex)
-									app.npcWindow.show[0] = true
+									app.mapWindow:open(what.mapIndex)
+									app.npcWindow:open(what.npcIndex)
 									local n = app.npcWindow:getCurIndex()
 									if n then
 										app:centerView(n.x, n.y)
@@ -168,8 +167,7 @@ function EventScriptWindow:showIndexUI()
 								ig.igSameLine()
 								if ig.igButton('map '..what.mapIndex..' touch '..what.touchTriggerIndex) then
 									app.mapWindow:setIndex(what.mapIndex)
-									app.touchTriggerWindow:setIndex(what.touchTriggerIndex)
-									app.touchTriggerWindow.show[0] = true
+									app.touchTriggerWindow:open(what.touchTriggerIndex)
 									local t = app.touchTriggerWindow:getCurIndex()
 									if t then
 										app:centerView(t.pos.x, t.pos.y)
@@ -367,7 +365,7 @@ function EventScriptWindow:openScriptAddr(scriptAddr)
 	else
 		self.index = self.index - 1
 	end
-	self.show[0] = true
+	self:open()
 	--[[
 	ig.ImGuiListClipper_SeekCursorForItem(self.clipper, self.index)
 	--]]

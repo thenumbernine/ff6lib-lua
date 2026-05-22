@@ -23,8 +23,8 @@ assert(p:exists(), "failed to find "..p)
 local data = assert(p:read())
 assert.len(data, 0x2000)
 local ptr = ffi.cast(uint8_t_p, data)
-
 assert.eq(ffi.sizeof(game.SRAM), #data)	-- make sure it fits
+local sram = ffi.cast(ffi.typeof('$*', game.SRAM), ptr)
 
 
 -- [[ a lot is identical to maps.lua treasure generation, i could consolidate if I stored either pointers there or objects and addresses there
@@ -62,7 +62,7 @@ for treasureIndex=0,countof(game.treasures)-1 do
 	}
 end
 
-local sram = ffi.cast(ffi.typeof('$*', game.SRAM), ptr)
+
 --[[
 print(sram)
 --]]
@@ -95,8 +95,6 @@ for i=saveMin, saveMax do
 
 	print()
 	print'treasures:'
-	-- if sfc is provided then show long-form like we're doing
-	--  but if it's not then just show a matrix of checkboxes, since we can't get the names/locations anyways
 	for i=0,bit.lshift(countof(save.treasureFlags),3)-1 do
 		local byteofs = bit.rshift(i,3)
 		local bitofs = bit.band(i, 7)

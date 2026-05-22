@@ -137,11 +137,7 @@ function ArrayWindow:popupButton(targetIndex, extraText)
 		self.show[0] = false
 	else
 		if ig.igButton(k) then
-			self.show[0] = true
-			if targetIndex then
-				print('setting', self.name, 'to', targetIndex)
-				self:setIndex(targetIndex)
-			end
+			self:open(targetIndex)
 			result = true
 		end
 	end
@@ -164,11 +160,13 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 		error("unknown fieldname type "..type(fieldname))
 	end
 
+	local valueobj = obj[fieldname]
+
 	--[[ view only:
-	ig.igText(' '..fieldname..' = '..tostring(obj[fieldname]))
+	ig.igText(' '..fieldname..' = '..tostring(valueobj))
 	--]]
 	-- [[ edit:
-	ctype = ctype or ffi.typeof(obj[fieldname])
+	ctype = ctype or ffi.typeof(valueobj)
 	local ctypeobj = require 'ext.op'.land(pcall(function() return ffi.typeof(ctype) end))
 
 	-- checkboxes:
@@ -177,7 +175,11 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 	then
 		modified = ig.luatableCheckbox(fieldname, obj, fieldname)
 
-	-- TODO maybe also for Ref's, dropdowns from lists for their windows?  and auto popup buttons?
+	elseif ctypeobj == game.uint24_t then
+		self.__tmp = valueobj:value()
+		if ig.luatableInputFloatAsText(fieldname, self, '__tmp') then
+			ctypeobj:setValue(self.__tmp)
+		end
 
 	-- structs with sub-fields (esp vectors)
 	elseif ctypeobj == game.XY4b
@@ -187,21 +189,24 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 	or ctypeobj == game.Effect1
 	or ctypeobj == game.Effect2
 	or ctypeobj == game.Effect3
+	or ctypeobj == game.Effect4
 	or ctypeobj == game.Element
 	or ctypeobj == game.Targetting
 	or ctypeobj == game.SpellLearn
+	--or ctypeobj == game.CharacterSave
+	-- createVec's can be handled sepraately?
 	or ctypeobj == game.MenuNameRef4
 	or ctypeobj == game.ItemRef2
+	--or ctypeobj == game.CharacterSave16
 	then
 		-- i think imgui has vector inputs... hmmm
 		ig.igText(fieldname)
 
-		local subobj = obj[fieldname]
-		for subfieldname, subctype, subfield in subobj:fielditer() do
-			-- TOOD is there left tab padding margin whatever support in imgui?
+		for subfieldname, subctype, subfield in valueobj:fielditer() do
+			-- TODO is there left tab padding margin whatever support in imgui?
 			ig.igText(' ')
 			ig.igSameLine()
-			modified = self:editField(subobj, subfieldname, subctype, subfield) or modified
+			modified = self:editField(valueobj, subfieldname, subctype, subfield) or modified
 		end
 
 	-- refs?
@@ -221,13 +226,13 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 		end
 
 		--[=[
-		self:editSpellRef(obj[fieldname], 'i')
+		self:editSpellRef(valueobj, 'i')
 		--]=]
 		-- [=[ editSpellRef contents:
 		ig.igSetNextItemWidth(100)
-		modified = ig.luatableInputInt(tostring(fieldname), obj[fieldname], 'i')
+		modified = ig.luatableInputInt(tostring(fieldname), valueobj, 'i')
 		ig.igSameLine()
-		local targetIndex = obj[fieldname].i
+		local targetIndex = valueobj.i
 		--[==[
 		modified = win:popupButton(targetIndex) or modified
 		--]==]
@@ -238,9 +243,7 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 			k = name..' '..k
 		end
 		if ig.igButton(k) then
-			win.show[0] = true
-			print('setting', win.name, 'to', targetIndex)
-			win:setIndex(targetIndex)
+			win:open(targetIndex)
 		end
 		--]==]
 		--]=]
@@ -248,11 +251,11 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 	elseif ctypeobj == game.MenuNameRef then
 
 		self.tmpInt = self.tmpInt or ffi.new('int[1]')
-		self.tmpInt[0] = obj[fieldname].i
+		self.tmpInt[0] = valueobj.i
 		if ig.igCombo('', self.tmpInt, range(0, game.countof(game.menuNames)-1):mapi(function(i)
 			return tostring(game.menuNames[i])
 		end)) then
-			obj[fieldname].i = self.tmpInt[0]
+			valueobj.i = self.tmpInt[0]
 		end
 
 	-- default:
@@ -304,12 +307,18 @@ function ArrayWindow:editRef(win, obj, fieldname)
 		k = name..' '..k
 	end
 	if ig.igButton(k) then
-		win.show[0] = true
-		print('setting', win.name, 'to', targetIndex)
-		win:setIndex(targetIndex)
+		win:open(targetIndex)
 	end
 	--]=]
 	return modified
+end
+
+function ArrayWindow:open(targetIndex)
+	self.show[0] = true
+	-- TODO force it to front here too, if that's easy/possible to do in imgui
+	if targetIndex then
+		self:setIndex(targetIndex)
+	end
 end
 
 function ArrayWindow:editMetamorphRef(...)

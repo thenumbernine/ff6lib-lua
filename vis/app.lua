@@ -9,6 +9,7 @@ local vec3d = require 'vec-ffi.vec3d'
 local vec4x4fcol = require 'vec-ffi.vec4x4fcol'
 local LiteThread = require 'thread.lite'
 local Semaphore = require 'thread.semaphore'
+local vector = require 'stl.vector-lua'
 local Image = require 'image'
 local sdl = require 'sdl'
 local sdlAssertNonNull = require 'sdl.assert'.nonnull
@@ -438,6 +439,10 @@ end)
 	if cmdline[1] then
 		self:onLoadROM(cmdline[1], cmdline[2])
 	end
+
+	if cmdline[3] then
+		self:onLoadSRAM(cmdline[3])
+	end
 end
 
 function App:exit(...)
@@ -569,6 +574,20 @@ function App:onLoadROM(infn, mapIndex)
 	self.scriptWindow.show[0] = false	-- who keeps opening this?
 end
 
+function App:onLoadSRAM(fn)
+	self.sramPath = path(fn)
+	local game = self.game
+	assert(game, "the menu to load shouldn't be active ... did you only pass the 3rd cli arg or something?")
+	local sramstr = assert(self.sramPath):read()
+	assert.eq(ffi.sizeof(game.SRAM), #sramstr)	-- make sure it fits
+	-- hmm do I need the vector version? or just the SRAM version, and union it with a .s[] field?
+	self.sramvec = vector('uint8_t', #sramstr)
+	self.sram = ffi.cast(ffi.typeof('$*', game.SRAM), self.sramvec.v)
+	ffi.copy(self.sramvec.v, sramstr, #sramstr)
+	self.sramWindow:open()
+end
+
+
 local function mat4x4mul(m, x, y, z, w)
 	x = tonumber(x)
 	y = tonumber(y)
@@ -685,9 +704,7 @@ function App:update()
 		)))
 	end)
 	self.menuOpenSRAM:check(function(fn)
-		local sramstr = assert(path(fn)):read()
-		self.sramvec = vector(uint8_t, #sramstr)
-		ffi.copy(self.sramvec.v, sramstr, #sramstr)
+		self:onLoadSRAM(fn)
 	end)
 	self.menuSaveSRAM:check(function(fn)
 		assert(path(fn)):write((
@@ -811,8 +828,7 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 					and x <= mx and mx < x+w
 					and y <= my and my < y+h
 					then
-						self.worldEncounterSectorWindow:setIndex(i)
-						self.worldEncounterSectorWindow.show[0] = true
+						self.worldEncounterSectorWindow:open(i)
 						if leftDoubleClick then
 print('got double click')
 							-- if we double-clicked then also bring up the battle-formation for the terrain-type
@@ -853,14 +869,12 @@ print('got double click')
 									-- open the formation for this type
 									local randomBattlesPerTerrain = game.worldSectorRandomBattlesPerTerrain + self.worldEncounterSectorWindow.index
 									local formationIndex = randomBattlesPerTerrain[game.terrainTypes[terrainTypeIndex+1]]
-									self.randomBattleOptionsWindow.show[0] = true
-									self.randomBattleOptionsWindow:setIndex(formationIndex)
+									self.randomBattleOptionsWindow:open(formationIndex)
 
 									-- and change the battle formation window too?
 									if formationIndex < game.numFormations then
 										local battleEntries = game.monsterRandomBattles + formationIndex
-										self.battleFormationWindow.show[0] = true
-										self.battleFormationWindow:setIndex(battleEntries.s[0].formation)
+										self.battleFormationWindow:open(battleEntries.s[0].formation)
 									end
 								end
 							end
@@ -889,8 +903,7 @@ print('got double click')
 						showHL()
 						if leftPress then
 							local i = x + mapWidth * y
-							self.tileWindow:setIndex(i)
-							self.tileWindow.show[0] = true
+							self.tileWindow:open(i)
 						end
 					end
 					-- show selected tile
@@ -913,8 +926,7 @@ print('got double click')
 					and x <= mx and mx < x+1
 					and y <= my and my < y+1
 					then
-						self.treasureWindow:setIndex(i-1)
-						self.treasureWindow.show[0] = true
+						self.treasureWindow:open(i-1)
 					end
 					settable(uniforms.bbox, x, y, 1, 1)
 					settable(uniforms.color, 0,0,1,.5)
@@ -931,8 +943,7 @@ print('got double click')
 					and x <= mx and mx < x+1
 					and y <= my and my < y+1
 					then
-						self.touchTriggerWindow:setIndex(i-1)
-						self.touchTriggerWindow.show[0] = true
+						self.touchTriggerWindow:open(i-1)
 						if leftDoubleClick then
 							local addr = t:getScriptAddr()
 							if addr then
@@ -955,8 +966,7 @@ print('got double click')
 					and x <= mx and mx < x+1
 					and y <= my and my < y+1
 					then
-						self.doorWindow:setIndex(i-1)
-						self.doorWindow.show[0] = true
+						self.doorWindow:open(i-1)
 						-- double-click to quick-traverse map
 						if leftDoubleClick then
 							self.doorWindow:goThruDoor()
@@ -983,8 +993,7 @@ print('got double click')
 					and x <= mx and mx < x+w
 					and y <= my and my < y+h
 					then
-						self.bigDoorWindow:setIndex(i-1)
-						self.bigDoorWindow.show[0] = true
+						self.bigDoorWindow:open(i-1)
 						-- double-click to quick-traverse map
 						if leftDoubleClick then
 							self.bigDoorWindow:goThruDoor()
@@ -1008,8 +1017,7 @@ print('got double click')
 							and x <= mx and mx < x+1
 							and y <= my and my < y+1
 							then
-								self.npcWindow:setIndex(i-1)
-								self.npcWindow.show[0] = true
+								self.npcWindow:open(i-1)
 								if leftDoubleClick then
 									local addr = n:getScriptAddr()
 									if addr then
@@ -1057,6 +1065,11 @@ function App:updateGUI()
 				self.menuSaveROM:show'Save...'
 				ig.igSeparator()
 				self.menuOpenSRAM:show'Open SRAM...'
+				if self.sramPath then
+					if ig.igButton'Reload Last SRAM...' then
+						self:onLoadSRAM(self.sramPath)
+					end
+				end
 				self.menuSaveSRAM:show'Save SRAM...'
 			end
 
@@ -1067,7 +1080,7 @@ function App:updateGUI()
 			if self.baseWindows then
 				for _,w in ipairs(self.baseWindows) do
 					if ig.igButton(w.name) then
-						w.show[0] = true
+						w:open()
 					end
 				end
 			end

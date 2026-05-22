@@ -1,6 +1,6 @@
 #!/usr/bin/env luajit
 
--- global, since app calls onLoadROM at the end of initGL 
+-- global, since app calls onLoadROM at the end of initGL
 cmdline = require 'ext.cmdline'(...)
 
 -- do this before requiring 'App'
