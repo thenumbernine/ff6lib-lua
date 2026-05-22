@@ -1,5 +1,6 @@
 local ffi = require 'ffi'
 local table = require 'ext.table'
+local range = require 'ext.range'
 local math = require 'ext.math'
 local assert = require 'ext.assert'
 local timer = require 'ext.timer'
@@ -441,7 +442,7 @@ end)
 	end
 
 	if cmdline[3] then
-		self:onLoadSRAM(cmdline[3])
+		self:onLoadSRAM(cmdline[3], cmdline[4])
 	end
 end
 
@@ -456,6 +457,12 @@ end
 function App:onLoadROM(infn, mapIndex)
 	local game = require 'ff6'((assert(path(infn):read())))
 	self.game = game
+
+
+	-- help imgui out
+	self.itemNames = range(0,255):mapi(function(i)
+		return tostring(game.itemNames[i])
+	end)
 
 
 	local CharWindow = require 'ff6.vis.charwindow'
@@ -519,7 +526,7 @@ function App:onLoadROM(infn, mapIndex)
 
 
 	local WorldEncounterSectorWindow = require 'ff6.vis.worldencountersectorwindow'
-	self.showWorldEncounterSectors = false	-- nah too big
+	self.showWorldEncounterSectors = true
 	self.worldEncounterSectorWindow = WorldEncounterSectorWindow{app=self}
 
 	-- then make mapWindow:
@@ -574,7 +581,7 @@ function App:onLoadROM(infn, mapIndex)
 	self.scriptWindow.show[0] = false	-- who keeps opening this?
 end
 
-function App:onLoadSRAM(fn)
+function App:onLoadSRAM(fn, index)
 	self.sramPath = path(fn)
 	local game = self.game
 	assert(game, "the menu to load shouldn't be active ... did you only pass the 3rd cli arg or something?")
@@ -584,7 +591,7 @@ function App:onLoadSRAM(fn)
 	self.sramvec = vector('uint8_t', #sramstr)
 	self.sram = ffi.cast(ffi.typeof('$*', game.SRAM), self.sramvec.v)
 	ffi.copy(self.sramvec.v, sramstr, #sramstr)
-	self.sramWindow:open()
+	self.sramWindow:open(index and tonumber(index) or nil)
 end
 
 
