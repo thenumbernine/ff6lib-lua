@@ -288,79 +288,151 @@ void main() {
 	self.mapSize = vec2d()
 
 
+	--[[
+	args:
+		name = menu name
+	returns:
+		function to call for showing the ig button and sdl popup
+		function to call to fwd to callback with open name
+	--]]
+	local function makeControlForOpen()
+		-- how to let the app know when SDL tells the sub-lua-state when it wants to open a file ...
+		-- such a mess just to avoid the lua panic bad callback errors
+		local sem = Semaphore()
 
+		-- I had these as object-scope fields that only were allocated once i needed them
+		-- but i kept getting panic errors upon save
+		-- so here they are at global scope
 
-	-- how to let the app know when SDL tells the sub-lua-state when it wants to open a file ...
-	-- such a mess just to avoid the lua panic bad callback errors
-	self.semOpen = Semaphore()
-
-	-- I had these as object-scope fields that only were allocated once i needed them
-	-- but i kept getting panic errors upon save
-	-- so here they are at global scope
-
-	self.sdlOpenFileDialogThread = LiteThread{
-		init = function(thread)
-			thread.lua[[
+		local liteThread = LiteThread{
+			init = function(thread)
+				thread.lua[[
 -- set required modules as globals
 ffi = require 'ffi'
 Semaphore = require 'thread.semaphore'
 require 'sdl'	-- load SDL_DialogFileCallback
 sdlAssertNonNull = require 'sdl.assert'.nonnull
 ]]
-			thread.lua([[
+				thread.lua([[
 local semOpenID = ffi.cast('void*', ...)
-semOpen = Semaphore:wrap(semOpenID)
-]], ffi.cast(intptr_t, self.semOpen.id+0))
-
-		end,
-		threadFuncTypeName = 'SDL_DialogFileCallback',
-		code = [[
+sem = Semaphore:wrap(semOpenID)
+]], ffi.cast(intptr_t, sem.id+0))
+			end,
+			threadFuncTypeName = 'SDL_DialogFileCallback',
+			code = [[
 local userdata, filelist, filter = ...
 xpcall(function()
 	sdlAssertNonNull(filelist)	-- error
 	if filelist[0] == nil then return end	-- no file picked
 
 	-- set a global for the app to read
-	_G.openfilename  = ffi.string(filelist[0])
+	_G.callbackFilename  = ffi.string(filelist[0])
 
 	-- tell the app to open the ROM
-	semOpen:post()
+	sem:post()
 
 end, function(err)
 	print(err..'\n'..debug.traceback())
 end)
 ]],
-	}
+		}
 
-	-- do callbacks in a separate state to stop panic bad callbacks
-	self.sdlSaveFileDialogThread = LiteThread{
-		init = function(thread)
-			thread.lua[[
+		return {
+			-- putting 'name' here instead of upon creation so imgui can keep pretending to be immediate-mode...
+			show = function(control, name)
+				if not ig.igButton(name) then return end
+
+				sdl.SDL_ShowOpenFileDialog(
+					liteThread.funcptr,	-- callback
+					nil,				-- userdata
+					self.window,		-- window
+					nil,				-- filters
+					0,					-- nfilters
+					path:cwd().path,	-- default_location
+					0					-- allow_many
+				)
+			end,
+			check = function(control, callback)
+				if not sem:trywait() then return end
+				local fn = liteThread.lua.global.callbackFilename
+				callback(fn)
+			end,
+
+			-- try to stop __gc's to stop segfaults
+			sem = sem,
+			liteThread = liteThread,
+		}
+	end
+
+	local function makeControlForSave()
+		local sem = Semaphore()
+
+		-- do callbacks in a separate state to stop panic bad callbacks
+		local liteThread = LiteThread{
+			init = function(thread)
+				thread.lua[[
 -- set required modules as globals
 ffi = require 'ffi'
-path = require 'ext.path'
+Semaphore = require 'thread.semaphore'
 require 'sdl'	-- load SDL_DialogFileCallback
 sdlAssertNonNull = require 'sdl.assert'.nonnull
 ]]
-		end,
-		threadFuncTypeName = 'SDL_DialogFileCallback',
-		code = [[
+				thread.lua([[
+local semOpenID = ffi.cast('void*', ...)
+sem = Semaphore:wrap(semOpenID)
+]], ffi.cast(intptr_t, sem.id+0))
+			end,
+			threadFuncTypeName = 'SDL_DialogFileCallback',
+			code = [[
 local userdata, filelist, filter = ...
 xpcall(function()
 	sdlAssertNonNull(filelist)	-- error
 	if filelist[0] == nil then return end	-- no file picked
 	local fn = ffi.string(filelist[0])
-	assert(path(fn):write(
-		(assert(romstr, "did you forget to write the lua state's romstr variable?"))
-	))
+
+	_G.callbackFilename = ffi.string(filelist[0])
+	sem:post()
+
 end, function(err)
 	print(err..'\n'..debug.traceback())
 end)
 ]],
-	}
-	-- now we can use sdlSaveFileDialogThread.funcptr
-	-- be sure to set sdlSaveFileDialogThread's _G.app
+		}
 
+		-- now we can use liteThread.funcptr
+		-- be sure to set liteThread's _G.app
+
+		return {
+			show = function(control, name)
+				if not ig.igButton(name) then return end
+
+				sdl.SDL_ShowSaveFileDialog(
+					--_G.sdlSaveFileDialogClosure,	-- callback
+					liteThread.funcptr,
+					nil,							-- userdata
+					self.window,					-- window
+					nil,							-- filters
+					0,								-- nfilters
+					path:cwd().path					-- default_location
+				)
+			end,
+			check = function(control, callback)
+				if not sem:trywait() then return end
+				local fn = liteThread.lua.global.callbackFilename
+				callback(fn)
+			end,
+
+			-- try to stop __gc's to stop segfaults
+			sem = sem,
+			liteThread = liteThread,
+		}
+	end
+
+	self.menuOpenROM = makeControlForOpen()
+	self.menuSaveROM = makeControlForSave()
+
+	self.menuOpenSRAM = makeControlForOpen()
+	self.menuSaveSRAM = makeControlForSave()
 
 
 	if cmdline[1] then
@@ -474,6 +546,9 @@ function App:onLoadROM(infn, mapIndex)
 	local ScriptWindow = require 'ff6.vis.scriptwindow'
 	self.scriptWindow = ScriptWindow{app=self}
 
+	local SRAMWindow = require 'ff6.vis.sramwindow'
+	self.sramWindow = SRAMWindow{app=self}
+
 	-- idk i guess this is a 'child of' map window whatever that means
 	-- but i'm still putting it as a base window
 	local VoxelmapWindow = require 'ff6.vis.voxelmapwindow'
@@ -487,6 +562,7 @@ function App:onLoadROM(infn, mapIndex)
 		self.spellWindow,
 		self.metamorphWindow,
 		self.scriptWindow,
+		self.sramWindow,
 		self.voxelmapWindow,
 	}
 
@@ -598,12 +674,26 @@ function App:draw(animFrameIndex)
 end
 
 function App:update()
-
-	if self.semOpen:trywait() then
-		local fn = self.sdlOpenFileDialogThread.lua.global.openfilename
-		-- open here somehow
+	-- open here somehow
+	self.menuOpenROM:check(function(fn)
 		self:onLoadROM(fn)
-	end
+	end)
+	self.menuSaveROM:check(function(fn)
+		assert(path(fn):write((
+			-- no ROM header for now
+			self.game.romvec:dataToStr()
+		)))
+	end)
+	self.menuOpenSRAM:check(function(fn)
+		local sramstr = assert(path(fn)):read()
+		self.sramvec = vector(uint8_t, #sramstr)
+		ffi.copy(self.sramvec.v, sramstr, #sramstr)
+	end)
+	self.menuSaveSRAM:check(function(fn)
+		assert(path(fn)):write((
+			self.sramvec:dataToStr()
+		))
+	end)
 
 	local game = self.game
 
@@ -961,32 +1051,13 @@ function App:updateGUI()
 	if ig.igBeginMainMenuBar() then
 
 		if ig.igBeginMenu'File' then
-			if ig.igButton'Open...' then
-				sdl.SDL_ShowOpenFileDialog(
-					self.sdlOpenFileDialogThread.funcptr,	-- callback
-					nil,							-- userdata
-					self.window,					-- window
-					nil,							-- filters
-					0,								-- nfilters
-					path:cwd().path,				-- default_location
-					0								-- allow_many
-				)
-			end
+			self.menuOpenROM:show'Open...'
 
 			if game then
-				if ig.igButton'Save...' then
-					-- no header for now
-					self.sdlSaveFileDialogThread.lua('romstr = ...', self.game.romvec:dataToStr())
-					sdl.SDL_ShowSaveFileDialog(
-						--_G.sdlSaveFileDialogClosure,	-- callback
-						self.sdlSaveFileDialogThread.funcptr,
-						nil,							-- userdata
-						self.window,					-- window
-						nil,							-- filters
-						0,								-- nfilters
-						path:cwd().path					-- default_location
-					)
-				end
+				self.menuSaveROM:show'Save...'
+				ig.igSeparator()
+				self.menuOpenSRAM:show'Open SRAM...'
+				self.menuSaveSRAM:show'Save SRAM...'
 			end
 
 			ig.igEndMenu()

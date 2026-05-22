@@ -10,244 +10,59 @@ local struct = require 'struct'
 
 local ff6_util = require 'ff6.util'
 local countof = ff6_util.countof
-local arrayType = ff6_util.arrayType
-local uint24_t = ff6_util.uint24_t
-local Effect1 = ff6_util.Effect1
-local Effect4 = ff6_util.Effect4
-local Str6 = ff6_util.Str6
-local CharacterName = ff6_util.CharacterName
-local makefixedstr = ff6_util.makefixedstr
 
-
-local uint8_t = ffi.typeof'uint8_t'
 local uint8_t_p = ffi.typeof'uint8_t*'
-local uint16_t = ffi.typeof'uint16_t'
-local uint32_t = ffi.typeof'uint32_t'
 
+local romfn, sramfn, saveIndex = ...
 
-local fn, romfn, saveIndex = ...
-assert(fn, "expected <filename>")
-local p = path(fn)
+local game = require 'ff6'((assert(path(romfn):read())))
+
+assert(sramfn, "expected <filename>")
+local p = path(sramfn)
 assert(p:exists(), "failed to find "..p)
 local data = assert(p:read())
 assert.len(data, 0x2000)
 local ptr = ffi.cast(uint8_t_p, data)
 
+assert.eq(ffi.sizeof(game.SRAM), #data)	-- make sure it fits
 
-local game
-if romfn then
-	game = require 'ff6'((assert(path(romfn):read())))
+
+-- [[ a lot is identical to maps.lua treasure generation, i could consolidate if I stored either pointers there or objects and addresses there
+local mapsForTreasure = {}	 -- key = treasure index, value = table of map indexes
+for mapIndex=0,countof(game.maps) do
+	local startOfs = game.treasureOfs[mapIndex]
+	assert.eq(startOfs % ffi.sizeof(game.Treasure), 0)
+	local startIndex = startOfs / ffi.sizeof(game.Treasure)
+
+	local endIndex
+	if mapIndex == countof(game.treasureOfs)-1 then
+		endIndex = countof(game.treasures)
+	else
+		local endOfs = game.treasureOfs[mapIndex+1]
+		assert.eq(endOfs % ffi.sizeof(game.Treasure), 0)
+		endIndex = endOfs / ffi.sizeof(game.Treasure)
+	end
+	for treasureIndex=startIndex,endIndex-1 do
+		local t = game.treasures + treasureIndex
+		mapsForTreasure[treasureIndex] = mapsForTreasure[treasureIndex] or table()
+		mapsForTreasure[treasureIndex]:insert(mapIndex)
+	end
 end
-
-local menuNameRef4Type =
-	game and game.MenuNameRef4
-	or require 'vec-ffi.vec4ub'	-- TODO use MenuNameRef4 instead
-
-local itemRefType = game and game.ItemRef or uint8_t
-
-local Character = struct{
-	ctypeOnly = true,
-	packed = true,
-	tostringFields = true,
-	tostringOmitFalse = true,
-	tostringOmitNil = true,
-	tostringOmitEmpty = true,
-	fields = {
-		{name='character', type=uint8_t},	-- CharacterNameRef?
-		{name='sprite', type=uint8_t},
-		{name='name', type=CharacterName},
-		{name='level', type=uint8_t},
-		{name='hp', type=uint16_t},
-		{name='hpMax', type=uint16_t},
-		{name='mp', type=uint16_t},
-		{name='mpMax', type=uint16_t},
-		{name='exp', type=uint24_t},
-		{name='effect1', type=Effect1},
-		{name='effect4', type=Effect4},
-		--[[
-		{name='menus', type=menuNameRef4Type},
-		--]]
-		-- [[ MenuNameRef returns nil for oob, and I think it does this because the struct serialization tests for nil and skips the field entirely, but the underlying vector concats without tostring or test, so..
-		{name='menu1', type=game and game.MenuNameRef or uint8_t},
-		{name='menu2', type=game and game.MenuNameRef or uint8_t},
-		{name='menu4', type=game and game.MenuNameRef or uint8_t},
-		{name='menu5', type=game and game.MenuNameRef or uint8_t},
-		--]]
-		{name='vigor', type=uint8_t},
-		{name='speed', type=uint8_t},
-		{name='stamina', type=uint8_t},
-		{name='magicPower', type=uint8_t},
-		{name='esper', type=itemRefType},
-		{name='rhand', type=itemRefType},
-		{name='lhand', type=itemRefType},
-		{name='head', type=itemRefType},
-		{name='body', type=itemRefType},
-		{name='relic1', type=itemRefType},
-		{name='relic2', type=itemRefType},
-	},
-}
-assert.eq(ffi.sizeof(Character), 0x25)
-
-local Character16 = createVec{
-	ctypeOnly = true,
-	ctype = Character,
-	dim = 0x10,
-}
-
-local vec16ub = createVec{
-	ctypeOnly = true,
-	ctype = uint8_t,
-	dim = 16,
-}
-
-local Str12 = makefixedstr(12)
-
--- why just the first 4 names tho?
-local Str12_4 = createVec{
-	ctypeOnly = true,
-	ctype = Str12,
-	dim = 4,
-}
-
-local SaveSlot = struct{
-	ctypeOnly = true,
-	packed = true,
-	tostringFields = true,
-	tostringOmitFalse = true,
-	tostringOmitNil = true,
-	tostringOmitEmpty = true,
-
-	fields = {
-		{name='characters', type=Character16},								-- 0x000 - 0x250
-		{name='raster', type=vec16ub},										-- 0x250 - 0x260
-		{name='gold', type=uint24_t},										-- 0x260 - 0x263
-		{name='time', type=uint24_t},										-- 0x263 - 0x266	-- in 30hz increments?
-		{name='steps', type=uint24_t},										-- 0x266 - 0x269
-		{name='itemTypes', type=arrayType(itemRefType, 256)},				-- 0x269 - 0x369
-		{name='itemCounts', type=arrayType(uint8_t, 256)},					-- 0x369 - 0x469
-		{name='esperFlags', type=uint32_t},									-- 0x469 - 0x46d
-		{name='activeGroup', type=uint8_t},									-- 0x46d - 0x46e	-- for when you are in multi-party mode? like phoenix cave / kefka's tower?
-		{name='spellsLearned', type=arrayType(uint8_t, 12 * 54)},			-- 0x46e - 0x6f6 ... spell learned[12][54]
-		{name='unknown_6f6', type=uint8_t},									-- 0x6f6 - 0x6f7
-		{name='swdtechFlags', type=uint8_t},								-- 0x6f7 - 0x6f8	-- wait, in-rom it is 12 bytes per swdtech (right?)
-		{name='swdtechNames', type=Str12_4},								-- 0x6f6 - 0x728
-		{name='blitzFlags', type=uint8_t},									-- 0x728 - 0x729
-		{name='loreFlags', type=uint24_t},									-- 0x729 - 0x72c
-		{name='rageFlags', type=arrayType(uint8_t, 32)},					-- 0x72c - 0x74c
-		{name='danceFlags', type=uint8_t},									-- 0x74c - 0x74d
-
-		{name='unknown_74d', type=arrayType(uint8_t, -(0x74d - 0x7c7))},	-- 0x74d - 0x7c7
-
-		{name='numSaves', type=uint8_t},									-- 0x7c7 - 0x7c8
-
-		{name='unknown_7c8', type=uint8_t},									-- 0x7c8 - 0x7c9
-
-		-- 0x7c9 = 'battle variables'
-		-- with doom gate's hp at 0x7d3-0x7d4
-		-- cursed shield counter at 0x7d5
-		{name='battleVars', type=arrayType(uint8_t, 20)},					-- 0x7c9 - 0x7dd
-
-		{name='battleFormationFlags', type=arrayType(uint8_t, 0x40)},		-- 0x7dd - 0x81d
-
-		{name='unknown_81d', type=arrayType(uint8_t, -(0x81d - 0x840))},	-- 0x81d - 0x840 = 23 bytes ...
-
-		-- past flag 48==0x30 it is something else ... right?
-		{name='treasureFlags', type=arrayType(uint8_t, 0x30)},				-- 0x840 - 0x870 = "treasure bits" here: https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:field_ram&s[]=%2Asram%2A#fffsave_ram
-
-		{name='unknown_870', type=arrayType(uint8_t, 0x10)},				-- 0x870 - 0x880
-
-		{name='mapFlags', type=arrayType(uint8_t, 0x60)},					-- 0x880 - 0x8e0 = 768 = 0x300 flags /8 = 0x60 bytes. everything8215's "mapSwitches", or this page's "event bits": https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:field_ram&s[]=%2Asram%2A#fffsave_ram
-		{name='npcFlags', type=arrayType(uint8_t, 0x80)},					-- 0x8e0 - 0x960
-
-		{name='mapx', type=uint8_t},										-- 0x960 - 0x961
-		{name='mapy', type=uint8_t},										-- 0x961 - 0x962
-		{name='airshipx', type=uint8_t},									-- 0x962 - 0x963
-		{name='airshipy', type=uint8_t},									-- 0x963 - 0x964
-
-		{name='map', type=uint8_t},											-- 0x964 - 0x965
-
-		{name='unknown_965', type=arrayType(uint8_t, -(0x965 - 0x96b))},	-- 0x965 - 0x96b
-
-		{name='mapx2', type=uint8_t},										-- 0x96b
-		{name='mapy2', type=uint8_t},										-- 0x96c
-
-		{name='unknown_96d', type=arrayType(uint8_t, -(0x96d - 0x9fe))},	-- 0x96d - 0x9fe
-
-		{name='checksum', type=uint16_t},									-- 0x9fe - 0xa00	-- byte sum of everything in this except the checksum
-	},
-}
-assert.eq(ffi.sizeof(SaveSlot), 0xa00)
-
--- arrayType doesn't give you tostring support so
-local SaveSlot3 = createVec{
-	ctypeOnly = true,
-	ctype = SaveSlot,
-	dim = 3,
-}
-
--- wait is this true? or was I looking at RAM, not SRAM?
-local SRAM = struct{
-	ctypeOnly = true,
-	packed = true,
-	tostringFields = true,
-	tostringOmitFalse = true,
-	tostringOmitNil = true,
-	tostringOmitEmpty = true,
-
-	fields = {
-		{name='saves', type=SaveSlot3},						-- 0x0000 - 0x1e00
-		{name='unknown_1e00', type=arrayType(uint8_t, -(0x1e00 - 0x1ff0))},	-- 0x1e00 - 0x1ff0
-		{name='mostRecentSaveSlot', type=uint8_t},							-- 0x1ff0 - 0x1ff1
-		{name='randomNumberSeed', type=uint8_t},							-- 0x1ff1 - 0x1ff2
-		{name='unknown_1ff2', type=arrayType(uint8_t, -(0x1ff2 - 0x1ff8))},	-- 0x1ff2 - 0x1ff8
-
-		-- previous 8 bytes ... first is 01, next is the ... save count?  maybe first is hi byte?
-		{name='tailsig', type=arrayType(uint8_t, 8)},						-- 0x1ff8 - 0x2000 .. 1b e4 1b e4 1b e4 1b e4
-	},
-}
-assert.eq(ffi.sizeof(SRAM), 0x2000)
-
-assert.eq(ffi.sizeof(SRAM), #data)	-- make sure it fits
+--]]
 
 -- reverse-reference treasure # for its bits ...
-local treasuresForFlagIndex
-if game then
-	-- [[ a lot is identical to maps.lua treasure generation, i could consolidate if I stored either pointers there or objects and addresses there
-	local mapsForTreasure = {}	 -- key = treasure index, value = table of map indexes
-	for mapIndex=0,countof(game.maps) do
-		local startOfs = game.treasureOfs[mapIndex]
-		assert.eq(startOfs % ffi.sizeof(game.Treasure), 0)
-		local startIndex = startOfs / ffi.sizeof(game.Treasure)
-
-		local endIndex
-		if mapIndex == countof(game.treasureOfs)-1 then
-			endIndex = countof(game.treasures)
-		else
-			local endOfs = game.treasureOfs[mapIndex+1]
-			assert.eq(endOfs % ffi.sizeof(game.Treasure), 0)
-			endIndex = endOfs / ffi.sizeof(game.Treasure)
-		end
-		for treasureIndex=startIndex,endIndex-1 do
-			local t = game.treasures + treasureIndex
-			mapsForTreasure[treasureIndex] = mapsForTreasure[treasureIndex] or table()
-			mapsForTreasure[treasureIndex]:insert(mapIndex)
-		end
-	end
-	--]]
-
-	treasuresForFlagIndex = {}
-	for treasureIndex=0,countof(game.treasures)-1 do
-		local t = game.treasures + treasureIndex
-		local flag = tonumber(t.flag)
-		treasuresForFlagIndex[flag] = treasuresForFlagIndex[flag] or table()
-		treasuresForFlagIndex[flag]:insert{
-			treasure = game.Treasure(t[0]),
-			maps = mapsForTreasure[treasureIndex],
-		}
-	end
+local treasuresForFlagIndex = {}
+for treasureIndex=0,countof(game.treasures)-1 do
+	local t = game.treasures + treasureIndex
+	local flag = tonumber(t.flag)
+	treasuresForFlagIndex[flag] = treasuresForFlagIndex[flag] or table()
+	treasuresForFlagIndex[flag]:insert{
+		treasure = game.Treasure(t[0]),
+		maps = mapsForTreasure[treasureIndex],
+	}
 end
 
-local sram = ffi.cast(ffi.typeof('$*', SRAM), ptr)
+local sram = ffi.cast(ffi.typeof('$*', game.SRAM), ptr)
 --[[
 print(sram)
 --]]
@@ -282,31 +97,20 @@ for i=saveMin, saveMax do
 	print'treasures:'
 	-- if sfc is provided then show long-form like we're doing
 	--  but if it's not then just show a matrix of checkboxes, since we can't get the names/locations anyways
-	if game then
-		for i=0,bit.lshift(countof(save.treasureFlags),3)-1 do
-			local byteofs = bit.rshift(i,3)
-			local bitofs = bit.band(i, 7)
-			local mask = bit.lshift(1, bitofs)
-			local enabled = 0 ~= bit.band(mask, save.treasureFlags[byteofs])
-			io.write(i, '\t', enabled and '✅' or '❌')
-			if treasuresForFlagIndex then
-				local sep = ''
-				for _,t in ipairs(treasuresForFlagIndex[i] or {}) do
-					io.write(sep, ' ', tostring(t.treasure)..' in maps '..t.maps:concat',')
-					sep = ';'
-				end
+	for i=0,bit.lshift(countof(save.treasureFlags),3)-1 do
+		local byteofs = bit.rshift(i,3)
+		local bitofs = bit.band(i, 7)
+		local mask = bit.lshift(1, bitofs)
+		local enabled = 0 ~= bit.band(mask, save.treasureFlags[byteofs])
+		io.write(i, '\t', enabled and '✅' or '❌')
+		if treasuresForFlagIndex then
+			local sep = ''
+			for _,t in ipairs(treasuresForFlagIndex[i] or {}) do
+				io.write(sep, ' ', tostring(t.treasure)..' in maps '..t.maps:concat',')
+				sep = ';'
 			end
-			print()
 		end
-	else
-		for i=0,bit.lshift(countof(save.treasureFlags),3)-1 do
-			local byteofs = bit.rshift(i,3)
-			local bitofs = bit.band(i, 7)
-			local mask = bit.lshift(1, bitofs)
-			local enabled = 0 ~= bit.band(mask, save.treasureFlags[byteofs])
-			io.write(enabled and '✅' or '❌')
-			if i % maxCols == maxCols-1 then print() end
-		end
+		print()
 	end
 
 	local function align(n, s)
@@ -328,53 +132,40 @@ for i=saveMin, saveMax do
 		local formationEnabled = 0 ~= bit.band(mask, save.battleFormationFlags[byteofs])
 		formationsEnabled[i] = formationEnabled
 		if formationEnabled then
-			local formation = game and game.formations + i
-			if formation then
-				-- do I care about chooseNextFour as well?
-				for j=1,6 do
-					if formation:getMonsterActive(j) then
-						local monsterIndex = formation:getMonsterIndex(j)
-						monstersEnabled[monsterIndex] = true
-					end
+			local formation = game.formations + i
+			-- do I care about chooseNextFour as well?
+			for j=1,6 do
+				if formation:getMonsterActive(j) then
+					local monsterIndex = formation:getMonsterIndex(j)
+					monstersEnabled[monsterIndex] = true
 				end
 			end
 		end
 	end
-	if game then
-		print()
+
+	print()
+	print(
+		align(4+3+72, 'battle formations:')
+		..'monsters:'
+	)
+	local rowCount = math.max(countof(game.monsters), numFormationFlags)
+	for i=0,rowCount-1 do
+		local monsterEnabled
+		if i < countof(game.monsters) then
+			monsterEnabled = not not monstersEnabled[i]
+		end
 		print(
-			align(4+3+72, 'battle formations:')
-			..'monsters:'
-		)
-		local rowCount = math.max(countof(game.monsters), numFormationFlags)
-		for i=0,rowCount-1 do
-			local monsterEnabled
-			if i < countof(game.monsters) then
-				monsterEnabled = not not monstersEnabled[i]
-			end
-			print(
-				align(4, i)											-- biggest is 3
-				..align(3, formationsEnabled[i] and '✅' or '❌')	-- biggest is 1 but it needs 2 spaces...
-				..align(72, game.formations[i]:getDesc() or 'formation #'..i)			-- biggest is 70
-				..(monsterEnabled ~= nil
-					and align(4, i)
-						..align(3, monsterEnabled and '✅' or '❌')
-						..(game.monsterNames[i] or 'monster #'..i)
-					or ''
-				)
+			align(4, i)											-- biggest is 3
+			..align(3, formationsEnabled[i] and '✅' or '❌')	-- biggest is 1 but it needs 2 spaces...
+			..align(72, game.formations[i]:getDesc() or 'formation #'..i)			-- biggest is 70
+			..(monsterEnabled ~= nil
+				and align(4, i)
+					..align(3, monsterEnabled and '✅' or '❌')
+					..(game.monsterNames[i] or 'monster #'..i)
+				or ''
 			)
-		end
-	else
-		print()
-		print'battle formations:'
-		for i=0,numFormationFlags-1 do
-			local byteofs = bit.rshift(i,3)
-			local bitofs = bit.band(i, 7)
-			local mask = bit.lshift(1, bitofs)
-			local enabled = formationsEnabled[i]
-			io.write(enabled and '✅' or '❌')
-			if i % maxCols == maxCols-1 then print() end
-		end
+		)
 	end
+
 end
 --]]

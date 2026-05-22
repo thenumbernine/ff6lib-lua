@@ -204,7 +204,7 @@ function VoxelmapWindow:init(...)
 		end
 	end
 
-	self.semOpen = Semaphore()
+	self.semVoxMetaOpen = Semaphore()
 	self.sdlSaveFileDialog_chooseOutputFilenameThread = LiteThread{
 		init = function(thread)
 			thread.lua[[
@@ -216,8 +216,8 @@ sdlAssertNonNull = require 'sdl.assert'.nonnull
 ]]
 			thread.lua([[
 local semOpenID = ffi.cast('void*', ...)
-semOpen = Semaphore:wrap(semOpenID)
-]], ffi.cast(intptr_t, self.semOpen.id+0))
+semVoxMetaOpen = Semaphore:wrap(semOpenID)
+]], ffi.cast(intptr_t, self.semVoxMetaOpen.id+0))
 		end,
 		threadFuncTypeName = 'SDL_DialogFileCallback',
 		code = [[
@@ -230,7 +230,7 @@ xpcall(function()
 	_G.openfilename  = ffi.string(filelist[0])
 
 	-- tell the app to record it
-	semOpen:post()
+	semVoxMetaOpen:post()
 
 end, function(err)
 	print(err..'\n'..debug.traceback())
@@ -505,7 +505,7 @@ function VoxelmapWindow:updateWindow()
 					)
 				end
 				-- if we do the save then whatever ffInfo is open gets it, so don't change ffInfo's until you pick your file!
-				if self.semOpen:trywait() then
+				if self.semVoxMetaOpen:trywait() then
 					ffInfo.destFilename = self.sdlSaveFileDialog_chooseOutputFilenameThread.lua.global.openfilename
 				end
 

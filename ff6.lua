@@ -13,6 +13,7 @@ local reftype = require 'ff6.reftype'
 
 local uint8_t = ffi.typeof'uint8_t'
 local uint16_t = ffi.typeof'uint16_t'
+local uint32_t = ffi.typeof'uint32_t'
 
 
 local Game
@@ -1908,10 +1909,10 @@ struct NPCSpecialGraphics {
 local NPC = struct{
 	ctypeOnly = true,
 	packed = true,
-tostringFields = true,
-tostringOmitFalse = true,
-tostringOmitNil = true,
-tostringOmitEmpty = true,
+	tostringFields = true,
+	tostringOmitFalse = true,
+	tostringOmitNil = true,
+	tostringOmitEmpty = true,
 	metatable = function(mt)
 		mt.typeToString = fieldsToHex
 
@@ -1934,25 +1935,25 @@ tostringOmitEmpty = true,
 			union = true,
 			anonymous = true,
 			packed = true,
-tostringFields = true,
-tostringOmitFalse = true,
-tostringOmitNil = true,
-tostringOmitEmpty = true,
-metatable = function(mt)
-	mt.typeToString = fieldsToHex
-end,
+			tostringFields = true,
+			tostringOmitFalse = true,
+			tostringOmitNil = true,
+			tostringOmitEmpty = true,
+			metatable = function(mt)
+				mt.typeToString = fieldsToHex
+			end,
 
 			fields = {
 				{type=struct{
 					anonymous = true,
 					packed = true,
-tostringFields = true,
-tostringOmitFalse = true,
-tostringOmitNil = true,
-tostringOmitEmpty = true,
-metatable = function(mt)
-	mt.typeToString = fieldsToHex
-end,
+					tostringFields = true,
+					tostringOmitFalse = true,
+					tostringOmitNil = true,
+					tostringOmitEmpty = true,
+					metatable = function(mt)
+						mt.typeToString = fieldsToHex
+					end,
 					fields = {
 						-- invalid when vehicle == 0 && specialGraphics != 0
 						-- offset 0xa0000 (game.eventScript)
@@ -1968,13 +1969,13 @@ end,
 				{type=struct{
 					anonymous = true,
 					packed = true,
-tostringFields = true,
-tostringOmitFalse = true,
-tostringOmitNil = true,
-tostringOmitEmpty = true,
-metatable = function(mt)
-	mt.typeToString = fieldsToHex
-end,
+					tostringFields = true,
+					tostringOmitFalse = true,
+					tostringOmitNil = true,
+					tostringOmitEmpty = true,
+					metatable = function(mt)
+						mt.typeToString = fieldsToHex
+					end,
 					fields = {
 						{name='vramAddr', type='uint8_t:7'},				-- 0.0-0.6
 						{name='hflip', type='uint8_t:1'},					-- 0.7
@@ -2196,6 +2197,170 @@ local BattleBgProps = struct{
 	},
 }
 assert.eq(ffi.sizeof(BattleBgProps), 6)
+
+---------------- SRAM ----------------
+
+local CharacterSave = struct{
+	ctypeOnly = true,
+	packed = true,
+	tostringFields = true,
+	tostringOmitFalse = true,
+	tostringOmitNil = true,
+	tostringOmitEmpty = true,
+	fields = {
+		{name='character', type=uint8_t},	-- CharacterNameRef?
+		{name='sprite', type=uint8_t},
+		{name='name', type=CharacterName},
+		{name='level', type=uint8_t},
+		{name='hp', type=uint16_t},
+		{name='hpMax', type=uint16_t},
+		{name='mp', type=uint16_t},
+		{name='mpMax', type=uint16_t},
+		{name='exp', type=uint24_t},
+		{name='effect1', type=Effect1},
+		{name='effect4', type=Effect4},
+		--[[
+		{name='menus', type=MenuNameRef4},
+		--]]
+		-- [[ MenuNameRef returns nil for oob, and I think it does this because the struct serialization tests for nil and skips the field entirely, but the underlying vector concats without tostring or test, so..
+		{name='menu1', type=MenuNameRef},
+		{name='menu2', type=MenuNameRef},
+		{name='menu4', type=MenuNameRef},
+		{name='menu5', type=MenuNameRef},
+		--]]
+		{name='vigor', type=uint8_t},
+		{name='speed', type=uint8_t},
+		{name='stamina', type=uint8_t},
+		{name='magicPower', type=uint8_t},
+		{name='esper', type=ItemRef},
+		{name='rhand', type=ItemRef},
+		{name='lhand', type=ItemRef},
+		{name='head', type=ItemRef},
+		{name='body', type=ItemRef},
+		{name='relic', type=ItemRef2},
+	},
+}
+assert.eq(ffi.sizeof(CharacterSave), 0x25)
+
+local CharacterSave16 = createVec{
+	ctypeOnly = true,
+	ctype = CharacterSave,
+	dim = 0x10,
+}
+
+local vec16ub = createVec{
+	ctypeOnly = true,
+	ctype = uint8_t,
+	dim = 16,
+}
+
+local Str12 = makefixedstr(12)
+
+-- why just the first 4 names tho?
+local Str12_4 = createVec{
+	ctypeOnly = true,
+	ctype = Str12,
+	dim = 4,
+}
+
+local SaveSlot = struct{
+	ctypeOnly = true,
+	packed = true,
+	tostringFields = true,
+	tostringOmitFalse = true,
+	tostringOmitNil = true,
+	tostringOmitEmpty = true,
+
+	fields = {
+		{name='characters', type=CharacterSave16},								-- 0x000 - 0x250
+		{name='raster', type=vec16ub},										-- 0x250 - 0x260
+		{name='gold', type=uint24_t},										-- 0x260 - 0x263
+		{name='time', type=uint24_t},										-- 0x263 - 0x266	-- in 30hz increments?
+		{name='steps', type=uint24_t},										-- 0x266 - 0x269
+		{name='itemTypes', type=arrayType(ItemRef, 256)},				-- 0x269 - 0x369
+		{name='itemCounts', type=arrayType(uint8_t, 256)},					-- 0x369 - 0x469
+		{name='esperFlags', type=uint32_t},									-- 0x469 - 0x46d
+		{name='activeGroup', type=uint8_t},									-- 0x46d - 0x46e	-- for when you are in multi-party mode? like phoenix cave / kefka's tower?
+		{name='spellsLearned', type=arrayType(uint8_t, 12 * 54)},			-- 0x46e - 0x6f6 ... spell learned[12][54]
+		{name='unknown_6f6', type=uint8_t},									-- 0x6f6 - 0x6f7
+		{name='swdtechFlags', type=uint8_t},								-- 0x6f7 - 0x6f8	-- wait, in-rom it is 12 bytes per swdtech (right?)
+		{name='swdtechNames', type=Str12_4},								-- 0x6f6 - 0x728
+		{name='blitzFlags', type=uint8_t},									-- 0x728 - 0x729
+		{name='loreFlags', type=uint24_t},									-- 0x729 - 0x72c
+		{name='rageFlags', type=arrayType(uint8_t, 32)},					-- 0x72c - 0x74c
+		{name='danceFlags', type=uint8_t},									-- 0x74c - 0x74d
+
+		{name='unknown_74d', type=arrayType(uint8_t, -(0x74d - 0x7c7))},	-- 0x74d - 0x7c7
+
+		{name='numSaves', type=uint8_t},									-- 0x7c7 - 0x7c8
+
+		{name='unknown_7c8', type=uint8_t},									-- 0x7c8 - 0x7c9
+
+		-- 0x7c9 = 'battle variables'
+		-- with doom gate's hp at 0x7d3-0x7d4
+		-- cursed shield counter at 0x7d5
+		{name='battleVars', type=arrayType(uint8_t, 20)},					-- 0x7c9 - 0x7dd
+
+		{name='battleFormationFlags', type=arrayType(uint8_t, 0x40)},		-- 0x7dd - 0x81d
+
+		{name='unknown_81d', type=arrayType(uint8_t, -(0x81d - 0x840))},	-- 0x81d - 0x840 = 23 bytes ...
+
+		-- past flag 48==0x30 it is something else ... right?
+		{name='treasureFlags', type=arrayType(uint8_t, 0x30)},				-- 0x840 - 0x870 = "treasure bits" here: https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:field_ram&s[]=%2Asram%2A#fffsave_ram
+
+		{name='unknown_870', type=arrayType(uint8_t, 0x10)},				-- 0x870 - 0x880
+
+		{name='mapFlags', type=arrayType(uint8_t, 0x60)},					-- 0x880 - 0x8e0 = 768 = 0x300 flags /8 = 0x60 bytes. everything8215's "mapSwitches", or this page's "event bits": https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:field_ram&s[]=%2Asram%2A#fffsave_ram
+		{name='npcFlags', type=arrayType(uint8_t, 0x80)},					-- 0x8e0 - 0x960
+
+		{name='mapx', type=uint8_t},										-- 0x960 - 0x961
+		{name='mapy', type=uint8_t},										-- 0x961 - 0x962
+		{name='airshipx', type=uint8_t},									-- 0x962 - 0x963
+		{name='airshipy', type=uint8_t},									-- 0x963 - 0x964
+
+		{name='map', type=uint8_t},											-- 0x964 - 0x965
+
+		{name='unknown_965', type=arrayType(uint8_t, -(0x965 - 0x96b))},	-- 0x965 - 0x96b
+
+		{name='mapx2', type=uint8_t},										-- 0x96b
+		{name='mapy2', type=uint8_t},										-- 0x96c
+
+		{name='unknown_96d', type=arrayType(uint8_t, -(0x96d - 0x9fe))},	-- 0x96d - 0x9fe
+
+		{name='checksum', type=uint16_t},									-- 0x9fe - 0xa00	-- byte sum of everything in this except the checksum
+	},
+}
+assert.eq(ffi.sizeof(SaveSlot), 0xa00)
+
+-- arrayType doesn't give you tostring support so
+local SaveSlot3 = createVec{
+	ctypeOnly = true,
+	ctype = SaveSlot,
+	dim = 3,
+}
+
+-- wait is this true? or was I looking at RAM, not SRAM?
+local SRAM = struct{
+	ctypeOnly = true,
+	packed = true,
+	tostringFields = true,
+	tostringOmitFalse = true,
+	tostringOmitNil = true,
+	tostringOmitEmpty = true,
+
+	fields = {
+		{name='saves', type=SaveSlot3},						-- 0x0000 - 0x1e00
+		{name='unknown_1e00', type=arrayType(uint8_t, -(0x1e00 - 0x1ff0))},	-- 0x1e00 - 0x1ff0
+		{name='mostRecentSaveSlot', type=uint8_t},							-- 0x1ff0 - 0x1ff1
+		{name='randomNumberSeed', type=uint8_t},							-- 0x1ff1 - 0x1ff2
+		{name='unknown_1ff2', type=arrayType(uint8_t, -(0x1ff2 - 0x1ff8))},	-- 0x1ff2 - 0x1ff8
+
+		-- previous 8 bytes ... first is 01, next is the ... save count?  maybe first is hi byte?
+		{name='tailsig', type=arrayType(uint8_t, 8)},						-- 0x1ff8 - 0x2000 .. 1b e4 1b e4 1b e4 1b e4
+	},
+}
+assert.eq(ffi.sizeof(SRAM), 0x2000)
+
 
 
 ---------------- GAME ----------------
@@ -2850,8 +3015,13 @@ game.WorldSectorRandomBattlesPerTerrain = WorldSectorRandomBattlesPerTerrain
 game.WorldSectorRandomBattleEncounterRates = WorldSectorRandomBattleEncounterRates
 game.Game = Game
 
+game.CharacterSave = CharacterSave
+game.SaveSlot = SaveSlot
+game.SRAM = SRAM
+
 require 'ff6.maps'(game)
 
+-- do some initial loading ...
 require 'ff6.script'(game)
 
 
