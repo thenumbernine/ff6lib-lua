@@ -51,11 +51,21 @@ local function runScript(game)
 	-- now collect addrs and find if they are calls or not
 	-- (if they are calls then we will define them as functions)
 	local addrsIsFunc = table.map(builtinForAddr, function(v,k) return true, k end):setmetatable()
+	local addrsIsGoto = {}
 	for _,cmdobj in ipairs(game.eventScriptCmds) do
 		if game.EventCmds.Call:isa(cmdobj)
 		or game.EventCmds.CallRepeat:isa(cmdobj)
 		then
 			addrsIsFunc[cmdobj.addr] = true
+		elseif game.EventCmds.JumpBasedOnBattleFlag:isa(cmdobj)
+		or game.EventCmds.Jump5050:isa(cmdobj)
+		or game.EventCmds.JumpBasedOnNPCFlag:isa(cmdobj)
+		or game.Cmds.Cond:isa(cmdobj)
+		or game.WorldCmds.IfKeyThenGoto:isa(cmdobj)
+		or game.WorldCmds.IfFacingThenGoto:isa(cmdobj)
+		--or game.EventCmds.StartTimer:isa(cmdobj)
+		then
+			addrsIsGoto[cmdobj.addr] = true
 		end
 	end
 
@@ -95,9 +105,15 @@ local function runScript(game)
 			if not builtin then
 				label = addrLabel(cmdobj.addr)
 			end
+			-- TODO multiple addrsIsFunc / builtinForAddr
+			-- have one just call the other, or equate to the other
 			local thisInFunc = addrsIsFunc[cmdobj.addr]
 			if thisInFunc then
 				io.write(label, '=||do\n')
+				-- if goto also then also add a goto
+				if addrsIsGoto[cmdobj.addr] then
+					io.write(label, ':\n')
+				end
 			else
 				io.write(label, ':\n')
 			end
