@@ -1,4 +1,5 @@
 local ffi = require 'ffi'
+local table = require 'ext.table'
 local string = require 'ext.string'
 local ig = require 'imgui'
 local ArrayWindow = require 'ff6.vis.arraywindow'
@@ -13,6 +14,8 @@ local EventScriptWindow = ArrayWindow:subclass()
 EventScriptWindow.name = 'event script'
 
 function EventScriptWindow:init(args, ...)
+	self.indexStack = table()	-- for back button
+
 	EventScriptWindow.super.init(self, args, ...)
 	self.scrollOppositeWorldRow = ffi.new('int[1]', 0x7ffffffff)
 	self.availSpace = ig.ImVec2()
@@ -69,6 +72,12 @@ function EventScriptWindow:showIndexUI()
 			if addr then
 				self:openScriptAddr(addr)
 			end
+		end
+		ig.igSameLine()
+		if ig.igButton'<' then
+			local prevIndex = self.indexStack:remove()
+			self:setIndex(prevIndex)
+			self.indexStack:remove()	-- and remove the one we just put on the stack
 		end
 	end
 
@@ -358,6 +367,7 @@ function EventScriptWindow:setIndex(newIndex)
 end
 
 function EventScriptWindow:openScriptAddr(scriptAddr)
+	self.indexStack:insert(self.index)
 	self.index = self.app.game.eventScriptCmdIndexForAddr[scriptAddr]
 	if not self.index then
 		print(("couldn't find event script command at address $%06x"):format(scriptAddr))

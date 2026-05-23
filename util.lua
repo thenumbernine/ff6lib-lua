@@ -52,6 +52,11 @@ local function bitflagtype(args)
 		fields = table.mapi(assert(args.options), function(option)
 			return {[assert(option)] = ctype..':1'}
 		end),
+		metatable = function(mt)
+			-- me being lazy in how to do bitflag-detect.
+			-- because this is a ctype you'll have to do op.safeindex which is an xpcall which is expensive every frame, so ... try to get rid of imgui
+			mt.isBitflags = true
+		end,
 	}
 end
 

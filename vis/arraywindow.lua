@@ -1,4 +1,5 @@
 local ffi = require 'ffi'
+local op = require 'ext.op'
 local assert = require 'ext.assert'
 local table = require 'ext.table'
 local range = require 'ext.range'
@@ -167,24 +168,52 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 	--]]
 	-- [[ edit:
 	ctype = ctype or ffi.typeof(valueobj)
-	local ctypeobj = require 'ext.op'.land(pcall(function() return ffi.typeof(ctype) end))
+	local ctypeobj = op.land(pcall(function() return ffi.typeof(ctype) end))
 
 	-- checkboxes:
 	if type(ctype) == 'string'
-	and ctype:match':1$'
+	and ctype:match':1%s*$'
 	then
-		modified = ig.luatableCheckbox(fieldname, obj, fieldname)
+		if self.lastWasBitfield then
+			-- tempted to do this with all bitfields...
+			ig.igSameLine()
+		end
+		self.lastWasBitfield = true	-- this is a bad idea ...
+
+		self.__tmp = 0 ~= valueobj
+		if ig.luatableTooltipCheckbox(fieldname, self, '__tmp') then
+			obj[fieldname] = self.__tmp and 1 or 0
+			modified = true
+		end
 
 	elseif ctypeobj == game.uint24_t then
+		self.lastWasBitfield = false
 		self.__tmp = valueobj:value()
 		if ig.luatableInputFloatAsText(fieldname, self, '__tmp') then
 			ctypeobj:setValue(self.__tmp)
+		end
+
+	-- sets-of-checkboxes
+	elseif op.safeindex(ctypeobj, 'isBitflags') then
+		local first = true
+		for subfieldname in valueobj:fielditer() do
+			if not first then
+				ig.igSameLine()
+			end
+			first = false
+			self.__tmp = 0 ~= valueobj[subfieldname]
+			self.lastWasBitfield = true
+			if ig.luatableTooltipCheckbox(subfieldname, self, '__tmp') then
+				valueobj[subfieldname] = self.__tmp and 1 or 0
+				modified = true
+			end
 		end
 
 	-- structs with sub-fields (esp vectors)
 	elseif ctypeobj == game.XY4b
 	or ctypeobj == game.XY8sb
 	or ctypeobj == game.XY8b
+	--[[ should be handled by isBitflags now
 	or ctypeobj == game.EquipFlags
 	or ctypeobj == game.Effect1
 	or ctypeobj == game.Effect2
@@ -192,6 +221,7 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 	or ctypeobj == game.Effect4
 	or ctypeobj == game.Element
 	or ctypeobj == game.Targetting
+	--]]
 	or ctypeobj == game.SpellLearn
 	--or ctypeobj == game.CharacterSave
 	-- createVec's can be handled sepraately?
@@ -229,6 +259,7 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 		self:editSpellRef(valueobj, 'i')
 		--]=]
 		-- [=[ editSpellRef contents:
+		self.lastWasBitfield = false
 		ig.igSetNextItemWidth(100)
 		modified = ig.luatableInputInt(tostring(fieldname), valueobj, 'i')
 		ig.igSameLine()
@@ -250,6 +281,7 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 
 	elseif ctypeobj == game.MenuNameRef then
 
+		self.lastWasBitfield = false
 		self.tmpInt = self.tmpInt or ffi.new('int[1]')
 		self.tmpInt[0] = valueobj.i
 		if ig.igCombo('', self.tmpInt, range(0, game.countof(game.menuNames)-1):mapi(function(i)
@@ -260,6 +292,7 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 
 	-- default:
 	else
+		self.lastWasBitfield = false
 		modified = ig.luatableInputFloatAsText(fieldname, obj, fieldname)
 	end
 	--]]
