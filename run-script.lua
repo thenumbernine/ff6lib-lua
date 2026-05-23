@@ -14,29 +14,109 @@ end
 local function runScript(game)
 	local rom = game.rom
 
+	local builtinForAddr = {}
+
+	-- keep track of labels from builtin calls
+	for _,cmdobj in ipairs(game.eventScriptCmds) do
+		local whatPointsToScriptAdAddr = game.eventScriptAddrs[cmdobj.addr]
+		if whatPointsToScriptAdAddr then
+			for _,what in ipairs(whatPointsToScriptAdAddr) do
+				if what.builtin then
+					builtinForAddr[cmdobj.addr] = what.builtin:gsub('%A', '_')
+				end
+			end
+		end
+	end
+
+	-- keep track of labels from map npc and touch-trigger addresses
+	for i=0,game.countof(game.maps)-1 do
+		local mapInfo = game.getMap(i)
+		if mapInfo.startEventScriptAddr then
+			builtinForAddr[mapInfo.startEventScriptAddr] = 'map'..i..'_start'
+		end
+		for j,t in ipairs(mapInfo.touchTriggers) do
+			local addr = t:getScriptAddr()
+			if addr then
+				builtinForAddr[addr] = 'map'..i..'_touch'..(j-1)
+			end
+		end
+		for j,n in ipairs(mapInfo.npcs) do
+			local addr = n:getScriptAddr()
+			if addr then
+				builtinForAddr[addr] = 'map'..i..'_npc'..(j-1)
+			end
+		end
+	end
+
+	-- now collect addrs and find if they are calls or not
+	-- (if they are calls then we will define them as functions)
+	local addrsIsFunc = table.map(builtinForAddr, function(v,k) return true, k end):setmetatable()
+	for _,cmdobj in ipairs(game.eventScriptCmds) do
+		if game.EventCmds.Call:isa(cmdobj)
+		or game.EventCmds.CallRepeat:isa(cmdobj)
+		then
+			addrsIsFunc[cmdobj.addr] = true
+		end
+	end
+
+	-- make calls gen to modern func call
+	game.EventCmds.Call.desc = "<?=getGotoOfsStr(destAddrOfs, '')?>()"
+	game.EventCmds.CallRepeat.desc = "for i=1,<?=count?> do <?=getGotoOfsStr(destAddrOfs, '')?>() end"
+
+	-- when call/goto getting addr, check builtin
+	local function addrLabel(addr)
+		local builtin = builtinForAddr[addr]
+		if builtin then return builtin end
+		--return ('$%06x'):format(addr)
+		return ('_%06x'):format(addr)
+	end
+	game.addrLabel = addrLabel
+
+
+	local lastWasReturn
+	local inFunc
 	print'BEGIN EVENT SCRIPT'
 	for _,cmdobj in ipairs(game.eventScriptCmds) do
 		local whatPointsToScriptAdAddr = game.eventScriptAddrs[cmdobj.addr]
 		if whatPointsToScriptAdAddr then
+			-- TODO only if the last command printed was a 'return'
+			if inFunc and lastWasReturn then
+				print'end'
+				inFunc = false	-- ... or not?
+			end
+			-- if we're in-function and the last wasn't return then don't define a new func -- only a label
+			-- and if we still got a call here then we have a problem
+
 			-- print header
 			print()
-			print(
-				('$%06x: '):format(cmdobj.addr)
-				..whatPointsToScriptAdAddr:mapi(function(x)
-					return (tolua(x, {
-						indent = false,
-						serializeForType = {
-							number = function(state, x, tab, luapath, keyRef)
-								return ('$%06x'):format(x)
-							end,
-						},
-					}))
-				end):concat'; '
-			)
+
+			local builtin = builtinForAddr[cmdobj.addr]
+			local label = builtin
+			if not builtin then
+				label = addrLabel(cmdobj.addr)
+			end
+			local thisInFunc = addrsIsFunc[cmdobj.addr]
+			if thisInFunc then
+				io.write(label, '=||do\n')
+			else
+				io.write(label, ':\n')
+			end
+			inFunc = inFunc or thisInFunc
+
+			for _,what in ipairs(whatPointsToScriptAdAddr) do
+				if what.builtin then
+					local builtinLabel = what.builtin:gsub('%A', '_')
+					if builtinLabel ~= label then
+						io.write(builtinLabel..':')
+						print()
+					end
+				end
+			end
 		end
 
+--[[ show addresses and bytes
 		-- print addr
-		io.write(('$%06x'):format(cmdobj.addr), '\t')
+		io.write(addrLabel(cmdobj.addr), '\t')
 
 		-- print shorthand cmdset
 		io.write(({
@@ -55,6 +135,10 @@ local function runScript(game)
 					return ('%02x '):format(b:byte())
 				end)
 		))
+--]]
+-- [[
+		io.write'\t'
+--]]
 
 		if game.ObjectCmd:isa(cmdobj)
 		and not game.ObjectCmds.EndScript:isa(cmdobj)
@@ -63,18 +147,21 @@ local function runScript(game)
 		end
 
 		print(cmdobj)
+
+		lastWasReturn = game.Cmds.Return:isa(cmdobj)
+			or game.Cmds.EndScript:isa(cmdobj)
 	end
 	print()
 	print'END EVENT SCRIPT'
 	print()
 
 	do
-		local function addrtostr(x) return ('$%06x'):format(x) end
+		local function addrtostr(x) return addrLabel(x) end
 		local function check(a,b)
 			if a.endAddr > b.addr then
 				print('!!! collision between '..a:printInterval()..' and '..b:printInterval())
 			elseif a.endAddr < b.addr then
-				print('! empty region from '..addrtostr(a.endAddr)..' and '..addrtostr(b.addr))
+				print('-- empty region from '..addrtostr(a.endAddr)..' and '..addrtostr(b.addr))
 			end
 		end
 		local sortedTraces = table.values(game.decompileTraces)

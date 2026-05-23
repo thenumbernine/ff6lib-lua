@@ -32,8 +32,11 @@ local double = ffi.typeof'double'
 -- this is used to go to for 'return' so often ...
 local commonReturnAddr = 0x0a5eb3
 
-
 return function(game)
+	game.addrLabel = function(addr)
+		return ('$%06x'):format(addr)
+	end
+
 	local Game = game.Game
 	local rom = game.rom
 	local romsize = game.romsize
@@ -49,8 +52,8 @@ return function(game)
 	local scriptBaseAddrEnd2 = ffi.offsetof(Game, 'dialogBase') + ffi.sizeof(game.dialogBase)
 
 --DEBUG:print('event script ranges:')
---DEBUG:print(('$%06x-$%06x'):format(scriptBaseAddr, scriptBaseAddrEnd))
---DEBUG:print(('$%06x-$%06x'):format(scriptBaseAddr2, scriptBaseAddrEnd2))
+--DEBUG:print(game.addrLabel(scriptBaseAddr)..'-'..game.addrLabel(scriptBaseAddrEnd))
+--DEBUG:print(game.addrLabel(scriptBaseAddr2)..'-'..game.addrLabel(scriptBaseAddrEnd2))
 
 	-- how to generate this in a modular way that both outputs and is reusable later
 	-- for now I will insert in-order and provide an address lookup table to the index in this table
@@ -102,16 +105,31 @@ return function(game)
 			--str = 'return' 	-- "call return" is gonna look weird :shrug:
 			return 'return'
 		else
-			str = ('$%06x'):format(addr)
+			str = game.addrLabel(addr)
+		end
+		if not op then
+			return 'goto ::'..str..'::'
 		end
 		-- is it 'goto return' as in we jmp to the instruction and its a rts and so we return?
 		--  and therefore a 'goto return' is the same as just 'return'
 		-- but then how about the 'call' ... does that push to the same stack as whatever invoked the script in the first place,
 		--  such that 'call return' is a 'nop'?
 		--  or are all 'call return's erroneous, in that if the pc stack is different between invoking touch/event s and 'call' within the script, then a 'call return' would produce some kind of error?
-		return (op or 'goto ')..str
+		return op..str
 	end
 
+	Cmd.objDesc = function(objIndex)
+		if objIndex < 16 then
+			return 'character['..objIndex..']'
+		elseif objIndex < 48 then
+			-- so I guess there's only 38 npcs per map?
+			return 'npc['..(objIndex - 16)..']'
+		elseif objIndex == 48 then
+			return 'view'
+		else
+			return 'party['..(objIndex - 49)..']'
+		end
+	end
 
 	-- generic cmds when you need a superclass transcending any specific cmdset:
 	local Cmds = {}
@@ -156,7 +174,7 @@ return function(game)
 			return EventCmd.digest(self, ...)	-- call super
 		end,
 		desc = "objScript{"
-			.."obj=objs[<?=cmd?>]"
+			.."obj=<?=objDesc(cmd)?>"
 			.."<?= blocking and ', block=true' or ''?>"
 			..", cb=|obj|do"
 		-- then upon end, "end}" and if blocking then "joinAll()" on all previous object-script forks
@@ -169,21 +187,21 @@ return function(game)
 		cmd = 0x35,
 		argtypes = {uint8_t},
 		argnames = {'objectIndex'},
-		desc = "waitFor(objs[<?=objectIndex?>])",
+		desc = "waitFor(<?=objDesc(objectIndex)?>)",
 	}
 
 	EventCmds.EnableObjectPassability = EventCmd:subclass{
 		cmd = 0x36,
 		argtypes = {uint8_t},
 		argnames = {'objectIndex'},
-		desc = "objs[<?=objectIndex?>].solid = true",
+		desc = "<?=objDesc(objectIndex)?>.solid = true",
 	}
 
 	EventCmds.ChangeObjectSprite = EventCmd:subclass{
 		cmd = 0x37,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'objectIndex', 'spriteIndex'},
-		desc = 'objs[<?=objectIndex?>].sprite = <?=spriteIndex?>',
+		desc = '<?=objDesc(objectIndex)?>.sprite = <?=spriteIndex?>',
 	}
 
 	EventCmds.LockScreen = EventCmd:subclass{
@@ -253,14 +271,14 @@ return function(game)
 		cmd = 0x41,
 		argtypes = {uint8_t},
 		argnames = {'objectIndex'},
-		desc = 'objs[<?=objectIndex?>].visible = true',
+		desc = '<?=objDesc(objectIndex)?>.visible = true',
 	}
 
 	EventCmds.HideObject = EventCmd:subclass{
 		cmd = 0x42,
 		argtypes = {uint8_t},
 		argnames = {'objectIndex'},
-		desc = 'objs[<?=objectIndex?>].visible = false',
+		desc = '<?=objDesc(objectIndex)?>.visible = false',
 	}
 
 	EventCmds.ChangeObjectPalette = EventCmd:subclass{
@@ -667,7 +685,7 @@ return function(game)
 		cmd = 0x78,
 		argtypes = {uint8_t},
 		argnames = {'objectIndex'},
-		desc = 'objs[<?=objectIndex?>].solid = false',
+		desc = '<?=objDesc(objectIndex)?>.solid = false',
 	}
 
 	EventCmds.MovePartyToMap = EventCmd:subclass{
@@ -681,7 +699,7 @@ return function(game)
 		cmd = 0x7a,
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'objectIndex', 'newScriptAddrOfs'},
-		desc = "objs[<?=objectIndex?>].script = <?=getGotoOfsStr(newScriptAddrOfs, '')?>",
+		desc = "<?=objDesc(objectIndex)?>.script = <?=getGotoOfsStr(newScriptAddrOfs, '')?>",
 
 		getBranchAddrs = function(self)
 			return {
@@ -1046,7 +1064,7 @@ return function(game)
 		cmd = 0xb6,
 		digest = function(self, read)
 			self.addrs = table()
-			if not self.trace.lastDialogPromptCount then error("required choices but no dialog at "..('$%06x'):format(self.addr)) end
+			if not self.trace.lastDialogPromptCount then error("required choices but no dialog at "..game.addrLabel(self.addr)) end
 			for i=1,self.trace.lastDialogPromptCount do
 				self.addrs:insert(scriptBaseAddr + read(uint24_t))
 			end
@@ -1056,7 +1074,7 @@ return function(game)
 			-- cuz if it's goto then the the next instruction after "want to learn about espers?" shouldn't be a 'return', because each jump option there has its own return ...
 			return 'gotoForDialogChoice('
 				..self.addrs:mapi(function(addr)
-					return (' $%06x'):format(addr)
+					return game.addrLabel(addr)
 				end):concat' '
 				..')'
 		end,
@@ -1072,7 +1090,7 @@ return function(game)
 		cmd = 0xb7,
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'flagIndex', 'destAddrOfs'},
-		desc = 'if gameState.battleFlag<?=flagIndex?> then <?=getGotoOfsStr(destAddrOfs)?>',
+		desc = 'if gameState.battleFlag<?=flagIndex?> then <?=getGotoOfsStr(destAddrOfs)?> end',
 
 		getBranchAddrs = function(self)
 			return {
@@ -1117,7 +1135,7 @@ return function(game)
 		cmd = 0xbd,
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
-		desc = 'if math.random() < .5 then <?=getGotoOfsStr(destAddrOfs)?>',
+		desc = 'if math.random() < .5 then <?=getGotoOfsStr(destAddrOfs)?> end',
 
 		getBranchAddrs = function(self)
 			return {
@@ -1353,16 +1371,26 @@ return function(game)
 		desc = 'waitforSound()',
 	}
 
-	EventCmds.Return = EventCmd:subclass{
-		cmd = 0xfe,
+	local Return = Cmd:subclass{
 		desc = 'return',
 		endTrace = true,
 	}
-	EventCmds.EndScript = EventCmd:subclass{
-		cmd = 0xff,
+	game.Cmds.Return = Return
+
+	EventCmds.Return = EventCmd:subclass(Return, {
+		cmd = 0xfe,
+	})
+
+
+	local EndScript = Cmd:subclass{
 		desc = 'endScript()',
-		endTrace = true,
+		endTrace = true
 	}
+	game.Cmds.EndScript = EndScript
+
+	EventCmds.EndScript = EventCmd:subclass(EndScript, {
+		cmd = 0xff,
+	})
 
 	-- EventCmds key by cmd (number) or by name (string)
 	for _,k in ipairs(table.keys(EventCmds)) do
@@ -1398,7 +1426,7 @@ return function(game)
 		if not dontDoTheProbablyWrongEndAddrCheck
 		and addr ~= objectScriptCmd.addr + objectScriptCmd.length + 1
 		then
-			print("!!! DANGER !!! object-script length doesn't align with end-of-script cmd:", ('$%06x'):format(addr), 'vs', ('$%06x'):format(objectScriptCmd.addr + objectScriptCmd.length + 1))
+			print("!!! DANGER !!! object-script length doesn't align with end-of-script cmd:", game.addrLabel(addr), 'vs', game.addrLabel(objectScriptCmd.addr + objectScriptCmd.length + 1))
 		end
 	end
 
@@ -1725,7 +1753,7 @@ return function(game)
 		cmd = 0xd4,
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
-		desc = 'if keypress then <?=getGotoOfsStr(destAddrOfs)?>',
+		desc = 'if keypress() then <?=getGotoOfsStr(destAddrOfs)?>',
 
 		getBranchAddrs = function(self)
 			return {
@@ -1793,18 +1821,14 @@ return function(game)
 	}
 	--]]
 	-- [[
-	WorldCmds.Return = WorldCmd:subclass{
+	WorldCmds.Return = WorldCmd:subclass(Return, {
 		cmd = 0xfe,
-		desc = 'return',
-		endTrace = true,
-	}
+	})
 	--]]
 
-	WorldCmds.EndScript = WorldCmd:subclass{
+	WorldCmds.EndScript = WorldCmd:subclass(EndScript, {
 		cmd = 0xff,
-		desc = 'endScript()',
-		endTrace = true,
-	}
+	})
 
 	-- map the by-number for by-name
 	for _,k in ipairs(table.keys(WorldCmds)) do
@@ -2033,7 +2057,7 @@ return function(game)
 	}
 
 	-- one common EndScript class?
-	VehicleCmds.EndScript = VehicleCmd:subclass{
+	VehicleCmds.EndScript = VehicleCmd:subclass(EndScript, {
 		cmd = 0xff,
 		digest = function(self, ...)
 -- assert we're in a vehicle state and pop state
@@ -2042,9 +2066,7 @@ return function(game)
 			self.trace.stateStack:remove()
 		end,
 		-- is a vehicle end-script on par with a world/event end-script, or is it more like object end-script that just ends the object-section ?
-		desc = 'endScript()',
-		endTrace = true,
-	}
+	})
 
 	-- map the by-number for by-name
 	for _,k in ipairs(table.keys(VehicleCmds)) do
@@ -2113,7 +2135,7 @@ return function(game)
 
 	local Trace = class()
 	function Trace:printInterval()
-		return ('$%06x'):format(self.addr)..' - '..('$%06x'):format(self.endAddr)
+		return game.addrLabel(self.addr)..' - '..game.addrLabel(self.endAddr)
 	end
 
 	local function decompileFrom(args)
@@ -2127,7 +2149,7 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {
 	indent = false,
 	serializeForType = {
 		number = function(state, x, tab, luapath, keyRef)
-			return ('$%06x'):format(x)
+			return game.addrLabel(x)
 		end,
 	},
 }))
@@ -2169,10 +2191,10 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {
 			if cmdobj then
 				if cmdobj.cmdset ~= trace.stateStack:last().cmdset then
 					print('!!! DANGER !!! '
-						..('$%06x'):format(startAddr)
+						..game.addrLabel(startAddr)
 						..' decoding address from differing cmdset!'
 						..' previous cmdset '..cmdobj.cmdset
-						..' from trace at '..('$%06x'):format(otherTrace.cmds[1].addr)
+						..' from trace at '..game.addrLabel(otherTrace.cmds[1].addr)
 						..' vs new cmdset '..trace.stateStack:last().cmdset
 					)
 				else
@@ -2193,7 +2215,7 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {
 		end
 
 --[==[ debugging:
-print(('BEGIN $%06x'):format(startAddr))
+print(('BEGIN '..game.addrLabel(startAddr))
 --]==]
 
 		while true do
@@ -2201,7 +2223,7 @@ print(('BEGIN $%06x'):format(startAddr))
 				(scriptBaseAddr <= addr and addr < scriptBaseAddrEnd)
 				or (scriptBaseAddr2 <= addr and addr < scriptBaseAddrEnd2)
 			) then
-print('!!! script oob !!! '..('$%06x'):format(addr))
+print('!!! script oob !!! '..game.addrLabel(addr))
 				break
 			end
 
@@ -2228,7 +2250,7 @@ print('!!! script oob !!! '..('$%06x'):format(addr))
 			trace.cmdObjForAddr[cmdaddr] = cmdobj
 
 --[==[ debugging print as we go
-	io.write(('$%06x'):format(cmdobj.addr), '\t')
+	io.write(game.addrLabel(cmdobj.addr), '\t')
 	io.write(({
 		EventCmds = 'EV ',
 		WorldCmds = 'WO ',
@@ -2305,7 +2327,7 @@ print('!!! script oob !!! '..('$%06x'):format(addr))
 		trace.endAddr = addr
 
 --[==[ debugging:
-print(('END $%06x'):format(startAddr))
+print('END '..game.addrLabel(startAddr))
 print()
 --]==]
 
@@ -2313,8 +2335,8 @@ print()
 
 		if trace.stateStack:last().objectScriptCmd then
 			print('!!! DANGER !!! event-script ended still inside an object-script:',
-				('script start = $%06x'):format(startAddr),
-				('object-script start = $%06x'):format(trace.stateStack:last().objectScriptCmd.addr)
+				'script start = '..game.addrLabel(startAddr),
+				'object-script start = '..game.addrLabel(trace.stateStack:last().objectScriptCmd.addr)
 			)
 		end
 
@@ -2481,14 +2503,14 @@ print()
 		if a.addr < b.addr
 		and a.endAddr == b.endAddr
 		then
---print('found possible subset', ('$%06x'):format(a.addr), ('$%06x'):format(b.addr), ('$%06x'):format(b.endAddr))
+--print('found possible subset', game.addrLabel(a.addr), game.addrLabel(b.addr), game.addrLabel(b.endAddr))
 			-- but first verify
 			-- make sure all the cmds match
 			local allmatch = true
 			for j,bcmd in ipairs(b.cmds) do
 				local acmd = a.cmds[#a.cmds-#b.cmds+j]
 				if acmd.addr ~= bcmd.addr then
---print('...but cmd addr at '..('$%06x'):format(acmd.addr)..' vs '..('$%06x'):format(bcmd.addr).." didn't match")
+--print('...but cmd addr at '..game.addrLabel(acmd.addr)..' vs '..game.addrLabel(bcmd.addr).." didn't match")
 					allmatch = false
 					break
 				end
@@ -2497,7 +2519,7 @@ print()
 					break
 				end
 				if getmetatable(acmd) ~= getmetatable(bcmd) then
---print('...but cmd metatable at '..('$%06x'):format(acmd.addr).." didn't match")
+--print('...but cmd metatable at '..game.addrLabel(acmd.addr).." didn't match")
 					allmatch = false
 					break
 				end
