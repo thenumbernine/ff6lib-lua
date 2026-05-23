@@ -145,11 +145,7 @@ function SRAMWindow:showIndexUI()
 		local onchange = args.onchange
 		local canlink = args.canlink
 		local link = args.link
-		local title = args.title
 		local hilite = args.hilite
-
-		ig.igSeparator()
-		if not ig.igCollapsingHeader(title) then return end
 
 assert.type(flagField, 'string')
 		ig.igPushID_Str(flagField)
@@ -206,137 +202,146 @@ assert.type(flagField, 'string')
 		ig.igPopID()
 	end
 
-	showFlags{
-		title = 'espers:',
-		flagField = 'esperFlags',
-		getname = function(i)
-			return game.getSpellName(i + 54)
-		end,
-		link = function(i)
-			return app.spellWindow:open(i + 54)
-		end,
-	}
+	ig.igSeparator()
+	if ig.igCollapsingHeader'espers:' then
+		showFlags{
+			flagField = 'esperFlags',
+			getname = function(i)
+				return game.getSpellName(i + 54)
+			end,
+			link = function(i)
+				return app.spellWindow:open(i + 54)
+			end,
+		}
+	end
 
-	showFlags{
-		title = 'swdtechs:',
-		flagField = 'swdtechFlags',
-		getname = function(i)
-			return tostring(game.swordTechNames[i])
-		end,
-	}
+	ig.igSeparator()
+	if ig.igCollapsingHeader'espers:' then
+		showFlags{
+			flagField = 'swdtechFlags',
+			getname = function(i)
+				return tostring(game.swordTechNames[i])
+			end,
+		}
 
-	showFlags{
-		title = 'blitzes:',
-		flagField = 'blitzFlags',
-		getname = function(i)
-			return game.getSpellName(i + 93)
-		end,
-		link = function(i)
-			return app.spellWindow:open(i + 93)
-		end,
-	}
+		showFlags{
+			flagField = 'blitzFlags',
+			getname = function(i)
+				return game.getSpellName(i + 93)
+			end,
+			link = function(i)
+				return app.spellWindow:open(i + 93)
+			end,
+		}
 
-	showFlags{
-		title = 'lores:',
-		flagField = 'loreFlags',
-		getname = function(i)
-			return game.getSpellName(i + 139)
-		end,
-		link = function(i)
-			return app.spellWindow:open(i + 139)
-		end,
-	}
+		showFlags{
+			flagField = 'loreFlags',
+			getname = function(i)
+				return game.getSpellName(i + 139)
+			end,
+			link = function(i)
+				return app.spellWindow:open(i + 139)
+			end,
+		}
 
-	showFlags{
-		title = 'dances:',
-		flagField = 'danceFlags',
-		getname = function(i)
-			return tostring(game.mogDanceNames[i])
-		end,
-	}
+		showFlags{
+			flagField = 'danceFlags',
+			getname = function(i)
+				return tostring(game.mogDanceNames[i])
+			end,
+		}
+	end
 
-	showFlags{
-		title = 'map flags:',
-		flagField = 'mapFlags',
-	}
+	ig.igSeparator()
+	if ig.igCollapsingHeader'map flags:' then
+		showFlags{
+			flagField = 'mapFlags',
+		}
+	end
 
-	-- TODO reverse-reference to NPCs that use this flag
-	showFlags{
-		title = 'npc flags:',
-		flagField = 'npcFlags',
-		getname = function(i)
-			local info = self.npcForFlag[i]
-			if not info then return end
-			return '#'..i..': map '..info.mapIndex..', npc '..info.npcIndex
-		end,
-		canlink = function(i)
-			return self.npcForFlag[i]
-		end,
-		link = function(i)
-			local info = self.npcForFlag[i]
-			if not info then return end
-			app.mapWindow:open(info.mapIndex)
-			app.npcWindow:open(info.npcIndex)
-			local n = info.npc
-			self.app.tileWindow:setXY(n.x, n.y)
-			self.app:centerView(n.x, n.y)
-		end,
-	}
+	ig.igSeparator()
+	if ig.igCollapsingHeader'npc flags:' then
+		showFlags{
+			flagField = 'npcFlags',
+			getname = function(i)
+				local info = self.npcForFlag[i]
+				if not info then return end
+				return '#'..i..': map '..info.mapIndex..', npc '..info.npcIndex
+			end,
+			canlink = function(i)
+				return self.npcForFlag[i]
+			end,
+			link = function(i)
+				local info = self.npcForFlag[i]
+				if not info then return end
+				app.mapWindow:open(info.mapIndex)
+				app.npcWindow:open(info.npcIndex)
+				local n = info.npc
+				self.app.tileWindow:setXY(n.x, n.y)
+				self.app:centerView(n.x, n.y)
+			end,
+		}
+	end
 
-	-- TODO reverse-reference to treasures that use this flag
-	showFlags{
-		title = 'treasure flags:',
-		flagField = 'treasureFlags',
-		getname = function(i)
-			local info = self.treasureForFlag[i]
-			if not info then return end
-			return '#'..i..': map '..info.mapIndex..', treasure '..info.treasureIndex
-		end,
-		canlink = function(i)
-			return self.treasureForFlag[i]
-		end,
-		link = function(i)
-			local info = self.treasureForFlag[i]
-			if not info then return end
-			app.mapWindow:open(info.mapIndex)
-			app.treasureWindow:open(info.treasureIndex)
-			local t = info.treasure
-			self.app.tileWindow:setXY(t.pos.x, t.pos.y)
-			self.app:centerView(t.pos.x, t.pos.y)
-		end,
-	}
+	ig.igSeparator()
+	if ig.igCollapsingHeader'treasure flags:' then
+		showFlags{
+			flagField = 'treasureFlags',
+			getname = function(i)
+				local info = self.treasureForFlag[i]
+				if not info then return end
+				return '#'..i..': map '..info.mapIndex..', treasure '..info.treasureIndex
+			end,
+			canlink = function(i)
+				return self.treasureForFlag[i]
+			end,
+			link = function(i)
+				local info = self.treasureForFlag[i]
+				if not info then return end
+				app.mapWindow:open(info.mapIndex)
+				app.treasureWindow:open(info.treasureIndex)
+				local t = info.treasure
+				self.app.tileWindow:setXY(t.pos.x, t.pos.y)
+				self.app:centerView(t.pos.x, t.pos.y)
+			end,
+		}
+	end
 
-	showFlags{
-		title = 'battle formation flags:',
-		flagField = 'battleFormationFlags',
-		getname = function(i)
-			return '#'..i..': {'..game.formations[i]:getDesc()..'}'
-		end,
-		-- canlink ... all battleFormationFlags are valid, right?
-		link = function(i)
-			app.battleFormationWindow:open(i)
-		end,
-		onchange = function()
-			self:refreshMonstersEnabled()
-		end,
-	}
+	ig.igSeparator()
+	if ig.igCollapsingHeader'battle formation flags:' then
+		showFlags{
+			flagField = 'battleFormationFlags',
+			getname = function(i)
+				return '#'..i..': {'..game.formations[i]:getDesc()..'}'
+			end,
+			-- canlink ... all battleFormationFlags are valid, right?
+			link = function(i)
+				app.battleFormationWindow:open(i)
+			end,
+			onchange = function()
+				self:refreshMonstersEnabled()
+			end,
+		}
+	end
 
-	showFlags{
-		title = 'rages:',
-		flagField = 'rageFlags',
-		getname = function(i)
-			return tostring(game.monsterNames[i])
-		end,
-		-- canlink ... all rageFlags are valid for monsters, right?
-		link = function(i)
-			return app.monsterWindow:open(i)
-		end,
-		hilite = function(i)
-			if i < 256 then
-				return self.monstersEnabled[i] and 0x5f00ff00 or 0x5f0000ff
-			end
-		end,
-	}
+	ig.igSeparator()
+	if ig.igCollapsingHeader'rages:' then
+		showFlags{
+			flagField = 'rageFlags',
+			getname = function(i)
+				return tostring(game.monsterNames[i])
+			end,
+			-- canlink ... all rageFlags are valid for monsters, right?
+			link = function(i)
+				return app.monsterWindow:open(i)
+			end,
+			hilite = function(i)
+				if i < 256 then
+					return self.monstersEnabled[i] and 0x5f00ff00 or 0x5f0000ff
+				end
+			end,
+		}
+	end
 end
 
 function SRAMWindow:recalcChecksum(i)
