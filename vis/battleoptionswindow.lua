@@ -208,7 +208,7 @@ function EventBattleOptionsWindow:showIndexUI(...)
 				then
 					self.treasuresWithThis:insert{
 						mapIndex = i,
-						treasureIndex = j,
+						treasureIndex = j-1,
 						treasure = treasure,
 					}	-- map is 0-based, treasure is 1-based
 				end
@@ -227,11 +227,11 @@ function EventBattleOptionsWindow:showIndexUI(...)
 				info.mapIndex,
 				'treasure #'..info.treasureIndex
 			) then
-				self.app.treasureWindow:open(info.treasureIndex-1)
+				self.app.treasureWindow:open(info.treasureIndex)
 
-				local t = info.treasure
 				-- just like doorWindow...
 				-- new map should be loaded now
+				local t = info.treasure
 				self.app.tileWindow:setXY(t.pos.x, t.pos.y)
 				self.app:centerView(t.pos.x, t.pos.y)
 			end

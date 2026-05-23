@@ -1983,9 +1983,9 @@ local NPC = struct{
 						{name='masterOffset', type='uint8_t:3'},			-- 1.5-1.7
 						{name='masterOffsetAxis', type='uint16_t:1'},		-- 2.0 = 0=x, 1=y
 						{name='isSlave', type='uint16_t:1'},				-- 2.1
-						{name='palette', type='uint16_t:3'},				-- 2.2-2.4
-						{name='scrollingLayer', type='uint16_t:1'},			-- 2.5 = 0=layer1, 1=layer2
-						{name='flag', type='uint16_t:10'},					-- 2.6-3.7
+						{name='palette_duplicate', type='uint16_t:3'},				-- 2.2-2.4
+						{name='scrollingLayer_duplicate', type='uint16_t:1'},			-- 2.5 = 0=layer1, 1=layer2
+						{name='flag_duplicate', type='uint16_t:10'},					-- 2.6-3.7
 					},
 				}},
 			},

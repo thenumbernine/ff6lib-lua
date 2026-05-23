@@ -37,6 +37,11 @@ function NPCWindow:showIndexUI()
 				-- ... and refresh tex when you're done
 				self.app.mapWindow:refreshNPCTexs()
 			end
+		elseif fieldname == 'flag_duplicate'
+		or fieldname == 'palette_duplicate'
+		or fieldname == 'scrollingLayer_duplicate'
+		then
+			-- there's multiple fields, all with the same region / bitflag / type, so ...
 		else
 			self:editField(n, fieldname, ctype, field)
 		end
