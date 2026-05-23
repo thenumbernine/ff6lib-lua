@@ -8,6 +8,15 @@ local SRAMWindow = ArrayWindow:subclass()
 SRAMWindow.characterIndex = 0
 
 SRAMWindow.name = 'sram'
+SRAMWindow.count = 3	-- fixed, ... right?
+
+function SRAMWindow:init(...)
+	SRAMWindow.super.init(self, ...)
+
+	for i=0,self.count-1 do
+		self['calcChecksumOnSave'..i] = true -- by default
+	end
+end
 
 function SRAMWindow:getIndex(i)
 	if not self.app.game or not self.app.sram then return end
@@ -16,8 +25,9 @@ function SRAMWindow:getIndex(i)
 end
 
 function SRAMWindow:getCount()
+	-- do I need this test?
 	if not self.app.sram then return end
-	return 3
+	return self.count
 end
 
 function SRAMWindow:showIndexUI()
@@ -53,15 +63,10 @@ function SRAMWindow:showIndexUI()
 			end
 		end
 
-		ig.igSameLine()
-		if ig.igButton'checksum...' then
-			local x = 0
-			local ptr = ffi.cast('uint8_t*', save)
-			for i=0,ffi.sizeof(game.SaveSlot)-3 do
-				x = x + ptr[i]
-			end
-			save.checksum = bit.band(0xffff, x)
+		if ig.igButton'recalc checksum...' then
+			self:recalcChecksum(self.index)
 		end
+		ig.luatableCheckbox('auto recalc checksum on save', self, 'calcChecksumOnSave'..self.index)
 	end
 
 	-- TODO mapPos here and using int2
@@ -252,6 +257,18 @@ assert.type(flagField, 'string')
 		getname = function(i) return tostring(game.monsterNames[i]) end,
 		link = function(i) return app.monsterWindow:open(i) end,
 	}
+end
+
+function SRAMWindow:recalcChecksum(i)
+	local save = self:getIndex(i)
+	if not save then return end
+	local game = self.app.game
+	local x = 0
+	local ptr = ffi.cast('uint8_t*', save)
+	for i=0,ffi.sizeof(game.SaveSlot)-3 do
+		x = x + ptr[i]
+	end
+	save.checksum = bit.band(0xffff, x)
 end
 
 function SRAMWindow:setIndex(...)

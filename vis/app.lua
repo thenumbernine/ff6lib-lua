@@ -591,7 +591,15 @@ function App:onLoadSRAM(fn, index)
 	self.sramvec = vector('uint8_t', #sramstr)
 	self.sram = ffi.cast(ffi.typeof('$*', game.SRAM), self.sramvec.v)
 	ffi.copy(self.sramvec.v, sramstr, #sramstr)
-	self.sramWindow:open(index and tonumber(index) or nil)
+
+	index = index and tonumber(index)
+	if index then
+		self.sramWindow:open(index)
+		local save = self.sramWindow:getCurIndex()
+		self.mapWindow:open(save.map)
+		self.tileWindow:setXY(save.mapPos.x, save.mapPos.y)
+		self:centerView(save.mapPos.x, save.mapPos.y)
+	end
 end
 
 
@@ -714,6 +722,11 @@ function App:update()
 		self:onLoadSRAM(fn)
 	end)
 	self.menuSaveSRAM:check(function(fn)
+		for i=0,self.sramWindow:getCount()-1 do
+			if self.sramWindow['calcChecksumOnSave'..i] then
+				self.sramWindow:recalcChecksum(i)
+			end
+		end
 		assert(path(fn)):write((
 			self.sramvec:dataToStr()
 		))
@@ -1071,11 +1084,6 @@ function App:updateGUI()
 				self.menuSaveROM:show'Save...'
 				ig.igSeparator()
 				self.menuOpenSRAM:show'Open SRAM...'
-				if self.sramPath then
-					if ig.igButton'Reload Last SRAM...' then
-						self:onLoadSRAM(self.sramPath)
-					end
-				end
 				self.menuSaveSRAM:show'Save SRAM...'
 			end
 
@@ -1220,6 +1228,12 @@ function App:updateGUI()
 			end
 
 			ig.igEndMenu()
+		end
+
+		if self.sramPath then
+			if ig.igButton'Reload Last SRAM...' then
+				self:onLoadSRAM(self.sramPath)
+			end
 		end
 
 		ig.igEndMainMenuBar()
