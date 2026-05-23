@@ -82,6 +82,7 @@ do
 	end
 	check('md5', require 'sha2'.md5(romstr), '544311e104805e926083acf29ec664da')
 	check('sha256', require 'sha2'.sha256(romstr), '10eccc5d2fab81346dd759f6be478dcb682eef981e8d3d662da176e1f9a996bc')
+	print()
 end
 
 -- hmm to not deal with string internal data issues ... copy this into a vector first, and don't save the string

@@ -62,11 +62,7 @@ local function runScript(game)
 			io.write'    '
 		end
 
-		print((tostring(cmdobj)
-			:gsub('\t', '\\t')
-			:gsub('\r', '\\r')
-			:gsub('\n', '\\n')
-		))
+		print(cmdobj)
 	end
 	print()
 	print'END EVENT SCRIPT'

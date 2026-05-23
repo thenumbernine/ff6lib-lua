@@ -15,6 +15,7 @@ local assert = require 'ext.assert'
 local table = require 'ext.table'
 local number = require 'ext.number'
 local class = require 'ext.class'
+local tolua = require 'ext.tolua'
 local template = require 'template'
 
 
@@ -154,8 +155,11 @@ return function(game)
 
 			return EventCmd.digest(self, ...)	-- call super
 		end,
-		desc = "fork(||do local obj=objs[<?=cmd?>] -- length=<?=length?><?= blocking and ', block=true' or ''?>"
-		-- then upon end, "end)" and if blocking then "joinAll()" on all previous object-script forks
+		desc = "objScript{"
+			.."obj=objs[<?=cmd?>]"
+			.."<?= blocking and ', block=true' or ''?>"
+			..", cb=|obj|do"
+		-- then upon end, "end}" and if blocking then "joinAll()" on all previous object-script forks
 	}
 	for i=0x00,0x34 do
 		EventCmds['ObjectScript '..i] = EventCmds.ObjectScript:subclass{cmd=i}
@@ -316,13 +320,13 @@ return function(game)
 		end,
 		__tostring = function(self)
 			local dlg = game.dialog[self.dialogIndex]
-			local str = dlg and ('%q'):format(dlg) or 'nil'
+			local str = dlg and tolua(tostring(dlg)) or 'nil'
 			if self.dontWait
 			or self.showTextOnly
 			or self.bottomOfScreen
 			then
 				return --'show dialog[0x'..number.hex(self.dialogIndex)..']:'
-					'dialog('..('%q'):format(str)
+					'dialog('..str
 					..', {'
 					..table()
 					:append{self.dontWait and 'dontWait=true' or nil}
@@ -331,7 +335,7 @@ return function(game)
 					:concat','
 				..'})'
 			else
-				return 'dialog'..('%q'):format(dlg)
+				return 'dialog'..tolua(tostring(dlg))
 			end
 		end,
 	}
@@ -1600,7 +1604,7 @@ return function(game)
 		digest = function(self, ...)
 			popObjectCmdSet(self.trace, self.addr)
 		end,
-		desc = 'end)',	-- and joinAll() if the objectScriptCmd had blocking ...
+		desc = 'end}',	-- and joinAll() if the objectScriptCmd had blocking ...
 	}
 
 
