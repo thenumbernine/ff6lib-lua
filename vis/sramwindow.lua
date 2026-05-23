@@ -216,7 +216,7 @@ assert.type(flagField, 'string')
 	end
 
 	ig.igSeparator()
-	if ig.igCollapsingHeader'espers:' then
+	if ig.igCollapsingHeader'skills:' then
 		showFlags{
 			flagField = 'swdtechFlags',
 			getname = function(i)
