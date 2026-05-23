@@ -1,6 +1,8 @@
 #!/usr/bin/env luajit
 -- this can be run standalone, but it is also included from run.lua to do the script portion
 local ffi = require 'ffi'
+local path = require 'ext.path'
+local table = require 'ext.table'
 local tolua = require 'ext.tolua'
 
 
@@ -89,8 +91,14 @@ local function runScript(game)
 	end
 end
 
-print('...', select('#', ...), ...)
+--print('...', select('#', ...), ...)
 if select('#', ...) > 0 then	-- luajit #... == 0 <-> this file was require'd
+	-- hmm if luajit does get ... upon require then ff6 will get passed a bad file
+	-- maybe xpcall and bailout on fail?
+	local game = require 'ff6'((
+		assert(path((...)):read())
+	))
+	runScript(game)
 end
 
 return runScript

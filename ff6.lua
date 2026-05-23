@@ -69,7 +69,20 @@ if #romstr == 0x300200 then
 	romstr = romstr:sub(0x201)
 end
 assert.len(romstr, romsize)
--- TODO checksum
+
+-- checksum
+do
+	--print('crc32', require 'sha2'.md5(romstr))
+   -- "crc32": "0xA27F1C7A",
+	local function check(name, a, b)
+		print(name, a)
+		if a ~= b then
+			print('!!! WARNING !!! expected '..a..' == '..b)
+		end
+	end
+	check('md5', require 'sha2'.md5(romstr), '544311e104805e926083acf29ec664da')
+	check('sha256', require 'sha2'.sha256(romstr), '10eccc5d2fab81346dd759f6be478dcb682eef981e8d3d662da176e1f9a996bc')
+end
 
 -- hmm to not deal with string internal data issues ... copy this into a vector first, and don't save the string
 local romvec = vector(uint8_t, romsize)

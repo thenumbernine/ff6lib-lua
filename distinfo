@@ -61,6 +61,7 @@ deps = {
 	"image",
 	"imgui",
 	"sdl",
+	"sha2",
 	"stl",
 	"struct",
 	"template",
