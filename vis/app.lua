@@ -597,8 +597,9 @@ function App:onLoadSRAM(fn, index)
 		self.sramWindow:open(index)
 		local save = self.sramWindow:getCurIndex()
 		self.mapWindow:open(save.map)
-		self.tileWindow:setXY(save.mapPos.x, save.mapPos.y)
-		self:centerView(save.mapPos.x, save.mapPos.y)
+		-- pos, pos2, pos3, mapPos, lastTownPos, airshipPos ...
+		self.tileWindow:setXY(save.pos.x, save.pos.y)
+		self:centerView(save.pos.x, save.pos.y)
 	end
 end
 

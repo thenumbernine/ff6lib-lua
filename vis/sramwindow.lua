@@ -69,21 +69,22 @@ function SRAMWindow:showIndexUI()
 		ig.luatableCheckbox('auto recalc checksum on save', self, 'calcChecksumOnSave'..self.index)
 	end
 
-	-- TODO mapPos here and using int2
-	if ig.igButton'goto mapPos...' then
-		app.mapWindow:open(save.map)
-		app.tileWindow:setXY(save.mapPos.x, save.mapPos.y)
-		app:centerView(save.mapPos.x, save.mapPos.y)
-	end
-	if ig.igButton'goto lastTownPos...' then
-		app.mapWindow:open(save.map)
-		app.tileWindow:setXY(save.lastTownPos.x, save.lastTownPos.y)
-		app:centerView(save.lastTownPos.x, save.lastTownPos.y)
-	end
-	if ig.igButton'goto airshipPos...' then
-		app.mapWindow:open(0)	-- TODO how to tell if the airship is in WoB or WoR?
-		app.tileWindow:setXY(save.airshipPos.x, save.airshipPos.y)
-		app:centerView(save.airshipPos.x, save.airshipPos.y)
+	for _,field in ipairs{
+		'pos', 'pos2', 'pos3', 'mapPos', 'lastTownPos', 'airshipPos'
+	} do
+		if ig.igButton('goto '..field..'...') then
+			if field == 'airshipPos'
+			or field == 'lastTownPos'
+			or field == 'mapPos'
+			then
+				-- TODO how to tell if the airship is in WoB or WoR?
+				app.mapWindow:open(0)	-- 0 or 1?
+			else
+				app.mapWindow:open(save.map)
+			end
+			app.tileWindow:setXY(save[field].x, save[field].y)
+			app:centerView(save[field].x, save[field].y)
+		end
 	end
 
 	ig.igSeparator()
