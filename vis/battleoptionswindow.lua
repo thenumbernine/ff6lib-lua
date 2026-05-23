@@ -124,12 +124,12 @@ function RandomBattleOptionsWindow:showIndexUI(...)
 
 	self.worldSectorsWithThis = table()
 	-- 128 of these ... 64 for WoB, 64 for WoR, each world is divided into 8x8 sectors
-	for i=0,game.countof(game.worldSectorRandomBattlesPerTerrain)-1 do
-		local randomBattlesPerTerrain = game.worldSectorRandomBattlesPerTerrain + i
+	for sectorIndex=0,game.countof(game.worldSectorRandomBattlesPerTerrain)-1 do
+		local randomBattlesPerTerrain = game.worldSectorRandomBattlesPerTerrain + sectorIndex
 		for _,terrain in ipairs(game.terrainTypes) do
 			local battleIndex = randomBattlesPerTerrain[terrain]
 			if battleIndex == self.index then
-				self.worldSectorsWithThis:insert{sectorIndex=i, terrain=terrain}
+				self.worldSectorsWithThis:insert{sectorIndex=sectorIndex, terrain=terrain}
 			end
 		end
 	end

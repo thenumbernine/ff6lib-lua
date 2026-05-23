@@ -2319,6 +2319,9 @@ local SaveSlot = struct{
 		{name='airshipPos', type=XY8b},										-- 0x962 - 0x964 - this is where the airship is
 		{name='map', type='uint16_t:9'},									-- 0x964 - 0x966
 		{name='mapFlags', type='uint16_t:7'},								-- idk but mask 0x2000 is set when i saved on world map after the airship crashed before kings banquet...
+
+		-- last town xy you were before ... entering a door?  before entering a door to sleep? idk
+		-- when the map is not 0-1 then this holds the party's location in the non-overworld map
 		{name='pos', type=XY8b},											-- 0x966 - 0x968 - this is save pos within non-overworld stages.  not sure if this is overworld pos as well ...
 
 		{name='unknown_968', type=arrayType(uint8_t, -(0x968 - 0x96b))},	-- 0x968 - 0x96b
@@ -2327,10 +2330,12 @@ local SaveSlot = struct{
 
 		{name='unknown_96d', type=arrayType(uint8_t, -(0x96d - 0x9c0))},	-- 0x96d - 0x9c0
 
+		-- same as pos?
 		{name='pos2', type=XY8b},											-- 0x9c0 - 0x9c2 - this is also save pos within non-overworld maps...
 
 		{name='unknown_9c2', type=arrayType(uint8_t, -(0x9c2 - 0x9d3))},	-- 0x9c2 - 0x9d3
 
+		-- this looks like it is the last town xy you were before exiting to overworld...
 		{name='pos3', type=XY8b},											-- 0x9d3 - 0x9d5 - this is also save pos.  not sure pos vs pos2 ...
 
 		{name='unknown_9d5', type=arrayType(uint8_t, -(0x9d5 - 0x9fe))},	-- 0x9d5 - 0x9fe
