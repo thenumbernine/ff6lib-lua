@@ -60,7 +60,7 @@ function BattleOptionsWindow:showIndexUI()
 				bit.lshift(1, bit.band(formationEntry.formation, 7)),
 				save.battleFormationFlags[bit.rshift(formationEntry.formation, 3)]
 			)
-			ig.igPushStyleColor_U32(ig.ImGuiCol_FrameBg, hasFormation and 0x3f007f00 or 0x3f00007f)
+			ig.igPushStyleColor_U32(ig.ImGuiCol_FrameBg, hasFormation and 0x5f009f00 or 0x5f00009f)
 		end
 
 		self:editRef(app.battleFormationWindow, formationEntry, 'formation')
