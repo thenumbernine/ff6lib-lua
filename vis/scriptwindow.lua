@@ -253,14 +253,13 @@ function EventScriptWindow:showIndexUI()
 							app.itemWindow:popupButton(cmd.itemIndex)
 
 						-- battles:
-						elseif game.EventCmds.TouchBattle:isa(cmd) then	-- TouchBattle is a subclass of Battle
-							ig.igText'touchBattle'
-							ig.igSameLine()
-							app.eventBattleOptionsWindow:popupButton(cmd.eventBattleOptionsIndex)
-						elseif game.EventCmds.Battle:isa(cmd) then
+						elseif game.Cmds.Battle:isa(cmd) then
 							ig.igText'battle'
 							ig.igSameLine()
-							app.eventBattleOptionsWindow:popupButton(cmd.eventBattleOptionsIndex)
+							if app.eventBattleOptionsWindow:popupButton(cmd.eventBattleOptionsIndex) then
+								-- then set the battle bg ...
+								app.mapWindow:setBattleBgTex(cmd.battleBG)
+							end
 
 						-- maps:
 						elseif game.Cmds.SetMap:isa(cmd)

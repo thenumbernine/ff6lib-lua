@@ -515,21 +515,12 @@ function MapWindow:refreshBattleBgTex()
 	local app = self.app
 	local game = app.game
 
-	-- battle background while we're here?
-	-- for worlds 0-2 it is in WOrldTileProps' battleBG, right?
-	-- otherwise ...
-	-- is this an index into battleBgProps?
-	if self.battleBgTex then
-		self.battleBgTex:delete()
-		self.battleBgTex = nil
-	end
-
-	local battleBgIndex
 	local mapIndex = self.index
 	local mapInfo = game.getMap(mapIndex)
 
 	-- TODO use tilewindow for getting the tile props?
 	-- but I guess background is map-specific, and only tile-specific in world maps...
+	local battleBgIndex
 	if mapIndex < 2 then
 		-- should this be a map or a tile window function?
 		-- i'll store it per map, idk why
@@ -552,6 +543,24 @@ function MapWindow:refreshBattleBgTex()
 		local map = mapInfo.map
 		battleBgIndex = map.battleBG
 	end
+
+	self:setBattleBgTex(battleBgIndex)
+end
+
+-- for when we set it from something like a battle script event
+function MapWindow:setBattleBgTex(battleBgIndex)
+	local app = self.app
+	local game = app.game
+
+	-- battle background while we're here?
+	-- for worlds 0-2 it is in WOrldTileProps' battleBG, right?
+	-- otherwise ...
+	-- is this an index into battleBgProps?
+	if self.battleBgTex then
+		self.battleBgTex:delete()
+		self.battleBgTex = nil
+	end
+
 	if battleBgIndex
 	and battleBgIndex < game.countof(game.battleBgProps)
 	then
