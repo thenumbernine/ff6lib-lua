@@ -195,6 +195,7 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 
 	-- sets-of-checkboxes
 	elseif op.safeindex(ctypeobj, 'isBitflags') then
+		ig.igText(fieldname)
 		local first = true
 		for subfieldname in valueobj:fielditer() do
 			if not first then
