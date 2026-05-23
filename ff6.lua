@@ -2311,11 +2311,14 @@ local SaveSlot = struct{
 		{name='unknown_870', type=arrayType(uint8_t, 0x10)},				-- 0x870 - 0x880
 
 		{name='mapFlags', type=arrayType(uint8_t, 0x60)},					-- 0x880 - 0x8e0 = 768 = 0x300 flags /8 = 0x60 bytes. everything8215's "mapSwitches", or this page's "event bits": https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:field_ram&s[]=%2Asram%2A#fffsave_ram
+
+		-- offset 0x90e <-> npc flags byte ofs 0x2e <-> flag #368-376 looks like it is the previous world map used
 		{name='npcFlags', type=arrayType(uint8_t, 0x80)},					-- 0x8e0 - 0x960
 
 		{name='mapPos', type=XY8b},											-- 0x960 - 0x962 - this is last pos on the overworld map
 		{name='airshipPos', type=XY8b},										-- 0x962 - 0x964 - this is where the airship is
-		{name='map', type=uint16_t},										-- 0x964 - 0x966
+		{name='map', type='uint16_t:9'},									-- 0x964 - 0x966
+		{name='mapFlags', type='uint16_t:7'},								-- idk but mask 0x2000 is set when i saved on world map after the airship crashed before kings banquet...
 		{name='pos', type=XY8b},											-- 0x966 - 0x968 - this is save pos within non-overworld stages.  not sure if this is overworld pos as well ...
 
 		{name='unknown_968', type=arrayType(uint8_t, -(0x968 - 0x96b))},	-- 0x968 - 0x96b
@@ -2326,7 +2329,7 @@ local SaveSlot = struct{
 
 		{name='pos2', type=XY8b},											-- 0x9c0 - 0x9c2 - this is also save pos within non-overworld maps...
 
-		{name='unknown_96d', type=arrayType(uint8_t, -(0x9c2 - 0x9d3))},	-- 0x9c2 - 0x9d3
+		{name='unknown_9c2', type=arrayType(uint8_t, -(0x9c2 - 0x9d3))},	-- 0x9c2 - 0x9d3
 
 		{name='pos3', type=XY8b},											-- 0x9d3 - 0x9d5 - this is also save pos.  not sure pos vs pos2 ...
 
