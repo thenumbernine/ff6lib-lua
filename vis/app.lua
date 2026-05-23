@@ -945,6 +945,7 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 				end
 			end
 			if self.showTreasures then
+				local save = self.sramWindow:getCurIndex()
 				for i,t in ipairs(mapInfo.treasures) do
 					local x, y = tonumber(t.pos.x), tonumber(t.pos.y)
 					if leftPress
@@ -954,7 +955,20 @@ self.tooltipText = math.floor(mx)..', '..math.floor(my)
 						self.treasureWindow:open(i-1)
 					end
 					settable(uniforms.bbox, x, y, 1, 1)
-					settable(uniforms.color, 0,0,1,.5)
+
+					local got
+					if save then
+						local flag = t.flag
+						got = 0 ~= bit.band(bit.lshift(1, bit.band(flag, 7)), save.treasureFlags[bit.rshift(flag, 3)])
+						if got then
+							settable(uniforms.color, 0,1,0,.5)
+						else
+							settable(uniforms.color, 1,0,0,.5)
+						end
+					else
+						settable(uniforms.color, 0,0,1,.5)
+					end
+
 					rectObj:draw()
 					if i-1 == self.treasureWindow.index then
 						showHL()

@@ -16,6 +16,7 @@ function TreasureWindow:showIndexUI()
 	if not t then return end
 
 	local app = self.app
+	local save = app.sramWindow:getCurIndex()
 
 	for fieldname, ctype, field in t:fielditer() do
 		if fieldname == 'battleOrItemOrGP' then
@@ -31,7 +32,18 @@ function TreasureWindow:showIndexUI()
 				ig.igText(' ??? = '..t.battleOrItemOrGP)
 			end
 		else
+			local got
+			if fieldname == 'flag' and save then
+				local flag = t.flag
+				got = 0 ~= bit.band(bit.lshift(1, bit.band(flag, 7)), save.treasureFlags[bit.rshift(flag, 3)])
+				ig.igPushStyleColor_U32(ig.ImGuiCol_FrameBg, got and 0x5f009f00 or 0x5f00009f)
+			end
+
 			self:editField(t, fieldname, ctype, field)
+
+			if got ~= nil then
+				ig.igPopStyleColor(1)
+			end
 		end
 	end
 end
