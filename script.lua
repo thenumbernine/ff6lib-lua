@@ -932,8 +932,8 @@ return function(game)
 		end,
 		desc = 'startTimer{'
 			..'duration=<?=duration?>'
-			..', addr=<?=getGotoOfsStr(destAddrOfs)?>'
 			..', flags=<?=flags?>'
+			..', cb=<?=getGotoOfsStr(destAddrOfs)?>'
 		..'}',
 
 		getBranchAddrs = function(self)
@@ -1009,7 +1009,7 @@ return function(game)
 		cmd = 0xb0,
 		argtypes = {uint8_t},
 		argnames = {'count'},
-		getargs = function(...)
+		getargs = function(self, ...)
 			EventCmd.getargs(self, ...)
 			self.count = self.count + 1
 			self.trace.indent = self.trace.indent + 1
@@ -1019,7 +1019,7 @@ return function(game)
 
 	EventCmds.EndRepeat = EventCmd:subclass{
 		cmd = 0xb1,
-		getargs = function()
+		getargs = function(self)
 			self.trace.indent = self.trace.indent - 1
 		end,
 		desc = 'end--for',
@@ -1079,13 +1079,11 @@ return function(game)
 			end
 		end,
 		__tostring = function(self)
-			-- TODO is it 'goto' or is it 'call'?
-			-- cuz if it's goto then the the next instruction after "want to learn about espers?" shouldn't be a 'return', because each jump option there has its own return ...
-			return 'if gotoForDialogChoice('
+			return 'callForDialogChoice('
 				..self.addrs:mapi(function(addr)
 					return game.addrLabel(addr, '')
-				end):concat' '
-				..') then return end'
+				end):concat', '
+				..')'
 		end,
 
 		getBranchAddrs = function(self)
@@ -1174,10 +1172,10 @@ return function(game)
 			end
 		end,
 		__tostring = function(self)
-			return 'gotoForCharacter({'
+			return 'callForCharacter{'
 			..self.options:mapi(function(option)
-				return '['..option.characterIndex..'] = '..Cmd.getGotoOfsStr(option.addrOfs)
-			end):concat', '..'})'
+				return '{'..option.characterIndex..', '..Cmd.getGotoOfsStr(option.addrOfs)..'}'
+			end):concat', '..'}'
 		end,
 
 		getBranchAddrs = function(self)

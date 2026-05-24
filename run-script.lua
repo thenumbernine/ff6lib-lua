@@ -15,11 +15,15 @@ local function runScript(game)
 	local rom = game.rom
 
 	local function fixname(s)
-		return s:sub(1,1):gsub('%A', '_')
-			..s:sub(2):gsub('[^%a%d]', '_')
+		return (s:sub(1,1):gsub('%A', '_')
+			..s:sub(2):gsub('[^%a%d]', '_'))
 	end
 
-	local builtinForAddr = {}
+	local labelsForAddr = {}
+	local function addLabel(addr, name)
+		labelsForAddr[addr] = labelsForAddr[addr] or table()
+		labelsForAddr[addr]:insert(fixname(name))
+	end
 
 	-- keep track of labels from builtin calls
 	for _,cmdobj in ipairs(game.eventScriptCmds) do
@@ -27,7 +31,7 @@ local function runScript(game)
 		if whatPointsToScriptAdAddr then
 			for _,what in ipairs(whatPointsToScriptAdAddr) do
 				if what.builtin then
-					builtinForAddr[cmdobj.addr] = fixname(what.builtin)
+					addLabel(cmdobj.addr, what.builtin)
 				end
 			end
 		end
@@ -37,25 +41,25 @@ local function runScript(game)
 	for i=0,game.countof(game.maps)-1 do
 		local mapInfo = game.getMap(i)
 		if mapInfo.startEventScriptAddr then
-			builtinForAddr[mapInfo.startEventScriptAddr] = 'map'..i..'_start'
+			addLabel(mapInfo.startEventScriptAddr, 'map'..i..'_start')
 		end
 		for j,t in ipairs(mapInfo.touchTriggers) do
 			local addr = t:getScriptAddr()
 			if addr then
-				builtinForAddr[addr] = 'map'..i..'_touch'..(j-1)
+				addLabel(addr, 'map'..i..'_touch'..(j-1))
 			end
 		end
 		for j,n in ipairs(mapInfo.npcs) do
 			local addr = n:getScriptAddr()
 			if addr then
-				builtinForAddr[addr] = 'map'..i..'_npc'..(j-1)
+				addLabel(addr, 'map'..i..'_npc'..(j-1))
 			end
 		end
 	end
 
 	-- now collect addrs and find if they are calls or not
 	-- (if they are calls then we will define them as functions)
-	local addrsIsFunc = table.map(builtinForAddr, function(v,k) return true, k end):setmetatable()
+	local addrsIsFunc = table.map(labelsForAddr, function(v,k) return true, k end):setmetatable()
 	local addrsIsGoto = {}
 	for _,cmdobj in ipairs(game.eventScriptCmds) do
 		if game.EventCmds.Call:isa(cmdobj)
@@ -97,8 +101,8 @@ local function runScript(game)
 
 	-- when call/goto getting addr, check builtin
 	local function addrLabel(addr)
-		local builtin = builtinForAddr[addr]
-		if builtin then return builtin end
+		local builtin = labelsForAddr[addr]
+		if builtin then return builtin[1] end
 		--return ('$%06x'):format(addr)
 		return ('_%06x'):format(addr)
 	end
@@ -122,20 +126,21 @@ local function runScript(game)
 			-- print header
 			print()
 
-			local builtin = builtinForAddr[cmdobj.addr]
-			local label = builtin
-			if not builtin then
+			local label
+			local builtin = labelsForAddr[cmdobj.addr]
+			if builtin then
+				for _,b in ipairs(builtin) do
+					io.write(b, ':\n')
+				end
+				label = builtin[1]
+			else
 				label = addrLabel(cmdobj.addr)
 			end
-			-- TODO multiple addrsIsFunc / builtinForAddr
+			-- TODO multiple addrsIsFunc / labelsForAddr
 			-- have one just call the other, or equate to the other
 			local thisInFunc = addrsIsFunc[cmdobj.addr]
 			if thisInFunc then
 				io.write(label, '=||do\n')
-				-- if goto also then also add a goto
-				if addrsIsGoto[cmdobj.addr] then
-					io.write(label, ':\n')
-				end
 			else
 				io.write(label, ':\n')
 			end
