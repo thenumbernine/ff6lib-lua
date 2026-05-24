@@ -14,6 +14,11 @@ end
 local function runScript(game)
 	local rom = game.rom
 
+	local function fixname(s)
+		return s:sub(1,1):gsub('%A', '_')
+			..s:sub(2):gsub('[^%a%d]', '_')
+	end
+
 	local builtinForAddr = {}
 
 	-- keep track of labels from builtin calls
@@ -22,7 +27,7 @@ local function runScript(game)
 		if whatPointsToScriptAdAddr then
 			for _,what in ipairs(whatPointsToScriptAdAddr) do
 				if what.builtin then
-					builtinForAddr[cmdobj.addr] = what.builtin:gsub('%A', '_')
+					builtinForAddr[cmdobj.addr] = fixname(what.builtin)
 				end
 			end
 		end
@@ -68,6 +73,23 @@ local function runScript(game)
 			addrsIsGoto[cmdobj.addr] = true
 		end
 	end
+
+-- override goto's with calls + returns
+-- but that's no good for when the goto is the form of an if-block ...
+--[[
+	local old = game.Cmds.Cmd.getGotoOfsStr
+	game.Cmds.Cmd.getGotoOfsStr = function(addrOfs, op)
+		if op then return old(addrOfs, op) end
+		return game.addrLabel(addrOfs)..'() return'
+	end
+	-- but you also gotta replace in alls subclasses...
+	for i=0,255 do
+		game.EventCmds[i].getGotoOfsStr = game.Cmds.Cmd.getGotoOfsStr
+		game.WorldCmds[i].getGotoOfsStr = game.Cmds.Cmd.getGotoOfsStr
+		game.ObjectCmds[i].getGotoOfsStr = game.Cmds.Cmd.getGotoOfsStr
+		game.VehicleCmds[i].getGotoOfsStr = game.Cmds.Cmd.getGotoOfsStr
+	end
+--]]
 
 	-- make calls gen to modern func call
 	game.EventCmds.Call.desc = "<?=getGotoOfsStr(destAddrOfs, '')?>()"
@@ -121,7 +143,7 @@ local function runScript(game)
 
 			for _,what in ipairs(whatPointsToScriptAdAddr) do
 				if what.builtin then
-					local builtinLabel = what.builtin:gsub('%A', '_')
+					local builtinLabel = fixname(what.builtin)
 					if builtinLabel ~= label then
 						io.write(builtinLabel..':')
 						print()
@@ -156,10 +178,9 @@ local function runScript(game)
 		io.write'\t'
 --]]
 
-		if game.ObjectCmd:isa(cmdobj)
-		and not game.ObjectCmds.EndScript:isa(cmdobj)
-		then
-			io.write'    '
+		local indent = cmdobj.trace.indent
+		if indent > 0 then
+			io.write(('\t'):rep(indent))
 		end
 
 		print(cmdobj)

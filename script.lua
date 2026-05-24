@@ -170,8 +170,9 @@ return function(game)
 				cmdset = 'ObjectCmds',
 				objectScriptCmd = self,
 			}
+			self.trace.indent = self.trace.indent + 1
 
-			return EventCmd.digest(self, ...)	-- call super
+			EventCmd.digest(self, ...)	-- call super
 		end,
 		desc = "objScript{"
 			.."obj=<?=objDesc(cmd)?>"
@@ -320,7 +321,7 @@ return function(game)
 
 	EventCmds.CreatePartyObject = EventCmd:subclass{
 		cmd = 0x47,
-		desc = "createPartyObject()",
+		desc = "updateParty()",
 	}
 
 	EventCmds.Dialog = EventCmd:subclass{
@@ -1008,11 +1009,19 @@ return function(game)
 		cmd = 0xb0,
 		argtypes = {uint8_t},
 		argnames = {'count'},
-		desc = 'for i=1,<?=count+1?>',
+		getargs = function(...)
+			EventCmd.getargs(self, ...)
+			self.count = self.count + 1
+			self.trace.indent = self.trace.indent + 1
+		end,
+		desc = 'for i=1,<?=count?> do',
 	}
 
 	EventCmds.EndRepeat = EventCmd:subclass{
 		cmd = 0xb1,
+		getargs = function()
+			self.trace.indent = self.trace.indent - 1
+		end,
 		desc = 'end--for',
 	}
 
@@ -1072,11 +1081,11 @@ return function(game)
 		__tostring = function(self)
 			-- TODO is it 'goto' or is it 'call'?
 			-- cuz if it's goto then the the next instruction after "want to learn about espers?" shouldn't be a 'return', because each jump option there has its own return ...
-			return 'gotoForDialogChoice('
+			return 'if gotoForDialogChoice('
 				..self.addrs:mapi(function(addr)
-					return game.addrLabel(addr)
+					return game.addrLabel(addr, '')
 				end):concat' '
-				..')'
+				..') then return end'
 		end,
 
 		getBranchAddrs = function(self)
@@ -1428,6 +1437,8 @@ return function(game)
 		then
 			print("!!! DANGER !!! object-script length doesn't align with end-of-script cmd:", game.addrLabel(addr), 'vs', game.addrLabel(objectScriptCmd.addr + objectScriptCmd.length + 1))
 		end
+
+		trace.indent = trace.indent - 1
 	end
 
 	-- also in WorldCmds
@@ -2134,6 +2145,7 @@ return function(game)
 	local decompileTraces = {}
 
 	local Trace = class()
+	Trace.indent = 0
 	function Trace:printInterval()
 		return game.addrLabel(self.addr)..' - '..game.addrLabel(self.endAddr)
 	end
