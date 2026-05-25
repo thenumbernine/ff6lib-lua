@@ -1774,6 +1774,7 @@ local Treasure = ff6struct{
 		{unknown_2_7 = 'uint16_t:1'},	-- 3.7		= ???
 
 		-- depends on 'type':
+		-- ... union plz.
 		{battleOrItemOrGP = uint8_t},	-- GP is x100
 	},
 	metatable = function(mt)
@@ -2262,12 +2263,6 @@ local CharacterSave16 = createVec{
 	dim = 0x10,
 }
 
-local vec16ub = createVec{
-	ctypeOnly = true,
-	ctype = uint8_t,
-	dim = 16,
-}
-
 local Str12 = makefixedstr(12)
 
 -- why just the first 4 names tho?
@@ -2275,6 +2270,22 @@ local Str12_4 = createVec{
 	ctypeOnly = true,
 	ctype = Str12,
 	dim = 4,
+}
+
+local Roster = ff6struct{
+	ctypeOnly = true,
+	fields = {
+		{party = 'uint8_t:3'},
+		{place = 'uint8_t:2'},
+		{row = 'uint8_t:1'},
+		{available = 'uint8_t:1'},
+		{leader = 'uint8_t:1'},
+	},
+}
+local Roster16 = createVec{
+	ctypeOnly = true,
+	ctype = Roster,
+	dim = 16,
 }
 
 local SaveSlot = struct{
@@ -2287,14 +2298,14 @@ local SaveSlot = struct{
 
 	fields = {
 		{name='characters', type=CharacterSave16},							-- 0x000 - 0x250
-		{name='raster', type=vec16ub},										-- 0x250 - 0x260
+		{name='roster', type=Roster16},										-- 0x250 - 0x260
 		{name='gold', type=uint24_t},										-- 0x260 - 0x263
 		{name='time', type=uint24_t},										-- 0x263 - 0x266	-- in 30hz increments?
 		{name='steps', type=uint24_t},										-- 0x266 - 0x269
 		{name='itemTypes', type=arrayType(ItemRef, 256)},					-- 0x269 - 0x369
 		{name='itemCounts', type=arrayType(uint8_t, 256)},					-- 0x369 - 0x469
 		{name='esperFlags', type=arrayType(uint8_t, 4)},					-- 0x469 - 0x46d
-		{name='activeGroup', type=uint8_t},									-- 0x46d - 0x46e	-- for when you are in multi-party mode? like phoenix cave / kefka's tower?
+		{name='activeParty', type=uint8_t},									-- 0x46d - 0x46e	-- for when you are in multi-party mode, like phoenix cave / kefka's tower
 		{name='spellsLearned', type=arrayType(uint8_t, 12 * 54)},			-- 0x46e - 0x6f6 ... spell learned[12][54]
 		{name='unknown_6f6', type=uint8_t},									-- 0x6f6 - 0x6f7
 		{name='swdtechFlags', type=arrayType(uint8_t, 1)},					-- 0x6f7 - 0x6f8	-- wait, in-rom it is 12 bytes per swdtech (right?)

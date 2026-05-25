@@ -41,6 +41,7 @@ function SRAMWindow:showIndexUI()
 		for fieldname, ctype, field in save:fielditer() do
 			-- struct handled below
 			if fieldname == 'characters'
+			or fieldname == 'roster'
 			or fieldname == 'spellsLearned'
 			or fieldname == 'itemTypes'
 			or fieldname == 'itemCounts'
@@ -90,22 +91,42 @@ function SRAMWindow:showIndexUI()
 	ig.igSeparator()
 	if ig.igCollapsingHeader'character fields:' then
 		ig.luatableInputInt('characterIndex', self, 'characterIndex')
+
+		local r = save.roster.s + bit.band(15, self.characterIndex)
+		for fieldname, ctype, field in r:fielditer() do
+			self:editField(r, fieldname, ctype, field)
+		end
+
 		local character = save.characters.s + bit.band(15, self.characterIndex)
 		for fieldname, ctype, field in character:fielditer() do
 			self:editField(character, fieldname, ctype, field)
 		end
+	end
 
+	ig.igSeparator()
+	if ig.igCollapsingHeader'spells learned:' then
 		-- 12 x 54 spells saved...
-		if self.characterIndex < 12 then
+		for characterIndex=0,11 do
+			ig.igPushID_Int(characterIndex)
+			ig.igText(tostring(game.characterNames[characterIndex]))
 			local numLearnSpells = 54
-			local charSpellLearns = save.spellsLearned + self.characterIndex * numLearnSpells
+			local charSpellLearns = save.spellsLearned + characterIndex * numLearnSpells
+			local colSize = 6
 			for i=0,numLearnSpells-1 do
 				ig.igPushID_Int(i)
-				ig.luatableInputInt('', charSpellLearns, i)
-				ig.igPopID()
+				ig.igSetNextItemWidth(32)
+				ig.luatableTooltipInputFloatAsText(tostring(game.getSpellName(i)), charSpellLearns, i)
 				ig.igSameLine()
-				app.spellWindow:popupButton(i)
+				if ig.igButton'>' then
+					app.spellWindow:open(i)
+				end
+
+				if i < numLearnSpells-1 and i % colSize < colSize-1 then
+					ig.igSameLine()
+				end
+				ig.igPopID()
 			end
+			ig.igPopID()
 		end
 	end
 

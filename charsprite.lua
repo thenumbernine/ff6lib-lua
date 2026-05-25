@@ -1,6 +1,6 @@
 local ffi = require 'ffi'
 local Image = require 'image'
-local graphics = require 'graphics'
+local graphics = require 'ff6.graphics'
 local readTile = graphics.readTile
 local tileWidth = graphics.tileWidth
 local tileHeight = graphics.tileHeight

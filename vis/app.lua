@@ -51,6 +51,7 @@ function App:initGL(...)
 	self.useBlend = true
 	self.showTileMask = 0	--0xffff
 	self.showAnimTexs = true
+	self.autoReloadSRAM = true
 
 	self.layerDrawObj = GLSceneObject{
 		program = {
@@ -592,6 +593,9 @@ function App:onLoadSRAM(fn, index)
 	self.sram = ffi.cast(ffi.typeof('$*', game.SRAM), self.sramvec.v)
 	ffi.copy(self.sramvec.v, sramstr, #sramstr)
 
+	-- 'modification' is change to file contents...
+	self.sramLastWriteTime = ffi.new('struct timespec', self.sramPath:attr().modification_ns)
+
 	index = index and tonumber(index)
 	if index then
 		self.sramWindow:open(index)
@@ -739,6 +743,21 @@ function App:update()
 	end)
 
 	local game = self.game
+
+	-- even without blur
+	if self.sram
+	and self.autoReloadSRAM
+	and self.sramLastWriteTime
+	then
+		local mtime = ffi.new('struct timespec', self.sramPath:attr().modification_ns)
+		if mtime.tv_sec > self.sramLastWriteTime.tv_sec
+		or (mtime.tv_sec == self.sramLastWriteTime.tv_sec
+			and mtime.tv_nsec > self.sramLastWriteTime.tv_nsec)
+		then
+print('auto-reloading sram...')
+			self:onLoadSRAM(self.sramPath)
+		end
+	end
 
 	if not self.hasFocus then
 		sdl.SDL_Delay(100)
@@ -1254,6 +1273,7 @@ function App:updateGUI()
 			if ig.igButton'Reload Last SRAM...' then
 				self:onLoadSRAM(self.sramPath)
 			end
+			ig.luatableCheckbox('auto-reload', self, 'autoReloadSRAM')
 		end
 
 		ig.igEndMainMenuBar()

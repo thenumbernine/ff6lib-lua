@@ -120,10 +120,10 @@ return function(game)
 
 	Cmd.objDesc = function(objIndex)
 		if objIndex < 16 then
-			return 'character['..objIndex..']'
+			return 'characters['..objIndex..']'
 		elseif objIndex < 48 then
 			-- so I guess there's only 38 npcs per map?
-			return 'npc['..(objIndex - 16)..']'
+			return 'npcs['..(objIndex - 16)..']'
 		elseif objIndex == 48 then
 			return 'view'
 		else
@@ -202,7 +202,7 @@ return function(game)
 		cmd = 0x37,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'objectIndex', 'spriteIndex'},
-		desc = '<?=objDesc(objectIndex)?>.sprite = <?=spriteIndex?>',
+		desc = '<?=objDesc(objectIndex)?>.anim = anims[1+<?=spriteIndex?>]',
 	}
 
 	EventCmds.LockScreen = EventCmd:subclass{
@@ -786,6 +786,7 @@ return function(game)
 		desc = 'takeEsper(<?=args[1]?>)',
 	}
 
+	-- is there except for 'remove none' meaning 'remove all' ?
 	EventCmds.RemoveCharacterStatus = EventCmd:subclass{
 		cmd = 0x88,
 		argtypes = {uint8_t, uint16_t},
@@ -793,18 +794,18 @@ return function(game)
 		desc = "characters[<?=characterIndex?>].status &= ~0x<?=bit.tohex(status, 4)?>",
 	}
 
-	EventCmds.ToggleCharacterStatus = EventCmd:subclass{
+	EventCmds.SetCharacterStatus = EventCmd:subclass{
 		cmd = 0x89,
 		argtypes = {uint8_t, uint16_t},
 		argnames = {'characterIndex', 'status'},
-		desc = "characters[<?=characterIndex?>].status ~~= 0x<?=bit.tohex(status, 4)?>",
+		desc = "characters[<?=characterIndex?>].status |= 0x<?=bit.tohex(status, 4)?>",
 	}
 
-	EventCmds.SetCharacterStatus = EventCmd:subclass{
+	EventCmds.ToggleCharacterStatus = EventCmd:subclass{
 		cmd = 0x8a,
 		argtypes = {uint8_t, uint16_t},
 		argnames = {'characterIndex', 'status'},
-		desc = "characters[<?=characterIndex?>].status |= 0x<?=bit.tohex(status, 4)?>",
+		desc = "characters[<?=characterIndex?>].status ~~= 0x<?=bit.tohex(status, 4)?>",
 	}
 
 	EventCmds.GiveCharacterHP = EventCmd:subclass{
