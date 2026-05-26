@@ -2356,7 +2356,7 @@ local SaveSlot = struct{
 		{name='mapPos', type=XY8b},											-- 0x960 - 0x962 - this is last pos on the overworld map
 		{name='airshipPos', type=XY8b},										-- 0x962 - 0x964 - this is where the airship is
 		{name='map', type='uint16_t:9'},									-- 0x964 - 0x966
-		{name='mapFlags', type='uint16_t:7'},								-- idk but mask 0x2000 is set when i saved on world map after the airship crashed before kings banquet...
+		{name='mapFlags2', type='uint16_t:7'},								-- idk but mask 0x2000 is set when i saved on world map after the airship crashed before kings banquet...
 
 		-- last town xy you were before ... entering a door?  before entering a door to sleep? idk
 		-- when the map is not 0-1 then this holds the party's location in the non-overworld map

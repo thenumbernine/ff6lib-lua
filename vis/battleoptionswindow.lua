@@ -42,6 +42,8 @@ end
 function BattleOptionsWindow:showIndexUI()
 	local app = self.app
 	local game = app.game
+	local save = app.sramWindow:getCurIndex()
+
 	local battleEntries = game[self.gameField] + self.index
 	local formationCounts = {}
 	ig.igPushID_Str('battleEntries '..self.name)
@@ -54,7 +56,6 @@ function BattleOptionsWindow:showIndexUI()
 		ig.igSameLine()
 
 		local hasFormation
-		local save = app.sramWindow:getCurIndex()
 		if save then
 			hasFormation = 0 ~= bit.band(
 				bit.lshift(1, bit.band(formationEntry.formation, 7)),
@@ -68,7 +69,6 @@ function BattleOptionsWindow:showIndexUI()
 		ig.luatableCheckbox('choose from next four', formationEntry, 'chooseFromNextFour')
 
 		if hasFormation ~= nil then
-			ig.igPopStyleColor(1)
 		end
 
 		ig.igPopID()

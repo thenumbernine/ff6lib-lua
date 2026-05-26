@@ -15,6 +15,7 @@ end
 function WorldEncounterSectorWindow:showIndexUI()
 	local app = self.app
 	local game = app.game
+	local save = app.sramWindow:getCurIndex()
 
 	local x = bit.band(self.index, 7)
 	local y = bit.band(bit.rshift(self.index, 3), 7)
@@ -29,6 +30,34 @@ function WorldEncounterSectorWindow:showIndexUI()
 	local randomBattlesPerTerrain = game.worldSectorRandomBattlesPerTerrain + self.index
 	local encounterRatePerTerrain = game.worldSectorRandomBattleEncounterRatesPerTerrain[self.index]
 	for i,terrain in ipairs(game.terrainTypes) do
+		-- count which of all options are encountered already
+		local numFormationsFound = 0
+		if save then
+			local battleEntries = game.monsterRandomBattles + randomBattlesPerTerrain[terrain]
+			for j=0,battleEntries.dim-1 do
+				local formationEntry = battleEntries.s[j]
+				if 0 ~= bit.band(
+					bit.lshift(1, bit.band(formationEntry.formation, 7)),
+					save.battleFormationFlags[bit.rshift(formationEntry.formation, 3)]
+				) then
+					numFormationsFound = numFormationsFound + 1
+				end
+			end
+			if numFormationsFound == 0 then
+				ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff0000ff)
+			elseif numFormationsFound == 1 then
+				ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff003fcf)
+			elseif numFormationsFound == 2 then
+				ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff007f7f)
+			elseif numFormationsFound == 3 then
+				ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff00cf3f)
+			elseif numFormationsFound == 4 then
+				ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff00ff00)
+			else
+				error'here'
+			end
+		end
+
 		ig.igPushID_Str(terrain)
 
 		local encounterRate = encounterRatePerTerrain[terrain]
@@ -43,6 +72,10 @@ function WorldEncounterSectorWindow:showIndexUI()
 
 		self:editRef(app.randomBattleOptionsWindow, randomBattlesPerTerrain, terrain)
 		ig.igPopID()
+
+		if save then
+			ig.igPopStyleColor(1)
+		end
 	end
 end
 
