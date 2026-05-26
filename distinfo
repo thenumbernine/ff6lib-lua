@@ -33,6 +33,7 @@ files = {
 	"vis/bigdoorwindow.lua",
 	"vis/charwindow.lua",
 	"vis/doorwindow.lua",
+	"vis/esperwindow.lua",
 	"vis/itemwindow.lua",
 	"vis/mapwindow.lua",
 	"vis/metamorphwindow.lua",

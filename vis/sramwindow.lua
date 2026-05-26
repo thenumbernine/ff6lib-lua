@@ -1,6 +1,8 @@
 local ffi = require 'ffi'
+local range = require 'ext.range'
 local assert = require 'ext.assert'
 local ig = require 'imgui'
+local makePalette = require 'ff6.graphics'.makePalette
 local ArrayWindow = require 'ff6.vis.arraywindow'
 
 local SRAMWindow = ArrayWindow:subclass()
@@ -30,11 +32,36 @@ function SRAMWindow:getCount()
 	return self.count
 end
 
+local uv0 = ig.ImVec2(0,0)
+local uv1 = ig.ImVec2(1,1)
 function SRAMWindow:showIndexUI()
 	local app = self.app
 	local game = app.game
 	local save = self:getCurIndex()
 	if not save then return end
+
+	ig.igSeparator()
+	do
+		local first = true
+		for charIndex=0,15 do
+			local tex = self.charTexs and self.charTexs[1+charIndex]
+			if tex then
+				if first then
+					first = nil
+				else
+					ig.igSameLine()
+				end
+				ig.igImage(tex.id, tex.imsize)
+				if ig.igIsItemHovered(ig.ImGuiHoveredFlags_None) then
+					ig.igBeginTooltip()
+					ig.igText(tostring(save.characters.s[charIndex].name))
+					ig.igEndTooltip()
+				end
+
+				-- current esper's magic
+			end
+		end
+	end
 
 	ig.igSeparator()
 	if ig.igCollapsingHeader'save fields:' then
@@ -101,32 +128,29 @@ function SRAMWindow:showIndexUI()
 		for fieldname, ctype, field in character:fielditer() do
 			self:editField(character, fieldname, ctype, field)
 		end
-	end
 
-	ig.igSeparator()
-	if ig.igCollapsingHeader'spells learned:' then
 		-- 12 x 54 spells saved...
-		for characterIndex=0,11 do
-			ig.igPushID_Int(characterIndex)
-			ig.igText(tostring(game.characterNames[characterIndex]))
-			local numLearnSpells = 54
-			local charSpellLearns = save.spellsLearned + characterIndex * numLearnSpells
-			local colSize = 6
-			for i=0,numLearnSpells-1 do
-				ig.igPushID_Int(i)
-				ig.igSetNextItemWidth(32)
-				ig.luatableTooltipInputFloatAsText(tostring(game.getSpellName(i)), charSpellLearns, i)
-				ig.igSameLine()
-				if ig.igButton'>' then
-					app.spellWindow:open(i)
-				end
-
-				if i < numLearnSpells-1 and i % colSize < colSize-1 then
+		if self.characterIndex < 12 then
+			ig.igSeparator()
+			if ig.igCollapsingHeader'spells learned:' then
+				local numLearnSpells = 54
+				local charSpellLearns = save.spellsLearned + self.characterIndex * numLearnSpells
+				local colSize = 6
+				for i=0,numLearnSpells-1 do
+					ig.igPushID_Int(i)
+					ig.igSetNextItemWidth(32)
+					ig.luatableTooltipInputFloatAsText(tostring(game.getSpellName(i)), charSpellLearns, i)
 					ig.igSameLine()
+					if ig.igButton'>' then
+						app.spellWindow:open(i)
+					end
+
+					if i < numLearnSpells-1 and i % colSize < colSize-1 then
+						ig.igSameLine()
+					end
+					ig.igPopID()
 				end
-				ig.igPopID()
 			end
-			ig.igPopID()
 		end
 	end
 
@@ -384,6 +408,10 @@ function SRAMWindow:setIndex(...)
 	if not app.sram or not game then return end
 
 	SRAMWindow.super.setIndex(self, ...)
+
+	if self.index < 0 or self.index >= self:getCount() then return end
+	local save = app.sram.saves.s + self.index
+
 	self:refreshMonstersEnabled()
 
 	-- refresh links from treasure flags to treasure chests
@@ -410,6 +438,30 @@ function SRAMWindow:setIndex(...)
 				npc = npc,
 			}
 		end
+	end
+
+	-- refresh character texs
+	-- TODO this when you change the roster
+	if self.charTexs then
+		for _,tex in ipairs(self.charTexs) do
+			tex:delete()
+		end
+	end
+	--self.charTexs[1+save][1+charIndex]
+	self.charTexs = range(0,15):mapi(function(charIndex)
+		local ch = save.characters.s[charIndex]
+		local img = game.getCharSpriteSheetImage(ch.sprite)
+		img = img:copy{x=0, y=0, width=16, height=24}
+		--local palette = bit.band(ch.character, 7)	-- character? sprite? palette? where to go for palette of sprite?
+		--local palette = game.characterPaletteIndexes[charIndex]
+		local palette = game.characterPaletteIndexes[ch.sprite]
+		img.palette = makePalette(game, game.characterPalettes[palette], 4, 16)
+		return self:makeTex(img)
+	end)
+
+	-- refresh percent of current esper/spells learned
+	for charIndex=0,15 do
+		local esper = save.characters.s[charIndex]
 	end
 end
 

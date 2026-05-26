@@ -244,6 +244,7 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 	elseif ctypeobj == game.SpellRef
 	or ctypeobj == game.ItemRef
 	or ctypeobj == game.MonsterRef
+	or ctypeobj == game.EsperRef
 	then
 		local win
 		if ctypeobj == game.SpellRef then
@@ -252,6 +253,8 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 			win = app.itemWindow
 		elseif ctypeobj == game.MonsterRef then
 			win = app.monsterWindow
+		elseif ctypeobj == game.EsperRef then
+			win = app.esperWindow
 		else
 			error("idk what win to use")
 		end

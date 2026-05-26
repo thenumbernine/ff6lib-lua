@@ -553,6 +553,9 @@ function App:onLoadROM(infn, mapIndex)
 	local SpellWindow = require 'ff6.vis.spellwindow'
 	self.spellWindow = SpellWindow{app=self}
 
+	local EsperWindow = require 'ff6.vis.esperwindow'
+	self.esperWindow = EsperWindow{app=self}
+
 	local MetamorphWindow = require 'ff6.vis.metamorphwindow'
 	self.metamorphWindow = MetamorphWindow{app=self}
 
@@ -573,6 +576,7 @@ function App:onLoadROM(infn, mapIndex)
 		self.mapWindow,
 		self.itemWindow,
 		self.spellWindow,
+		self.esperWindow,
 		self.metamorphWindow,
 		self.scriptWindow,
 		self.sramWindow,
@@ -850,7 +854,11 @@ print('auto-reloading sram...')
 	mx = mx + self.view.pos.x
 	my = my + self.view.pos.y	-- why isn't htis in the matrix and therefore in invTransform ?
 	my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
-self.tooltipText = math.floor(mx)..', '..math.floor(my)
+
+-- if we're not mouse over a imgui window...
+if self.canHandleMouse then
+	self.tooltipText = math.floor(mx)..', '..math.floor(my)
+end
 
 			local leftPress = self.mouse.leftPress
 			local leftDoubleClick = self.mouse.leftDoubleClick
@@ -1310,7 +1318,7 @@ function App:event(e)
 	end
 
 	App.super.event(self, e)
-	local canHandleMouse = not ig.igGetIO()[0].WantCaptureMouse
+	self.canHandleMouse = not ig.igGetIO()[0].WantCaptureMouse
 	local canHandleKeyboard = not ig.igGetIO()[0].WantCaptureKeyboard
 
 	local game = self.game
@@ -1328,7 +1336,7 @@ function App:event(e)
 	end
 
 	-- because sdl handles double-clicks on its own:
-	if canHandleMouse then
+	if self.canHandleMouse then
 		if e.type == sdl.SDL_EVENT_MOUSE_BUTTON_DOWN then
 			if e.button.clicks == 2 then
 				self.mouse.leftDoubleClick = true

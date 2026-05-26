@@ -543,8 +543,9 @@ local EsperBonus = reftype{
 	end,
 }
 
--- also needs a pointer to 'game'
-local function getEsperName(i) return getSpellName(i + 54) end
+local function getEsperName(i)
+	return getSpellName(i + 54)
+end
 
 local SpellLearn = ff6struct{
 	ctypeOnly = true,
@@ -568,6 +569,15 @@ local Esper = ff6struct{
 }
 assert.eq(ffi.sizeof(Esper), 11)
 local numEspers = 27
+
+local EsperRef = reftype{
+	ctypeOnly = true,
+	getter = function(i)
+		if i < 0 or i >= numEspers then return nil end
+		return getEsperName(i)
+	end,
+	getterSkipNone = true,
+}
 
 --[[ can't do this until i convert all ff6struct to struct, then i can use anonymous fields.
 local BattleAnimEffectIndex = struct{
@@ -2224,7 +2234,7 @@ local CharacterSave = struct{
 	tostringOmitEmpty = true,
 	fields = {
 		{name='character', type=uint8_t},	-- CharacterNameRef?
-		{name='sprite', type=uint8_t},
+		{name='sprite', type=uint8_t},		-- spriteIndex used with getCharSpriteSheetImage
 		{name='name', type=CharacterName},
 		{name='level', type=uint8_t},
 		{name='hp', type=uint16_t},
@@ -2247,7 +2257,7 @@ local CharacterSave = struct{
 		{name='speed', type=uint8_t},
 		{name='stamina', type=uint8_t},
 		{name='magicPower', type=uint8_t},
-		{name='esper', type=ItemRef},
+		{name='esper', type=EsperRef},
 		{name='rhand', type=ItemRef},
 		{name='lhand', type=ItemRef},
 		{name='head', type=ItemRef},
@@ -3009,6 +3019,7 @@ game.SpellRef4 = SpellRef4
 game.Esper = Esper
 game.EsperBonusDesc = EsperBonusDesc
 game.EsperBonus = EsperBonus
+game.EsperRef = EsperRef
 game.FormationSize = FormationSize
 game.Item = Item
 game.ItemRef = ItemRef
