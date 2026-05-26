@@ -92,7 +92,7 @@ local function readbit(ar, index)
 	local byteofs = bit.rshift(index, 3)
 	local bitofs = bit.band(index, 7)
 	local mask = bit.lshift(1, bitofs)
-	return = 0 ~= bit.band(mask, ar[byteofs])
+	return 0 ~= bit.band(mask, ar[byteofs])
 end
 
 local function writebit(ar, index, value)

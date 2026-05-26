@@ -600,22 +600,18 @@ function App:onLoadSRAM(fn, index)
 	-- 'modification' is change to file contents...
 	self.sramLastWriteTime = ffi.new('struct timespec', self.sramPath:attr().modification_ns)
 
-	index = index and tonumber(index)
-	if index then
-		self.sramWindow:open(index)
-		local save = self.sramWindow:getCurIndex()
-		self.mapWindow:open(save.map)
-		-- pos, pos2, pos3, mapPos, lastTownPos, airshipPos ... which to use ...
-		if save.map < 3 then
-			self.tileWindow:setXY(save.mapPos.x, save.mapPos.y)
-			self:centerView(save.mapPos.x, save.mapPos.y)
-		else
-			self.tileWindow:setXY(save.pos.x, save.pos.y)
-			self:centerView(save.pos.x, save.pos.y)
-		end
+	index = index and tonumber(index) or 0
+
+	self.sramWindow:open(index)
+	local save = self.sramWindow:getCurIndex()
+	self.mapWindow:open(save.map)
+	-- pos, pos2, pos3, mapPos, lastTownPos, airshipPos ... which to use ...
+	if save.map < 3 then
+		self.tileWindow:setXY(save.mapPos.x, save.mapPos.y)
+		self:centerView(save.mapPos.x, save.mapPos.y)
 	else
-		-- refresh
-		self.sramWindow:open(self.sramWindow.index or 0)
+		self.tileWindow:setXY(save.pos.x, save.pos.y)
+		self:centerView(save.pos.x, save.pos.y)
 	end
 end
 
