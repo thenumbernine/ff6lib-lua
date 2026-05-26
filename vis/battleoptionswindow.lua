@@ -69,6 +69,7 @@ function BattleOptionsWindow:showIndexUI()
 		ig.luatableCheckbox('choose from next four', formationEntry, 'chooseFromNextFour')
 
 		if hasFormation ~= nil then
+			ig.igPopStyleColor(1)
 		end
 
 		ig.igPopID()
