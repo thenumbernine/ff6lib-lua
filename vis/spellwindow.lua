@@ -34,10 +34,15 @@ function SpellWindow:showIndexUI()
 		self.itemsWithThis = table()
 		for i=0,game.countof(game.items)-1 do
 			local item = game.items + i
-			if item.spellLearn.spell.i == self.index then
+			local spellLearn = item.spellLearn
+			if spellLearn.spell.i == self.index
+			and spellLearn.rate > 0
+			then
 				self.itemsWithThis:insert{itemIndex=i, type='spellLearn'}
 			end
-			if item.spellCast == self.index then
+			if item.spellCast == self.index
+			and (item.castOnAttack ~= 0 or item.castOnItemUse ~= 0)
+			then
 				self.itemsWithThis:insert{itemIndex=i, type='spellCast'}
 			end
 		end
@@ -56,7 +61,10 @@ function SpellWindow:showIndexUI()
 		for i=0,game.countof(game.espers)-1 do
 			local esper = game.espers + i
 			for j=0,4 do
-				if esper.spellLearn.s[j].spell.i == self.index then
+				local spellLearn = esper.spellLearn.s[j]
+				if spellLearn.spell.i == self.index
+				and spellLearn.rate > 0
+				then
 					self.espersWithThis:insert(i)
 					break
 				end
