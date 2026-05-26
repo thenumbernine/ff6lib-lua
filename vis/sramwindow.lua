@@ -5,6 +5,11 @@ local ig = require 'imgui'
 local makePalette = require 'ff6.graphics'.makePalette
 local ArrayWindow = require 'ff6.vis.arraywindow'
 
+
+-- this goes in game somewhere
+local numLearnSpells = 54
+
+
 local SRAMWindow = ArrayWindow:subclass()
 
 SRAMWindow.characterIndex = 0
@@ -41,24 +46,75 @@ function SRAMWindow:showIndexUI()
 	if not save then return end
 
 	ig.igSeparator()
-	do
-		local first = true
+	if ig.igCollapsingHeader'magic progress:' then
 		for charIndex=0,15 do
+			local char = save.characters.s[charIndex]
+
 			local tex = self.charTexs and self.charTexs[1+charIndex]
 			if tex then
-				if first then
-					first = nil
-				else
-					ig.igSameLine()
-				end
 				ig.igImage(tex.id, tex.imsize)
 				if ig.igIsItemHovered(ig.ImGuiHoveredFlags_None) then
 					ig.igBeginTooltip()
-					ig.igText(tostring(save.characters.s[charIndex].name))
+					ig.igText(tostring(char.name))
 					ig.igEndTooltip()
 				end
+			else
+				ig.igText(tostring(char.name))
+			end
 
-				-- current esper's magic
+			-- current esper's magic
+			local charSpellLearns = save.spellsLearned + charIndex * numLearnSpells
+
+			local function getEsperProgress(esperIndex)
+				if esperIndex < 0 or esperIndex >= game.numEspers then return end
+				local sofar = 0
+				local total = 0
+				for i=1,5 do
+					local spellIndex = game.espers[esperIndex]['spellLearn'..i].spell.i
+					if spellIndex >= 0 and spellIndex < numLearnSpells then
+						sofar = sofar + math.min(100, charSpellLearns[spellIndex])	-- 0xff <-> 100%
+						total = total + 100
+					end
+				end
+				if total == 0 then return end
+				return sofar / total
+			end
+
+			-- progress for current esper
+			local thisEsperProgress = getEsperProgress(char.esper.i)
+			ig.igSameLine()
+			if thisEsperProgress then
+				ig.igText(('esper: %.1f'):format(100 * thisEsperProgress)..'/100')
+			else
+				ig.igText'esper: -'
+			end
+
+			-- progress for unlocked spells from all acquired espers:
+			local allSofar, allTotal = 0, 0
+			local unlockedSofar, unlockedTotal = 0, 0
+			for spellIndex=0,numLearnSpells-1 do
+				if self.spellsEnabled[spellIndex] then
+					unlockedSofar = unlockedSofar + math.min(100, charSpellLearns[spellIndex])	-- 0xff <-> 100%
+					unlockedTotal = unlockedTotal + 100
+				end
+				allSofar = allSofar + math.min(100, charSpellLearns[spellIndex])	-- 0xff <-> 100%
+				allTotal = allTotal + 100
+			end
+			local unlockedSpellsProgress = unlockedTotal > 0 and unlockedSofar / unlockedTotal
+			ig.igSameLine()
+			if unlockedSpellsProgress then
+				ig.igText(('unlocked: %.1f'):format(100 * unlockedSpellsProgress)..'/100')
+			else
+				ig.igText'unlocked:-'
+			end
+
+			-- progress for all spells:
+			local allSpellsProgress = allTotal > 0 and allSofar / allTotal
+			ig.igSameLine()
+			if allSpellsProgress then
+				ig.igText(('all: %.1f'):format(100 * allSpellsProgress)..'/100')
+			else
+				ig.igText'all: -'
 			end
 		end
 	end
@@ -133,7 +189,6 @@ function SRAMWindow:showIndexUI()
 		if self.characterIndex < 12 then
 			ig.igSeparator()
 			if ig.igCollapsingHeader'spells learned:' then
-				local numLearnSpells = 54
 				local charSpellLearns = save.spellsLearned + self.characterIndex * numLearnSpells
 				local colSize = 6
 				for i=0,numLearnSpells-1 do
@@ -253,10 +308,10 @@ assert.type(flagField, 'string')
 		showFlags{
 			flagField = 'esperFlags',
 			getname = function(i)
-				return game.getSpellName(i + 54)
+				return app.esperWindow:getIndexName(i)
 			end,
 			link = function(i)
-				return app.spellWindow:open(i + 54)
+				return app.esperWindow:open(i)
 			end,
 		}
 	end
@@ -459,9 +514,22 @@ function SRAMWindow:setIndex(...)
 		return self:makeTex(img)
 	end)
 
-	-- refresh percent of current esper/spells learned
-	for charIndex=0,15 do
-		local esper = save.characters.s[charIndex]
+	-- based on esper flags collect spells enabled flags
+	self.spellsEnabled = {}	-- 0-based key
+	local flagobj = save.esperFlags
+	for esperIndex=0,game.numEspers-1 do
+		local byteofs = bit.rshift(esperIndex, 3)
+		local bitofs = bit.band(esperIndex, 7)
+		local mask = bit.lshift(1, bitofs)
+		local enabled = 0 ~= bit.band(mask, flagobj[byteofs])
+		if enabled then
+			for i=1,5 do
+				local spellIndex = game.espers[esperIndex]['spellLearn'..i].spell.i
+				if spellIndex >= 0 and spellIndex < numLearnSpells then
+					self.spellsEnabled[spellIndex] = true
+				end
+			end
+		end
 	end
 end
 
