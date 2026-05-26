@@ -1590,8 +1590,8 @@ local Map = struct{
 	packed = true,
 	fields = {
 		{name='name', type=MapNameRef},							-- 0
-		{name='enableXZone', type='uint8_t:1'},					-- 1.0
-		{name='enableWarp', type='uint8_t:1'},					-- 1.1
+		{name='allowXZone', type='uint8_t:1'},					-- 1.0 ... is this ever set? maybe it is "disableXZone" ?
+		{name='allowWarp', type='uint8_t:1'},					-- 1.1
 		{name='wavyLayer3', type='uint8_t:1'},					-- 1.2
 		{name='wavyLayer2', type='uint8_t:1'},					-- 1.3
 		{name='wavyLayer1', type='uint8_t:1'},					-- 1.4

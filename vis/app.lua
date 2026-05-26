@@ -615,7 +615,7 @@ function App:onLoadSRAM(fn, index)
 		end
 	else
 		-- refresh
-		self.sramWindow:open(self.sramWindow.index)
+		self.sramWindow:open(self.sramWindow.index or 0)
 	end
 end
 

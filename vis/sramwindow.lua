@@ -27,7 +27,7 @@ end
 
 function SRAMWindow:getIndex(i)
 	if not self.app.game or not self.app.sram then return end
-	if i <= 0 or i > self:getCount() then return end
+	if i < 0 or i >= self:getCount() then return end
 	return self.app.sram.saves.s + i
 end
 

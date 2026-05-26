@@ -36,6 +36,7 @@ function ArrayWindow:setIndex(index)
 end
 
 function ArrayWindow:getCurIndex()
+	if not self.index then return end
 	return self:getIndex(self.index)
 end
 
