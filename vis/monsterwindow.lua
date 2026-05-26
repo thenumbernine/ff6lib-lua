@@ -45,6 +45,10 @@ function MonsterWindow:showIndexUI()
 					ig.igText'- gau has not found'
 				end
 				ig.igPopStyleColor(1)
+			elseif self.index < 256 then
+				ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff0000ff)
+				ig.igText'- can not yet encounter in veldt'
+				ig.igPopStyleColor(1)
 			else
 				ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff0000ff)
 				ig.igText'- cannot encounter in veldt'

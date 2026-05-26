@@ -592,6 +592,7 @@ function SRAMWindow:refreshMonstersEnabled()
 
 	local ragesFound = 0
 	local totalCanFind = 0
+	local lookFor
 	for i=0,255 do
 		if self.monstersEnabled[i] then
 			local byteofs = bit.rshift(i, 3)
@@ -600,6 +601,8 @@ function SRAMWindow:refreshMonstersEnabled()
 			local rageFound = 0 ~= bit.band(mask, save.rageFlags[byteofs])
 			if rageFound then
 				ragesFound = ragesFound + 1
+			else
+				lookFor = i
 			end
 			totalCanFind = totalCanFind + 1
 		end
@@ -607,7 +610,8 @@ function SRAMWindow:refreshMonstersEnabled()
 
 	self.ragesTitle = 'rages: '
 		..ragesFound..' found / '
-		..totalCanFind..' encountered / 256 total'
+		..totalCanFind..' encountered'
+		..(lookFor and (' ... look for '..game.monsterNames(lookFor)) or '')
 end
 
 return SRAMWindow
