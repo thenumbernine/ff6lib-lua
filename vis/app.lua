@@ -749,6 +749,7 @@ function App:update()
 	local game = self.game
 
 	-- even without blur
+	local didReload
 	if self.sram
 	and self.autoReloadSRAM
 	and self.sramLastWriteTime
@@ -760,10 +761,13 @@ function App:update()
 		then
 print('auto-reloading sram...')
 			self:onLoadSRAM(self.sramPath)
+			didReload = true
 		end
 	end
 
-	if not self.hasFocus then
+	if not didReload
+	and not self.hasFocus
+	then
 		sdl.SDL_Delay(100)
 		return
 	end

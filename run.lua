@@ -909,8 +909,8 @@ Quick	99
 	for i=0,game.numEspers-1 do
 		local esper = game.espers[i]
 		-- disable all spells
-		for j=1,5 do
-			esper['spellLearn'..j].rate = 255
+		for j=0,4 do
+			esper.spellLearn.s[j].rate = 255
 		end
 		-- pick a random bonus
 		esper.bonus.i = table.pickRandom(esperBonuses)

@@ -65,12 +65,42 @@ function SRAMWindow:showIndexUI()
 			-- current esper's magic
 			local charSpellLearns = save.spellsLearned + charIndex * numLearnSpells
 
+
+			local allSofar, allTotal = 0, 0
+			local unlockedSofar, unlockedTotal = 0, 0
+			for spellIndex=0,numLearnSpells-1 do
+				if self.spellsEnabled[spellIndex] then
+					unlockedSofar = unlockedSofar + math.min(100, charSpellLearns[spellIndex])	-- 0xff <-> 100%
+					unlockedTotal = unlockedTotal + 100
+				end
+				allSofar = allSofar + math.min(100, charSpellLearns[spellIndex])	-- 0xff <-> 100%
+				allTotal = allTotal + 100
+			end
+
+			-- progress for all spells:
+			local allSpellsProgress = allTotal > 0 and allSofar / allTotal
+			ig.igSameLine()
+			if allSpellsProgress then
+				ig.igText(('all: %.1f'):format(100 * allSpellsProgress)..'/100')
+			else
+				ig.igText'all: -'
+			end
+
+			-- progress for unlocked spells from all acquired espers:
+			local unlockedSpellsProgress = unlockedTotal > 0 and unlockedSofar / unlockedTotal
+			ig.igSameLine()
+			if unlockedSpellsProgress then
+				ig.igText(('unlocked: %.1f'):format(100 * unlockedSpellsProgress)..'/100')
+			else
+				ig.igText'unlocked:-'
+			end
+
 			local function getEsperProgress(esperIndex)
 				if esperIndex < 0 or esperIndex >= game.numEspers then return end
 				local sofar = 0
 				local total = 0
-				for i=1,5 do
-					local spellIndex = game.espers[esperIndex]['spellLearn'..i].spell.i
+				for i=0,4 do
+					local spellIndex = game.espers[esperIndex].spellLearn.s[i].spell.i
 					if spellIndex >= 0 and spellIndex < numLearnSpells then
 						sofar = sofar + math.min(100, charSpellLearns[spellIndex])	-- 0xff <-> 100%
 						total = total + 100
@@ -89,32 +119,28 @@ function SRAMWindow:showIndexUI()
 				ig.igText'esper: -'
 			end
 
-			-- progress for unlocked spells from all acquired espers:
-			local allSofar, allTotal = 0, 0
-			local unlockedSofar, unlockedTotal = 0, 0
-			for spellIndex=0,numLearnSpells-1 do
-				if self.spellsEnabled[spellIndex] then
-					unlockedSofar = unlockedSofar + math.min(100, charSpellLearns[spellIndex])	-- 0xff <-> 100%
-					unlockedTotal = unlockedTotal + 100
+			-- finished with the current esper?
+			if thisEsperProgress == 1
+			and (unlockedSpellsProgress or 0) < 1
+			then
+				local recommendEsper
+				for esperIndex=game.numEspers-1,0,-1 do
+					local byteofs = bit.rshift(esperIndex, 3)
+					local bitofs = bit.band(esperIndex, 7)
+					local mask = bit.lshift(1, bitofs)
+					local enabled = 0 ~= bit.band(mask, save.esperFlags[byteofs])
+					if enabled then
+						local esperProgress = getEsperProgress(esperIndex)
+						if esperProgress and esperProgress < 1 then
+							recommendEsper = esperIndex
+							break
+						end
+					end
 				end
-				allSofar = allSofar + math.min(100, charSpellLearns[spellIndex])	-- 0xff <-> 100%
-				allTotal = allTotal + 100
-			end
-			local unlockedSpellsProgress = unlockedTotal > 0 and unlockedSofar / unlockedTotal
-			ig.igSameLine()
-			if unlockedSpellsProgress then
-				ig.igText(('unlocked: %.1f'):format(100 * unlockedSpellsProgress)..'/100')
-			else
-				ig.igText'unlocked:-'
-			end
-
-			-- progress for all spells:
-			local allSpellsProgress = allTotal > 0 and allSofar / allTotal
-			ig.igSameLine()
-			if allSpellsProgress then
-				ig.igText(('all: %.1f'):format(100 * allSpellsProgress)..'/100')
-			else
-				ig.igText'all: -'
+				if recommendEsper then
+					ig.igSameLine()
+					ig.igText('...next '..game.getEsperName(recommendEsper))
+				end
 			end
 		end
 	end
@@ -523,8 +549,8 @@ function SRAMWindow:setIndex(...)
 		local mask = bit.lshift(1, bitofs)
 		local enabled = 0 ~= bit.band(mask, flagobj[byteofs])
 		if enabled then
-			for i=1,5 do
-				local spellIndex = game.espers[esperIndex]['spellLearn'..i].spell.i
+			for i=0,4 do
+				local spellIndex = game.espers[esperIndex].spellLearn.s[i].spell.i
 				if spellIndex >= 0 and spellIndex < numLearnSpells then
 					self.spellsEnabled[spellIndex] = true
 				end

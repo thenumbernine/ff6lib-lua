@@ -556,14 +556,17 @@ local SpellLearn = ff6struct{
 }
 assert.eq(ffi.sizeof(SpellLearn), 2)
 
+local SpellLearn5 = createVec{
+	ctypeOnly = true,
+	ctype = SpellLearn,
+	dim = 5,
+}
+assert.eq(ffi.sizeof(SpellLearn5), 10)
+
 local Esper = ff6struct{
 	ctypeOnly = true,
 	fields = {
-		{spellLearn1 = SpellLearn},
-		{spellLearn2 = SpellLearn},
-		{spellLearn3 = SpellLearn},
-		{spellLearn4 = SpellLearn},
-		{spellLearn5 = SpellLearn},
+		{spellLearn = SpellLearn5},
 		{bonus = EsperBonus},
 	},
 }

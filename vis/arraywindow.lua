@@ -203,12 +203,12 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 			end
 			first = false
 			self.__tmp = 0 ~= valueobj[subfieldname]
-			self.lastWasBitfield = true
 			if ig.luatableTooltipCheckbox(subfieldname, self, '__tmp') then
 				valueobj[subfieldname] = self.__tmp and 1 or 0
 				modified = true
 			end
 		end
+		self.lastWasBitfield = false	-- do a new line next
 
 	-- structs with sub-fields (esp vectors)
 	elseif ctypeobj == game.XY4b
