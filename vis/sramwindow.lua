@@ -452,7 +452,7 @@ assert.type(flagField, 'string')
 	end
 
 	ig.igSeparator()
-	if ig.igCollapsingHeader'rages:' then
+	if ig.igCollapsingHeader(self.ragesTitle) then
 		showFlags{
 			flagField = 'rageFlags',
 			getname = function(i)
@@ -584,6 +584,26 @@ function SRAMWindow:refreshMonstersEnabled()
 			end
 		end
 	end
+
+	local ragesFound = 0
+	local totalCanFind = 0
+	for i=0,255 do
+		if self.monstersEnabled[i] then
+			local byteofs = bit.rshift(i, 3)
+			local bitofs = bit.band(i, 7)
+			local mask = bit.lshift(1, bitofs)
+			local rageFound = 0 ~= bit.band(mask, save.rageFlags[byteofs])
+			if rageFound then
+				ragesFound = ragesFound + 1
+			end
+			totalCanFind = totalCanFind + 1
+		end
+	end
+
+	self.ragesTitle = 'rages: '
+		..ragesFound..' found / '
+		..totalCanFind..' encountered / 256 total'
 end
+SRAMWindow.ragesTitle = 'rages:'
 
 return SRAMWindow

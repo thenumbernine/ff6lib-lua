@@ -72,25 +72,7 @@ function ArrayWindow:updateWindow()
 				self.searchText = name
 			end
 		else
-			ig.igSeparator()
-			if ig.luatableInputText('find', self, 'searchText') then
-				-- on change:
-				self.searchOccurrences = table()
-				for i=0,count-1 do
-					local n = tostring(self:getIndexName(i))
-					if n:lower():find(self.searchText:lower(), 1, true) then
-						self.searchOccurrences:insert(i)
-					end
-				end
-			end
-
-			if self.searchOccurrences then
-				local currentIndex = self.searchOccurrences:find(self.index)
-				ig.igSameLine()
-				ig.igText((currentIndex or '')..'/'..#self.searchOccurrences)
-			end
-
-			if ig.igButton'next' then
+			local function findNext()
 				if self.searchOccurrences
 				and #self.searchOccurrences > 0 then
 					if self.index >= self.searchOccurrences:last() then
@@ -104,6 +86,29 @@ function ArrayWindow:updateWindow()
 						end
 					end
 				end
+			end
+
+			ig.igSeparator()
+			if ig.luatableInputText('find', self, 'searchText') then
+				-- on change:
+				self.searchOccurrences = table()
+				for i=0,count-1 do
+					local n = tostring(self:getIndexName(i))
+					if n:lower():find(self.searchText:lower(), 1, true) then
+						self.searchOccurrences:insert(i)
+					end
+				end
+				findNext()
+			end
+
+			if self.searchOccurrences then
+				local currentIndex = self.searchOccurrences:find(self.index)
+				ig.igSameLine()
+				ig.igText((currentIndex or '')..'/'..#self.searchOccurrences)
+			end
+
+			if ig.igButton'next' then
+				findNext()
 			end
 			ig.igSameLine()
 			if ig.igButton'close' then
