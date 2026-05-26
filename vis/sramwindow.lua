@@ -452,7 +452,10 @@ assert.type(flagField, 'string')
 	end
 
 	ig.igSeparator()
-	if ig.igCollapsingHeader(self.ragesTitle) then
+	if self.ragesTitle then
+		ig.igText(self.ragesTitle)
+	end
+	if ig.igCollapsingHeader'rages:' then
 		showFlags{
 			flagField = 'rageFlags',
 			getname = function(i)
@@ -492,6 +495,8 @@ function SRAMWindow:setIndex(...)
 
 	if self.index < 0 or self.index >= self:getCount() then return end
 	local save = app.sram.saves.s + self.index
+
+	self.ragesTitle = nil
 
 	self:refreshMonstersEnabled()
 
@@ -604,6 +609,5 @@ function SRAMWindow:refreshMonstersEnabled()
 		..ragesFound..' found / '
 		..totalCanFind..' encountered / 256 total'
 end
-SRAMWindow.ragesTitle = 'rages:'
 
 return SRAMWindow

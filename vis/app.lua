@@ -613,6 +613,9 @@ function App:onLoadSRAM(fn, index)
 			self.tileWindow:setXY(save.pos.x, save.pos.y)
 			self:centerView(save.pos.x, save.pos.y)
 		end
+	else
+		-- refresh
+		self.sramWindow:open(self.sramWindow.index)
 	end
 end
 
