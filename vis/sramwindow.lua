@@ -611,7 +611,7 @@ function SRAMWindow:refreshMonstersEnabled()
 	self.ragesTitle = 'rages: '
 		..ragesFound..' found / '
 		..totalCanFind..' encountered'
-		..(lookFor and (' ... look for '..game.monsterNames(lookFor)) or '')
+		..(lookFor and (' ... look for '..game.monsterNames[lookFor]) or '')
 end
 
 return SRAMWindow
