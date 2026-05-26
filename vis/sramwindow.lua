@@ -4,6 +4,8 @@ local assert = require 'ext.assert'
 local ig = require 'imgui'
 local makePalette = require 'ff6.graphics'.makePalette
 local ArrayWindow = require 'ff6.vis.arraywindow'
+local readbit = require 'ff6.vis.util'.readbit
+local writebit = require 'ff6.vis.util'.writebit
 
 
 -- this goes in game somewhere
@@ -125,11 +127,7 @@ function SRAMWindow:showIndexUI()
 			then
 				local recommendEsper
 				for esperIndex=game.numEspers-1,0,-1 do
-					local byteofs = bit.rshift(esperIndex, 3)
-					local bitofs = bit.band(esperIndex, 7)
-					local mask = bit.lshift(1, bitofs)
-					local enabled = 0 ~= bit.band(mask, save.esperFlags[byteofs])
-					if enabled then
+					if readbit(save.esperFlags, esperIndex) then
 						local esperProgress = getEsperProgress(esperIndex)
 						if esperProgress and esperProgress < 1 then
 							recommendEsper = esperIndex
@@ -187,8 +185,8 @@ function SRAMWindow:showIndexUI()
 			or field == 'lastTownPos'
 			or field == 'mapPos'
 			then
-				-- TODO how to tell if the airship is in WoB or WoR?
-				app.mapWindow:open(0)	-- 0 or 1?
+				local inWoR = readbit(save.mapFlags, 164)
+				app.mapWindow:open(inWoR and 1 or 0)
 			else
 				app.mapWindow:open(save.map)
 			end
@@ -283,10 +281,8 @@ assert.type(flagField, 'string')
 		for i=0,count-1 do
 			ig.igPushID_Int(i)
 
-			local byteofs = bit.rshift(i, 3)
-			local bitofs = bit.band(i, 7)
-			local mask = bit.lshift(1, bitofs)
-			self.__tmp = 0 ~= bit.band(mask, flagobj[byteofs])
+			local enabled = readbit(flagobj, i)
+			self.__tmp = enabled
 
 			local thishilite
 			if hilite then
@@ -298,7 +294,7 @@ assert.type(flagField, 'string')
 
 			local checkboxName = getname and getname(i) or flagField..' '..i
 			if ig.luatableTooltipCheckbox(checkboxName, self, '__tmp') then
-				flagobj[byteofs] = bit.bxor(flagobj[byteofs], mask)
+				writebit(flagobj, i, not enabled)
 				if onchange then onchange() end
 			end
 
@@ -549,11 +545,7 @@ function SRAMWindow:setIndex(...)
 	self.spellsEnabled = {}	-- 0-based key
 	local flagobj = save.esperFlags
 	for esperIndex=0,game.numEspers-1 do
-		local byteofs = bit.rshift(esperIndex, 3)
-		local bitofs = bit.band(esperIndex, 7)
-		local mask = bit.lshift(1, bitofs)
-		local enabled = 0 ~= bit.band(mask, flagobj[byteofs])
-		if enabled then
+		if readbit(save.esperFlags, esperIndex) then
 			for i=0,4 do
 				local spellIndex = game.espers[esperIndex].spellLearn.s[i].spell.i
 				if spellIndex >= 0 and spellIndex < numLearnSpells then
@@ -574,11 +566,7 @@ function SRAMWindow:refreshMonstersEnabled()
 	self.monstersEnabled = {}	-- 0-based
 	local numFormationFlags = bit.lshift(game.countof(save.battleFormationFlags), 3)
 	for i=0,numFormationFlags-1 do
-		local byteofs = bit.rshift(i, 3)
-		local bitofs = bit.band(i, 7)
-		local mask = bit.lshift(1, bitofs)
-		local enabled = 0 ~= bit.band(mask, save.battleFormationFlags[byteofs])
-		if enabled then
+		if readbit(save.battleFormationFlags, i) then
 			local formation = game.formations + i
 			-- do I care about chooseNextFour as well?
 			for j=1,6 do
@@ -595,11 +583,7 @@ function SRAMWindow:refreshMonstersEnabled()
 	local lookFor
 	for i=0,255 do
 		if self.monstersEnabled[i] then
-			local byteofs = bit.rshift(i, 3)
-			local bitofs = bit.band(i, 7)
-			local mask = bit.lshift(1, bitofs)
-			local rageFound = 0 ~= bit.band(mask, save.rageFlags[byteofs])
-			if rageFound then
+			if readbit(save.rageFlags, i) then
 				ragesFound = ragesFound + 1
 			else
 				lookFor = i

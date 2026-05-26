@@ -88,6 +88,25 @@ local mapTilePropsFlagForName = table.map(mapTilePropsNames, function(name, inde
 end):setmetatable(nil)
 
 
+local function readbit(ar, index)
+	local byteofs = bit.rshift(index, 3)
+	local bitofs = bit.band(index, 7)
+	local mask = bit.lshift(1, bitofs)
+	return = 0 ~= bit.band(mask, ar[byteofs])
+end
+
+local function writebit(ar, index, value)
+	local byteofs = bit.rshift(index, 3)
+	local bitofs = bit.band(index, 7)
+	local mask = bit.lshift(1, bitofs)
+	if value then
+		ar[byteofs] = bit.band(ar[byteofs], bit.bnot(mask))
+	else
+		ar[byteofs] = bit.bor(ar[byteofs], mask)
+	end
+end
+
+
 return {
 	settable = settable,
 	zAndLayersWithoutLayer3Priority = zAndLayersWithoutLayer3Priority,
@@ -97,4 +116,6 @@ return {
 	worldTilePropsFlagForName = worldTilePropsFlagForName,
 	mapTilePropsNames = mapTilePropsNames,
 	mapTilePropsFlagForName = mapTilePropsFlagForName,
+	readbit = readbit,
+	writebit = writebit,
 }
