@@ -25,6 +25,34 @@ function MonsterWindow:showIndexUI()
 	local app = self.app
 	local game = app.game
 
+	if app.sram then
+		local save = app.sramWindow:getCurIndex()
+		if save then
+			if app.sramWindow.monstersEnabled[self.index] then
+				ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff00ff00)
+				ig.igText'- can encounter in veldt'
+				ig.igPopStyleColor(1)
+
+				local byteofs = bit.rshift(self.index, 3)
+				local bitofs = bit.band(self.index, 7)
+				local mask = bit.lshift(1, bitofs)
+				local enabled = 0 ~= bit.band(mask, save.rageFlags[byteofs])
+				if enabled then
+					ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff00ff00)
+					ig.igText'- gau has already found'
+				else
+					ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff0000ff)
+					ig.igText'- gau has not found'
+				end
+				ig.igPopStyleColor(1)
+			else
+				ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff0000ff)
+				ig.igText'- cannot encounter in veldt'
+				ig.igPopStyleColor(1)
+			end
+		end
+	end
+
 	if self.monsterSpriteTex then
 		--[[ fixed-size float-right
 		local y = ig.igGetCursorPosY()
