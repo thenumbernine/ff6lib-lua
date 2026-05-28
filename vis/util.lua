@@ -100,9 +100,9 @@ local function writebit(ar, index, value)
 	local bitofs = bit.band(index, 7)
 	local mask = bit.lshift(1, bitofs)
 	if value then
-		ar[byteofs] = bit.band(ar[byteofs], bit.bnot(mask))
-	else
 		ar[byteofs] = bit.bor(ar[byteofs], mask)
+	else
+		ar[byteofs] = bit.band(ar[byteofs], bit.bnot(mask))
 	end
 end
 
