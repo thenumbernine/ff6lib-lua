@@ -56,6 +56,9 @@ function BattleFormationWindow:showIndexUI()
 				drawSize.x = math.ceil(scale * info.tex.width)
 				drawSize.y = math.ceil(scale * info.tex.height)
 				ig.igImage(info.tex.id, drawSize)
+				if ig.igIsItemClicked(0) then
+					app.monsterWindow:open(game.formations[self.index]:getMonsterIndex(k))
+				end
 			end
 		end
 		ig.igSetCursorPosX(x)
