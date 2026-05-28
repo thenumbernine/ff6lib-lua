@@ -46,11 +46,11 @@ function WorldEncounterSectorWindow:showIndexUI()
 			if numFormationsFound == 0 then
 				ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff0000ff)
 			elseif numFormationsFound == 1 then
-				ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff003fcf)
+				ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff003fbf)
 			elseif numFormationsFound == 2 then
 				ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff007f7f)
 			elseif numFormationsFound == 3 then
-				ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff00cf3f)
+				ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff00bf3f)
 			elseif numFormationsFound == 4 then
 				ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff00ff00)
 			else
