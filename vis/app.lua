@@ -444,6 +444,8 @@ end)
 
 	if cmdline[3] then
 		self:onLoadSRAM(cmdline[3], cmdline[4])
+	elseif self.romPath then
+		self:onLoadSRAM((self.romPath:setext'srm'))
 	end
 end
 
@@ -456,7 +458,9 @@ function App:exit(...)
 end
 
 function App:onLoadROM(infn, mapIndex)
-	local game = require 'ff6'((assert(path(infn):read())))
+	self.romPath = path(infn)
+
+	local game = require 'ff6'((assert(self.romPath:read())))
 	self.game = game
 
 
