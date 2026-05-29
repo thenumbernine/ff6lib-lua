@@ -534,7 +534,7 @@ function App:onLoadROM(infn, mapIndex)
 	local MapWindow = require 'ff6.vis.mapwindow'
 	self.mapWindow = MapWindow{
 		app = self,
-		index = mapIndex and assert(tonumber(mapIndex)) or 0,
+		index = tonumber(mapIndex) or 0,
 		show = true,
 		children = table{
 			self.tileWindow,
