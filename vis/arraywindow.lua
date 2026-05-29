@@ -235,6 +235,8 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 	or ctypeobj == game.MenuNameRef4
 	or ctypeobj == game.ItemRef2
 	--or ctypeobj == game.CharacterSave16
+	or ctypeobj == game.ItemRef8
+	or ctypeobj == game.ShopInfo
 	then
 		-- i think imgui has vector inputs... hmmm
 		ig.igText(fieldname)

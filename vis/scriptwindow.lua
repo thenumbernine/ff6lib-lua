@@ -252,6 +252,12 @@ function EventScriptWindow:showIndexUI()
 							ig.igSameLine()
 							app.itemWindow:popupButton(cmd.itemIndex)
 
+						-- shops:
+						elseif game.EventCmds.OpenShopMenu:isa(cmd) then
+							ig.igText'OpenShopMenu'
+							ig.igSameLine()
+							app.shopWindow:popupButton(cmd.shopIndex)
+
 						-- battles:
 						elseif game.Cmds.Battle:isa(cmd) then
 							ig.igText'battle'

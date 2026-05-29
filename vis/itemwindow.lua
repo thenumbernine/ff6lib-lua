@@ -56,6 +56,7 @@ function ItemWindow:showIndexUI()
 
 	-- reverse-references:
 
+
 	if not self.colosseumBetsWithThis then
 		self.colosseumBetsWithThis = table()
 		for i=0,game.countof(game.items)-1 do
@@ -216,6 +217,30 @@ function ItemWindow:showIndexUI()
 		ig.igPopID()
 	end
 
+	if not self.shopsWithThis then
+		self.shopsWithThis = table()
+		for i=0,game.countof(game.shops)-1 do
+			local shop = game.shops[i]
+			for j=0,shop.items.dim-1 do
+				local item = shop.items.s[j]
+				if item.i == self.index then
+					self.shopsWithThis:insert(i)
+				end
+			end
+		end
+	end
+	ig.igSeparator()
+	ig.igText'found in shops...'
+	if #self.shopsWithThis == 0 then
+		ig.igText'...none'
+	else
+		ig.igPushID_Str'itemWindow-shopsWithThis'
+		for _,shopIndex in ipairs(self.shopsWithThis) do
+			app.shopWindow:popupButton(shopIndex)
+		end
+		ig.igPopID()
+	end
+
 	if not self.eventScriptCmdsWithThis then
 		self.eventScriptCmdsWithThis = table()
 		for _,cmd in ipairs(game.eventScriptCmds) do
@@ -252,6 +277,7 @@ function ItemWindow:setIndex(...)
 	self.treasuresWithThis = nil
 	self.charsWithThis = nil
 	self.metamorphsWithThis = nil
+	self.shopsWithThis = nil
 	self.eventScriptCmdsWithThis = nil
 end
 

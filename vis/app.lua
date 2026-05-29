@@ -556,6 +556,9 @@ function App:onLoadROM(infn, mapIndex)
 	local EsperWindow = require 'ff6.vis.esperwindow'
 	self.esperWindow = EsperWindow{app=self}
 
+	local ShopWindow = require 'ff6.vis.shopwindow'
+	self.shopWindow = ShopWindow{app=self}
+
 	local MetamorphWindow = require 'ff6.vis.metamorphwindow'
 	self.metamorphWindow = MetamorphWindow{app=self}
 
@@ -577,6 +580,7 @@ function App:onLoadROM(infn, mapIndex)
 		self.itemWindow,
 		self.spellWindow,
 		self.esperWindow,
+		self.shopWindow,
 		self.metamorphWindow,
 		self.scriptWindow,
 		self.sramWindow,

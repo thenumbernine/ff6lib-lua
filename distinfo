@@ -40,6 +40,7 @@ files = {
 	"vis/monsterwindow.lua",
 	"vis/npcwindow.lua",
 	"vis/scriptwindow.lua",
+	"vis/shopwindow.lua",
 	"vis/spellwindow.lua",
 	"vis/spritewindow.lua",
 	"vis/sramwindow.lua",

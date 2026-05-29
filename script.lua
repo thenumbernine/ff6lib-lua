@@ -891,7 +891,8 @@ return function(game)
 	EventCmds.OpenCharacterNameChangeMenu = EventCmd:subclass{
 		cmd = 0x98,
 		argtypes = {uint8_t},
-		desc = 'characterNameChange(<?=args[1]?>)',
+		argnames = {'characterIndex'},
+		desc = 'characterNameChange(<?=characterIndex?>)',
 	}
 
 	EventCmds.OpenSelectPartyMenu = EventCmd:subclass{
@@ -908,13 +909,15 @@ return function(game)
 	EventCmds.OpenShopMenu = EventCmd:subclass{
 		cmd = 0x9b,
 		argtypes = {uint8_t},
-		desc = 'openShopMenu(<?=args[1]?>)',
+		argnames = {'shopIndex'},
+		desc = 'openShopMenu(<?=shopIndex?>)',
 	}
 
 	EventCmds.OptimizeCharacterEquipment = EventCmd:subclass{
 		cmd = 0x9c,
 		argtypes = {uint8_t},
-		desc = 'characters[<?=args[1]?>]:optimizeEquipment()',
+		argnames = {'characterIndex'},
+		desc = 'characters[<?=characterIndex?>]:optimizeEquipment()',
 	}
 
 	EventCmds.OpenFinalBattleMenu = EventCmd:subclass{
