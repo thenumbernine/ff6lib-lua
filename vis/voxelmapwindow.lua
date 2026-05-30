@@ -10,7 +10,6 @@ local Semaphore = require 'thread.semaphore'
 local vec2i = require 'vec-ffi.vec2i'
 local vec3i = require 'vec-ffi.vec3i'
 local box2i = require 'vec-ffi.box2i'
-local vector = require 'stl.vector-lua'
 local sdl = require 'sdl'
 local ig = require 'imgui'
 local Window = require 'ff6.vis.window'
@@ -528,6 +527,7 @@ function VoxelmapWindow:updateWindow()
 
 					local voxelmap
 					do
+						local vector = require 'stl.vector-lua'
 						local v = vector(Voxel, 3 + size:volume())
 						ffi.cast('vec3i*', v.v)[0] = size
 						for i=3,3+size:volume()-1 do
