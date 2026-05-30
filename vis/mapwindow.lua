@@ -169,11 +169,48 @@ function MapWindow:showIndexUI()
 
 	local map = mapInfo.map
 	if map then
+		local needTileSheetRebuild
 		if ig.igCollapsingHeader'fields' then
 			-- fields:
 			for fieldname, ctype, field in map[0]:fielditer() do
-				self:editField(map[0], fieldname, ctype, field)
+				if fieldname == 'gfx1'
+				or fieldname == 'gfx2'
+				or fieldname == 'gfx3'
+				or fieldname == 'gfx4'
+				then
+					self.__tmp = map[0][fieldname]
+					if ig.luatableInputInt(fieldname, self, '__tmp') then
+						map[0][fieldname] = self.__tmp
+						needTileSheetRebuild = true
+					end
+				else
+					self:editField(map[0], fieldname, ctype, field)
+				end
 			end
+		end
+
+		if needTileSheetRebuild then
+			-- invalidate the cache
+			-- invalidate map['gfx'..i]
+			for i=1,4 do
+				local gfxIndex = map['gfx'..i]
+				game.mapTileGraphicsCache[gfxIndex] = nil
+			end
+			-- invalidate map.gfxLayer3 ... nah not yet
+			-- invalidate map['tileset'..i]
+			for i=1,2 do
+				local tilesetIndex = map['tileset'..i]
+				game.mapTilesetCache[tilesetIndex] = nil
+			end
+			-- invalidate map['layout'..i] ? nah
+			-- invalidate map.tileProps? nah
+			-- invalidate map
+			game.mapInfoCache[self.index] = nil
+
+			-- invalidate the map textures
+			-- rebuild everything
+			--self:refreshTileSheet()	-- TODO only refresh what you need
+			self:setIndex(self.index)
 		end
 	end
 end
@@ -192,7 +229,10 @@ function MapWindow:setIndex(newIndex, pushStack)
 		pushStack = false	-- can't push and pop at the same time
 	end
 
-	if MapWindow.super.setIndex(self, newIndex) == false then return false end
+	-- why was I doing this?
+	--if MapWindow.super.setIndex(self, newIndex) == false then return false end
+	-- oh well, now I'm refreshing the gl texs by setting map to current map so ...
+	MapWindow.super.setIndex(self, newIndex)
 
 	if pushStack then
 		self.mapIndexStack:insert(oldIndex)
@@ -256,7 +296,6 @@ function MapWindow:setIndex(newIndex, pushStack)
 		..'0x'..number.hex(ffi.cast(uint8_t_p, map) - game.rom)
 		..' = '..map[0])
 
-	local gfxstr = mapInfo.gfxIndexes:mapi(tostring):concat'/'
 	for i=1,2 do
 		local tilesetData = tilesetDatas[i]
 		print('map tileset'..i..' data size', tilesetData and #tilesetData)
@@ -379,97 +418,7 @@ function MapWindow:setIndex(newIndex, pushStack)
 		}:unbind()
 	end
 
-	-- [[ also load/show the 16x16 tiles?
-	if app.map16x16tileTexs then
-		for _,texs in ipairs(app.map16x16tileTexs) do
-			for _,tex in ipairs(texs) do
-				tex:delete()
-			end
-		end
-		app.map16x16tileTexs = nil
-	end
-
-
-	if map then
-		app.map16x16tileTexs = table()
-
-		local gfxDatas = mapInfo.gfxIndexes:mapi(function(i)
-			local gfx = game.getMapTileGraphics(i)
-			if not gfx then return end
-			return gfx.data
-		end)
-
-		local worldInfo = game.worldInfos[mapIndex+1]	-- worldInfos is 1-based
-
-		local maxLayers = worldInfo and 1 or 2
-		for layer=1,maxLayers do
-			app.map16x16tileTexs[layer] = table()
-			local tilesetIndex = tonumber(map['tileset'..layer])
-			-- TODO how to specify animation # as well?
-			-- might have to just write these out based on mapindex ... and just skip unique ones?
-
-			local maxFrames = worldInfo and 1 or 4
-
-			for frameIndex=0,maxFrames-1 do
-				do
-					local index = 0 --map.animatedLayers1And2
-					local startOffset = game.mapAnimPropOfs[index]
-					assert.eq(startOffset % ffi.sizeof(game.MapAnimProps), 0)
-					local startIndex = startOffset / ffi.sizeof(game.MapAnimProps)
-					local count = 32
-					local animLayers1And2Props = table()
-					for i=0,count-1 do
-						local p = game.mapAnimProps + startIndex + i
-						animLayers1And2Props:insert(p)
-					end
-
-					gfxDatas[5] = range(0,count-1):mapi(function(i)
-						local p = game.mapAnimProps[startIndex + i]
-						return ffi.string(game.mapAnimGraphics + p.frames.s[frameIndex ], 0x80)
-					end):concat()
-				end
-
-				-- starting to wonder why key is just gfx1/2/3/4 and not /paletteIndex as well....
-				local paletteIndex = tonumber(map.palette)
-
-				local size = vec2d(16, 16)
-				local img = Image(16 * size.x, 16 * size.y, 1, uint8_t):clear()
-				-- what is its format?
-				local tile16x16 = 0
-				for j=0,size.y-1 do
-					local y = bit.lshift(j, 4)
-					for i=0,size.x-1 do
-						local x = bit.lshift(i, 4)
-
-						if worldInfo then
-							game.layer1worlddrawtile16x16(
-								img, x, y,
-								tile16x16,
-								worldInfo.tilesetdata,	--game.tilesetDatas[layer],
-											--game.mapTilesetCache[tilesetIndex].data,
-								worldInfo.gfxdata	--gfxDatas[layer]
-							)
-						else
-							game.layer1and2drawtile16x16(
-								img, x, y,
-								tile16x16,
-								--map.tilesetDatas[layer]
-								game.mapTilesetCache[tilesetIndex].data,
-								nil,
-								gfxDatas,
-								nil -- mapInfo.gfxLayer3 and mapInfo.gfxLayer3.data
-							)
-						end
-
-						tile16x16 = tile16x16 + 1
-					end
-				end
-				img.palette = palette
-				app.map16x16tileTexs[layer]:insert(self:makeTex(img))
-			end
-		end
-	end
---]]
+	self:refreshTileSheet()
 
 	-- start us off centered at the first door we find
 	if mapInfo.doors then
@@ -482,6 +431,106 @@ function MapWindow:setIndex(newIndex, pushStack)
 	self:refreshBattleBgTex()
 
 	self:refreshNPCTexs()
+end
+
+-- load/show the 16x16 tiles
+function MapWindow:refreshTileSheet()
+	local app = self.app
+	local game = app.game
+
+	local mapIndex = self.index
+
+	if app.map16x16tileTexs then
+		for _,texs in ipairs(app.map16x16tileTexs) do
+			for _,tex in ipairs(texs) do
+				tex:delete()
+			end
+		end
+		app.map16x16tileTexs = nil
+	end
+
+	local mapInfo = game.getMap(mapIndex)
+	if not mapInfo then return end
+
+	local map = mapInfo.map
+	if not map then return end
+
+	local palette = mapInfo.palette
+
+	app.map16x16tileTexs = table()
+
+	local gfxDatas = mapInfo.gfxIndexes:mapi(function(i)
+		local gfx = game.getMapTileGraphics(i)
+		if not gfx then return end
+		return gfx.data
+	end)
+
+	local worldInfo = game.worldInfos[mapIndex+1]	-- worldInfos is 1-based
+
+	local maxLayers = worldInfo and 1 or 2
+	for layer=1,maxLayers do
+		app.map16x16tileTexs[layer] = table()
+		local tilesetIndex = tonumber(map['tileset'..layer])
+		-- TODO how to specify animation # as well?
+		-- might have to just write these out based on mapindex ... and just skip unique ones?
+
+		local maxFrames = worldInfo and 1 or 4
+
+		for frameIndex=0,maxFrames-1 do
+			do
+				local index = 0 --map.animatedLayers1And2
+				local startOffset = game.mapAnimPropOfs[index]
+				assert.eq(startOffset % ffi.sizeof(game.MapAnimProps), 0)
+				local startIndex = startOffset / ffi.sizeof(game.MapAnimProps)
+				local count = 32
+				local animLayers1And2Props = table()
+				for i=0,count-1 do
+					local p = game.mapAnimProps + startIndex + i
+					animLayers1And2Props:insert(p)
+				end
+
+				gfxDatas[5] = range(0,count-1):mapi(function(i)
+					local p = game.mapAnimProps[startIndex + i]
+					return ffi.string(game.mapAnimGraphics + p.frames.s[frameIndex ], 0x80)
+				end):concat()
+			end
+
+			local size = vec2d(16, 16)
+			local img = Image(16 * size.x, 16 * size.y, 1, uint8_t):clear()
+			-- what is its format?
+			local tile16x16 = 0
+			for j=0,size.y-1 do
+				local y = bit.lshift(j, 4)
+				for i=0,size.x-1 do
+					local x = bit.lshift(i, 4)
+
+					if worldInfo then
+						game.layer1worlddrawtile16x16(
+							img, x, y,
+							tile16x16,
+							worldInfo.tilesetdata,	--game.tilesetDatas[layer],
+										--game.mapTilesetCache[tilesetIndex].data,
+							worldInfo.gfxdata	--gfxDatas[layer]
+						)
+					else
+						game.layer1and2drawtile16x16(
+							img, x, y,
+							tile16x16,
+							--map.tilesetDatas[layer]
+							game.mapTilesetCache[tilesetIndex].data,
+							nil,
+							gfxDatas,
+							nil -- mapInfo.gfxLayer3 and mapInfo.gfxLayer3.data
+						)
+					end
+
+					tile16x16 = tile16x16 + 1
+				end
+			end
+			img.palette = palette
+			app.map16x16tileTexs[layer]:insert(self:makeTex(img))
+		end
+	end
 end
 
 function MapWindow:refreshNPCTexs()

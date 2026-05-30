@@ -19,6 +19,12 @@ local max = ig.ImVec2()
 local availSize = ig.ImVec2()
 local drawSize = ig.ImVec2()
 function TileSheetWindow:showIndexUI()
+	--[[
+	map16x16tileTexs[i] is a table of texture animations of the tiles represented by map['tileset'..i]
+	it is a 16x16 of 16x16 tiles.
+	the 16x16 tiles in it are made up of 8x8 tiles at addresses in map['gfxs'..i]
+	(each gfxData represents a block of 128 or 256 tiles)
+	--]]
 	local layerTexs = self.app.map16x16tileTexs
 	if not layerTexs then return end
 	local texs = layerTexs[self.layerIndex]

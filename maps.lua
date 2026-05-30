@@ -13,6 +13,13 @@ local makePalette = require 'ff6.graphics'.makePalette
 local readTile = require 'ff6.graphics'.readTile
 local readTileLinear = require 'ff6.graphics'.readTileLinear
 
+
+local uint8_t = ffi.typeof'uint8_t'
+local uint8_t_ar = ffi.typeof'uint8_t[?]'
+local uint8_t_p = ffi.typeof'uint8_t*'
+local uint16_t_p = ffi.typeof'uint16_t*'
+
+
 return function(game)
 	local Game = game.Game
 	local rom = game.rom
@@ -71,11 +78,11 @@ local step = word * layers
 local block = step * stride
 local length = math.ceil(#data / block) * block
 --print('#blocks ', math.ceil(#data / block))
-local src = ffi.new('uint8_t[?]', length)
+local src = uint8_t_ar(length)
 ffi.fill(dest, 0, length)
 ffi.copy(src, data, #data)
 local s = 0
-local dest = ffi.new('uint8_t[?]', length)
+local dest = uint8_t_ar(length)
 ffi.fill(dest, 0, length)
 local d = 0
 while s < length do
@@ -100,11 +107,11 @@ local stride = 256
 local step = word * stride
 local block = step * layers
 local length = math.ceil(#data / block) * block
-local src = ffi.new('uint8_t[?]', length)
+local src = uint8_t_ar(length)
 ffi.fill(src, length)
 ffi.copy(src, data, #data)
 local s = 0
-local dest = ffi.new('uint8_t[?]', length)
+local dest = uint8_t_ar(length)
 ffi.fill(dest, length)
 local d = 0
 while s < length do
@@ -216,12 +223,12 @@ data = ffi.string(dest, #data)
 	}:mapi(function(prefix, i)
 		local gfxdatacompressed = game[prefix..'GfxDataCompressed']
 		local gfxstr = decompress(
-			ffi.cast('uint8_t*', gfxdatacompressed),
+			ffi.cast(uint8_t_p, gfxdatacompressed),
 			ffi.sizeof(gfxdatacompressed)
 		)
 		local layoutcompressed = game[prefix..'LayoutCompressed']
 		local layoutstr = decompress(
-			ffi.cast('uint8_t*', layoutcompressed),
+			ffi.cast(uint8_t_p, layoutcompressed),
 			ffi.sizeof(layoutcompressed)
 		)
 
@@ -237,7 +244,7 @@ data = ffi.string(dest, #data)
 		local palette = palsrc and makePalette(game, palsrc, 4, 16*8)
 
 		local tilesetdata = gfxstr
-		local gfxdata = ffi.cast('uint8_t*', gfxstr) + 0x400
+		local gfxdata = ffi.cast(uint8_t_p, gfxstr) + 0x400
 
 		local tilePropsData = op.safeindex(game, prefix..'TileProps')
 
@@ -247,7 +254,7 @@ data = ffi.string(dest, #data)
 			tilesetdata = tilesetdata,							-- 0-0x400
 			gfxdata = gfxdata,	-- 0x400 - 0x2400
 			layoutstr = layoutstr,
-			layoutdata = ffi.cast('uint8_t*', layoutstr),
+			layoutdata = ffi.cast(uint8_t_p, layoutstr),
 			layoutSize = i == 3
 				and vec2i(128, 128)
 				or vec2i(256, 256),
@@ -337,7 +344,7 @@ data = ffi.string(dest, #data)
 			if not gfxData then return end
 			assert.le(0, ofs)
 			assert.lt(ofs, #gfxData)
-			local tileptr = ffi.cast('uint8_t*', gfxData) + ofs
+			local tileptr = ffi.cast(uint8_t_p, gfxData) + ofs
 			return tileptr, bpp
 		end
 		-- extra notes to remember for later:
@@ -350,7 +357,7 @@ data = ffi.string(dest, #data)
 		if not tilesetData then return end
 		assert.len(tilesetData, 0x800)
 		zLevelFlags = zLevelFlags or 3
-		local tilesetptr = ffi.cast('uint8_t*', tilesetData)
+		local tilesetptr = ffi.cast(uint8_t_p, tilesetData)
 		for yofs=0,1 do
 			for xofs=0,1 do
 				local i = bit.lshift(bit.bor(xofs, bit.lshift(yofs, 1)), 8)
@@ -390,7 +397,7 @@ data = ffi.string(dest, #data)
 --ofs = ofs % #gfxLayer3Data
 --assert.lt(ofs, #gfxLayer3Data)
 		if ofs >= #gfxLayer3Data then return end
-		local tileptr = ffi.cast('uint8_t*', gfxLayer3Data) + ofs
+		local tileptr = ffi.cast(uint8_t_p, gfxLayer3Data) + ofs
 		return tileptr, bpp
 	end
 
@@ -447,7 +454,7 @@ data = ffi.string(dest, #data)
 		if not tilesetData then return end
 		if not gfxData then return end
 		assert.eq(#tilesetData, 0x2480)	-- but we only use the first 0x400
-		local tilesetptr = ffi.cast('uint8_t*', tilesetData)
+		local tilesetptr = ffi.cast(uint8_t_p, tilesetData)
 		assert.eq(tilesetptr + 0x400, gfxData)
 		local highPalData = tilesetptr + 0x2400
 		for yofs=0,1 do
@@ -628,7 +635,7 @@ data = ffi.string(dest, #data)
 						bit.lshift(layer1Size.x, 4),
 						bit.lshift(layer1Size.y, 4),
 						1,
-						'uint8_t'
+						uint8_t
 					):clear()
 					layerImg.blend = blend
 
@@ -646,7 +653,7 @@ data = ffi.string(dest, #data)
 					then
 						posx, posy = self.layerPos[layer]:unpack()
 					end
-					local layoutptr = ffi.cast('uint8_t*', layoutData)
+					local layoutptr = ffi.cast(uint8_t_p, layoutData)
 
 					local gfxLayer3Ofs
 					local gfxLayer3Data
@@ -1036,13 +1043,13 @@ data = ffi.string(dest, #data)
 		)
 
 		local layoutSize = vec2i(32, 32)
-		local img = Image(layoutSize.x * 8, layoutSize.y * 8, 1, 'uint8_t'):clear()
+		local img = Image(layoutSize.x * 8, layoutSize.y * 8, 1, uint8_t):clear()
 		local bpp = 4
 		local tile8size = 8 * bpp
 		for layoutIndex=1,0,-1 do
 			local layoutData = layoutDatas[layoutIndex+1]
 			if layoutData then
-				local layoutPtr = ffi.cast('uint16_t*', layoutData)
+				local layoutPtr = ffi.cast(uint16_t_p, layoutData)
 				for y=0,layoutSize.y-1 do
 					for x=0,layoutSize.x-1 do
 						local tileIndex = layoutPtr[x + layoutSize.x * y]
@@ -1066,7 +1073,7 @@ data = ffi.string(dest, #data)
 							if not gfxDataLen	-- is not compressed
 							or tileOffset < gfxDataLen + tile8size	-- is compressed and in data range
 							then
-								local tilePtr =  ffi.cast('uint8_t*', gfxData) + tileOffset
+								local tilePtr = ffi.cast(uint8_t_p, gfxData) + tileOffset
 								drawTile(
 									img,
 									x * 8,
