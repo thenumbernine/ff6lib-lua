@@ -445,7 +445,10 @@ end)
 	if cmdline[3] then
 		self:onLoadSRAM(cmdline[3], cmdline[4])
 	elseif self.romPath then
-		self:onLoadSRAM((self.romPath:setext'srm'))
+		local sramPath = self.romPath:setext'srm'
+		if sramPath:exists() then
+			self:onLoadSRAM(sramPath)
+		end
 	end
 end
 

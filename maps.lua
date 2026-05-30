@@ -513,28 +513,6 @@ data = ffi.string(dest, #data)
 		-- layerAnimImgs[z][layer][animFrame]
 		local layerAnimImgs = table()
 
-		local zAndLayers = map.layer3Priority == 0
-			and {
-				{0,3},
-				-- priority 0 sprites here
-				--{1,3},	-- does layer 3 have a zlevel?  where is it?
-				-- priority 1 sprites here
-				{0,2},
-				{0,1},
-				-- priority 2 sprites here
-				{1,2},
-				{1,1},
-				-- priority 3 sprites here
-			}
-			or {
-				{0,2},
-				{0,1},
-				{1,2},
-				{1,1},
-				{0,3},
-			}
-
-
 		local animLayers1And2Props
 		local gfxAnimLayers1And2Data	-- goes in gfxDatas[5], [4] of them
 
@@ -569,7 +547,7 @@ data = ffi.string(dest, #data)
 			gfxDatas[5] = gfxAnimLayers1And2Data[1]	-- default at first frame
 		end
 
-		for _,zAndLayer in ipairs(zAndLayers)do
+		for _,zAndLayer in ipairs(self.zAndLayers)do
 			local z, layer = table.unpack(zAndLayer)
 			local blend = nil
 
@@ -820,7 +798,26 @@ data = ffi.string(dest, #data)
 			tilePropsData = tilePropsData,
 		}
 
-
+		mapInfo.zAndLayers = map.layer3Priority == 0
+			and {
+				{0,3},
+				-- priority 0 sprites here
+				--{1,3},	-- does layer 3 have a zlevel?  where is it?
+				-- priority 1 sprites here
+				{0,2},
+				{0,1},
+				-- priority 2 sprites here
+				{1,2},
+				{1,1},
+				-- priority 3 sprites here
+			}
+			or {
+				{0,2},
+				{0,1},
+				{1,2},
+				{1,1},
+				{0,3},
+			}
 
 		mapInfo.treasures = table()
 		do
