@@ -64,7 +64,7 @@ function MapWindow:showIndexUI()
 		ig.igSameLine()
 		ig.luatableTooltipCheckbox('showAnimTexs', app, 'showAnimTexs')
 		-- hmm, i've got dif flags for anim layers and non-anim layers, why?
-		if app.layerAnimTexs then
+		if app.showAnimTexs and app.layerAnimTexs then
 			local zAndLayers = map.layer3Priority == 0
 				and zAndLayersWithoutLayer3Priority
 				or zAndLayersWithLayer3Priority
