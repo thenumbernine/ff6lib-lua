@@ -25,7 +25,6 @@ local romsize = game.romsize
 local countof = game.countof
 
 require 'run-script'(game)
-os.exit()
 
 
 for i=0,countof(game.spells)-1 do

@@ -59,7 +59,7 @@ local function runScript(game)
 
 	-- now collect addrs and find if they are calls or not
 	-- (if they are calls then we will define them as functions)
-	local addrsIsFunc = table.map(labelsForAddr, function(v,k) return true, k end):setmetatable()
+	local addrsIsFunc = table.map(labelsForAddr, function(v,k) return true, k end):setmetatable(nil)
 	local addrsIsGoto = {}
 	for _,cmdobj in ipairs(game.eventScriptCmds) do
 		if game.EventCmds.Call:isa(cmdobj)
