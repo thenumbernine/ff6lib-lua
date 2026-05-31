@@ -602,7 +602,15 @@ function App:onLoadSRAM(fn, index)
 	local game = self.game
 	assert(game, "the menu to load shouldn't be active ... did you only pass the 3rd cli arg or something?")
 	local sramstr = assert(self.sramPath):read()
-	assert.eq(ffi.sizeof(game.SRAM), #sramstr)	-- make sure it fits
+	if #sramstr ~= ffi.sizeof(game.SRAM) then
+		-- make sure it fits
+		-- ... TODO then try again in a second or so?
+		-- or just let the auto-load try again?
+		self.sramLastWriteTime = ffi.new('struct timespec', self.sramPath:attr().modification_ns)
+		self.sramLastWriteTime.tv_sec = self.sramLastWriteTime.tv_sec - 1
+		-- TODO what if the file is just bad? then this will keep trying forever... meh?
+		return
+	end
 	-- hmm do I need the vector version? or just the SRAM version, and union it with a .s[] field?
 	self.sramvec = vector('uint8_t', #sramstr)
 	self.sram = ffi.cast(ffi.typeof('$*', game.SRAM), self.sramvec.v)
