@@ -10,6 +10,7 @@ local writebit = require 'ff6.vis.util'.writebit
 
 -- this goes in game somewhere
 local numLearnSpells = 54
+local numCharsCanLearnSpells = 12
 
 
 local SRAMWindow = ArrayWindow:subclass()
@@ -49,7 +50,7 @@ function SRAMWindow:showIndexUI()
 
 	ig.igSeparator()
 	if ig.igCollapsingHeader'magic progress:' then
-		for charIndex=0,15 do
+		for charIndex=0,numCharsCanLearnSpells-1 do
 			local char = save.characters.s[charIndex]
 
 			local tex = self.charTexs and self.charTexs[1+charIndex]
@@ -210,7 +211,7 @@ function SRAMWindow:showIndexUI()
 		end
 
 		-- 12 x 54 spells saved...
-		if self.characterIndex < 12 then
+		if self.characterIndex < numCharsCanLearnSpells then
 			ig.igSeparator()
 			if ig.igCollapsingHeader'spells learned:' then
 				local charSpellLearns = save.spellsLearned + self.characterIndex * numLearnSpells
