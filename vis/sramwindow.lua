@@ -586,7 +586,7 @@ function SRAMWindow:refreshMonstersEnabled()
 		if self.monstersEnabled[i] then
 			if readbit(save.rageFlags, i) then
 				ragesFound = ragesFound + 1
-			else
+			elseif i < 255 then	-- can't leap pugs...
 				lookFor = i
 			end
 			totalCanFind = totalCanFind + 1

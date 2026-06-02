@@ -118,6 +118,7 @@ return function(game)
 		return op..str
 	end
 
+	-- or should I output 'scriptobjs('..objIndex..')' instead, and let the binding code sort it out?
 	Cmd.objDesc = function(objIndex)
 		if objIndex < 16 then
 			return 'characters['..objIndex..']'
