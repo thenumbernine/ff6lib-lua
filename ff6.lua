@@ -159,12 +159,18 @@ local function compstr(p, size)
 					c:insert']'
 				elseif p[0] == 16 then
 					c:insert'[PAUSE]'
-				--elseif p[0] == 17 then -- read until 18
-				--elseif p[0] == 18 then -- terminates a 17, or begins a message.
+				elseif p[0] == 17 then
+					p=p+1
+					c:insert('[SLEEP '..p[0]..']')
+				elseif p[0] == 18 then
+					c:insert'[KEYPRESS]'
 				elseif p[0] == 19 then	-- clear and new message
 					c:insert'\n[CLEAR]'
 					c:insert'\n'
-				--elseif p[0] == 20 then -- read 1 more char ... horizontal tab?
+				elseif p[0] == 20 then
+					-- read 1 more char ... horizontal tab?
+					p=p+1
+					c:insert((' '):rep(tonumber(p[0])))
 				elseif p[0] == 21 then
 					c:insert'[PROMPT]'
 				--elseif p[0] == 22 then -- read until 18

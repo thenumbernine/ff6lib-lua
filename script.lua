@@ -156,7 +156,7 @@ return function(game)
 	EventCmds.ObjectScript = EventCmd:subclass{
 		argtypes = {uint8_t},
 		getargs = function(self, arg)
-			--self.objectIndex = self.cmd
+			--self.objIndex = self.cmd
 			self.length = bit.band(arg, 0x7f)	-- in bytes, and the last byte is usually always 0xff <->> end-object-script
 			self.blocking = 0 ~= bit.band(arg, 0x80)
 		end,
@@ -176,7 +176,7 @@ return function(game)
 			EventCmd.digest(self, ...)	-- call super
 		end,
 		desc = "objScript{"
-			.."obj=<?=objDesc(cmd)?>"
+			.."objIndex=<?=cmd?>"
 			.."<?= blocking and ', block=true' or ''?>"
 			..", cb=|obj|do"
 		-- then upon end, "end}" and if blocking then "joinAll()" on all previous object-script forks
@@ -188,22 +188,22 @@ return function(game)
 	EventCmds.WaitForObject = EventCmd:subclass{
 		cmd = 0x35,
 		argtypes = {uint8_t},
-		argnames = {'objectIndex'},
-		desc = "waitFor(<?=objDesc(objectIndex)?>)",
+		argnames = {'objIndex'},
+		desc = "objWaitFor(<?=objIndex?>)",
 	}
 
 	EventCmds.EnableObjectPassability = EventCmd:subclass{
 		cmd = 0x36,
 		argtypes = {uint8_t},
-		argnames = {'objectIndex'},
-		desc = "<?=objDesc(objectIndex)?>.solid = true",
+		argnames = {'objIndex'},
+		desc = "<?=objDesc(objIndex)?>.solid = true",
 	}
 
 	EventCmds.ChangeObjectSprite = EventCmd:subclass{
 		cmd = 0x37,
 		argtypes = {uint8_t, uint8_t},
-		argnames = {'objectIndex', 'spriteIndex'},
-		desc = '<?=objDesc(objectIndex)?>.anim = anims[1+<?=spriteIndex?>]',
+		argnames = {'objIndex', 'spriteIndex'},
+		desc = '<?=objDesc(objIndex)?>.anim = anims[1+<?=spriteIndex?>]',
 	}
 
 	EventCmds.LockScreen = EventCmd:subclass{
@@ -236,15 +236,15 @@ return function(game)
 	EventCmds.CreateObject = EventCmd:subclass{
 		cmd = 0x3d,
 		argtypes = {uint8_t},
-		argnames = {'objectIndex'},
-		desc = "createObject(<?=objectIndex?>)",
+		argnames = {'objIndex'},
+		desc = "createObject(<?=objIndex?>)",
 	}
 
 	EventCmds.DeleteObject = EventCmd:subclass{
 		cmd = 0x3e,
 		argtypes = {uint8_t},
-		argnames = {'objectIndex'},
-		desc = "deleteObject(<?=objectIndex?>)",
+		argnames = {'objIndex'},
+		desc = "deleteObject(<?=objIndex?>)",
 	}
 
 	EventCmds.SetCharacterParty = EventCmd:subclass{
@@ -272,37 +272,37 @@ return function(game)
 	EventCmds.ShowObject = EventCmd:subclass{
 		cmd = 0x41,
 		argtypes = {uint8_t},
-		argnames = {'objectIndex'},
-		desc = '<?=objDesc(objectIndex)?>.visible = true',
+		argnames = {'objIndex'},
+		desc = '<?=objDesc(objIndex)?>.visible = true',
 	}
 
 	EventCmds.HideObject = EventCmd:subclass{
 		cmd = 0x42,
 		argtypes = {uint8_t},
-		argnames = {'objectIndex'},
-		desc = '<?=objDesc(objectIndex)?>.visible = false',
+		argnames = {'objIndex'},
+		desc = '<?=objDesc(objIndex)?>.visible = false',
 	}
 
 	EventCmds.ChangeObjectPalette = EventCmd:subclass{
 		cmd = 0x43,
 		argtypes = {uint8_t, uint8_t},
-		argnames = {'objectIndex', 'paletteIndex'},
+		argnames = {'objIndex', 'paletteIndex'},
 		__tostring = function(self)
-			return 'change object #'..self.objectIndex..' palette to #'..self.paletteIndex
+			return 'change object #'..self.objIndex..' palette to #'..self.paletteIndex
 		end,
 	}
 
 	EventCmds.ChangeObjectVehicle = EventCmd:subclass{
 		cmd = 0x44,
 		argtypes = {uint8_t, uint8_t},
-		getargs = function(self, objectIndex, arg)
-			self.objectIndex = objectIndex
+		getargs = function(self, objIndex, arg)
+			self.objIndex = objectIndex
 			-- TODO why to use struct bitfields......
 			self.vehicleIndex = bit.band(3, bit.rshift(arg, 5))
 			self.showRider = 0 ~= bit.band(0x80, arg)
 		end,
 		__tostring = function(self)
-			return "change object #"..self.objectIndex
+			return "change object #"..self.objIndex
 				.." to vehicle #"..self.vehicleIndex
 				..(self.showRider and ", show rider" or "")
 		end,
@@ -686,8 +686,8 @@ return function(game)
 	EventCmds.DisablePassabilityOfObject = EventCmd:subclass{
 		cmd = 0x78,
 		argtypes = {uint8_t},
-		argnames = {'objectIndex'},
-		desc = '<?=objDesc(objectIndex)?>.solid = false',
+		argnames = {'objIndex'},
+		desc = '<?=objDesc(objIndex)?>.solid = false',
 	}
 
 	EventCmds.MovePartyToMap = EventCmd:subclass{
@@ -700,8 +700,8 @@ return function(game)
 	EventCmds.ChangeObjectEvent = EventCmd:subclass{
 		cmd = 0x7a,
 		argtypes = {uint8_t, uint24_t},
-		argnames = {'objectIndex', 'newScriptAddrOfs'},
-		desc = "<?=objDesc(objectIndex)?>.script = <?=getGotoOfsStr(newScriptAddrOfs, '')?>",
+		argnames = {'objIndex', 'newScriptAddrOfs'},
+		desc = "<?=objDesc(objIndex)?>.script = <?=getGotoOfsStr(newScriptAddrOfs, '')?>",
 
 		getBranchAddrs = function(self)
 			return {
@@ -788,25 +788,27 @@ return function(game)
 	}
 
 	-- is there except for 'remove none' meaning 'remove all' ?
-	EventCmds.RemoveCharacterStatus = EventCmd:subclass{
+	-- also, chracterIndex is 0-15 ... or party indexes 49-52 ...
+	--  so really this is an object command and not a character command, right?
+	EventCmds.RemoveObjectStatus = EventCmd:subclass{
 		cmd = 0x88,
 		argtypes = {uint8_t, uint16_t},
-		argnames = {'characterIndex', 'status'},
-		desc = "characters[<?=characterIndex?>].status &= ~0x<?=bit.tohex(status, 4)?>",
+		argnames = {'objIndex', 'status'},
+		desc = "objRemoveStatus(<?=objIndex?>, 0x<?=bit.tohex(status, 4)?>)",
 	}
 
-	EventCmds.SetCharacterStatus = EventCmd:subclass{
+	EventCmds.SetObjectStatus = EventCmd:subclass{
 		cmd = 0x89,
 		argtypes = {uint8_t, uint16_t},
-		argnames = {'characterIndex', 'status'},
-		desc = "characters[<?=characterIndex?>].status |= 0x<?=bit.tohex(status, 4)?>",
+		argnames = {'objIndex', 'status'},
+		desc = "objSetStatus(<?=objIndex?>, 0x<?=bit.tohex(status, 4)?>)",
 	}
 
-	EventCmds.ToggleCharacterStatus = EventCmd:subclass{
+	EventCmds.ToggleObjectStatus = EventCmd:subclass{
 		cmd = 0x8a,
 		argtypes = {uint8_t, uint16_t},
-		argnames = {'characterIndex', 'status'},
-		desc = "characters[<?=characterIndex?>].status ~~= 0x<?=bit.tohex(status, 4)?>",
+		argnames = {'objIndex', 'status'},
+		desc = "objToggleStatus(<?=objIndex?>, 0x<?=bit.tohex(status, 4)?>)",
 	}
 
 	EventCmds.GiveCharacterHP = EventCmd:subclass{
@@ -1067,11 +1069,19 @@ return function(game)
 		desc = 'sleep(<?=frames?>/60)'
 	}
 
+	-- so this, for 12, is 3 seconds
+	-- so this, for 4, is 1 second
+	-- so this is really wait-1/4-second?
+	-- and that makes it really 15 out of 60 frames?
+	-- but don't we already have those commands?
+	-- yeah, in object- world- and vehicle- cmds,
+	-- so this is it in event- cmds as well.
+	-- but really TODO fix alllll these sleep commands
 	EventCmds.SleepSeconds = EventCmd:subclass{
 		cmd = 0xb5,
 		argtypes = {uint8_t},
 		argnames = {'seconds'},
-		desc = 'sleep(<?=seconds?>)'
+		desc = 'sleep(<?=seconds?>/15)'
 	}
 
 	EventCmds.GotoForDialogResult = EventCmd:subclass{
@@ -1484,7 +1494,7 @@ return function(game)
 		10: Up/Left 1×2,
 		11: Up/Left 2×1
 		--]]
-		desc = 'obj:moveDiagonal(<?=cmd?>)',
+		desc = 'obj:moveDiagonal(<?=cmd - 0xa0?>)',
 	}
 	for cmd=0xa0,0xab do
 		ObjectCmds['MoveDiagonal '..cmd] = ObjectCmds.MoveDiagonal:subclass{cmd = cmd}
@@ -1564,7 +1574,7 @@ return function(game)
 		cmd = 0xe0,
 		argtypes = {uint8_t},
 		argnames = {'frames'},
-		desc = 'sleep(<?=frames?> * 4 / 60)',
+		desc = 'sleep(<?=frames?>/15)',
 	}
 
 	for cmd=0xe1,0xe6 do
@@ -1698,7 +1708,7 @@ return function(game)
 
 	-- also in WorldCmds
 	WorldCmds.MoveDiagonal = WorldCmd:subclass{
-		desc = 'obj:moveDiagonal(<?=cmd?>)',
+		desc = 'obj:moveDiagonal(<?=cmd - 0xa0?>)',
 	}
 	for cmd=0xa0,0xab do
 		WorldCmds['MoveDiagonal '..cmd] = WorldCmds.MoveDiagonal:subclass{cmd = cmd}
@@ -1814,7 +1824,7 @@ return function(game)
 		cmd = 0xe0,
 		argtypes = {uint8_t},
 		argnames = {'frames'},
-		desc = 'sleep(<?=frames?> * 4 / 60)',
+		desc = 'sleep(<?=frames?>/15)',
 	}
 
 	WorldCmds.ChangeToShip = WorldCmd:subclass{
@@ -2011,7 +2021,7 @@ return function(game)
 		cmd = 0xe0,
 		argtypes = {uint8_t},
 		argnames = {'frames'},
-		desc = 'sleep(<?=frames?> * 4 / 60)',
+		desc = 'sleep(<?=frames?>/15)',
 	}
 
 	VehicleCmds.Cinematic_EndingAirship = VehicleCmd:subclass{
