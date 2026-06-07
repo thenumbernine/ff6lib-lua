@@ -14,6 +14,7 @@ local ffi = require 'ffi'
 local assert = require 'ext.assert'
 local table = require 'ext.table'
 local number = require 'ext.number'
+local string = require 'ext.string'
 local class = require 'ext.class'
 local tolua = require 'ext.tolua'
 local template = require 'template'
@@ -82,17 +83,10 @@ return function(game)
 			self.args = table{...}
 		end
 	end
+	Cmd.__concat = string.concat
 	function Cmd:__tostring()
-		--[[
-		return self.desc..self.args:mapi(function(x)
-			-- 'cdata' since I used an explicit constructor instead of a cast
-			-- so how about converting to Lua numbers here if possible?
-			return tostring(x)
-		end):concat' '
-		--]]
-		-- [[
+		if self.descstr then return self.descstr end
 		return template(self.desc, self)
-		--]]
 	end
 	-- only for template env
 	Cmd.game = game
@@ -116,20 +110,6 @@ return function(game)
 		--  such that 'call return' is a 'nop'?
 		--  or are all 'call return's erroneous, in that if the pc stack is different between invoking touch/event s and 'call' within the script, then a 'call return' would produce some kind of error?
 		return op..str
-	end
-
-	-- or should I output 'scriptobjs('..objIndex..')' instead, and let the binding code sort it out?
-	Cmd.objDesc = function(objIndex)
-		if objIndex < 16 then
-			return 'characters['..objIndex..']'
-		elseif objIndex < 48 then
-			-- so I guess there's only 38 npcs per map?
-			return 'npcs['..(objIndex - 16)..']'
-		elseif objIndex == 48 then
-			return 'view'
-		else
-			return 'party['..(objIndex - 49)..']'
-		end
 	end
 
 	-- generic cmds when you need a superclass transcending any specific cmdset:
@@ -178,7 +158,7 @@ return function(game)
 		desc = "objScript{"
 			.."objIndex=<?=cmd?>"
 			.."<?= blocking and ', block=true' or ''?>"
-			..", cb=|obj|do"
+			..", cb=|objIndex|do"
 		-- then upon end, "end}" and if blocking then "joinAll()" on all previous object-script forks
 	}
 	for i=0x00,0x34 do
@@ -196,14 +176,14 @@ return function(game)
 		cmd = 0x36,
 		argtypes = {uint8_t},
 		argnames = {'objIndex'},
-		desc = "<?=objDesc(objIndex)?>.solid = true",
+		desc = "objSetSolid(<?=objIndex?>, true)",
 	}
 
 	EventCmds.ChangeObjectSprite = EventCmd:subclass{
 		cmd = 0x37,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'objIndex', 'spriteIndex'},
-		desc = '<?=objDesc(objIndex)?>.anim = anims[1+<?=spriteIndex?>]',
+		desc = 'objSetSprite(<?=objIndex?>, <?=spriteIndex?>)',
 	}
 
 	EventCmds.LockScreen = EventCmd:subclass{
@@ -230,7 +210,7 @@ return function(game)
 	EventCmds.SetPartyCharacters = EventCmd:subclass{
 		cmd = 0x3c,
 		argtypes = {uint8_t, uint8_t, uint8_t, uint8_t},
-		desc = 'setPartyCharacters(<?=args:concat", "?>)',
+		desc = 'partySetChars(<?=args:concat", "?>)',
 	}
 
 	EventCmds.CreateObject = EventCmd:subclass{
@@ -250,37 +230,29 @@ return function(game)
 	EventCmds.SetCharacterParty = EventCmd:subclass{
 		cmd = 0x3f,
 		argtypes = {uint8_t, uint8_t},
-		argnames = {'charIndex', 'partyIndex'},
-		__tostring = function(self)
-			if self.charIndex == 0 then
-				return "remove character #"..self.charIndex.." from party"
-			else
-				return "change character #"..self.charIndex.."'s party to #"..self.partyIndex
-			end
-		end,
+		argnames = {'objIndex', 'partyIndex'},
+		desc = 'charSetParty(<?=objIndex?>, <?=partyIndex?>)',
 	}
 
-	EventCmds.ChangeCharacterProperties = EventCmd:subclass{
+	EventCmds.CharResetStats = EventCmd:subclass{
 		cmd = 0x40,
 		argtypes = {uint8_t, uint8_t},
-		argnames = {'charIndex', 'propIndex'},
-		__tostring = function(self)
-			return "change character #"..self.charIndex.."'s property #"..self.propIndex
-		end,
+		argnames = {'objIndex', 'statsIndex'},
+		desc = 'charResetStats(<?=objIndex?>, <?=statsIndex?>)',
 	}
 
 	EventCmds.ShowObject = EventCmd:subclass{
 		cmd = 0x41,
 		argtypes = {uint8_t},
 		argnames = {'objIndex'},
-		desc = '<?=objDesc(objIndex)?>.visible = true',
+		desc = 'objSetVisible(<?=objIndex?>, true)',
 	}
 
 	EventCmds.HideObject = EventCmd:subclass{
 		cmd = 0x42,
 		argtypes = {uint8_t},
 		argnames = {'objIndex'},
-		desc = '<?=objDesc(objIndex)?>.visible = false',
+		desc = 'objSetVisible(<?=objIndex?>, false)',
 	}
 
 	EventCmds.ChangeObjectPalette = EventCmd:subclass{
@@ -296,7 +268,7 @@ return function(game)
 		cmd = 0x44,
 		argtypes = {uint8_t, uint8_t},
 		getargs = function(self, objIndex, arg)
-			self.objIndex = objectIndex
+			self.objIndex = objIndex
 			-- TODO why to use struct bitfields......
 			self.vehicleIndex = bit.band(3, bit.rshift(arg, 5))
 			self.showRider = 0 ~= bit.band(0x80, arg)
@@ -310,7 +282,7 @@ return function(game)
 
 	EventCmds.UpdateCharacterObjects = EventCmd:subclass{
 		cmd = 0x45,
-		desc = "update character objects",
+		desc = "sortObjects()",
 	}
 
 	EventCmds.SetActiveParty = EventCmd:subclass{
@@ -679,15 +651,15 @@ return function(game)
 	EventCmds.RestoreCharacterToFullHPMP = EventCmd:subclass{
 		cmd = 0x77,
 		argtypes = {uint8_t},
-		argnames = {'charIndex'},
-		desc = 'characters[<?=charIndex?>]:setFullHPMP()',
+		argnames = {'objIndex'},
+		desc = 'objSetFullHPMP(<?=objIndex?>])',
 	}
 
 	EventCmds.DisablePassabilityOfObject = EventCmd:subclass{
 		cmd = 0x78,
 		argtypes = {uint8_t},
 		argnames = {'objIndex'},
-		desc = '<?=objDesc(objIndex)?>.solid = false',
+		desc = 'objSetSolid(<?=objIndex?>, false)',
 	}
 
 	EventCmds.MovePartyToMap = EventCmd:subclass{
@@ -701,7 +673,7 @@ return function(game)
 		cmd = 0x7a,
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'objIndex', 'newScriptAddrOfs'},
-		desc = "<?=objDesc(objIndex)?>.script = <?=getGotoOfsStr(newScriptAddrOfs, '')?>",
+		desc = "objSetScript(<?=objIndex?>, <?=getGotoOfsStr(newScriptAddrOfs, '')?>)",
 
 		getBranchAddrs = function(self)
 			return {
@@ -734,21 +706,21 @@ return function(game)
 		cmd = 0x7e,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'x', 'y'},
-		desc = 'currentParty.pos = {<?=x?>, <?=y?>}',
+		desc = 'curPartySetPos(<?=x?>, <?=y?>)',
 	}
 
 	EventCmds.ChangeCharacterName = EventCmd:subclass{
 		cmd = 0x7f,
 		argtypes = {uint8_t, uint8_t},
-		argnames = {'characterIndex', 'nameIndex'},
-		desc = "characters[<?=characterIndex?>].name = names[<?=nameIndex?>]",
+		argnames = {'objIndex', 'nameIndex'},
+		desc = "objSetName(<?=objIndex?>, <?=nameIndex?>)",
 	}
 
 	EventCmds.GiveItem = EventCmd:subclass{
 		cmd = 0x80,
 		argtypes = {uint8_t},
 		argnames = {'itemIndex'},
-		desc = 'giveItem(<?=("%q"):format(tostring(game.itemNames[itemIndex]))?>)',
+		desc = 'giveItem(<?=itemIndex?>)',
 	}
 
 	EventCmds.TakeItem = EventCmd:subclass{
@@ -814,19 +786,19 @@ return function(game)
 	EventCmds.GiveCharacterHP = EventCmd:subclass{
 		cmd = 0x8b,
 		argtypes = {uint8_t, uint8_t},
-		getargs = function(self, charIndex, signedAmount)
-			self.charIndex = charIndex
-			self.amount = bit.lshift(1, bit.band(0x7f, signedAmount))
+		getargs = function(self, objIndex, signedAmount)
+			self.objIndex = objIndex
+			local log2amount = bit.band(0x7f, signedAmount)
+			self.max = log2amount == 0x7f
+			self.amount = bit.lshift(1, log2amount)
 			self.take = 0 ~= bit.band(0x80, signedAmount)
-		end,
-		__tostring = function(self)
-			return
-				"characters["..self.charIndex.."]."
-				..(self.mp and 'mp' or 'hp')
-				..' '
-				..(self.amount == bit.lshift(1,0x7f) and 'max' or
-					((self.take and '-' or '+')..self.amount)
-				)
+			local hpmp = self.mp and 'MP' or 'HP'
+			self.descstr = 'objInc'..hpmp
+				..'('
+				..self.objIndex..', '
+				..(self.take and '-' or '')
+				..(self.max and 'math.huge' or self.amount)
+				..')'
 		end,
 	}
 
@@ -838,7 +810,8 @@ return function(game)
 	EventCmds.RemoveCharactersEquipment = EventCmd:subclass{
 		cmd = 0x8d,
 		argtypes = {uint8_t},
-		desc = 'characters[<?=args[1]?>]:removeEquipment()',
+		argnames = {'objIndex'},
+		desc = 'objUnequipAll(<?=objIndex?>)',
 	}
 
 	EventCmds.MonsterInABox = EventCmd:subclass{
@@ -919,8 +892,8 @@ return function(game)
 	EventCmds.OptimizeCharacterEquipment = EventCmd:subclass{
 		cmd = 0x9c,
 		argtypes = {uint8_t},
-		argnames = {'characterIndex'},
-		desc = 'characters[<?=characterIndex?>]:optimizeEquipment()',
+		argnames = {'objIndex'},
+		desc = 'objOptEquip(<?=objIndex?>)',
 	}
 
 	EventCmds.OpenFinalBattleMenu = EventCmd:subclass{
@@ -979,17 +952,17 @@ return function(game)
 
 	EventCmds.ShowFloatingIslandCutscene = EventCmd:subclass{
 		cmd = 0xa8,
-		desc = 'cutscene"floating island"',
+		desc = "cutscene'floating island'",
 	}
 
 	EventCmds.ShowTitleScreen = EventCmd:subclass{
 		cmd = 0xa9,
-		desc = 'showTitle()',
+		desc = "cutscene'title'",
 	}
 
 	EventCmds.ShowIntro = EventCmd:subclass{
 		cmd = 0xaa,
-		desc = 'cutscene"intro"',
+		desc = "cutscene'intro'",
 	}
 
 	EventCmds.OpenGameLoadMenu = EventCmd:subclass{
@@ -1004,12 +977,12 @@ return function(game)
 
 	EventCmds.ShowWoRCustscene = EventCmd:subclass{
 		cmd = 0xad,
-		desc = 'cutscene"world of ruin"',
+		desc = "cutscene'world of ruin'",
 	}
 
 	EventCmds.ShowMagitechFactoryCutscene = EventCmd:subclass{
 		cmd = 0xae,
-		desc = 'cutscene"magitech factory"',
+		desc = "cutscene'magitech factory'",
 	}
 
 	EventCmds.BeginRepeat = EventCmd:subclass{
@@ -1143,7 +1116,7 @@ return function(game)
 
 	EventCmds.ShowEndCutscene = EventCmd:subclass{
 		cmd = 0xbb,
-		desc = 'cutscene"end"',
+		desc = "cutscene'end'",
 	}
 
 	EventCmds.EndRepeatSwitch = EventCmd:subclass{
@@ -1202,7 +1175,7 @@ return function(game)
 
 	EventCmds.ShowAirshipEndingCutscene = EventCmd:subclass{
 		cmd = 0xbf,
-		desc = 'cutscene"airship ending"',
+		desc = "cutscene'airship ending'",
 	}
 
 	-- common parent class for EventCmd and WorldCmd
@@ -1257,7 +1230,6 @@ return function(game)
 				self.descstr = 'gameState.mapFlag'..self.flagIndex
 					..' = '..tostring(self.value)
 			end,
-			__tostring = function(self) return self.descstr end,
 		}
 	end
 
@@ -1456,8 +1428,7 @@ return function(game)
 
 	-- also in WorldCmds
 	ObjectCmds.Action = ObjectCmd:subclass{
-		desc = "<?=0 ~= bit.band(0x40, cmd) and 'obj.hflip=true ' or ''?>"
-			.."obj:doAction(<?=bit.band(cmd, 0x3f)?>)",
+		desc = "objAction(objIndex, <?=bit.band(cmd, 0x3f)?>, <?=0 ~= bit.band(0x40, cmd)?>)",
 	}
 	for cmd=0,0x7f do
 		ObjectCmds['Action '..cmd] = ObjectCmds.Action:subclass{
@@ -1469,11 +1440,8 @@ return function(game)
 		digest = function(self, read)
 			self.dir = bit.band(self.cmd, 3)
 			self.dist = bit.band(bit.rshift(self.cmd, 2), 7) + 1
-			self.descstr = 'obj.dir = '..self.dir
-				..' obj:walkForward('..self.dist..')'
+			self.descstr = 'objMove(objIndex, '..self.dir..', '..self.dist..')'
 		end,
-		-- 'desc' is fed thru 'template' so...
-		__tostring = function(self) return self.descstr end,
 	}
 	for cmd=0x80,0x9f do
 		ObjectCmds['Move '..cmd] = ObjectCmds.Move:subclass{cmd=cmd}
@@ -1494,14 +1462,14 @@ return function(game)
 		10: Up/Left 1×2,
 		11: Up/Left 2×1
 		--]]
-		desc = 'obj:moveDiagonal(<?=cmd - 0xa0?>)',
+		desc = 'objMoveDiag(objIndex, <?=cmd - 0xa0?>)',
 	}
 	for cmd=0xa0,0xab do
 		ObjectCmds['MoveDiagonal '..cmd] = ObjectCmds.MoveDiagonal:subclass{cmd = cmd}
 	end
 
 	ObjectCmds.SetSpeed = ObjectCmd:subclass{
-		desc = 'obj:setSpeed(<?=bit.band(cmd, 0xf)?>)',
+		desc = 'objSetSpeed(objIndex, <?=bit.band(cmd, 0xf)?>)',
 	}
 	for cmd=0xc0,0xc5 do
 		ObjectCmds['SetSpeed '..cmd] = ObjectCmds.SetSpeed:subclass{cmd = cmd}
@@ -1509,11 +1477,11 @@ return function(game)
 
 	ObjectCmds.EnableAnimation = ObjectCmd:subclass{
 		cmd = 0xc6,
-		desc = 'obj:enableAnimation()',
+		desc = 'objEnableAnimation(objIndex)',
 	}
 	ObjectCmds.DisableAnimation = ObjectCmd:subclass{
 		cmd = 0xc7,
-		desc = 'obj:disableAnimation()',
+		desc = 'objDisableAnimation(objIndex)',
 	}
 
 	ObjectCmds.ChangeLayerPriority = ObjectCmd:subclass{
@@ -1529,11 +1497,11 @@ return function(game)
 		cmd = 0xc9,
 		argtypes = {uint8_t},
 		argnames = {'vehicleIndex'},
-		desc = 'obj:setVehicle{vehicle=<?=bit.band(0x7f, vehicleIndex)?>, showRider=<?=0 ~= bit.band(0x80, vehicleIndex)?>}',
+		desc = 'objSetVehicle(objIndex, <?=bit.band(0x7f, vehicleIndex)?>, <?=0 ~= bit.band(0x80, vehicleIndex)?>)',
 	}
 
 	ObjectCmds.ChangeDir = ObjectCmd:subclass{
-		desc = 'obj:look(<?=bit.band(cmd, 3)?>)',
+		desc = 'objSetDir(objIndex, <?=bit.band(cmd, 3)?>)',
 	}
 	for cmd=0xcc,0xcf do
 		ObjectCmds['ChangeDir '..cmd] = ObjectCmds.ChangeDir:subclass{cmd = cmd}
@@ -1541,33 +1509,33 @@ return function(game)
 
 	ObjectCmds.ShowObject = ObjectCmd:subclass{
 		cmd = 0xd0,
-		desc = 'obj.visible = true',
+		desc = 'objSetVisible(objIndex, true)',
 	}
 
 	ObjectCmds.HideObject = ObjectCmd:subclass{
 		cmd = 0xd1,
-		desc = 'obj.visible = false',
+		desc = 'objSetVisible(objIndex, false)',
 	}
 
 	ObjectCmds.SetPos = ObjectCmd:subclass{
 		cmd = 0xd5,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'x', 'y'},
-		desc = 'obj:setPos(<?=x?>, <?=y?>)',
+		desc = 'objSetPos(objIndex, <?=x?>, <?=y?>)',
 	}
 
 	ObjectCmds.ScrollToObject = ObjectCmd:subclass{
 		cmd = 0xd7,
-		desc = 'obj:scrollTo()',
+		desc = 'objScrollTo(objIndex)',
 	}
 
 	ObjectCmds.Jump = ObjectCmd:subclass{
 		cmd = 0xdc,
-		desc = 'obj:jump()',
+		desc = 'objJump(objIndex)',
 	}
 	ObjectCmds.JumpHigh = ObjectCmds.Jump:subclass{
 		cmd = 0xdd,
-		desc = 'obj:jumpHigh()',
+		desc = 'objJumpHigh(objIndex)',
 	}
 
 	ObjectCmds.Sleep = ObjectCmd:subclass{
@@ -1636,9 +1604,9 @@ return function(game)
 			-- only for select operations still? or for any operation i.e. move to loop below?
 			local objectScriptCmd = self.trace.stateStack:last().objectScriptCmd
 			if objectScriptCmd
-			and self.addr
-				== objectScriptCmd.addr + objectScriptCmd.length
+			and self.addr == objectScriptCmd.addr + objectScriptCmd.length
 			then
+				self.indent = self.indent - 1
 				popObjectCmdSet(self.trace, self.addr, true)
 			end
 		end,
@@ -1654,6 +1622,7 @@ return function(game)
 	ObjectCmds.EndScript = ObjectCmd:subclass{
 		cmd = 0xff,
 		digest = function(self, ...)
+			self.indent = self.indent - 1
 			popObjectCmdSet(self.trace, self.addr)
 		end,
 		desc = 'end}',	-- and joinAll() if the objectScriptCmd had blocking ...
@@ -1687,9 +1656,9 @@ return function(game)
 	game.WorldCmd = WorldCmd
 
 	-- same as in ObjectCmds
+	-- but what's the object in world commands?  the airship? the party?
 	WorldCmds.Action = WorldCmd:subclass{
-		desc = "<?=0 ~= bit.band(0x40, cmd) and 'obj.hflip=true ' or ''?>"
-			.."obj:doAction(<?=bit.band(cmd, 0x3f)?>)",
+		desc = "objAction(objIndex, <?=bit.band(cmd, 0x3f)?>, <?=0 ~= bit.band(0x40, cmd)?>)",
 	}
 	for cmd=0,0x7f do
 		WorldCmds['Action '..cmd] = WorldCmds.Action:subclass{
@@ -1699,8 +1668,7 @@ return function(game)
 
 	-- also in ObjectCmds
 	WorldCmds.Move = WorldCmd:subclass{
-		desc = 'obj.dir = <?=bit.band(cmd, 3)?> '
-			..'obj:walkForward(<?=bit.band(bit.rshift(cmd, 2), 7)?>)',
+		desc = 'objMove(objIndex, <?=bit.band(cmd, 3)?>, <?=bit.band(bit.rshift(cmd, 2), 7)?>)',
 	}
 	for cmd=0x80,0x9f do
 		WorldCmds['Move '..cmd] = WorldCmds.Move:subclass{cmd=cmd}
@@ -1708,7 +1676,7 @@ return function(game)
 
 	-- also in WorldCmds
 	WorldCmds.MoveDiagonal = WorldCmd:subclass{
-		desc = 'obj:moveDiagonal(<?=cmd - 0xa0?>)',
+		desc = 'objMoveDiag(objIndex, <?=cmd - 0xa0?>)',
 	}
 	for cmd=0xa0,0xab do
 		WorldCmds['MoveDiagonal '..cmd] = WorldCmds.MoveDiagonal:subclass{cmd = cmd}
@@ -1726,7 +1694,7 @@ return function(game)
 
 	-- same as in ObjectCmds
 	WorldCmds.SetSpeed = WorldCmd:subclass{
-		desc = 'obj:setSpeed(<?=bit.band(cmd, 0xf)?>)',
+		desc = 'objSetSpeed(objIndex, <?=bit.band(cmd, 0xf)?>)',
 	}
 	for cmd=0xc0,0xc5 do
 		WorldCmds['SetSpeed '..cmd] = WorldCmds.SetSpeed:subclass{cmd = cmd}
@@ -1757,7 +1725,7 @@ return function(game)
 
 	-- same as in ObjectCmds
 	WorldCmds.ChangeDir = WorldCmd:subclass{
-		desc = 'obj:look(<?=bit.band(cmd, 3)?>)',
+		desc = 'objSetDir(objIndex, <?=bit.band(cmd, 3)?>)',
 	}
 	for cmd=0xcc,0xcf do
 		WorldCmds['ChangeDir '..cmd] = WorldCmds.ChangeDir:subclass{cmd = cmd}
@@ -1766,11 +1734,11 @@ return function(game)
 	-- same as ObjectCmds, but with the current-object being the party sprite ...
 	WorldCmds.ShowObject = WorldCmd:subclass{
 		cmd = 0xd0,
-		desc = 'obj.visible = true',
+		desc = 'objSetVisible(objIndex, true)',
 	}
 	WorldCmds.HideObject = WorldCmd:subclass{
 		cmd = 0xd1,
-		desc = 'obj.visible = false',
+		desc = 'objSetVisible(objIndex, false)',
 	}
 
 	WorldCmds.IfKeyThenGoto = WorldCmd:subclass{
@@ -1965,11 +1933,11 @@ return function(game)
 	-- also WorldCmds 0xd0, 0xd1
 	VehicleCmds.ShowObject = VehicleCmd:subclass{
 		cmd = 0xd0,
-		desc = 'obj.visible = true',
+		desc = 'objSetVisible(objIndex, true)',
 	}
 	VehicleCmds.HideObject = VehicleCmd:subclass{
 		cmd = 0xd1,
-		desc = 'obj.visible = false',
+		desc = 'objSetVisible(objIndex, false)',
 	}
 
 	-- also EventCmds 0x6a, 0x6b and WorldCmds 0xd2, 0xd3
@@ -2263,6 +2231,7 @@ print('!!! script oob !!! '..game.addrLabel(addr))
 			cmdobj.trace = trace
 			cmdobj.addr = cmdaddr
 			cmdobj.cmdset = cmdset
+			cmdobj.indent = trace.indent
 
 			-- hmm instead of just 'read' with 'addr', how about a whole interpretation-state, with 'cmdset' too?
 			cmdobj:digest(read)
@@ -2528,14 +2497,14 @@ print()
 		if a.addr < b.addr
 		and a.endAddr == b.endAddr
 		then
---print('found possible subset', game.addrLabel(a.addr), game.addrLabel(b.addr), game.addrLabel(b.endAddr))
+--DEBUG:print('found possible subset trace '..game.addrLabel(a.addr)..' - '..game.addrLabel(a.endAddr)..' vs range '..game.addrLabel(b.addr)..' - '..game.addrLabel(b.endAddr))
 			-- but first verify
 			-- make sure all the cmds match
 			local allmatch = true
 			for j,bcmd in ipairs(b.cmds) do
 				local acmd = a.cmds[#a.cmds-#b.cmds+j]
 				if acmd.addr ~= bcmd.addr then
---print('...but cmd addr at '..game.addrLabel(acmd.addr)..' vs '..game.addrLabel(bcmd.addr).." didn't match")
+--DEBUG:print('...but cmd addr at '..game.addrLabel(acmd.addr)..' vs '..game.addrLabel(bcmd.addr).." didn't match")
 					allmatch = false
 					break
 				end
@@ -2544,13 +2513,13 @@ print()
 					break
 				end
 				if getmetatable(acmd) ~= getmetatable(bcmd) then
---print('...but cmd metatable at '..game.addrLabel(acmd.addr).." didn't match")
+--DEBUG:print('...but cmd metatable at '..game.addrLabel(acmd.addr).." didn't match")
 					allmatch = false
 					break
 				end
 			end
 			if allmatch then
---print('removing subset trace', b.addr)
+--DEBUG:print('removing subset trace '..game.addrLabel(b.addr)..' - '..game.addrLabel(b.endAddr))
 				decompileTraces[b.addr] = nil
 				sortedTraces:remove(i+1)
 			end

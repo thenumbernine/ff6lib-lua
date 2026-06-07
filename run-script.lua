@@ -157,9 +157,12 @@ local function runScript(game)
 			end
 		end
 
---[[ show addresses and bytes
+-- [[ show addresses and bytes
 		-- print addr
-		io.write(addrLabel(cmdobj.addr), '\t')
+		io.write('-- ',
+			('_%06x'):format(cmdobj.addr),
+			--addrLabel(cmdobj.addr),
+			'\t')
 
 		-- print shorthand cmdset
 		io.write(({
@@ -171,23 +174,18 @@ local function runScript(game)
 
 		-- print out bytes
 		-- TODO for cmds too big, put their data on multiple lines?
-		io.write(align(
-			24,
-			ffi.string(rom + cmdobj.addr, cmdobj.sizeInBytes)
-				:gsub('.', function(b)
-					return ('%02x '):format(b:byte())
-				end)
-		))
---]]
--- [[
-		io.write'\t'
+		io.write(
+			--align(24,
+				ffi.string(rom + cmdobj.addr, cmdobj.sizeInBytes)
+					:gsub('.', function(b)
+						return ('%02x '):format(b:byte())
+					end)
+			--)
+		)
+		print()
 --]]
 
-		local indent = cmdobj.trace.indent
-		if indent > 0 then
-			io.write(('\t'):rep(indent))
-		end
-
+		io.write(('\t'):rep(cmdobj.indent + 1))
 		print(cmdobj)
 
 		lastWasReturn = game.Cmds.Return:isa(cmdobj)
