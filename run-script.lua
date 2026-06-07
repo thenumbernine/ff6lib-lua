@@ -75,6 +75,10 @@ local function runScript(game)
 		--or game.EventCmds.StartTimer:isa(cmdobj)
 		then
 			addrsIsGoto[cmdobj.addr] = true
+
+		-- goto, but I don't have its getBranchAddrs, because that causes problems in disasm tracing atm
+		elseif game.ObjectCmds.Branch:isa(cmdobj) then
+			addrsIsGoto[cmdobj:getDestAddr()] = true
 		end
 	end
 

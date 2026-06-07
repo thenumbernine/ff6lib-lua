@@ -2576,4 +2576,16 @@ print()
 	end
 
 	game.decompileTraces = decompileTraces
+
+	-- also insert Branch reverse-references...
+	for _,cmdobj in ipairs(game.eventScriptCmds) do
+		if game.ObjectCmds.Branch:isa(cmdobj) then
+			local destAddr = cmdobj:getDestAddr()
+			game.eventScriptAddrs[destAddr] = game.eventScriptAddrs[destAddr] or table()
+			game.eventScriptAddrs[destAddr]:insert{
+				branchFromAddr = cmdobj.addr,
+				cmdset = cmdobj.cmdset,
+			}
+		end
+	end
 end
