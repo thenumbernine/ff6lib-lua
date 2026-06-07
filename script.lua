@@ -106,7 +106,7 @@ return function(game)
 			str = game.addrLabel(addr)
 		end
 		if not op then
-			return 'goto ::'..str..'::'
+			return 'goto '..str
 		end
 		-- is it 'goto return' as in we jmp to the instruction and its a rts and so we return?
 		--  and therefore a 'goto return' is the same as just 'return'

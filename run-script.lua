@@ -134,7 +134,7 @@ local function runScript(game)
 			local builtin = labelsForAddr[cmdobj.addr]
 			if builtin then
 				for _,b in ipairs(builtin) do
-					io.write(b, ':\n')
+					io.write('::', b, '::\n')
 				end
 				label = builtin[1]
 			else
@@ -146,7 +146,7 @@ local function runScript(game)
 			if thisInFunc then
 				io.write(label, '=||do\n')
 			else
-				io.write(label, ':\n')
+				io.write('::', label, '::\n')
 			end
 			inFunc = inFunc or thisInFunc
 
@@ -154,8 +154,7 @@ local function runScript(game)
 				if what.builtin then
 					local builtinLabel = fixname(what.builtin)
 					if builtinLabel ~= label then
-						io.write(builtinLabel..':')
-						print()
+						io.write('::', builtinLabel, '::\n')
 					end
 				end
 			end
