@@ -273,11 +273,7 @@ return function(game)
 			self.vehicleIndex = bit.band(3, bit.rshift(arg, 5))
 			self.showRider = 0 ~= bit.band(0x80, arg)
 		end,
-		__tostring = function(self)
-			return "change object #"..self.objIndex
-				.." to vehicle #"..self.vehicleIndex
-				..(self.showRider and ", show rider" or "")
-		end,
+		desc = 'objSetVehicle(<?=objIndex?>, <?=vehicleIndex?>, <?=showRider?>)',
 	}
 
 	EventCmds.UpdateCharacterObjects = EventCmd:subclass{
@@ -829,26 +825,31 @@ return function(game)
 		desc = 'unlockBumRush()',
 	}
 
+-- CHECK
 	EventCmds.Sleep15 = EventCmd:subclass{
 		cmd = 0x91,
 		desc = 'sleep(1/4)',
 	}
 
+-- CHECK
 	EventCmds.Sleep30 = EventCmd:subclass{
 		cmd = 0x92,
 		desc = 'sleep(1/2)',
 	}
 
+-- CHECK
 	EventCmds.Sleep45 = EventCmd:subclass{
 		cmd = 0x93,
 		desc = 'sleep(3/4)',
 	}
 
+-- CHECK
 	EventCmds.Sleep60 = EventCmd:subclass{
 		cmd = 0x94,
 		desc = 'sleep(1)',
 	}
 
+-- CHECK
 	EventCmds.Sleep120 = EventCmd:subclass{
 		cmd = 0x95,
 		desc = 'sleep(2)',
@@ -991,7 +992,7 @@ return function(game)
 		argnames = {'count'},
 		getargs = function(self, ...)
 			EventCmd.getargs(self, ...)
-			self.count = self.count + 1
+			self.count = self.count
 			self.trace.indent = self.trace.indent + 1
 		end,
 		desc = 'for i=1,<?=count?> do',
@@ -1032,6 +1033,7 @@ return function(game)
 		end,
 	}
 
+-- CHECK
 	EventCmds.Sleep = EventCmd:subclass{
 		cmd = 0xb4,
 		argtypes = {uint8_t},
@@ -1042,19 +1044,12 @@ return function(game)
 		desc = 'sleep(<?=frames?>/60)'
 	}
 
-	-- so this, for 12, is 3 seconds
-	-- so this, for 4, is 1 second
-	-- so this is really wait-1/4-second?
-	-- and that makes it really 15 out of 60 frames?
-	-- but don't we already have those commands?
-	-- yeah, in object- world- and vehicle- cmds,
-	-- so this is it in event- cmds as well.
-	-- but really TODO fix alllll these sleep commands
-	EventCmds.SleepSeconds = EventCmd:subclass{
+-- CHECK
+	EventCmds.SleepQuarterSeconds = EventCmd:subclass{
 		cmd = 0xb5,
 		argtypes = {uint8_t},
-		argnames = {'seconds'},
-		desc = 'sleep(<?=seconds?>/15)'
+		argnames = {'quarterSeconds'},
+		desc = 'sleep(<?=quarterSeconds?>/4)'
 	}
 
 	EventCmds.GotoForDialogResult = EventCmd:subclass{
@@ -1538,11 +1533,15 @@ return function(game)
 		desc = 'objJumpHigh(objIndex)',
 	}
 
+	-- from everything8215's ff6/src/event/README.md:
+	-- "event, world, and vehicle script modes operate at 60 fps"
+	-- "object script mode operates at 15 fps"
+-- CHECK
 	ObjectCmds.Sleep = ObjectCmd:subclass{
 		cmd = 0xe0,
 		argtypes = {uint8_t},
-		argnames = {'frames'},
-		desc = 'sleep(<?=frames?>/15)',
+		argnames = {'frames_x4'},
+		desc = 'sleep(<?=frames_x4?>/15)',	-- i.e. x4/60
 	}
 
 	for cmd=0xe1,0xe6 do
@@ -1792,7 +1791,7 @@ return function(game)
 		cmd = 0xe0,
 		argtypes = {uint8_t},
 		argnames = {'frames'},
-		desc = 'sleep(<?=frames?>/15)',
+		desc = 'sleep(<?=frames?>/60)',
 	}
 
 	WorldCmds.ChangeToShip = WorldCmd:subclass{
@@ -1985,11 +1984,11 @@ return function(game)
 	}
 
 	-- also in ObjectCmds and WorldCmds
-	VehicleCmds.Sleep = VehicleCmd:subclass{
+	VehicleCmds.SleepQuarterSeconds = VehicleCmd:subclass{
 		cmd = 0xe0,
 		argtypes = {uint8_t},
 		argnames = {'frames'},
-		desc = 'sleep(<?=frames?>/15)',
+		desc = 'sleep(<?=frames?>/60)',
 	}
 
 	VehicleCmds.Cinematic_EndingAirship = VehicleCmd:subclass{
