@@ -2515,14 +2515,6 @@ print()
 	-- is this a good idea, or should I double-check by storing trace address ranges and make sure none overlap so that i'm not inserting cmds between/ontop one another?
 	game.eventScriptCmds:sort(function(a,b) return a.addr < b.addr end)
 
-	-- and now I have to recalculate eventScriptCmdIndexForAddr
-	game.eventScriptCmdIndexForAddr = {}
-	for i,cmd in ipairs(game.eventScriptCmds) do
-		if cmd.addr then
-			game.eventScriptCmdIndexForAddr[cmd.addr] = i
-		end
-	end
-
 -- [=[ remove subsets
 	local sortedTraces = table.values(decompileTraces)
 	sortedTraces:sort(function(a,b) return a.addr < b.addr end)
@@ -2576,6 +2568,24 @@ print()
 	end
 
 	game.decompileTraces = decompileTraces
+
+	-- calculate eventScriptCmdIndexForAddr
+	-- and remove duplicates
+	game.eventScriptCmdIndexForAddr = {}
+	do
+		local i = 1
+		while i < #game.eventScriptCmds do
+			local cmd = game.eventScriptCmds[i]
+			if game.eventScriptCmdIndexForAddr[cmd.addr] then
+				-- then we have duplicates ....
+				-- TODO assert the cmdset etc all match?
+				game.eventScriptCmds:remove(i)
+			else
+				game.eventScriptCmdIndexForAddr[cmd.addr] = i
+				i = i + 1
+			end
+		end
+	end
 
 	-- also insert Branch reverse-references...
 	for _,cmdobj in ipairs(game.eventScriptCmds) do
