@@ -91,9 +91,13 @@ return function(game)
 	-- only for template env
 	Cmd.game = game
 	Cmd.scriptBaseAddr = scriptBaseAddr
-	-- useful for the template env:
+	-- static, useful for the template env:
 	Cmd.getGotoOfsStr = function(addrOfs, op)
 		local addr = scriptBaseAddr + addrOfs
+		return Cmd.getGotoStr(addr, op)
+	end
+	-- also static
+	Cmd.getGotoStr = function(addr, op)
 		local str
 		if addr == commonReturnAddr then
 			--str = 'return' 	-- "call return" is gonna look weird :shrug:
@@ -199,12 +203,12 @@ return function(game)
 
 	EventCmds.EnableUserControl = EventCmd:subclass{
 		cmd = 0x3a,
-		desc = "userControl = true",
+		desc = "setUserControl(true)",
 	}
 
 	EventCmds.DisableUserControl = EventCmd:subclass{
 		cmd = 0x3b,
-		desc = "userControl = false",
+		desc = "setUserControl(false)",
 	}
 
 	EventCmds.SetPartyCharacters = EventCmd:subclass{
@@ -1155,7 +1159,7 @@ return function(game)
 			end
 		end,
 		__tostring = function(self)
-			return 'callForCharacter{'
+			return 'charSwitch{'
 			..self.options:mapi(function(option)
 				return '{'..option.characterIndex..', '..Cmd.getGotoOfsStr(option.addrOfs)..'}'
 			end):concat', '..'}'
@@ -1217,21 +1221,31 @@ return function(game)
 			argtypes = {uint8_t},
 			getargs = function(self, flagIndex)
 				-- 0 = set, 1 = clear
-				self.value = 0 == bit.band(1, self.cmd)
+				self.flagValue = 0 == bit.band(1, self.cmd)
 				self.flagIndex = bit.bor(
 					bit.lshift(bit.band(self.cmd, 0xe), 7),	-- move bits 1:3 to bits 8:10
 					flagIndex
 				)
-				self.descstr = 'gameState.mapFlag'..self.flagIndex
-					..' = '..tostring(self.value)
+				self.descstr = 'mapFlagSet('
+					..self.flagIndex..', '
+					..tostring(self.flagValue)
+					..')'
 			end,
 		}
 	end
 
+	-- from everything8215's ff6/src/event/README.md ...
+	--0xde = all characters in the current active party.
+	--0xdf = all characters that are currently active objects.
+	--0xe0 = all initialied characters (name, properties, etc)
+	--0xe1 = all characters available in the party select screen (TODO what flags determine this?)
+	--0xe2 = the topmost character in the party (/ leader)
+	--0xe3 = all characters in all parties
+	--0xe4 = "sets a switch for the current active party index" ... so like "TERRA"=0 for party1, "LOCKE"=1 for party2, etc?
 	for cmd=0xde,0xe4 do
-		EventCmds['SetControlFlag'..('0x%02x'):format(cmd)] = EventCmd:subclass{
+		EventCmds['SetCharSwitchFlags'..('0x%02x'):format(cmd)] = EventCmd:subclass{
 			cmd = cmd,
-			desc = 'setControlFlag '..('0x%02x'):format(cmd),
+			desc = 'setCharSwitchFlags('..('0x%02x'):format(cmd)..')',
 		}
 	end
 
@@ -1560,7 +1574,7 @@ return function(game)
 		cmd = 0xf9,
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
-		desc = "<?=getGotoOfsStr(destAddrOfs, ' call')?>",
+		desc = "<?=getGotoOfsStr(destAddrOfs, 'call ')?>",
 
 		getBranchAddrs = function(self)
 			return {
@@ -1573,7 +1587,29 @@ return function(game)
 		--cmd = 0xfa,
 		argtypes = {uint8_t},
 		argnames = {'offset'},
-		desc = "<?=random and 'if math.random() < .5 then ' or ''?>goto PC<?=dir?><?=offset?>",
+		getDestAddr = function(self)
+			return self.dir == '-'
+				and self.addr - self.offset
+				or self.addr + self.offset
+		end,
+		-- TODO you will have to generate a label for this instruction, and for wherever it is going
+		__tostring = function(self)
+			local s = self.getGotoStr(self:getDestAddr())
+			if self.random then
+				s = 'if math.random() < .5 then '..s..' end'
+			end
+			return s
+		end,
+
+		-- idk that i necessarily want a new trace, just a label...
+		-- ... yeah this is currently a bad idea
+		--[[
+		getBranchAddrs = function(self)
+			return {
+				{addr=self:getDestAddr()},
+			}
+		end,
+		--]]
 	}
 	ObjectCmds.BranchBack50 = ObjectCmds.Branch:subclass{
 		cmd = 0xfa,
@@ -1711,15 +1747,16 @@ return function(game)
 	local WorldSetFlag = WorldCmd:subclass{
 		argtypes = {uint16_t},
 		argnames = {'flagIndex'},
-		desc = 'gameState.mapFlag<?=flagIndex?> = <?=value?>',
+		-- why didn't it like "value"?
+		desc = 'mapFlagSet(<?=flagIndex?>, <?=flagValue?>)',
 	}
 	WorldCmds.SetFlag = WorldSetFlag:subclass{
 		cmd = 0xc8,
-		value = true,
+		flagValue = true,
 	}
 	WorldCmds.ClearFlag = WorldSetFlag:subclass{
 		cmd = 0xc9,
-		value = false,
+		flagValue = false,
 	}
 
 	-- same as in ObjectCmds
@@ -1914,15 +1951,16 @@ return function(game)
 	local VehicleSetFlag = VehicleCmd:subclass{
 		argtypes = {uint16_t},
 		argnames = {'flagIndex'},
-		desc = 'gameState.mapFlag<?=flagIndex?> = <?=value?>',
+		-- why didn't it like using 'value' ?
+		desc = 'mapFlagSet(<?=flagIndex?>, <?=flagValue?>)',
 	}
 	VehicleCmds.SetFlag = VehicleSetFlag:subclass{
 		cmd = 0xc8,
-		value = true,
+		flagValue = true,
 	}
 	VehicleCmds.ClearFlag = VehicleSetFlag:subclass{
 		cmd = 0xc9,
-		value = false,
+		flagValue = false,
 	}
 
 	for cmd=0xca,0xcf do
