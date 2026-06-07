@@ -298,7 +298,7 @@ return function(game)
 		argtypes = {uint16_t},
 		getargs = function(self, arg)
 			self.dialogIndex = bit.band(0x3fff, arg)
-			self.showTextOnly = 0 ~= bit.band(0x4000, arg)
+			self.hideBG = 0 ~= bit.band(0x4000, arg)
 			self.bottomOfScreen = 0 ~= bit.band(0x8000, arg)
 
 			local dlg = game.dialog[self.dialogIndex]
@@ -310,7 +310,7 @@ return function(game)
 			local dlg = game.dialog[self.dialogIndex]
 			local str = dlg and tolua(tostring(dlg)) or 'nil'
 			if self.dontWait
-			or self.showTextOnly
+			or self.hideBG
 			or self.bottomOfScreen
 			then
 				return --'show dialog[0x'..number.hex(self.dialogIndex)..']:'
@@ -318,7 +318,7 @@ return function(game)
 					..', {'
 					..table()
 					:append{self.dontWait and 'dontWait=true' or nil}
-					:append{self.showTextOnly and 'showTextOnly=true' or nil}
+					:append{self.hideBG and 'hideBG=true' or nil}
 					:append{self.bottomOfScreen and 'bottomOfScreen=true' or nil}
 					:concat','
 				..'})'
