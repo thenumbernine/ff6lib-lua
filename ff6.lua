@@ -2590,10 +2590,11 @@ Game = struct{
 		{name = 'formation2s', type = arrayType(Formation2, numFormations)},									-- 0x0f5900 - 0x0f6200
 		{name = 'formations', type = arrayType(Formation, numFormations)},										-- 0x0f6200 - 0x0f83c0
 		{name = 'padding_0f83c0', type = arrayType(uint8_t, -(0x0f83c0 - 0x0f8400))},							-- 0x0f83c0 - 0x0f8400 - all 'ff' repeated.  probably 4 last empty formations + padding
+		{name = 'monsterScriptOfs', type = arrayType(uint16_t, numMonsters)},									-- 0x0f8400 - 0x0f8700
 
-		{name = 'unknown_0f8400', type = arrayType(uint8_t, -(0x0f8400 - 0x0f8700))},							-- 0x0f8400 - 0x0f8700
-
+		-- TODO
 		{name = 'monsterScripts', type = arrayType(uint8_t, -(0x0f8700 - 0x0fc050))},							-- 0x0f8700 - 0x0fc050
+
 		{name = 'monsterNames', type = arrayType(MonsterName, numMonsters)},									-- 0x0fc050 - 0x0fcf50
 		{name = 'monsterNameThing', type = arrayType(uint8_t, numMonsters)},									-- 0x0fcf50 - 0x0fd0d0
 		{name = 'monsterAttackNames', type = arrayType(MonsterName, numMonsters)},								-- 0x0fd0d0 - 0x0fdfd0
@@ -2626,7 +2627,8 @@ Game = struct{
 		{name = 'battleDialog2Offsets', type = arrayType(uint16_t, numBattleDialog2s)},							-- 0x10d000 - 0x10d200
 		{name = 'battleDialog2Base', type = arrayType(uint8_t, -(0x10d200 - 0x10fd00))},						-- 0x10d200 - 0x10fd00
 
-		{name = 'unknown_10fd00', type = arrayType(uint8_t, -(0x10fd00 - 0x110141))},							-- 0x10fd00 - 0x110141
+		{name = 'battleAI', type = arrayType(uint8_t, -(0x10fd00 - 0x10ff40))},									-- 0x10fd00 - 0x10ff40
+		{name = 'unknown_10ff40', type = arrayType(uint8_t, -(0x10ff40 - 0x110141))},							-- 0x10ff40 - 0x110141
 
 		{name = 'battleAnimFrame16x16Tiles', type = arrayType(BattleAnim16x16Tile, 0x74cb)},					-- 0x110141 - 0x11ead7 ... 2 bytes each ... pointers from battleAnimFrame16x16TileOffsets offset by 0x110000 but point into here
 		{name = 'padding_11ead7', type = uint8_t},																-- 0x11ead7 - 0x11ead8 -- 'ff'

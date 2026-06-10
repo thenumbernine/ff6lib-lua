@@ -124,6 +124,7 @@ for i=0,game.numMonsters-1 do
 	print(game.monsterItems[i])
 	print('sketches = '..game.monsterSketches[i])
 	if i < countof(game.monsterRages) then print('rages = '..game.monsterRages[i]) end
+	print('script = '..('0x%04x0'):format(game.monsterScriptOfs[i]))
 	print()
 end
 

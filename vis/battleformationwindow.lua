@@ -79,6 +79,7 @@ function BattleFormationWindow:showIndexUI()
 			ig.igPushID_Str('BattleFormationWindow')
 			ig.igPushID_Int(i)
 			ig.igText(' #'..i)
+			ig.igSameLine()
 
 			local info = formation:getMonsterInfo(i)
 			if ig.luatableCheckbox('active', info, 'active') then
