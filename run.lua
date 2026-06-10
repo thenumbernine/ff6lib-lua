@@ -97,6 +97,7 @@ for i=0,game.numRareItems-1 do
 	print()
 end
 
+--[[
 for i=0,game.numCharacterPalettes-1 do
 	print('characterPalettes[0x'..i:hex()..'] = '..game.characterPalettes[i])
 end
@@ -114,6 +115,7 @@ do
 	print('# unique: '..#table.keys(unique))
 	print()
 end
+--]]
 
 for i=0,game.numMonsters-1 do
 	print('monster #'..i)
@@ -124,7 +126,15 @@ for i=0,game.numMonsters-1 do
 	print(game.monsterItems[i])
 	print('sketches = '..game.monsterSketches[i])
 	if i < countof(game.monsterRages) then print('rages = '..game.monsterRages[i]) end
-	print('script = '..('0x%04x0'):format(game.monsterScriptOfs[i]))
+
+	local scriptOfs = game.monsterScriptOfs[i]
+	local scriptNextOfs = range(0,game.numMonsters)
+		:mapi(function(j) return game.monsterScriptOfs[j] end)
+		:filteri(function(ofs) return ofs > scriptOfs end)
+		[1] or ffi.sizeof(game.monsterScripts)
+
+	print('script = '..('0x%04x'):format(scriptOfs)..' - '..('0x%04x'):format(scriptNextOfs))
+--	print('\t'..ffi.string(game.monsterScripts + scriptOfs, scriptNextOfs - scriptOfs):hex():gsub('..', ' %0'))
 	print()
 end
 
