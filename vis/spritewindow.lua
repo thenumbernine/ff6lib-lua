@@ -4,7 +4,7 @@ I already have routines for loading monster sprites.
 this is for the sprite animation on the maps.
 --]]
 local ig = require 'imgui'
-local ArrayWindow = require 'vis.arraywindow'
+local ArrayWindow = require 'ff6.vis.arraywindow'
 
 local SpriteWindow = ArrayWindow:subclass()
 
