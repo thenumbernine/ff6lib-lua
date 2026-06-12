@@ -415,13 +415,11 @@ print()
 print'event battle options'
 for i=0,0xff do
 	local ev = game.monsterEventBattles[i]
-	local desc0 = tolua(game.formations[ev.s[0].formation]:getMonsters())
-	local desc1 = tolua(game.formations[ev.s[1].formation]:getMonsters())
-	if desc0 == desc1 then
-		print(i, desc0)
-	else
-		print(i, desc0, desc1)
-	end
+	print('\t['..i..'] = {'
+		..ev.s[0].formation..', '
+		..ev.s[1].formation
+		-- also ev[0] and ev[1] have 'chooseFromNextFour' but what is that?
+		..'},')
 end
 
 -- first 64 are each 32x32 tile segment in the WoB, next 64 are segments in the WoR
