@@ -412,6 +412,18 @@ for i=0,0xff do
 end
 print()
 
+print'event battle options'
+for i=0,0xff do
+	local ev = game.monsterEventBattles[i]
+	local desc0 = tolua(game.formations[ev.s[0].formation]:getMonsters())
+	local desc1 = tolua(game.formations[ev.s[1].formation]:getMonsters())
+	if desc0 == desc1 then
+		print(i, desc0)
+	else
+		print(i, desc0, desc1)
+	end
+end
+
 -- first 64 are each 32x32 tile segment in the WoB, next 64 are segments in the WoR
 for i=0,0x7f do
 	print('map sector encounter #0x'..i:hex()

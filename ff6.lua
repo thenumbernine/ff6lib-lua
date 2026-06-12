@@ -865,6 +865,17 @@ local Formation = ff6struct{
 			end):concat', '
 		end
 
+		-- get a table of all active monsters' indexes
+		mt.getMonsters = function(self)
+			local m = table()
+			for i=1,6 do
+				if self:getMonsterActive(i) then
+					m:insert(self:getMonsterIndex(i))
+				end
+			end
+			return m
+		end
+
 --[=[
 		mt.fieldToString = function(self, key, ctype)
 			if key:match'^monster%dhi$' then return nil end
