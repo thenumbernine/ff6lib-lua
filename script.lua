@@ -1084,7 +1084,7 @@ return function(game)
 		cmd = 0xb7,
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'flagIndex', 'destAddrOfs'},
-		desc = 'if gameState.battleFlag<?=flagIndex?> then <?=getGotoOfsStr(destAddrOfs)?> end',
+		desc = 'if battleFlagGet(<?=flagIndex?>) then <?=getGotoOfsStr(destAddrOfs)?> end',
 
 		getBranchAddrs = function(self)
 			return {
@@ -1096,7 +1096,7 @@ return function(game)
 	local EventSetBattleFlag = EventCmd:subclass{
 		argtypes = {uint8_t},
 		argnames = {'flagIndex'},
-		desc = 'gameState.battleFlag<?=flagIndex?> = <?=value?>',
+		desc = 'battleFlagSet(<?=flagIndex?>, <?=value?>)',
 	}
 	EventCmds.SetBattleFlag = EventSetBattleFlag:subclass{
 		cmd = 0xb8,
@@ -1161,7 +1161,7 @@ return function(game)
 		__tostring = function(self)
 			return 'charSwitch{'
 			..self.options:mapi(function(option)
-				return '{'..option.characterIndex..', '..Cmd.getGotoOfsStr(option.addrOfs)..'}'
+				return '{'..option.characterIndex..', '..game.addrLabel(scriptAddr + option.addrOfs)..'}'
 			end):concat', '..'}'
 		end,
 
