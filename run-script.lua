@@ -160,7 +160,7 @@ local function runScript(game)
 			end
 		end
 
---[[ show addresses and bytes
+-- [[ show addresses and bytes
 		-- print addr
 		io.write('-- ',
 			('_%06x'):format(cmdobj.addr),
