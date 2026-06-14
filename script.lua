@@ -1141,7 +1141,7 @@ return function(game)
 	-- this is based on active char?
 	-- or whether you have the char in your party?
 	-- or based on opcode 0xe1?
-	EventCmds.JumpBasedOnNPCFlag = EventCmd:subclass{
+	EventCmds.CallSwitchNPCFlags = EventCmd:subclass{
 		cmd = 0xbe,
 		digest = function(self, read)
 			-- what's in the upper nibble here?
@@ -1179,7 +1179,6 @@ return function(game)
 
 	-- common parent class for EventCmd and WorldCmd
 	local Cond = Cmd:subclass{
-		flagName = 'mapFlag',
 		digest = function(self, read)
 			local count = 1 + bit.band(self.cmd, 7)
 			self._and = 0 ~= bit.band(self.cmd, 8)
@@ -1197,7 +1196,7 @@ return function(game)
 			self.condCode = self.conds:mapi(function(cond)
 					return (not cond.value and 'not ' or '')
 						-- which flag? npc flag? map flag? treasure flag? etc flag?
-						..'gameState.'..self.flagName..cond.flagIndex
+						..'mapFlagGet('..cond.flagIndex..')'
 				end):concat(self._and and ' and ' or ' or ')
 		end,
 		desc = 'if <?=condCode?> then <?=getGotoOfsStr(destAddrOfs)?> end',
@@ -1565,7 +1564,7 @@ return function(game)
 			argnames = {'flagIndex'},
 			-- not making sense of the json. what's the cmd for?
 			-- I think similar to EventCmds 0xd0-0xdd ?
-			desc = 'gameState.eventFlag<?=flagIndex?> ~~= true',
+			desc = 'eventFlagToggle(<?=flagIndex?>)',
 		}
 	end
 
@@ -2341,9 +2340,9 @@ print('!!! script oob !!! '..game.addrLabel(addr))
 				[0x0b67f7] = 'WorldCmds',	-- branch ... everything8215's event_main.asm says first set to World ... then after endScript set to Events ... does endScript always set cmdset to Events?
 				[0x0c3383] = 'EventCmds',	-- branch
 				-- sometimes just a goto, or a conditional-goto will change things?
-				[0x0af4c7] = 'EventCmds',	-- $0af4c7	WO b0 76 01 b4 5e 00       if not gameState.mapFlag374 then goto $0a5eb4 end
-				[0x0af4dd] = 'EventCmds',	-- $0af4dd	WO b0 76 01 b4 5e 00       if not gameState.mapFlag374 then goto $0a5eb4 end
-				[0x0a8ca8] = 'EventCmds',	-- $0a8ca8	VE b0 27 01 e3 8b 00       if not gameState.mapFlag295 then goto $0a8be3 end
+				[0x0af4c7] = 'EventCmds',	-- $0af4c7	WO b0 76 01 b4 5e 00       if not mapFlagGet(374) then goto $0a5eb4 end
+				[0x0af4dd] = 'EventCmds',	-- $0af4dd	WO b0 76 01 b4 5e 00       if not mapFlagGet(374) then goto $0a5eb4 end
+				[0x0a8ca8] = 'EventCmds',	-- $0a8ca8	VE b0 27 01 e3 8b 00       if not mapFlagGet(295) then goto $0a8be3 end
 			})[cmdaddr]
 			if newCmdSet then
 				for i=2,#trace.stateStack do trace.stateStack[i] = nil end	-- clear VehicleCmds too
@@ -2462,7 +2461,7 @@ print()
 		[0x0a5ea9] = "PostBattle",
 		[0x0a5eb3] = "Return",
 		[0x0a5eb4] = "ReturnWorld",
-		[0x0aca64] = "CheckFacingDirection",
+		[0x0aca64] = "SetCharFlagForDir",
 		[0x0acd31] = "InnNoCream",
 		[0x0acd3c] = "InnNormal",
 		[0x0acd5b] = "InnDream1",

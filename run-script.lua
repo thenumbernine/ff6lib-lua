@@ -60,6 +60,8 @@ local function runScript(game, showAddrs)
 		end
 	end
 
+	local scriptBaseAddr = ffi.offsetof(game.Game, 'eventScript')	-- 0xa0000
+
 	-- now collect addrs and find if they are calls or not
 	-- (if they are calls then we will define them as functions)
 	local addrsIsFunc = table.map(labelsForAddr, function(v,k) return true, k end):setmetatable(nil)
@@ -68,20 +70,25 @@ local function runScript(game, showAddrs)
 		if game.EventCmds.Call:isa(cmdobj)
 		or game.EventCmds.CallRepeat:isa(cmdobj)
 		then
-			addrsIsFunc[cmdobj.addr] = true
+			addrsIsFunc[scriptBaseAddr + cmdobj.destAddrOfs] = true
 		elseif game.EventCmds.JumpBasedOnBattleFlag:isa(cmdobj)
 		or game.EventCmds.Jump5050:isa(cmdobj)
-		or game.EventCmds.JumpBasedOnNPCFlag:isa(cmdobj)
 		or game.Cmds.Cond:isa(cmdobj)
 		or game.WorldCmds.IfKeyThenGoto:isa(cmdobj)
 		or game.WorldCmds.IfFacingThenGoto:isa(cmdobj)
 		--or game.EventCmds.StartTimer:isa(cmdobj)
 		then
-			addrsIsGoto[cmdobj.addr] = true
+			-- wait ...
+			--addrsIsGoto[cmdobj.addr] = true
+		elseif game.EventCmds.CallSwitchNPCFlags:isa(cmdobj) then
+			for _,option in ipairs(cmdobj.options) do
+				addrsIsFunc[scriptBaseAddr + option.addrOfs] = true
+			end
 
 		-- goto, but I don't have its getBranchAddrs, because that causes problems in disasm tracing atm
 		elseif game.ObjectCmds.Branch:isa(cmdobj) then
-			addrsIsGoto[cmdobj:getDestAddr()] = true
+			-- wait ...
+			--addrsIsGoto[cmdobj:getDestAddr()] = true
 		end
 	end
 

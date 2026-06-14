@@ -337,7 +337,7 @@ function EventScriptWindow:showIndexUI()
 							ig.igText('objs['..cmd.objectIndex..'].script =')
 							ig.igSameLine()
 							self:popupButtonForAddr(scriptBaseAddr + cmd.newScriptAddrOfs)
-						elseif game.EventCmds.JumpBasedOnNPCFlag:isa(cmd) then
+						elseif game.EventCmds.CallSwitchNPCFlags:isa(cmd) then
 							ig.igText'gotoForCharacter'
 							for _,option in ipairs(cmd.options) do
 								ig.igSameLine()
