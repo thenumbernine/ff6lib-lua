@@ -123,17 +123,21 @@ local function runScript(game, showAddrs)
 	game.addrLabel = addrLabel
 
 
-	local lastWasReturn
+	--[[
+	TODO while iterating
+	if we get a Cond cmd
+	... and it points ahead of us
+	... and it points before any 'return' or branch or branch-target
+	... and absolutely nobody else points to it or anything between blocks
+	... then replace it all with an if-block
+	--]]
+
 	local inFunc
 	print'BEGIN EVENT SCRIPT'
 	for _,cmdobj in ipairs(game.eventScriptCmds) do
 		local whatPointsToScriptAdAddr = game.eventScriptAddrs[cmdobj.addr]
 		if whatPointsToScriptAdAddr then
-			-- TODO only if the last command printed was a 'return'
-			if inFunc and lastWasReturn then
-				print'end'
-				inFunc = false	-- ... or not?
-			end
+
 			-- if we're in-function and the last wasn't return then don't define a new func -- only a label
 			-- and if we still got a call here then we have a problem
 
@@ -202,12 +206,17 @@ local function runScript(game, showAddrs)
 			print()
 	end
 --]]
-
-		io.write(('\t'):rep(cmdobj.indent + 1))
-		print(cmdobj)
-
-		lastWasReturn = game.Cmds.Return:isa(cmdobj)
+		local lastWasReturn = game.Cmds.Return:isa(cmdobj)
 			or game.Cmds.EndScript:isa(cmdobj)
+
+		-- only print 'end' if the last command printed was a 'return'
+		if inFunc and lastWasReturn then
+			print'end -- return'
+			inFunc = false	-- ... or not?
+		else
+			io.write(('\t'):rep(cmdobj.indent + 1))
+			print(cmdobj)
+		end
 	end
 	print()
 	print'END EVENT SCRIPT'

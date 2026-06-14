@@ -2462,6 +2462,7 @@ print()
 		[0x0a5eb3] = "Return",
 		[0x0a5eb4] = "ReturnWorld",
 		[0x0aca64] = "SetCharFlagForDir",
+		[0x0aca8d] = "MoveToFaceUpAtNPC",
 		[0x0acd31] = "InnNoCream",
 		[0x0acd3c] = "InnNormal",
 		[0x0acd5b] = "InnDream1",
