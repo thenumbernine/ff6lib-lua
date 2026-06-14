@@ -11,7 +11,7 @@ local function align(n, s)
 	return s..(' '):rep(n - #s)
 end
 
-local function runScript(game)
+local function runScript(game, showAddrs)
 	local rom = game.rom
 
 	local function fixname(s)
@@ -167,31 +167,33 @@ local function runScript(game)
 		end
 
 -- [[ show addresses and bytes
-		-- print addr
-		io.write('-- ',
-			('_%06x'):format(cmdobj.addr),
-			--addrLabel(cmdobj.addr),
-			'\t')
+		if showAddrs then
+			-- print addr
+			io.write('-- ',
+				('_%06x'):format(cmdobj.addr),
+				--addrLabel(cmdobj.addr),
+				'\t')
 
-		-- print shorthand cmdset
-		io.write(({
-			EventCmds = 'EV',
-			WorldCmds = 'WO',
-			ObjectCmds = 'OB',
-			VehicleCmds = 'VE',
-		})[cmdobj.cmdset])
+			-- print shorthand cmdset
+			io.write(({
+				EventCmds = 'EV',
+				WorldCmds = 'WO',
+				ObjectCmds = 'OB',
+				VehicleCmds = 'VE',
+			})[cmdobj.cmdset])
 
-		-- print out bytes
-		-- TODO for cmds too big, put their data on multiple lines?
-		io.write((
-			--align(24,
-				ffi.string(rom + cmdobj.addr, cmdobj.sizeInBytes)
-					:gsub('.', function(b)
-						return (' %02x'):format(b:byte())
-					end)
-			--)
-		))
-		print()
+			-- print out bytes
+			-- TODO for cmds too big, put their data on multiple lines?
+			io.write((
+				--align(24,
+					ffi.string(rom + cmdobj.addr, cmdobj.sizeInBytes)
+						:gsub('.', function(b)
+							return (' %02x'):format(b:byte())
+						end)
+				--)
+			))
+			print()
+	end
 --]]
 
 		io.write(('\t'):rep(cmdobj.indent + 1))
@@ -230,7 +232,8 @@ if select('#', ...) > 0 then	-- luajit #... == 0 <-> this file was require'd
 	local game = require 'ff6'((
 		assert(path((...)):read())
 	))
-	runScript(game)
+	local showAddrs = not not select(2, ...)
+	runScript(game, showAddrs)
 end
 
 return runScript
