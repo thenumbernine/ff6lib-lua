@@ -550,9 +550,9 @@ return function(game)
 			--  if so, then does setting vehicle to nonzero in ObjectCmds.ChangeVehicle or EventCmds.ChangeObjectVehicle also do this?
 			--  also is it for event cmds, world cmds, or vehicle cmds? (ironic for vehicle cmds, you already need to be in this state...)
 			self.vehicle = bit.band(3, flags)
-			self.flag2 = 0 ~= bit.band(4, flag)	-- TODO one of these is async
-			self.flag3 = 0 ~= bit.band(8, flag)
-			self.flag4 = 0 ~= bit.band(16, flag)
+			self.flag2 = 0 ~= bit.band(4, flags)	-- TODO one of these is async
+			self.flag3 = 0 ~= bit.band(8, flags)
+			self.flag4 = 0 ~= bit.band(16, flags)
 			self.noSizeUpdate = self.mapIndex >= 3 and 0 ~= bit.band(0x20, flags)
 			self.noFadeIn = self.mapIndex >= 3 and 0 ~= bit.band(0x40, flags)
 			self.useStartEvent = self.mapIndex >= 3 and 0 ~= bit.band(0x80, flags)
