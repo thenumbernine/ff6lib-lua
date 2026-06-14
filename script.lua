@@ -536,19 +536,26 @@ return function(game)
 		getargs = function(self, arg, x, y, flags)
 			self.x = x
 			self.y = y
-			self.flags = flags
+
+			-- hmm why is the map index off by 1? and not always too?
+			-- off by 1 in the event entering Mt Kolts.
+			-- not off by 1 in the event when entering the figaro caves from the figaro castle basement.
+			self.mapIndex = bit.band(arg, 0x1ff)
+			self.setParentMap = 0 ~= bit.band(arg, 0x200)
+			self.zUpper = self.mapIndex >= 3 and 0 ~= bit.band(0x400, arg)
+			self.showTitle = self.mapIndex >= 3 and 0 ~= bit.band(0x800, arg)
+			self.dir = bit.band(3, bit.rshift(arg, 12))
 
 			-- does setting vehicle imply switching to vehicle opcodes?
 			--  if so, then does setting vehicle to nonzero in ObjectCmds.ChangeVehicle or EventCmds.ChangeObjectVehicle also do this?
 			--  also is it for event cmds, world cmds, or vehicle cmds? (ironic for vehicle cmds, you already need to be in this state...)
 			self.vehicle = bit.band(3, flags)
-
-			self.arg = arg
-			-- hmm why is the map index off by 1? and not always too?
-			-- off by 1 in the event entering Mt Kolts.
-			-- not off by 1 in the event when entering the figaro caves from the figaro castle basement.
-			self.mapIndex = bit.band(arg, 0x1ff)
-
+			self.flag2 = 0 ~= bit.band(4, flag)	-- TODO one of these is async
+			self.flag3 = 0 ~= bit.band(8, flag)
+			self.flag4 = 0 ~= bit.band(16, flag)
+			self.noSizeUpdate = self.mapIndex >= 3 and 0 ~= bit.band(0x20, flags)
+			self.noFadeIn = self.mapIndex >= 3 and 0 ~= bit.band(0x40, flags)
+			self.useStartEvent = self.mapIndex >= 3 and 0 ~= bit.band(0x80, flags)
 
 			-- another 'gotcha' ...
 			-- looks like if we set-map to maps 0-2 then we should also change our (underlying, non-vehicle) cmdset to world?
@@ -595,15 +602,18 @@ return function(game)
 		__tostring = function(self)
 			return "setMap{"
 				.."mapIndex="..self.mapIndex
-				..(0 ~= bit.band(0x0200, self.arg) and ", setParentMap=true" or "")
-				..(self.mapIndex >= 3 and 0 ~= bit.band(0x0400, self.arg) and ", zLevel=1" or "")
-				..(self.mapIndex >= 3 and 0 ~= bit.band(0x0800, self.arg) and ", showMapTitle=true" or '')
-				..(", dir="..bit.band(3, bit.rshift(self.arg, 12)))
+				..(self.setParentMap and ", setParentMap=true" or "")
+				..(self.zUpper and ", zUpper=true" or "")
+				..(self.showTitle and ", showTitle=true" or '')
+				..(", dir="..self.dir)
 				..(", pos={"..('0x%02x'):format(self.x)..", "..('0x%02x'):format(self.y).."}")
-				..(", vehicle="..self.vehicle)
-				..(self.mapIndex >= 3 and 0 ~= bit.band(0x20, self.flags) and ", noSizeUpdate=true" or '')
-				..(self.mapIndex >= 3 and 0 ~= bit.band(0x40, self.flags) and ", manualFadeIn=true" or '')
-				..(self.mapIndex >= 3 and 0 ~= bit.band(0x80, self.flags) and ", enableEapEvent=true" or '')
+				..(self.vehicle > 0 and ", vehicle="..self.vehicle or '')
+				..(self.flag2 and ', flag2=true' or '')
+				..(self.flag3 and ', flag3=true' or '')
+				..(self.flag4 and ', flag4=true' or '')
+				..(self.noSizeUpdate and ", noSizeUpdate=true" or '')
+				..(self.noFadeIn and ", noFadeIn=true" or '')
+				..(self.useStartEvent and ", useStartEvent=true" or '')
 			..'}'
 		end,
 	}
