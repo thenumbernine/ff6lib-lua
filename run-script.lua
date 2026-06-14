@@ -19,6 +19,9 @@ local function runScript(game)
 			..s:sub(2):gsub('[^%a%d]', '_'))
 	end
 
+	-- TODO at some point convert the traces into functions
+	-- and then convert the gotos within functions into if's or while's
+
 	local labelsForAddr = {}
 	local function addLabel(addr, name)
 		labelsForAddr[addr] = labelsForAddr[addr] or table()
@@ -133,7 +136,8 @@ local function runScript(game)
 			local label
 			local builtin = labelsForAddr[cmdobj.addr]
 			if builtin then
-				for _,b in ipairs(builtin) do
+				for i=2,#builtin do
+					local b = builtin[i]
 					io.write('::', b, '::\n')
 				end
 				label = builtin[1]
@@ -150,6 +154,7 @@ local function runScript(game)
 			end
 			inFunc = inFunc or thisInFunc
 
+			--[[
 			for _,what in ipairs(whatPointsToScriptAdAddr) do
 				if what.builtin then
 					local builtinLabel = fixname(what.builtin)
@@ -158,6 +163,7 @@ local function runScript(game)
 					end
 				end
 			end
+			--]]
 		end
 
 -- [[ show addresses and bytes

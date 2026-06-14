@@ -1161,7 +1161,7 @@ return function(game)
 		__tostring = function(self)
 			return 'charSwitch{'
 			..self.options:mapi(function(option)
-				return '{'..option.characterIndex..', '..game.addrLabel(scriptAddr + option.addrOfs)..'}'
+				return '{'..option.characterIndex..', '..game.addrLabel(scriptBaseAddr + option.addrOfs)..'}'
 			end):concat', '..'}'
 		end,
 
