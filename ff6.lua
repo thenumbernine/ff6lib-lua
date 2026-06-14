@@ -102,10 +102,8 @@ local convertCompressedChar = {
 "Q","R","S","T","U","V","W","X","Y","Z","a","b","c","d","e","f",
 "g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v",
 "w","x","y","z","0","1","2","3","4","5","6","7","8","9","!","?",
-"/",":",'"',"'","-",".",',',"...",";","#","+","(",")","%","~","*",
-"[0]","[1]","=",'"',"[up arrow]","[right arrow]","[down left arrow]","[x]", "[dirk]", "[sword]","[lance]","[knife]","[rod]","[brush]","[stars]","[special]",
-"[gambler]","[claw]","[shield]","[helmet]","[armor]","[tool]","[skean]","[relic]","[white]","[grey]","[black]","[2]","[3]","[4]","[5]","[6]",
-"[swd 0]","[swd 1]","[swd 2]","[swd 3]","[swd 4]","[swd 5]","[swd 6]","[swd 7]","[swd 8]","{","}","[7]","[8]","[9]","[10]","[11]",
+"/",":",'”',"'","-",".",',',"…",";","#","+","(",")","%","~","*",
+"@","♬","=",'“',"[116]","[117]","[HOLY]","×", "[LIGHTNING]", "[WIND]","[EARTH]","[ICE]","[FIRE]","[WATER]","[POISON]","[127]",
 }
 
 local convertCompressedDoubleChar = {
@@ -134,60 +132,68 @@ local function compstr(p, size)
 	local c = table()
 	local b = 0
 	for a=0,size-1 do
-		if p[0] < 0x80 then
-			if p[0] == 0x7f then
-				c:insert' '
-			elseif p[0] < 32 then
---[[
-				if p[0] == 22 and p[1] == 24 and p[2] == 18 then -- pause
-					if compstr_displayChars then
-						c:insert'[p]\n'
-					else
-						c:insert'\n'
-					end
-					p = p + 2
-				else
---]]
-				if p[0] == 0 then			 -- end of message
-					c:insert'[END]'
-				elseif p[0] == 1 then	-- line feed mid-message
-					c:insert'\n'
-				elseif p[0] < 16 then	-- 2-15 = char name
-					c:insert'['
---					c:insert(('%02d-'):format(p[0]))
-					c:insert(tostring(gameC.characterNames[p[0]-2]))
-					c:insert']'
-				elseif p[0] == 16 then
-					c:insert'[PAUSE]'
-				elseif p[0] == 17 then
-					p=p+1
-					c:insert('[SLEEP '..p[0]..']')
-				elseif p[0] == 18 then
-					c:insert'[KEYPRESS]'
-				elseif p[0] == 19 then	-- clear and new message
-					c:insert'\n[CLEAR]'
-					c:insert'\n'
-				elseif p[0] == 20 then
-					-- read 1 more char ... horizontal tab?
-					p=p+1
-					c:insert((' '):rep(tonumber(p[0])))
-				elseif p[0] == 21 then
-					c:insert'[PROMPT]'
-				--elseif p[0] == 22 then -- read until 18
-				--23, 24, 29: only used between 17 and 18, specifically in opera scene dialog
-				--25, 26, 27, 28, 30, 31: never used
-				else
-					if compstr_displayChars then
-						c:insert(('[%02d]'):format(p[0]))
-					else
-						c:insert'\n'
-					end
-				end
-			else
-				c:insert(convertCompressedChar[p[0]-32+1])
-			end
-		else
+		if p[0] >= 0x80 then
 			c:insert(convertCompressedDoubleChar[p[0] - 0x80 + 1])
+		elseif p[0] == 0x7f then
+			c:insert' '
+		elseif p[0] >= 32 then
+			-- only 96 are accessible ...
+			-- and I get the feeling the last row does not match...
+			c:insert(convertCompressedChar[p[0]-32+1])
+		else
+--[[
+			if p[0] == 22 and p[1] == 24 and p[2] == 18 then -- pause
+				if compstr_displayChars then
+					c:insert'[p]\n'
+				else
+					c:insert'\n'
+				end
+				p = p + 2
+			else
+--]]
+			if p[0] == 0 then			 -- end of message
+				c:insert'[END]'
+			elseif p[0] == 1 then	-- line feed mid-message
+				c:insert'\n'
+			elseif p[0] < 16 then	-- 2-15 = char name
+				c:insert'['
+--					c:insert(('%02d-'):format(p[0]))
+				c:insert(tostring(gameC.characterNames[p[0]-2]))
+				c:insert']'
+			elseif p[0] == 16 then
+				c:insert'[PAUSE]'	-- how long / until what?
+			elseif p[0] == 17 then
+				p=p+1
+				c:insert('[SLEEP '..p[0]..']')	-- what units?
+			elseif p[0] == 18 then
+				c:insert'[KEYPRESS]'
+			elseif p[0] == 19 then	-- clear and new message
+				c:insert'\n[CLEAR]'
+				c:insert'\n'
+			elseif p[0] == 20 then
+				-- read 1 more char ... horizontal tab?
+				p=p+1
+				c:insert((' '):rep(tonumber(p[0])))
+			elseif p[0] == 21 then
+				c:insert'[PROMPT]'
+			elseif p[0] == 22 then
+				p=p+1
+				c:insert('[KEYPRESS '..p[0]..']')
+			elseif p[0] == 25 then
+				c:insert'[GP]'	-- register goes somewhere I bet ...
+			elseif p[0] == 26 then
+				c:insert'[ITEM]'
+			elseif p[0] == 27 then
+				c:insert'[SPELL]'
+			--23, 24, 29: only used between 17 and 18, specifically in opera scene dialog
+			--25, 26, 27, 28, 30, 31: never used
+			else
+				if compstr_displayChars then
+					c:insert(('[%02d]'):format(p[0]))
+				else
+					c:insert'\n'
+				end
+			end
 		end
 		p = p + 1
 	end

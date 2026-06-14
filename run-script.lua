@@ -175,22 +175,22 @@ local function runScript(game)
 
 		-- print shorthand cmdset
 		io.write(({
-			EventCmds = 'EV ',
-			WorldCmds = 'WO ',
-			ObjectCmds = 'OB ',
-			VehicleCmds = 'VE ',
+			EventCmds = 'EV',
+			WorldCmds = 'WO',
+			ObjectCmds = 'OB',
+			VehicleCmds = 'VE',
 		})[cmdobj.cmdset])
 
 		-- print out bytes
 		-- TODO for cmds too big, put their data on multiple lines?
-		io.write(
+		io.write((
 			--align(24,
 				ffi.string(rom + cmdobj.addr, cmdobj.sizeInBytes)
 					:gsub('.', function(b)
-						return ('%02x '):format(b:byte())
+						return (' %02x'):format(b:byte())
 					end)
 			--)
-		)
+		))
 		print()
 --]]
 
