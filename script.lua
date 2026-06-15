@@ -2471,8 +2471,11 @@ print()
 		[0x0a5ea9] = "PostBattle",
 		[0x0a5eb3] = "Return",
 		[0x0a5eb4] = "ReturnWorld",
+		[0x0ac6ac] = "SetPartyForCharFlag",
+		[0x0ac766] = "UpdateAndShowParty",
 		[0x0aca64] = "SetCharFlagForDir",
 		[0x0aca8d] = "MoveToFaceUpAtNPC",
+		[0x0acb95] = "PartyHideAllExceptLeaderAndGiveUserControl",
 		[0x0acd31] = "InnNoCream",
 		[0x0acd3c] = "InnNormal",
 		[0x0acd5b] = "InnDream1",
@@ -2481,9 +2484,13 @@ print()
 		[0x0acefe] = "InnDream4",
 		[0x0acf67] = "InnFadeOut",
 		[0x0acf96] = "InnFadeIn",
+		[0x0b2e2b] = "PartySetSolid",
+		[0x0b2e34] = "PartySetNotSolid",
 		[0x0b69ff] = "NotEnoughGP",
+		[0x0c36a6] = "MagiciteGhost",
 		[0x0c985b] = "Prologue",
 		[0x0c9aeb] = "SavePoint",
+		[0x0ce499] = "RestoreParty",
 		[0x0ce566] = "GameOver",
 	} do
 		decompileFrom{
@@ -2588,7 +2595,9 @@ print()
 			local cmd = game.eventScriptCmds[i]
 			if game.eventScriptCmdIndexForAddr[cmd.addr] then
 				-- then we have duplicates ....
-				-- TODO assert the cmdset etc all match?
+				local ocmd = game.eventScriptCmds[i]
+				-- assert the cmdset all match
+				assert.eq(getmetatable(cmd), getmetatable(ocmd))
 				game.eventScriptCmds:remove(i)
 			else
 				game.eventScriptCmdIndexForAddr[cmd.addr] = i
