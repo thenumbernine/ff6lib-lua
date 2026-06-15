@@ -27,7 +27,7 @@ function EventScriptWindow:init(args, ...)
 	-- and an empty divider
 	for i=#game.eventScriptCmds,1,-1 do
 		local cmd = game.eventScriptCmds[i]
-		local whatPointsToScriptAdAddr = game.eventScriptAddrs[cmd.addr]
+		local whatPointsToScriptAdAddr = game.whatsPointingToAddr[cmd.addr]
 		if whatPointsToScriptAdAddr then
 			game.eventScriptCmds:insert(i, {what=whatPointsToScriptAdAddr})
 			game.eventScriptCmds:insert(i, scriptDivider)

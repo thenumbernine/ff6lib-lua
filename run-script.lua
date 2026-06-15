@@ -1,6 +1,7 @@
 #!/usr/bin/env luajit
 -- this can be run standalone, but it is also included from run.lua to do the script portion
 local ffi = require 'ffi'
+local class = require 'ext.class'
 local path = require 'ext.path'
 local table = require 'ext.table'
 local assert = require 'ext.assert'
@@ -31,7 +32,7 @@ local function runScript(game, showAddrs)
 
 	-- keep track of labels from builtin calls
 	for _,cmdobj in ipairs(game.eventScriptCmds) do
-		local whatPointsToScriptAdAddr = game.eventScriptAddrs[cmdobj.addr]
+		local whatPointsToScriptAdAddr = game.whatsPointingToAddr[cmdobj.addr]
 		if whatPointsToScriptAdAddr then
 			for _,what in ipairs(whatPointsToScriptAdAddr) do
 				if what.builtin then
@@ -68,7 +69,7 @@ local function runScript(game, showAddrs)
 	local addrsIsFunc = table.map(labelsForAddr, function(v,k) return true, k end):setmetatable(nil)
 
 	-- map from dest-address to source instructions that goto here
-	-- similar to "eventScriptAddrs" ? I gotta combine all these like structures...
+	-- similar to "whatsPointingToAddr" ? I gotta combine all these like structures...
 	local addrsIsGoto = {}
 
 	for _,cmdobj in ipairs(game.eventScriptCmds) do
@@ -168,8 +169,6 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 
 	--]]
 
--- [=[
-
 	local function tab(indent)
 		return ('\t'):rep(indent)
 	end
@@ -177,10 +176,8 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	-- return comment with address, bytes, and disasm code
 	local function Cmd_getAsmLine(self)
 		-- print addr
-		return '-- '
-			..('_%06x'):format(self.addr)
-			--addrLabel(self.addr),
-			..'\t'
+		return
+			('-- _%06x\t'):format(self.addr)
 
 			-- print shorthand cmdset
 			..({
@@ -229,9 +226,51 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 			)
 	end
 
+	local function Cmd_toCodeLine(self)
+		local ls = table()
+		ls:insert((self:getAsmLine()))
+		-- TODO here insert labels if this is the target of a GOTO...
+		ls:insert(self:toCode())
+		return ls:concat'\n'
+	end
+
+
+	local Lambda = class()
+	Lambda.toCodeLine = Cmd_toCodeLine
+	function Lambda:getAsmLine()
+		return ('-- _%06x\tlambda'):format(self.addr)
+	end
+	function Lambda:toCode()
+		-- same as ObjectScript:toCode, print stmts block:
+		local s = table()
+		local indent = tab(self.indent+1)
+		s:insert(indent..'local '..self.label..'=|objIndex|do')
+		if self.stmts then
+			for _,stmt in ipairs(self.stmts) do
+				s:insert(stmt:toCodeLine())	-- toCodeLine means also insert asm if asked to
+			end
+		end
+		s:insert(indent..'end')
+		return s:concat'\n'
+	end
+
+
+	local CallAndReturn = class()
+	function CallAndReturn:init(args)
+		self.indent = assert.index(args, 'indent')
+		self.func = assert.index(args, 'func')
+	end
+	CallAndReturn.toCodeLine = Cmd_toCodeLine
+	function CallAndReturn:getAsmLine() end
+	function CallAndReturn:toCode()
+		return tab(self.indent+1)..'return '..self.func.label..'(objIndex)'
+	end
+
+
 	-- EventCmds.ObjScript now has nested stmts
 	local function EventCmds_ObjectScript_toCode(self)
 		local s = table{Cmd_toCode(self)}
+		-- TODO if we have just one call-and-return then just insert that as our callback instead of a lambda of our stmts...
 		if self.stmts then
 			for _,stmt in ipairs(self.stmts) do
 				s:insert(stmt:toCodeLine())	-- toCodeLine means also insert asm if asked to
@@ -240,6 +279,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		s:insert(tab(self.indent+1)..'end}')
 		return s:concat'\n'
 	end
+
 
 	for i=0,0xff do
 		local function check(cl)
@@ -253,10 +293,8 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 				cl.toCode = Cmd_toCode
 			end
 
-			cl.toCodeLine = function(self)
-				return Cmd_getAsmLine(self)..'\n'
-					..self:toCode()
-			end
+			cl.toCodeLine = Cmd_toCodeLine
+			cl.getAsmLine = Cmd_getAsmLine
 		end
 		check(game.EventCmds[i])
 		check(game.ObjectCmds[i])
@@ -271,8 +309,6 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		i = 1
 		while i <= #game.eventScriptCmds do
 			local cmdobj = game.eventScriptCmds[i]
-
-			-- [==[
 			if game.EventCmds.ObjectScript:isa(cmdobj) then
 				-- then trace until ObjectCmds.EndScript
 				-- and insert into cmdobj.stmts
@@ -283,6 +319,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 					if not game.ObjectCmd:isa(nextcmd) then
 						error(("mid-obj-script found non-ObjectCmd 0x%02x addr 0x%06x"):format(nextcmd.cmd, nextcmd.addr))
 					end
+					nextcmd.parent = cmdobj
 					cmdobj.stmts:insert(nextcmd)
 					if game.ObjectCmds.EndScript:isa(nextcmd) then break end
 
@@ -297,6 +334,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 						-- sometimes there's one last objscript 'return'
 						if game.ObjectCmds.EndScript:isa(game.eventScriptCmds[i+1]) then
 							local lastcmd = game.eventScriptCmds:remove(i+1)
+							lastcmd.parent = cmdobj
 							cmdobj.stmts:insert(lastcmd)
 						end
 						-- now the next stmt should no longer be an obj cmd
@@ -304,34 +342,106 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 					end
 				end
 			end
-			--]==]
-			--[==[ see if all obj-cmds branch-back always is either by FF, or has a obj-return next, or has a non-objcmd next
-			-- i.e. all are terminating
-			if game.ObjectCmds.BranchBack:isa(cmdobj) then
-				if game.ObjectCmds.EndScript:isa(game.eventScriptCmds[i+1]) then
-					-- return and end obj script
-					if game.ObjectCmd:isa(game.eventScriptCmds[i+2]) then
-						error(("obj-script found branch-back then 'return' that doesnt terminate obj-script block addr 0x%06x"):format(cmdobj.addr))
-					end
-					-- good
-				elseif not game.ObjectCmd:isa(game.eventScriptCmds[i+1]) then
-					-- obj-script block inf-loop
-					-- good
-				else
-					error(("obj-script found branch-back that doesnt terminate obj-script block addr 0x%06x"):format(cmdobj.addr))
-				end
-			end
-			--]==]
-
 			i = i + 1
 		end
 	end
---]=]
 
+	-- OK now sometimes objScript branches will jump outside the objScript
+	-- in those cases, you have to extract the target block contents into a preceding lambda,
+	-- so that the both blocks can use it
+	-- I think I can use game.whatsPointingToAddr[destAddr]'s to determine when to do this
+	do
+		local j=1
+		while j<=#game.eventScriptCmds do
+			local o = game.eventScriptCmds[j]
+			if game.EventCmds.ObjectScript:isa(o) then
+				for i,target in ipairs(o.stmts) do
+					local foundInterObjScriptJump
+					if game.whatsPointingToAddr[target.addr] then
+						for _,src in ipairs(game.whatsPointingToAddr[target.addr]) do
+							local branch = src.branchSrc
+							if branch
+							then
+assert.eq(branch:getDestAddr(), target.addr)
+								if branch.parent ~= target.parent then
+	-- happens 118 times
+	--print(('!!! found inter-obj-script-block jump from _%06x to _%06x'):format(branch.addr, target.addr))
+	print(('obj jump from _%06x to _%06x'):format(branch.addr, target.addr))
+									foundInterObjScriptJump = true
+									break
+								end
+							end
+						end
+					end
+					if foundInterObjScriptJump then
+						--[=[ see where it goes...
+						-- if another block jumps into this block *here*
+						-- see if it is always (a) the first stmt in the obj-script block
+						-- or (b) a goto
+						if i == 1 then
+							-- first stmt, we can extract all stmts as a lambda
+						elseif game.ObjectCmds.BranchBack:isa(target)
+						or game.ObjectCmds.BranchFwd:isa(target)
+						then
+							-- branch, goto, just use the dest addr
+						else
+							-- hmm ok this does happen sometimes
+							-- so sometimes I'll have to extract midway of an objscript lambda...
+	-- happens 15 times
+	--print"... and it doesn't point to either the 1st stmt or another branch..."
+						end
+						--]=]
+						-- [=[
+						-- extract into preceding lambda starting at this stmt.
+						-- TODO
+						local lambda = Lambda()
+						lambda.indent = o.indent
+						lambda.stmts = o.stmts:sub(i)
+assert.eq(lambda.stmts[1], target)
+assert.eq(lambda.stmts[1].addr, target.addr)
+						lambda.addr = lambda.stmts[1].addr
+						lambda.label = ('_%06x'):format(lambda.addr)
+						o.stmts = o.stmts:sub(1, i-1)
+						o.stmts:insert(CallAndReturn{
+							indent = o.indent+1,
+							func = lambda,
+						})
+						-- o.parent.stmts is gloabl-scope...
+						game.eventScriptCmds:insert(j, lambda)
+						j=j+1
+						--]=]
+
+						-- what happens if we have more than one target into an obj-script?
+						-- how to extract the lambdas..
+						break
+					end
+				end
+			end
+			j=j+1
+		end
+	end
+
+--[=[
+	-- ok now that we've consolidated obj-scripts,
+	-- now replace any BranchBack's with while-loops
+	-- (this means recalc goto's ... did we need them yet? move the calc to after)
+	for _,o in ipairs(game.eventScriptCmds) do
+		if game.EventCmds.ObjectScript:isa(o) then
+			for i,branch in ipairs(o.stmts) do
+				if game.ObjectCmds.BranchBack:isa(branch) then
+					local _, target = o.stmts:find(nil, function(o2)
+						return o2.addr == branch:getDestAddr()
+					end)
+					assert(target, ("BranchBack with no target at 0x%06x"):format(branch:getDestAddr()))
+				end
+			end
+		end
+	end
+--]=]
 	local inFunc
 	print'BEGIN EVENT SCRIPT'
 	for _,cmdobj in ipairs(game.eventScriptCmds) do
-		local whatPointsToScriptAdAddr = game.eventScriptAddrs[cmdobj.addr]
+		local whatPointsToScriptAdAddr = game.whatsPointingToAddr[cmdobj.addr]
 		if whatPointsToScriptAdAddr then
 
 			-- if we're in-function and the last wasn't return then don't define a new func -- only a label
