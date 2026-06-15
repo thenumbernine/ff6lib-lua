@@ -171,11 +171,13 @@ return function(game)
 
 			EventCmd.digest(self, ...)	-- call super
 		end,
-		desc = "objScript{"
-			.."objIndex=<?=cmd?>"
-			.."<?= blocking and ', block=true' or ''?>"
-			..", cb=|objIndex|do"
-		-- then upon end, "obj-return" and if blocking then "joinAll()" on all previous object-script forks
+		__tostring = function(self)
+			return "objScript{"
+				.."objIndex="..self.cmd
+				..(self.blocking and ', block=true' or '')
+				..", cb=|objIndex|do"
+			-- then upon end, "obj-return" and if blocking then "joinAll()" on all previous object-script forks
+		end,
 	}
 	for i=0x00,0x34 do
 		EventCmds['ObjectScript '..i] = EventCmds.ObjectScript:subclass{cmd=i}

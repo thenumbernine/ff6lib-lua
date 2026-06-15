@@ -4,6 +4,7 @@ local ffi = require 'ffi'
 local class = require 'ext.class'
 local path = require 'ext.path'
 local table = require 'ext.table'
+local string = require 'ext.string'
 local assert = require 'ext.assert'
 local tolua = require 'ext.tolua'
 
@@ -174,10 +175,12 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	end
 
 	-- return comment with address, bytes, and disasm code
+	-- TODO how about a few columsn on the left instead of every-other-line ?
+	-- and if the byte dump is too big then give this a few newlines
 	local function Cmd_getAsmLine(self)
 		-- print addr
 		return
-			('-- _%06x\t'):format(self.addr)
+			('%06x\t'):format(self.addr)
 
 			-- print shorthand cmdset
 			..({
@@ -227,18 +230,23 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	end
 
 	local function Cmd_toCodeLine(self)
+		--[[ every other line
 		local ls = table()
 		ls:insert((self:getAsmLine()))
 		-- TODO here insert labels if this is the target of a GOTO...
 		ls:insert(self:toCode())
 		return ls:concat'\n'
+		--]]
+		-- [[ lhs and rhs
+		return align(24, self:getAsmLine() or '')..self:toCode()
+		--]]
 	end
 
 
 	local Lambda = class()
 	Lambda.toCodeLine = Cmd_toCodeLine
 	function Lambda:getAsmLine()
-		return ('-- _%06x\tlambda'):format(self.addr)
+		return ('%06x\tlambda'):format(self.addr)
 	end
 	function Lambda:toCode()
 		-- same as ObjectScript:toCode, print stmts block:
@@ -250,7 +258,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 				s:insert(stmt:toCodeLine())	-- toCodeLine means also insert asm if asked to
 			end
 		end
-		s:insert(indent..'end')
+		s:insert((' '):rep(24)..indent..'end')
 		return s:concat'\n'
 	end
 
@@ -259,9 +267,14 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	function CallAndReturn:init(args)
 		self.indent = assert.index(args, 'indent')
 		self.func = assert.index(args, 'func')
+		self.addr = args.addr	-- optional since the lambda calls dont have an addr
 	end
 	CallAndReturn.toCodeLine = Cmd_toCodeLine
-	function CallAndReturn:getAsmLine() end
+	function CallAndReturn:getAsmLine()
+		if self.addr then
+			return ('%06x'):format(self.addr)
+		end
+	end
 	function CallAndReturn:toCode()
 		return tab(self.indent+1)..'return '..self.func.label..'(objIndex)'
 	end
@@ -269,6 +282,17 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 
 	-- EventCmds.ObjScript now has nested stmts
 	local function EventCmds_ObjectScript_toCode(self)
+		local indent = tab(self.indent+1)
+		-- if it's just one call to a lambda then don't make our own lambda
+		if #self.stmts == 1
+		and CallAndReturn:isa(self.stmts[1])
+		then
+			return indent..'objScript{objIndex='..self.cmd
+				..(self.blocking and ', block=true' or '')
+				..', cb='..self.stmts[1].func.label
+				..'}'
+		end
+
 		local s = table{Cmd_toCode(self)}
 		-- TODO if we have just one call-and-return then just insert that as our callback instead of a lambda of our stmts...
 		if self.stmts then
@@ -276,7 +300,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 				s:insert(stmt:toCodeLine())	-- toCodeLine means also insert asm if asked to
 			end
 		end
-		s:insert(tab(self.indent+1)..'end}')
+		s:insert((' '):rep(24)..indent..'end}')
 		return s:concat'\n'
 	end
 
@@ -303,7 +327,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	end
 
 
-	-- in fact, first-first-first thing, collect objScript blocks.
+	-- first thing, collect objScript blocks.
 	-- notice this will break the other reverse-refs. meh.
 	do
 		i = 1
@@ -356,24 +380,26 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 			local o = game.eventScriptCmds[j]
 			if game.EventCmds.ObjectScript:isa(o) then
 				for i,target in ipairs(o.stmts) do
-					local foundInterObjScriptJump
+					local pointingSrc
+					local branch
 					if game.whatsPointingToAddr[target.addr] then
 						for _,src in ipairs(game.whatsPointingToAddr[target.addr]) do
-							local branch = src.branchSrc
-							if branch
+							local branchSrc = src.branchSrc
+							if branchSrc
 							then
-assert.eq(branch:getDestAddr(), target.addr)
-								if branch.parent ~= target.parent then
-	-- happens 118 times
-	--print(('!!! found inter-obj-script-block jump from _%06x to _%06x'):format(branch.addr, target.addr))
-	print(('obj jump from _%06x to _%06x'):format(branch.addr, target.addr))
-									foundInterObjScriptJump = true
+assert.eq(branchSrc:getDestAddr(), target.addr)
+								if branchSrc.parent ~= target.parent then
+-- happens 118 times
+--print(('!!! found inter-obj-script-block jump from _%06x to _%06x'):format(branchSrc.addr, target.addr))
+print(('obj jump from _%06x to _%06x'):format(branchSrc.addr, target.addr))
+									branch = branchSrc
+									pointingSrc = src
 									break
 								end
 							end
 						end
 					end
-					if foundInterObjScriptJump then
+					if branch then
 						--[=[ see where it goes...
 						-- if another block jumps into this block *here*
 						-- see if it is always (a) the first stmt in the obj-script block
@@ -387,8 +413,8 @@ assert.eq(branch:getDestAddr(), target.addr)
 						else
 							-- hmm ok this does happen sometimes
 							-- so sometimes I'll have to extract midway of an objscript lambda...
-	-- happens 15 times
-	--print"... and it doesn't point to either the 1st stmt or another branch..."
+-- happens 15 times
+--print"... and it doesn't point to either the 1st stmt or another branch..."
 						end
 						--]=]
 						-- [=[
@@ -401,6 +427,9 @@ assert.eq(lambda.stmts[1], target)
 assert.eq(lambda.stmts[1].addr, target.addr)
 						lambda.addr = lambda.stmts[1].addr
 						lambda.label = ('_%06x'):format(lambda.addr)
+
+						game.whatsPointingToAddr[lambda.addr] = nil
+
 						o.stmts = o.stmts:sub(1, i-1)
 						o.stmts:insert(CallAndReturn{
 							indent = o.indent+1,
@@ -411,6 +440,18 @@ assert.eq(lambda.stmts[1].addr, target.addr)
 						j=j+1
 						--]=]
 
+						-- we also rlly want to replace 'branch' in its owner with a 'CallAndReturn'
+						local branchParent = branch.parent
+						assert(branchParent)
+						local k = branchParent.stmts:find(branch)
+						branchParent.stmts[k] = CallAndReturn{
+							indent = o.indent+1,
+							func = lambda,
+							addr = branch.addr,
+						}
+						-- need to update this?
+						--pointingSrc.branchSrc = branchParent.stmts[k]
+
 						-- what happens if we have more than one target into an obj-script?
 						-- how to extract the lambdas..
 						break
@@ -418,6 +459,32 @@ assert.eq(lambda.stmts[1].addr, target.addr)
 				end
 			end
 			j=j+1
+		end
+	end
+
+	for j,o in ipairs(game.eventScriptCmds) do
+		-- now within objScript or lambdas
+		-- after all blocks are simplified
+		-- if there's any return at the end then toss it
+		if game.EventCmds.ObjectScript:isa(o)
+		or Lambda:isa(o)
+		then
+			local last = o.stmts:last()
+			if game.ObjectCmds.EndScript:isa(last)
+			and not game.whatsPointingToAddr[last.addr]
+			then
+				o.stmts:remove()
+			end
+		end
+
+		-- if there's any lambdas that are nothing but a goto target
+		--  that points to another lambda
+		-- then replace this lambda with the other
+		if Lambda:isa(o)
+		and #o.stmts == 1
+		and game.ObjectCmds.BranchBack:isa(o)
+		then
+			print'TODO'
 		end
 	end
 
