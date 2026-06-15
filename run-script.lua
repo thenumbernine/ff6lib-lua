@@ -168,13 +168,78 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 
 	--]]
 
---[=[
+-- [=[
+
+	local function tab(indent)
+		return ('\t'):rep(indent)
+	end
+
+	local function Cmd_toCode(self)
+		return tab(self.indent + 1)..tostring(self)
+	end
+
+	-- special-case for multiline indentation for some like charSwitch...
+	local function EventCmds_CallSwitchNPCFlags_toCode(self)
+		local indent = tab(self.indent + 1)
+		local s = indent..'charSwitch{\n'
+		for _,option in ipairs(self.options) do
+			s = s ..
+				indent..'\t{'
+				..option.characterIndex..', '
+				..game.addrLabel(scriptBaseAddr + option.addrOfs)
+				..'},\n'
+		end
+		s = s .. indent..'}\n'
+		return s
+	end
+
+	-- replace the two-line end} with outer scope indent
+	local function ObjectCmds_Branch_toCode(self)
+		return tab(self.indent+1)
+			..tostring(self):gsub(
+				'\n',
+				'\n'..tab(self.indent)
+			)
+	end
+
+	-- EventCmds.ObjScript now has nested stmts
+	local function EventCmds_ObjectScript_toCode(self)
+		local s = table{Cmd_toCode(self)}
+		if self.stmts then
+			for _,stmt in ipairs(self.stmts) do
+				s:insert(stmt:toCode())
+			end
+		end
+		return s:concat'\n'
+	end
+
+	for i=0,0xff do
+		local function check(cl)
+			if game.EventCmds.ObjectScript:isa(cl) then
+				cl.toCode = EventCmds_ObjectScript_toCode
+			elseif game.ObjectCmds.Branch:isa(cl) then
+				cl.toCode = ObjectCmds_Branch_toCode
+			elseif game.EventCmds.CallSwitchNPCFlags:isa(cl) then
+				cl.toCode = EventCmds_CallSwitchNPCFlags_toCode
+			else
+				cl.toCode = Cmd_toCode
+			end
+		end
+		check(game.EventCmds[i])
+		check(game.ObjectCmds[i])
+		check(game.WorldCmds[i])
+		check(game.VehicleCmds[i])
+	end
+
+
 	-- in fact, first-first-first thing, collect objScript blocks.
 	-- notice this will break the other reverse-refs. meh.
 	do
 		i = 1
 		while i <= #game.eventScriptCmds do
 			local cmdobj = game.eventScriptCmds[i]
+
+			-- [==[
 			if game.EventCmds.ObjectScript:isa(cmdobj) then
 				-- then trace until ObjectCmds.EndScript
 				-- and insert into cmdobj.stmts
@@ -187,10 +252,44 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 					end
 					cmdobj.stmts:insert(nextcmd)
 					if game.ObjectCmds.EndScript:isa(nextcmd) then break end
+
 					-- infinite loop can terminate obj-script regions
-					if game.ObjectCmds.BranchBack:isa(nextcmd) and nextcmd.offset == 0xff then break end
+					-- all FC FF i.e. inf-loops end obj-script regions. all 2 of them.
+					-- do all FC overall end obj-scripts with inf-loops?
+					-- seems the non-"FC FF" FC's usu have a FF i.e. 'end-obj-script' after them...
+					-- but not all...
+					-- technically you could have a branch-fwd preceding the branch-bwd and that could skip the loop part ...
+					-- but empirically, i wonder if all FC's have immediately following either a loop or a return.
+					if game.ObjectCmds.BranchBack:isa(nextcmd) then
+						-- sometimes there's one last objscript 'return'
+						if game.ObjectCmds.EndScript:isa(game.eventScriptCmds[i+1]) then
+							local lastcmd = game.eventScriptCmds:remove(i+1)
+							cmdobj.stmts:insert(lastcmd)
+						end
+						-- now the next stmt should no longer be an obj cmd
+						break
+					end
 				end
 			end
+			--]==]
+			--[==[ see if all obj-cmds branch-back always is either by FF, or has a obj-return next, or has a non-objcmd next
+			-- i.e. all are terminating
+			if game.ObjectCmds.BranchBack:isa(cmdobj) then
+				if game.ObjectCmds.EndScript:isa(game.eventScriptCmds[i+1]) then
+					-- return and end obj script
+					if game.ObjectCmd:isa(game.eventScriptCmds[i+2]) then
+						error(("obj-script found branch-back then 'return' that doesnt terminate obj-script block addr 0x%06x"):format(cmdobj.addr))
+					end
+					-- good
+				elseif not game.ObjectCmd:isa(game.eventScriptCmds[i+1]) then
+					-- obj-script block inf-loop
+					-- good
+				else
+					error(("obj-script found branch-back that doesnt terminate obj-script block addr 0x%06x"):format(cmdobj.addr))
+				end
+			end
+			--]==]
+
 			i = i + 1
 		end
 	end
@@ -278,32 +377,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 			print'end -- return'
 			inFunc = false	-- ... or not?
 		else
-			local indent = ('\t'):rep(cmdobj.indent + 1)
-
-			-- print cmd
-			-- special-case for multiline indentation for some like charSwitch...
-			if game.EventCmds.CallSwitchNPCFlags:isa(cmdobj) then
-				io.write(indent, 'charSwitch{\n')
-				for _,option in ipairs(cmdobj.options) do
-					io.write(
-						indent, '\t', '{',
-						option.characterIndex, ', ',
-						game.addrLabel(scriptBaseAddr + option.addrOfs),
-						'},\n'
-					)
-				end
-				io.write(indent, '}\n')
-			elseif game.ObjectCmds.Branch:isa(cmdobj) then
-				-- replace the two-line end} with outer scope indent
-				io.write(indent)
-				print((tostring(cmdobj):gsub(
-					'\n',
-					'\n'..('\t'):rep(cmdobj.indent)
-				)))
-			else
-				io.write(indent)
-				print(cmdobj)
-			end
+			print(cmdobj:toCode())
 		end
 	end
 	print()

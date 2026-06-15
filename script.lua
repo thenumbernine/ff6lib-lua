@@ -1667,6 +1667,10 @@ return function(game)
 		random = true,
 		dir = '+',
 	}
+	--[[
+	note-to-self,
+	- every ObjectCmd BranchBack 0xFC will next have an optional 0xFF 'return' and then it will end the objScript.
+	--]]
 	ObjectCmds.BranchBack = ObjectCmds.Branch:subclass{
 		cmd = 0xfc,
 		random = false,
