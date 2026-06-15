@@ -3,6 +3,7 @@
 local ffi = require 'ffi'
 local path = require 'ext.path'
 local table = require 'ext.table'
+local assert = require 'ext.assert'
 local tolua = require 'ext.tolua'
 
 
@@ -93,7 +94,6 @@ local function runScript(game, showAddrs)
 		-- and it's backwards
 		-- and there's no other labels within the address range
 		-- then turn it into a loop
-		or game.ObjectCmds.Branch:isa(cmdobj)
 		or game.Cmds.Cond:isa(cmdobj)
 		-- are these even used?
 		or game.WorldCmds.IfKeyThenGoto:isa(cmdobj)
@@ -102,6 +102,14 @@ local function runScript(game, showAddrs)
 			local destAddr = cmdobj:getDestAddr()
 			addrsIsGoto[destAddr] = addrsIsGoto[destAddr] or table()
 			addrsIsGoto[destAddr]:insert(cmdobj)
+
+		elseif game.ObjectCmds.Branch:isa(cmdobj) then
+			local destAddr = cmdobj:getDestAddr()
+			-- branch will return nil when it's an infinite-loop
+			if destAddr then
+				addrsIsGoto[destAddr] = addrsIsGoto[destAddr] or table()
+				addrsIsGoto[destAddr]:insert(cmdobj)
+			end
 		end
 	end
 
@@ -143,7 +151,50 @@ local function runScript(game, showAddrs)
 	... and it points before any 'return' or branch or branch-target
 	... and absolutely nobody else points to it or anything between blocks
 	... then replace it all with an if-block
+
+	prescription ...
+	- start at addrIsFunc's
+	- cycle until 'return'
+	- insert them into the func's stmts
+	- goto's can turn into if's or while's
+	- any dangling code?
+	- also how to avoid 'return's within if-blocks, when the function keeps going?
+		- maybe by hunting for if's beforehand?
+
+in all cases, function-blocks or in-blocks, we can collect commands into block statements if...
+... there's no other gotos or calls into the block's statements, i.e. only between known labels
+... but getting block-end of a function requires tracing to the 'return'
+... while getting block-end of 'if' is just based on where the cond target 'goto' is.
+
 	--]]
+
+--[=[
+	-- in fact, first-first-first thing, collect objScript blocks.
+	-- notice this will break the other reverse-refs. meh.
+	do
+		i = 1
+		while i <= #game.eventScriptCmds do
+			local cmdobj = game.eventScriptCmds[i]
+			if game.EventCmds.ObjectScript:isa(cmdobj) then
+				-- then trace until ObjectCmds.EndScript
+				-- and insert into cmdobj.stmts
+				assert.eq(cmdobj.stmts, nil)
+				cmdobj.stmts = table()
+				while i+1 <= #game.eventScriptCmds do
+					local nextcmd = game.eventScriptCmds:remove(i+1)
+					if not game.ObjectCmd:isa(nextcmd) then
+						error(("mid-obj-script found non-ObjectCmd 0x%02x addr 0x%06x"):format(nextcmd.cmd, nextcmd.addr))
+					end
+					cmdobj.stmts:insert(nextcmd)
+					if game.ObjectCmds.EndScript:isa(nextcmd) then break end
+					-- infinite loop can terminate obj-script regions
+					if game.ObjectCmds.BranchBack:isa(nextcmd) and nextcmd.offset == 0xff then break end
+				end
+			end
+			i = i + 1
+		end
+	end
+--]=]
 
 	local inFunc
 	print'BEGIN EVENT SCRIPT'
@@ -242,6 +293,13 @@ local function runScript(game, showAddrs)
 					)
 				end
 				io.write(indent, '}\n')
+			elseif game.ObjectCmds.Branch:isa(cmdobj) then
+				-- replace the two-line end} with outer scope indent
+				io.write(indent)
+				print((tostring(cmdobj):gsub(
+					'\n',
+					'\n'..('\t'):rep(cmdobj.indent)
+				)))
 			else
 				io.write(indent)
 				print(cmdobj)

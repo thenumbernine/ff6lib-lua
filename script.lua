@@ -1608,21 +1608,42 @@ return function(game)
 		end,
 	}
 
+	--[[
+	here's a fun fact
+	branch-backwards is only ever with signed positive values
+	no args are >= 0x80, so it might be signed
+	except
+	for 0xff
+	there are lots of FC FF object commands
+	and if the arg was signed, this could mean infinite-loop
+	so here goes...
+	in fact, looks like all branches are signed, but no negative values are ever used
+	wonder why they even bothered separate branch-fwd and branch-back
+	--]]
 	ObjectCmds.Branch = ObjectCmd:subclass{
 		--cmd = 0xfa,
 		argtypes = {uint8_t},
 		argnames = {'offset'},
 		getDestAddr = function(self)
+			if self.offset == 0xff then return end -- return self.addr end
 			return self.dir == '-'
 				and self.addr - self.offset
 				or self.addr + self.offset
 		end,
 		-- TODO you will have to generate a label for this instruction, and for wherever it is going
 		__tostring = function(self)
+			-- no signed offset in any branch is >= 0x80
+			--  except branch-backwards -1 i.e. "FC FF"
+			-- in that case, insert an end.
+			if self.offset == 0xff then
+				return 'while true do end\nend}'
+			end
+
 			local s = self.getGotoStr(self:getDestAddr())
 			if self.random then
 				s = 'if math.random() < .5 then '..s..' end'
 			end
+
 			return s
 		end,
 
@@ -1664,14 +1685,18 @@ return function(game)
 			-- only for select operations still? or for any operation i.e. move to loop below?
 			local objectScriptCmd = self.trace.stateStack:last().objectScriptCmd
 			if objectScriptCmd
-			and self.addr == objectScriptCmd.addr + objectScriptCmd.length
+			and (
+				self.addr == objectScriptCmd.addr + objectScriptCmd.length
+				or self.offset == 0xff
+			)
 			then
-				self.indent = self.indent - 1
 				popObjectCmdSet(self.trace, self.addr, true)
 			end
 		end,
 		--]=]
 	}
+
+	-- I don't see this ever used...
 	ObjectCmds.BranchFwd = ObjectCmds.Branch:subclass{
 		cmd = 0xfd,
 		random = false,
@@ -2632,11 +2657,13 @@ print()
 	for _,cmdobj in ipairs(game.eventScriptCmds) do
 		if game.ObjectCmds.Branch:isa(cmdobj) then
 			local destAddr = cmdobj:getDestAddr()
-			game.eventScriptAddrs[destAddr] = game.eventScriptAddrs[destAddr] or table()
-			game.eventScriptAddrs[destAddr]:insert{
-				branchFromAddr = cmdobj.addr,
-				cmdset = cmdobj.cmdset,
-			}
+			if destAddr then
+				game.eventScriptAddrs[destAddr] = game.eventScriptAddrs[destAddr] or table()
+				game.eventScriptAddrs[destAddr]:insert{
+					branchFromAddr = cmdobj.addr,
+					cmdset = cmdobj.cmdset,
+				}
+			end
 		end
 	end
 end
