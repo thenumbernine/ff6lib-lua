@@ -65,30 +65,43 @@ local function runScript(game, showAddrs)
 	-- now collect addrs and find if they are calls or not
 	-- (if they are calls then we will define them as functions)
 	local addrsIsFunc = table.map(labelsForAddr, function(v,k) return true, k end):setmetatable(nil)
+
+	-- map from dest-address to source instructions that goto here
+	-- similar to "eventScriptAddrs" ? I gotta combine all these like structures...
 	local addrsIsGoto = {}
+
 	for _,cmdobj in ipairs(game.eventScriptCmds) do
+
+		-- call
 		if game.EventCmds.Call:isa(cmdobj)
 		or game.EventCmds.CallRepeat:isa(cmdobj)
+		or game.EventCmds.StartTimer:isa(cmdobj)	-- it is a function call right?  that gets returned from, right?
 		then
-			addrsIsFunc[scriptBaseAddr + cmdobj.destAddrOfs] = true
-		elseif game.EventCmds.JumpBasedOnBattleFlag:isa(cmdobj)
-		or game.EventCmds.Jump5050:isa(cmdobj)
-		or game.Cmds.Cond:isa(cmdobj)
-		or game.WorldCmds.IfKeyThenGoto:isa(cmdobj)
-		or game.WorldCmds.IfFacingThenGoto:isa(cmdobj)
-		--or game.EventCmds.StartTimer:isa(cmdobj)
-		then
-			-- wait ...
-			--addrsIsGoto[cmdobj.addr] = true
+			addrsIsFunc[cmdobj:getDestAddr()] = true
+
+		-- call (right?)
 		elseif game.EventCmds.CallSwitchNPCFlags:isa(cmdobj) then
 			for _,option in ipairs(cmdobj.options) do
 				addrsIsFunc[scriptBaseAddr + option.addrOfs] = true
 			end
 
-		-- goto, but I don't have its getBranchAddrs, because that causes problems in disasm tracing atm
-		elseif game.ObjectCmds.Branch:isa(cmdobj) then
-			-- wait ...
-			--addrsIsGoto[cmdobj:getDestAddr()] = true
+		elseif game.EventCmds.JumpBasedOnBattleFlag:isa(cmdobj)
+		or game.EventCmds.Jump5050:isa(cmdobj)
+		-- Branch is goto, fwd = skip code, backwards = loop
+		--  50/50 = 'if math.random() < .5 then...' cond on loop or if
+		-- TODO for branch, if the target is *only* this goto
+		-- and it's backwards
+		-- and there's no other labels within the address range
+		-- then turn it into a loop
+		or game.ObjectCmds.Branch:isa(cmdobj)
+		or game.Cmds.Cond:isa(cmdobj)
+		-- are these even used?
+		or game.WorldCmds.IfKeyThenGoto:isa(cmdobj)
+		or game.WorldCmds.IfFacingThenGoto:isa(cmdobj)
+		then
+			local destAddr = cmdobj:getDestAddr()
+			addrsIsGoto[destAddr] = addrsIsGoto[destAddr] or table()
+			addrsIsGoto[destAddr]:insert(cmdobj)
 		end
 	end
 

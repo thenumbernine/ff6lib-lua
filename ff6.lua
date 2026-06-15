@@ -173,7 +173,7 @@ local function compstr(p, size)
 			elseif p[0] == 20 then
 				-- read 1 more char ... horizontal tab?
 				p=p+1
-				c:insert((' '):rep(tonumber(p[0])))
+				c:insert('[TAB '..p[0]..']')
 			elseif p[0] == 21 then
 				c:insert'[PROMPT]'
 			elseif p[0] == 22 then
@@ -185,11 +185,9 @@ local function compstr(p, size)
 				c:insert'[ITEM]'
 			elseif p[0] == 27 then
 				c:insert'[SPELL]'
-			--23, 24, 29: only used between 17 and 18, specifically in opera scene dialog
-			--25, 26, 27, 28, 30, 31: never used
 			else
 				if compstr_displayChars then
-					c:insert(('[%02d]'):format(p[0]))
+					c:insert(('[%d]'):format(p[0]))
 				else
 					c:insert'\n'
 				end

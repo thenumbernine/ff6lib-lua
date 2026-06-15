@@ -86,7 +86,10 @@ return function(game)
 	Cmd.__concat = string.concat
 	function Cmd:__tostring()
 		if self.descstr then return self.descstr end
-		return template(self.desc, self)
+		self.self = self	-- ugly hack for template cuz i dont want to do an ugly metatable __index hack
+		local s = template(self.desc, self)
+		self.self = nil
+		return s
 	end
 	-- only for template env
 	Cmd.game = game
@@ -928,12 +931,14 @@ return function(game)
 		desc = 'startTimer{'
 			..'duration=<?=duration?>'
 			..', flags=<?=flags?>'
-			..', cb=<?=getGotoOfsStr(destAddrOfs)?>'
+			..', cb=<?=game.addrLabel(getDestAddr(self))?>'
 		..'}',
-
+		getDestAddr = function(self)
+			return scriptBaseAddr + self.destAddrOfs
+		end,
 		getBranchAddrs = function(self)
 			return {
-				{addr=scriptBaseAddr + self.destAddrOfs},
+				{addr=self:getDestAddr()},
 			}
 		end,
 	}
@@ -1025,10 +1030,12 @@ return function(game)
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
 		desc = "<?=getGotoOfsStr(destAddrOfs, 'call ')?>",
-
+		getDestAddr = function(self)
+			return scriptBaseAddr + self.destAddrOfs
+		end,
 		getBranchAddrs = function(self)
 			return {
-				{addr=scriptBaseAddr + self.destAddrOfs},
+				{addr=self:getDestAddr()},
 			}
 		end,
 	}
@@ -1038,11 +1045,14 @@ return function(game)
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'count', 'destAddrOfs'},
 		desc = "for i=1,<?=count?> do <?=getGotoOfsStr(destAddrOfs, 'call ')?> end",
-
+		-- helper function
+		getDestAddr = function(self)
+			return scriptBaseAddr + self.destAddrOfs
+		end,
 		-- used by decompiler to determine where else to go
 		getBranchAddrs = function(self)
 			return {
-				{addr=scriptBaseAddr + self.destAddrOfs},
+				{addr=self:getDestAddr()},
 			}
 		end,
 	}
@@ -1095,10 +1105,12 @@ return function(game)
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'flagIndex', 'destAddrOfs'},
 		desc = 'if battleFlagGet(<?=flagIndex?>) then <?=getGotoOfsStr(destAddrOfs)?> end',
-
+		getDestAddr = function(self)
+			return scriptBaseAddr + self.destAddrOfs
+		end,
 		getBranchAddrs = function(self)
 			return {
-				{addr=scriptBaseAddr + self.destAddrOfs},
+				{addr=self:getDestAddr()},
 			}
 		end,
 	}
@@ -1140,10 +1152,12 @@ return function(game)
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
 		desc = 'if math.random() < .5 then <?=getGotoOfsStr(destAddrOfs)?> end',
-
+		getDestAddr = function(self)
+			return scriptBaseAddr + self.destAddrOfs
+		end,
 		getBranchAddrs = function(self)
 			return {
-				{addr=scriptBaseAddr + self.destAddrOfs},
+				{addr=self:getDestAddr()},
 			}
 		end,
 	}
@@ -1210,10 +1224,12 @@ return function(game)
 				end):concat(self._and and ' and ' or ' or ')
 		end,
 		desc = 'if <?=condCode?> then <?=getGotoOfsStr(destAddrOfs)?> end',
-
+		getDestAddr = function(self)
+			return scriptBaseAddr + self.destAddrOfs
+		end,
 		getBranchAddrs = function(self)
 			return {
-				{addr=scriptBaseAddr + self.destAddrOfs},
+				{addr=self:getDestAddr()},
 			}
 		end,
 	}
@@ -1786,28 +1802,34 @@ return function(game)
 		desc = 'objSetVisible(objIndex, false)',
 	}
 
+	-- I don't see this used anywhere ...
 	WorldCmds.IfKeyThenGoto = WorldCmd:subclass{
 		cmd = 0xd4,
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
 		desc = 'if keypress() then <?=getGotoOfsStr(destAddrOfs)?>',
-
+		getDestAddr = function(self)
+			return scriptBaseAddr + self.destAddrOfs
+		end,
 		getBranchAddrs = function(self)
 			return {
-				{addr=scriptBaseAddr + self.destAddrOfs},
+				{addr=self:getDestAddr()},
 			}
 		end,
 	}
 
+	-- also I don't see this used ...
 	WorldCmds.IfFacingThenGoto = WorldCmd:subclass{
 		cmd = 0xd5,
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'dir', 'destAddrOfs'},
 		desc = 'if dir==<?=dir?> then <?=getGotoOfsStr(destAddrOfs)?>',
-
+		getDestAddr = function(self)
+			return scriptBaseAddr + self.destAddrOfs
+		end,
 		getBranchAddrs = function(self)
 			return {
-				{addr=scriptBaseAddr + self.destAddrOfs},
+				{addr=self:getDestAddr()},
 			}
 		end,
 	}
