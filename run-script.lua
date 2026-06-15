@@ -227,8 +227,25 @@ local function runScript(game, showAddrs)
 			print'end -- return'
 			inFunc = false	-- ... or not?
 		else
-			io.write(('\t'):rep(cmdobj.indent + 1))
-			print(cmdobj)
+			local indent = ('\t'):rep(cmdobj.indent + 1)
+
+			-- print cmd
+			-- special-case for multiline indentation for some like charSwitch...
+			if game.EventCmds.CallSwitchNPCFlags:isa(cmdobj) then
+				io.write(indent, 'charSwitch{\n')
+				for _,option in ipairs(cmdobj.options) do
+					io.write(
+						indent, '\t', '{',
+						option.characterIndex, ', ',
+						game.addrLabel(scriptBaseAddr + option.addrOfs),
+						'},\n'
+					)
+				end
+				io.write(indent, '}\n')
+			else
+				io.write(indent)
+				print(cmdobj)
+			end
 		end
 	end
 	print()
