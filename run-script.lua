@@ -174,6 +174,33 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		return ('\t'):rep(indent)
 	end
 
+	-- return comment with address, bytes, and disasm code
+	local function Cmd_getAsmLine(self)
+		-- print addr
+		return '-- '
+			..('_%06x'):format(self.addr)
+			--addrLabel(self.addr),
+			..'\t'
+
+			-- print shorthand cmdset
+			..({
+				EventCmds = 'EV',
+				WorldCmds = 'WO',
+				ObjectCmds = 'OB',
+				VehicleCmds = 'VE',
+			})[self.cmdset]
+
+			-- print out bytes
+			-- TODO for cmds too big, put their data on multiple lines?
+			..
+				--align(24,
+					ffi.string(rom + self.addr, self.sizeInBytes)
+						:gsub('.', function(b)
+							return (' %02x'):format(b:byte())
+						end)
+				--)
+	end
+
 	local function Cmd_toCode(self)
 		return tab(self.indent + 1)..tostring(self)
 	end
@@ -207,9 +234,10 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		local s = table{Cmd_toCode(self)}
 		if self.stmts then
 			for _,stmt in ipairs(self.stmts) do
-				s:insert(stmt:toCode())
+				s:insert(stmt:toCodeLine())	-- toCodeLine means also insert asm if asked to
 			end
 		end
+		s:insert(tab(self.indent+1)..'end}')
 		return s:concat'\n'
 	end
 
@@ -223,6 +251,11 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 				cl.toCode = EventCmds_CallSwitchNPCFlags_toCode
 			else
 				cl.toCode = Cmd_toCode
+			end
+
+			cl.toCodeLine = function(self)
+				return Cmd_getAsmLine(self)..'\n'
+					..self:toCode()
 			end
 		end
 		check(game.EventCmds[i])
@@ -340,35 +373,6 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 			--]]
 		end
 
--- [[ show addresses and bytes
-		if showAddrs then
-			-- print addr
-			io.write('-- ',
-				('_%06x'):format(cmdobj.addr),
-				--addrLabel(cmdobj.addr),
-				'\t')
-
-			-- print shorthand cmdset
-			io.write(({
-				EventCmds = 'EV',
-				WorldCmds = 'WO',
-				ObjectCmds = 'OB',
-				VehicleCmds = 'VE',
-			})[cmdobj.cmdset])
-
-			-- print out bytes
-			-- TODO for cmds too big, put their data on multiple lines?
-			io.write((
-				--align(24,
-					ffi.string(rom + cmdobj.addr, cmdobj.sizeInBytes)
-						:gsub('.', function(b)
-							return (' %02x'):format(b:byte())
-						end)
-				--)
-			))
-			print()
-	end
---]]
 		local lastWasReturn = game.Cmds.Return:isa(cmdobj)
 			or game.Cmds.EndScript:isa(cmdobj)
 
@@ -377,7 +381,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 			print'end -- return'
 			inFunc = false	-- ... or not?
 		else
-			print(cmdobj:toCode())
+			print(cmdobj:toCodeLine())
 		end
 	end
 	print()

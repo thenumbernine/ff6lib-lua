@@ -166,7 +166,7 @@ return function(game)
 			.."objIndex=<?=cmd?>"
 			.."<?= blocking and ', block=true' or ''?>"
 			..", cb=|objIndex|do"
-		-- then upon end, "end}" and if blocking then "joinAll()" on all previous object-script forks
+		-- then upon end, "obj-return" and if blocking then "joinAll()" on all previous object-script forks
 	}
 	for i=0x00,0x34 do
 		EventCmds['ObjectScript '..i] = EventCmds.ObjectScript:subclass{cmd=i}
@@ -1636,7 +1636,7 @@ return function(game)
 			--  except branch-backwards -1 i.e. "FC FF"
 			-- in that case, insert an end.
 			if self.offset == 0xff then
-				return 'while true do end\nend}'
+				return 'while true do end'
 			end
 
 			local s = self.getGotoStr(self:getDestAddr())
@@ -1707,14 +1707,14 @@ return function(game)
 		dir = '+',
 	}
 
-	-- also in EventEmds ... and WorldCmds ... basically everywhere
+	-- EndScript 0xff is also in EventCmds, WorldCmds, VehicleCmds
+	-- but in ObjectCmds, EndScript always precedes the end of an objScript block (but not always vice versa)
 	ObjectCmds.EndScript = ObjectCmd:subclass{
 		cmd = 0xff,
 		digest = function(self, ...)
-			self.indent = self.indent - 1
 			popObjectCmdSet(self.trace, self.addr)
 		end,
-		desc = 'end}',	-- and joinAll() if the objectScriptCmd had blocking ...
+		desc = 'return',	-- and joinAll() if the objectScriptCmd had blocking ...
 	}
 
 
