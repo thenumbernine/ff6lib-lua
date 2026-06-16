@@ -380,6 +380,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 
 	if not cmdline.skipOpts then
 	-- BEGIN HIGH LEVEL CODE CONVERSION
+		game.ObjectCmds.EndScript.desc = '    return'
 
 		-- first thing, collect objScript blocks.
 		-- notice this will break the other reverse-refs. meh.
@@ -424,7 +425,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 			end
 		end
 
---[[
+-- [[
 		-- OK now sometimes objScript branches will jump outside the objScript
 		-- in those cases, you have to extract the target block contents into a preceding lambda,
 		-- so that the both blocks can use it

@@ -1743,8 +1743,9 @@ return function(game)
 		cmd = 0xff,
 		digest = function(self, ...)
 			popObjectCmdSet(self.trace, self.addr)
+			self.indent = self.indent - 1
 		end,
-		desc = 'return',	-- and joinAll() if the objectScriptCmd had blocking ...
+		desc = 'end}',
 	}
 
 
