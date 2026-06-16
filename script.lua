@@ -46,12 +46,15 @@ return function(game)
 	local uint24_t = game.uint24_t
 
 
-	-- hack to fix a few jump-to-nowhere bugs below:
+	-- hack to fix a few obj-script branch-back out-of-function that point to bad addrs
 	game.rom[0x0a20be] = 0x15
 	game.rom[0x0a48b8] = 7
 	game.rom[0x0a48bd] = 5
 	game.rom[0x0aed7a] = 0x24
 	game.rom[0x0c737b] = 0xc
+	-- hack to fix a few obj-script branch-back within-function that point to bad addresses
+	game.rom[0x0b9bf3] = 0x23	-- points to the objScript instead of to its starting command
+	game.rom[0x0b9dd1] = 0x23
 
 
 	-- should I even bounds check?

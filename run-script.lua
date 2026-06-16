@@ -8,7 +8,6 @@ local string = require 'ext.string'
 local assert = require 'ext.assert'
 local tolua = require 'ext.tolua'
 
-
 local disasmcol = 32
 
 local function align(n, s)
@@ -16,7 +15,8 @@ local function align(n, s)
 	return s..(' '):rep(n - #s)
 end
 
-local function runScript(game, showAddrs)
+-- cmdline is defined at the end for when you run this standalone
+local function runScript(game, cmdline)
 	local rom = game.rom
 
 	local function fixname(s)
@@ -242,6 +242,23 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	end
 
 
+	local BusyLoopBlock  = class()
+	BusyLoopBlock.toCodeLine = Cmd_toCodeLine
+	function BusyLoopBlock:getAsmLine()
+		return ('%06x loop'):format(self.addr)
+	end
+	function BusyLoopBlock:toCode()
+		local s = table()
+		local indent = tab(self.indent+1)
+		s:insert(indent..'while true do')
+		for _,stmt in ipairs(self.stmts) do
+			s:insert(stmt:toCodeLine())	-- toCodeLine means also insert asm if asked to
+		end
+		s:insert((' '):rep(disasmcol)..indent..'end')
+		return s:concat'\n'
+	end
+
+
 	local Lambda = class()
 	Lambda.toCodeLine = Cmd_toCodeLine
 	function Lambda:getAsmLine()
@@ -329,6 +346,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	end
 
 
+if not cmdline.skipOpts then
 -- [========[ -- BEGIN HIGH LEVEL CODE CONVERSION
 
 
@@ -406,7 +424,7 @@ print(('obj jump from _%06x to _%06x'):format(branchSrc.addr, target.addr))
 					end
 
 					if branchesTo then
-print(#branchesTo..' point to '..('%06x'):format(target.addr))
+--print(#branchesTo..' point to '..('%06x'):format(target.addr))
 						--[=[ see where it goes...
 						-- if another block jumps into this block *here*
 						-- see if it is always (a) the first stmt in the obj-script block
@@ -520,7 +538,7 @@ assert.eq(lambda.stmts[1].addr, target.addr)
 	end
 --]=]
 
---[=[
+-- [=[
 	-- now convert any branch-back within same obj-script block into a while-loop
 	for _,o in ipairs(game.eventScriptCmds) do
 		if game.EventCmds.ObjectScript:isa(o) then
@@ -530,15 +548,37 @@ assert.eq(lambda.stmts[1].addr, target.addr)
 				and bb.offset ~= 0xff
 				then
 assert.eq(bb.parent, o)
-					local _, target = o.stmts:find(nil, function(o2) return o2.addr == bb:getDestAddr() end)
+					local j, target = o.stmts:find(nil, function(o2) return o2.addr == bb:getDestAddr() end)
 					if not target then
-error('!!! WARNING !!! branch-back at '
+print('!!! WARNING !!! branch-back at '
 	..('_%06x'):format(bb.addr)
 	..' points to unknown dest '
 	..(bb:getDestAddr() and ('_%06x'):format(bb:getDestAddr()) or 'nil')
 )
-					end
+					else
 assert.eq(target.parent, o)
+assert.lt(j, i)
+						-- now we can cut this block out and put it in a while-loop
+						local busyloop = BusyLoopBlock()
+						busyloop.indent = o.stmts[1].indent
+						busyloop.stmts = o.stmts:sub(j,i-1)
+						busyloop.addr = busyloop.stmts[1].addr
+						busyloop.parent = o
+						for _,s in ipairs(busyloop.stmts) do
+							s.indent = s.indent + 1
+						end
+
+						-- skip o.stmts[i] since it is the goto
+						local oldstmts = o.stmts
+						o.stmts = table()
+						for q=1,j-1 do
+							o.stmts:insert(oldstmts[q])
+						end
+						o.stmts:insert(busyloop)
+						for q=i+1,#oldstmts do
+							o.stmts:insert(oldstmts[q])
+						end
+					end
 				end
 			end
 		end
@@ -547,7 +587,7 @@ assert.eq(target.parent, o)
 
 
 --]========] -- END HIGH LEVEL CODE CONVERSION
-
+end	-- cmdline.skipOpts
 
 --[=[
 	-- ok now that we've consolidated obj-scripts,
@@ -647,13 +687,13 @@ end
 
 --print('...', select('#', ...), ...)
 if select('#', ...) > 0 then	-- luajit #... == 0 <-> this file was require'd
+	local cmdline = require 'ext.cmdline'(...)
 	-- hmm if luajit does get ... upon require then ff6 will get passed a bad file
 	-- maybe xpcall and bailout on fail?
 	local game = require 'ff6'((
 		assert(path((...)):read())
 	))
-	local showAddrs = not not select(2, ...)
-	runScript(game, showAddrs)
+	runScript(game, cmdline)
 end
 
 return runScript
