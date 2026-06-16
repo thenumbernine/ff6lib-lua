@@ -507,7 +507,6 @@ objScript{objIndex=23, cb=|objIndex|_0aefca(objIndex, 0x0aefdb)}
 			end
 		end
 
--- [[
 		-- OK now sometimes objScript branches will jump outside the objScript
 		-- in those cases, you have to extract the target block contents into a preceding lambda,
 		-- so that the both blocks can use it
@@ -526,11 +525,10 @@ objScript{objIndex=23, cb=|objIndex|_0aefca(objIndex, 0x0aefdb)}
 								local branchSrc = src.branchSrc
 								if branchSrc
 								then
-	assert.eq(branchSrc:getDestAddr(), target.addr)
+assert.eq(branchSrc:getDestAddr(), target.addr)
 									if branchSrc.parent ~= target.parent then
-	-- happens 118 times
-	--print(('!!! found inter-obj-script-block jump from _%06x to _%06x'):format(branchSrc.addr, target.addr))
-	print(('obj jump from _%06x to _%06x'):format(branchSrc.addr, target.addr))
+-- happens 118 times
+--print(('inter-obj-script-block jump from _%06x to _%06x'):format(branchSrc.addr, target.addr))
 										branchesTo = branchesTo or table()
 										branchesTo:insert(branchSrc)
 									end
@@ -539,7 +537,7 @@ objScript{objIndex=23, cb=|objIndex|_0aefca(objIndex, 0x0aefdb)}
 						end
 
 						if branchesTo then
-	--print(#branchesTo..' point to '..('%06x'):format(target.addr))
+--print(#branchesTo..' point to '..('%06x'):format(target.addr))
 							--[=[ see where it goes...
 							-- if another block jumps into this block *here*
 							-- see if it is always (a) the first stmt in the obj-script block
@@ -553,8 +551,8 @@ objScript{objIndex=23, cb=|objIndex|_0aefca(objIndex, 0x0aefdb)}
 							else
 								-- hmm ok this does happen sometimes
 								-- so sometimes I'll have to extract midway of an objscript lambda...
-	-- happens 15 times
-	--print"... and it doesn't point to either the 1st stmt or another branch..."
+-- happens 15 times
+--print"... and it doesn't point to either the 1st stmt or another branch..."
 							end
 							--]=]
 							-- [=[
@@ -605,6 +603,8 @@ objScript{objIndex=23, cb=|objIndex|_0aefca(objIndex, 0x0aefdb)}
 							end
 							if #game.whatsPointingToAddr[lambda.addr] == 0 then
 								game.whatsPointingToAddr[lambda.addr] = nil
+								addrsIsGoto[lambda.addr] = nil
+								addrsIsFunc[lambda.addr] = nil
 							end
 
 							-- what happens if we have more than one target into an obj-script?
@@ -682,6 +682,8 @@ assert(game.whatsPointingToAddr[target.addr])
 							end
 							if #game.whatsPointingToAddr[target.addr] == 0 then
 								game.whatsPointingToAddr[target.addr] = nil
+								addrsIsGoto[target.addr] = nil
+								addrsIsFunc[target.addr] = nil
 							end
 
 							-- now we can cut this block out and put it in a while-loop
@@ -706,7 +708,33 @@ assert(game.whatsPointingToAddr[target.addr])
 			end
 		end
 	--]=]
---]]
+
+		-- next trick, scan global-scope for goto-destinations
+		-- see who jumps into them
+		-- make sure the previous instruction is a 'return'/'endscript'
+		for i,o in ipairs(game.eventScriptCmds) do
+			-- if something points here...
+			local whatPointsToScriptAdAddr = game.whatsPointingToAddr[o.addr]
+			if whatPointsToScriptAdAddr
+			and #whatPointsToScriptAdAddr == 1
+			then
+				-- make sure previous command isn't a 'return'
+				if (
+					i == 1
+					or game.Cmds.Return:isa(game.eventScriptCmds[i-1])
+					or game.Cmds.EndScript:isa(game.eventScriptCmds[i-1])
+				)
+				then
+-- happens 2776 times
+--print("jump dest with preceding return - inline potential - at "..('_%06x'):format(o.addr))
+					-- TODO inline
+				else
+-- happens 824 times
+--print("jump dest with no preceding return - func continuation - at "..('_%06x'):format(o.addr))
+					-- TOOD make a lambda
+				end
+			end
+		end
 
 	-- END HIGH LEVEL CODE CONVERSION
 	end	-- cmdline.skipOpts
