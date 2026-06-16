@@ -239,24 +239,29 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 			-- print header
 			s = s .. '\n'
 
-			local label
-			local builtin = labelsForAddr[self.addr]
-			if builtin then
-				for i=2,#builtin do
-					local b = builtin[i]
-					s = s .. '::' .. b .. '::\n'
-				end
-				label = builtin[1]
-			else
-				label = addrLabel(self.addr)
-			end
-			-- TODO multiple addrsIsFunc / labelsForAddr
-			-- have one just call the other, or equate to the other
 			local thisInFunc = addrsIsFunc[self.addr]
 			if thisInFunc then
-				s = s .. (' '):rep(disasmcol) .. label .. '=||do\n'
+				s = s .. (' '):rep(disasmcol)
+				if labelsForAddr[self.addr] then
+					if #labelsForAddr[self.addr] == 1 then
+						s = s .. labelsForAddr[self.addr][1]..'=||do\n'
+					else
+						for i,label in ipairs(labelsForAddr[self.addr]) do
+							s = s .. label .. (i == 1 and '=' or ':=')
+						end
+						s = s .. '||do\n'
+					end
+				else
+					s = s .. (addrLabel(self.addr)..'=||do\n')
+				end
 			else
-				s = s .. '::' .. label .. '::\n'
+				if labelsForAddr[self.addr] then
+					for _,label in ipairs(labelsForAddr[self.addr]) do
+						s = s .. '::'..label..'::\n'
+					end
+				else
+					s = s .. '::' .. addrLabel(self.addr) .. '::\n'
+				end
 			end
 		end
 		--]]
