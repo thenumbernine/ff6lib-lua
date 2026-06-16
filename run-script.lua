@@ -201,7 +201,11 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	end
 
 	local function Cmd_toCode(self)
-		return tab(self.indent + 1)..tostring(self)
+		return tab(self.indent + 1)
+			..tostring(self):gsub(
+				'\n',
+				'\n'..tab(self.indent+1)
+			)
 	end
 
 	-- special-case for multiline indentation for some like charSwitch...
@@ -217,15 +221,6 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		end
 		s = s .. indent..'}\n'
 		return s
-	end
-
-	-- replace the two-line end} with outer scope indent
-	local function ObjectCmds_Branch_toCode(self)
-		return tab(self.indent+1)
-			..tostring(self):gsub(
-				'\n',
-				'\n'..tab(self.indent)
-			)
 	end
 
 	local function Cmd_toCodeLine(self)
@@ -273,7 +268,15 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		s = s .. ls:concat'\n'
 		--]]
 		-- [[ lhs and rhs
-		s = s .. align(disasmcol, self:getAsmLine() or '')..self:toCode()
+		local ls = string.split(self:toCode(), '\n')
+		for i,l in ipairs(ls) do
+			if i == 1 then
+				s = s .. align(disasmcol, self:getAsmLine() or '')..l
+			else
+				s = s .. (' '):rep(disasmcol)..l
+			end
+			if i < #ls then s = s .. '\n' end
+		end
 		--]]
 		return s
 	end
@@ -375,8 +378,6 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		local function check(cl)
 			if game.EventCmds.ObjectScript:isa(cl) then
 				cl.toCode = EventCmds_ObjectScript_toCode
-			elseif game.ObjectCmds.Branch:isa(cl) then
-				cl.toCode = ObjectCmds_Branch_toCode
 			elseif game.EventCmds.CallSwitchNPCFlags:isa(cl) then
 				cl.toCode = EventCmds_CallSwitchNPCFlags_toCode
 			else
@@ -709,6 +710,43 @@ assert(game.whatsPointingToAddr[target.addr])
 		end
 	--]=]
 
+
+		--[=[ now generalize all our common 'if's so I can inline their stmts later
+		-- I could do this earlier... hmm...
+		-- just have to replace all the whatsPointingToAddr's .branchSrc's ...
+		-- TODO this makes me want to preface this whole file with a conversion into lua.parser.'s AST nodes...
+		local convertIfs
+		for i,o in ipairs(game.eventScriptCmds) do
+			if game.EventCmds.JumpBasedOnBattleFlag:isa(o)
+			or game.EventCmds.Jump5050:isa(o)
+			or game.Cmds.Cond:isa(o)
+			or (game.Cmds.Branch:isa(o) and o.random)
+			or game.WorldCmds.IfKeyThenGoto:isa(o)
+			or game.WorldCmds.IfFacingThenGoto:isa(o)
+			then
+				replace(
+					If{
+						cond = o:getCond(),
+						stmts = {
+							Goto{dest=o:getDestAddr()},
+						},
+					}
+				)
+			elseif game.EventCmds.EndRepeatSwitch:isa(o) then
+				replace(
+					If{
+						cond = o:getCond(),
+						stmts = {Break()},
+					},
+					-- this is a for-loop-end stmt
+					-- I should instead be nesting for-loop stmts
+					game.EventCmds.EndRepeat()
+				)
+			end
+		end
+		--]=]
+
+
 		-- next trick, scan global-scope for goto-destinations
 		-- see who jumps into them
 		-- make sure the previous instruction is a 'return'/'endscript'
@@ -717,6 +755,7 @@ assert(game.whatsPointingToAddr[target.addr])
 			local whatPointsToScriptAdAddr = game.whatsPointingToAddr[o.addr]
 			if whatPointsToScriptAdAddr
 			and #whatPointsToScriptAdAddr == 1
+			and not addrsIsFunc[o.addr]
 			then
 				-- make sure previous command isn't a 'return'
 				if (
@@ -725,11 +764,13 @@ assert(game.whatsPointingToAddr[target.addr])
 					or game.Cmds.EndScript:isa(game.eventScriptCmds[i-1])
 				)
 				then
--- happens 2776 times
+-- happens 2776 times without filtering out function-addresses
+-- hapepns 973 times with filtering out function-addresses
 --print("jump dest with preceding return - inline potential - at "..('_%06x'):format(o.addr))
 					-- TODO inline
 				else
--- happens 824 times
+-- happens 824 times without filtering out function-addresses
+-- happens 787 times with filtering out function-addresses
 --print("jump dest with no preceding return - func continuation - at "..('_%06x'):format(o.addr))
 					-- TOOD make a lambda
 				end

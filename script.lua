@@ -1042,6 +1042,7 @@ return function(game)
 	EventCmds.EndRepeat = EventCmd:subclass{
 		cmd = 0xb1,
 		getargs = function(self)
+			self.indent = self.indent - 1
 			self.trace.indent = self.trace.indent - 1
 		end,
 		desc = 'end--for',
@@ -1126,7 +1127,13 @@ return function(game)
 		cmd = 0xb7,
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'flagIndex', 'destAddrOfs'},
-		desc = 'if battleFlagGet(<?=flagIndex?>) then <?=getGotoOfsStr(destAddrOfs)?> end',
+		__tostring = function(self)
+			return 'if '
+				..self:getCond()
+				..' then '
+				..self.getGotoOfsStr(self.destAddrOfs)
+				..' end'
+		end,
 		getDestAddr = function(self)
 			return scriptBaseAddr + self.destAddrOfs
 		end,
@@ -1134,6 +1141,9 @@ return function(game)
 			return {
 				{addr=self:getDestAddr()},
 			}
+		end,
+		getCond = function(self)
+			return 'battleFlagGet('..self.flagIndex..')'
 		end,
 	}
 
@@ -1172,14 +1182,31 @@ return function(game)
 		cmd = 0xbc,
 		argtypes = {uint16_t},
 		argnames = {'cond'},
-		desc = 'if cond <?=cond?> then break',
+		digest = function(self, ...)
+			EventCmd.digest(self, ...)
+			self.indent = self.indent - 1
+			self.trace.indent = self.trace.indent - 1
+		end,
+		__tostring = function(self)
+			return '\tif '..self:getCond()..' then break end\n'
+				..'end--for'
+		end,
+		getCond = function(self)
+			return 'mapFlagGet('..self.cond..')'
+		end,
 	}
 
 	EventCmds.Jump5050 = EventCmd:subclass{
 		cmd = 0xbd,
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
-		desc = 'if math.random() < .5 then <?=getGotoOfsStr(destAddrOfs)?> end',
+		__tostring = function(self)
+			return 'if '
+				..self:getCond()
+				..' then '
+				..self.getGotoOfsStr(self.destAddrOfs)
+				..' end'
+		end,
 		getDestAddr = function(self)
 			return scriptBaseAddr + self.destAddrOfs
 		end,
@@ -1187,6 +1214,9 @@ return function(game)
 			return {
 				{addr=self:getDestAddr()},
 			}
+		end,
+		getCond = function(self)
+			return 'math.random() < .5'
 		end,
 	}
 
@@ -1251,7 +1281,16 @@ return function(game)
 						..'mapFlagGet('..cond.flagIndex..')'
 				end):concat(self._and and ' and ' or ' or ')
 		end,
-		desc = 'if <?=condCode?> then <?=getGotoOfsStr(destAddrOfs)?> end',
+		__tostring = function(self)
+			return 'if '
+				..self:getCond()
+				..' then '
+				..self.getGotoOfsStr(self.destAddrOfs)
+				..' end'
+		end,
+		getCond = function(self)
+			return self.condCode
+		end,
 		getDestAddr = function(self)
 			return scriptBaseAddr + self.destAddrOfs
 		end,
@@ -1265,7 +1304,7 @@ return function(game)
 
 	-- in EventCmds for 0xc0-0xcf and in WorldCmds for 0xb0-0xbf
 	for cmd=0xc0,0xcf do
-		EventCmds['Cond '..cmd] = EventCmd:subclass(Cond, {cmd = cmd})
+		EventCmds[('Cond 0x%02x'):format(cmd)] = EventCmd:subclass(Cond, {cmd = cmd})
 	end
 
 	for cmd=0xd0,0xdd do
@@ -1692,11 +1731,17 @@ return function(game)
 		cmd = 0xfa,
 		random = true,
 		dir = '-',
+		getCond = function(self)
+			return 'math.random() < .5'
+		end,
 	}
 	ObjectCmds.BranchFwd50 = ObjectCmds.Branch:subclass{
 		cmd = 0xfb,
 		random = true,
 		dir = '+',
+		getCond = function(self)
+			return 'math.random() < .5'
+		end,
 	}
 	--[[
 	NOTICE - every ObjectCmd BranchBack 0xFC will next have an optional 0xFF 'return' and then it will end the objScript.
@@ -1872,7 +1917,13 @@ return function(game)
 		cmd = 0xd4,
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
-		desc = 'if keypress() then <?=getGotoOfsStr(destAddrOfs)?>',
+		__tostring = function(self)
+			return 'if '
+				..self:getCond()
+				..' then '
+				..self.getGotoOfsStr(self.destAddrOfs)
+				..' end'
+		end,
 		getDestAddr = function(self)
 			return scriptBaseAddr + self.destAddrOfs
 		end,
@@ -1880,6 +1931,9 @@ return function(game)
 			return {
 				{addr=self:getDestAddr()},
 			}
+		end,
+		getCond = function(self)
+			return 'keypress()'
 		end,
 	}
 
@@ -1888,7 +1942,13 @@ return function(game)
 		cmd = 0xd5,
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'dir', 'destAddrOfs'},
-		desc = 'if dir==<?=dir?> then <?=getGotoOfsStr(destAddrOfs)?>',
+		__tostring = function(self)
+			return 'if '
+				..self:getCond()
+				..' then '
+				..self.getGotoOfsStr(self.destAddrOfs)
+				..' end'
+		end,
 		getDestAddr = function(self)
 			return scriptBaseAddr + self.destAddrOfs
 		end,
@@ -1896,6 +1956,9 @@ return function(game)
 			return {
 				{addr=self:getDestAddr()},
 			}
+		end,
+		getCond = function(self)
+			return 'dir=='..self.dir
 		end,
 	}
 
