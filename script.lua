@@ -294,7 +294,15 @@ return function(game)
 			self.vehicleIndex = bit.band(3, bit.rshift(arg, 5))
 			self.showRider = 0 ~= bit.band(0x80, arg)
 		end,
-		desc = 'objSetVehicle(<?=objIndex?>, <?=vehicleIndex?>, <?=showRider?>)',
+		__tostring = function(self)
+			return 'objSetVehicle('
+				..self.objIndex
+				..', '
+				..self.vehicleIndex
+				..', '
+				..tostring(self.showRider)
+			..')'
+		end,
 	}
 
 	EventCmds.UpdateCharacterObjects = EventCmd:subclass{
@@ -1132,7 +1140,13 @@ return function(game)
 	local EventSetBattleFlag = EventCmd:subclass{
 		argtypes = {uint8_t},
 		argnames = {'flagIndex'},
-		desc = 'battleFlagSet(<?=flagIndex?>, <?=value?>)',
+		__tostring = function(self)
+			return 'battleFlagSet('
+				..self.flagIndex
+				..', '
+				..tostring(self.value)
+			..')'
+		end,
 	}
 	EventCmds.SetBattleFlag = EventSetBattleFlag:subclass{
 		cmd = 0xb8,
@@ -1265,8 +1279,11 @@ return function(game)
 					bit.lshift(bit.band(self.cmd, 0xe), 7),	-- move bits 1:3 to bits 8:10
 					flagIndex
 				)
-				self.descstr = 'mapFlagSet('
-					..self.flagIndex..', '
+			end,
+			__tostring = function(self)
+				return 'mapFlagSet('
+					..self.flagIndex
+					..', '
 					..tostring(self.flagValue)
 					..')'
 			end,
@@ -1814,8 +1831,13 @@ return function(game)
 	local WorldSetFlag = WorldCmd:subclass{
 		argtypes = {uint16_t},
 		argnames = {'flagIndex'},
-		-- why didn't it like "value"?
-		desc = 'mapFlagSet(<?=flagIndex?>, <?=flagValue?>)',
+		__tostring = function(self)
+			return 'mapFlagSet('
+				..self.flagIndex
+				..', '
+				..tostring(self.flagValue)
+				..')'
+		end,
 	}
 	WorldCmds.SetFlag = WorldSetFlag:subclass{
 		cmd = 0xc8,
@@ -2024,8 +2046,13 @@ return function(game)
 	local VehicleSetFlag = VehicleCmd:subclass{
 		argtypes = {uint16_t},
 		argnames = {'flagIndex'},
-		-- why didn't it like using 'value' ?
-		desc = 'mapFlagSet(<?=flagIndex?>, <?=flagValue?>)',
+		__tostring = function(self)
+			return 'mapFlagSet('
+				..self.flagIndex
+				..', '
+				..tostring(self.flagValue)
+				..')'
+		end,
 	}
 	VehicleCmds.SetFlag = VehicleSetFlag:subclass{
 		cmd = 0xc8,
