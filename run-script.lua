@@ -662,17 +662,28 @@ objScript{objIndex=23, cb=|objIndex|_0aefca(objIndex, 0x0aefdb)}
 					if game.ObjectCmds.BranchBack:isa(bb)
 					and bb.offset ~= 0xff
 					then
-	assert.eq(bb.parent, o)
+assert.eq(bb.parent, o)
 						local j, target = o.stmts:find(nil, function(o2) return o2.addr == bb:getDestAddr() end)
 						if not target then
-	print('!!! WARNING !!! branch-back at '
-		..('_%06x'):format(bb.addr)
-		..' points to unknown dest '
-		..(bb:getDestAddr() and ('_%06x'):format(bb:getDestAddr()) or 'nil')
-	)
+print('!!! WARNING !!! branch-back at '
+	..('_%06x'):format(bb.addr)
+	..' points to unknown dest '
+	..(bb:getDestAddr() and ('_%06x'):format(bb:getDestAddr()) or 'nil')
+)
 						else
-	assert.eq(target.parent, o)
-	assert.lt(j, i)
+assert.eq(target.parent, o)
+assert.lt(j, i)
+
+assert(game.whatsPointingToAddr[target.addr])
+							for k=#game.whatsPointingToAddr[target.addr],1,-1 do
+								if game.whatsPointingToAddr[target.addr][k].branchSrc == bb then
+									game.whatsPointingToAddr[target.addr]:remove(k)
+								end
+							end
+							if #game.whatsPointingToAddr[target.addr] == 0 then
+								game.whatsPointingToAddr[target.addr] = nil
+							end
+
 							-- now we can cut this block out and put it in a while-loop
 							local busyloop = BusyLoopBlock()
 							busyloop.indent = o.stmts[1].indent
