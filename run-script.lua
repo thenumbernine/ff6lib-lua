@@ -274,6 +274,16 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	end
 
 
+	local Patch  = class()
+	Patch.toCodeLine = Cmd_toCodeLine
+	function Patch:getAsmLine()
+		return ('%06x patch'):format(self.addr)
+	end
+	function Patch:toCode()
+		return '\n'..self.code
+	end
+
+
 	local BusyLoopBlock  = class()
 	BusyLoopBlock.toCodeLine = Cmd_toCodeLine
 	function BusyLoopBlock:getAsmLine()
@@ -378,9 +388,76 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	end
 
 
-	if not cmdline.skipOpts then
 	-- BEGIN HIGH LEVEL CODE CONVERSION
+	if not cmdline.skipOpts then
 		game.ObjectCmds.EndScript.desc = '    return'
+
+		-- first first thing, patch any code directly
+		-- from = inclusive, to = exclusive, repl = code
+		local function patch(from, to, code)
+			local i1 = game.eventScriptCmds:find(nil, function(o) return o.addr == from end)
+			assert(i1)
+			local i2 = game.eventScriptCmds:find(nil, function(o) return o.addr == to end)
+			assert(i2)
+			local patch = Patch()
+			patch.addr = from
+			patch.code = code
+			patch.indent = game.eventScriptCmds[i1].indent
+			game.eventScriptCmds = table():append(
+				game.eventScriptCmds:sub(1, i1-1),
+				{patch},
+				(game.eventScriptCmds:sub(i2))
+			)
+		end
+		patch(0x0aefc8, 0x0af003, [[
+local _0aefca=|objIndex, dest|do
+	while true do
+		if dest <= 0x0aefca then
+			objMove(objIndex, 0, 1)
+			objMove(objIndex, 3, 5)
+		end
+		if dest <= 0x0aefcc then
+			objMove(objIndex, 3, 1)
+			objMove(objIndex, 0, 5)
+		end
+		if dest <= 0x0aefce then
+			objMove(objIndex, 0, 3)
+			objMove(objIndex, 0, 3)
+		end
+		if dest <= 0x0aefd0 then
+			objMove(objIndex, 0, 5)
+			objMove(objIndex, 3, 1)
+		end
+		if dest <= 0x0aefd2 then
+			objMove(objIndex, 3, 2)
+			sleep(10/15)
+			objMoveDiag(objIndex, 0)
+			objMove(objIndex, 1, 3)
+		end
+		if dest <= 0x0aefd7 then
+			objMove(objIndex, 0, 2)
+			objMove(objIndex, 3, 1)
+			objMoveDiag(objIndex, 3)
+			objMove(objIndex, 3, 2)
+		end
+		if dest <= 0x0aefdb then
+			objMoveDiag(objIndex, 3)
+			objMove(objIndex, 3, 2)
+			objMoveDiag(objIndex, 3)
+			objSetPos(objIndex, 59, 34)
+			objMove(objIndex, 0, 2)
+		end
+		dest = 0
+	end
+end
+objScript{objIndex=17, cb=|objIndex|_0aefca(objIndex, 0x0aefca)}
+objScript{objIndex=18, cb=|objIndex|_0aefca(objIndex, 0x0aefcc)}
+objScript{objIndex=19, cb=|objIndex|_0aefca(objIndex, 0x0aefce)}
+objScript{objIndex=20, cb=|objIndex|_0aefca(objIndex, 0x0aefd0)}
+objScript{objIndex=21, cb=|objIndex|_0aefca(objIndex, 0x0aefd2)}
+objScript{objIndex=22, cb=|objIndex|_0aefca(objIndex, 0x0aefd7)}
+objScript{objIndex=23, cb=|objIndex|_0aefca(objIndex, 0x0aefdb)}
+]])
 
 		-- first thing, collect objScript blocks.
 		-- notice this will break the other reverse-refs. meh.
@@ -602,15 +679,11 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 							end
 
 							-- skip o.stmts[i] since it is the goto
-							local oldstmts = o.stmts
-							o.stmts = table()
-							for q=1,j-1 do
-								o.stmts:insert(oldstmts[q])
-							end
-							o.stmts:insert(busyloop)
-							for q=i+1,#oldstmts do
-								o.stmts:insert(oldstmts[q])
-							end
+							o.stmts = table():append(
+								o.stmts:sub(1,j-1),
+								{busyloop},
+								o.stmts:sub(i+1)
+							)
 						end
 					end
 				end
