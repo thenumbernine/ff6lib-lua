@@ -171,7 +171,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	--]]
 
 	local function tab(indent)
-		return ('\t'):rep(indent)
+		return ('    '):rep(indent)
 	end
 
 	-- return comment with address, bytes, and disasm code
@@ -180,7 +180,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	local function Cmd_getAsmLine(self)
 		-- print addr
 		return
-			('%06x\t'):format(self.addr)
+			('%06x '):format(self.addr)
 
 			-- print shorthand cmdset
 			..({
@@ -211,7 +211,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		local s = indent..'charSwitch{\n'
 		for _,option in ipairs(self.options) do
 			s = s ..
-				indent..'\t{'
+				indent..'    {'
 				..option.characterIndex..', '
 				..game.addrLabel(scriptBaseAddr + option.addrOfs)
 				..'},\n'
@@ -246,7 +246,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	local Lambda = class()
 	Lambda.toCodeLine = Cmd_toCodeLine
 	function Lambda:getAsmLine()
-		return ('%06x\tlambda'):format(self.addr)
+		return ('%06x lambda'):format(self.addr)
 	end
 	function Lambda:toCode()
 		-- same as ObjectScript:toCode, print stmts block:
@@ -379,7 +379,8 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		while j<=#game.eventScriptCmds do
 			local o = game.eventScriptCmds[j]
 			if game.EventCmds.ObjectScript:isa(o) then
-				for i,target in ipairs(o.stmts) do
+				for i=#o.stmts,1,-1 do
+					local target = o.stmts[i]
 					local pointingSrc
 					local branch
 					if game.whatsPointingToAddr[target.addr] then
@@ -427,14 +428,21 @@ assert.eq(lambda.stmts[1], target)
 assert.eq(lambda.stmts[1].addr, target.addr)
 						lambda.addr = lambda.stmts[1].addr
 						lambda.label = ('_%06x'):format(lambda.addr)
+						lambda.whoCallsThis = table()
 
-						game.whatsPointingToAddr[lambda.addr] = nil
+						-- no more label
+						game.whatsPointingToAddr[lambda.addr]:removeObject(pointingSrc)
+						if #game.whatsPointingToAddr[lambda.addr] == 0 then
+							game.whatsPointingToAddr[lambda.addr] = nil
+						end
 
 						o.stmts = o.stmts:sub(1, i-1)
-						o.stmts:insert(CallAndReturn{
+						local ocall = CallAndReturn{
 							indent = o.indent+1,
 							func = lambda,
-						})
+						}
+						o.stmts:insert(ocall)
+						lambda.whoCallsThis:insert(ocall)
 						-- o.parent.stmts is gloabl-scope...
 						game.eventScriptCmds:insert(j, lambda)
 						j=j+1
@@ -444,17 +452,17 @@ assert.eq(lambda.stmts[1].addr, target.addr)
 						local branchParent = branch.parent
 						assert(branchParent)
 						local k = branchParent.stmts:find(branch)
-						branchParent.stmts[k] = CallAndReturn{
+						local bpcall = CallAndReturn{
 							indent = o.indent+1,
 							func = lambda,
 							addr = branch.addr,
 						}
-						-- need to update this?
-						--pointingSrc.branchSrc = branchParent.stmts[k]
+						branchParent.stmts[k] = bpcall
+						lambda.whoCallsThis:insert(bpcall)
 
 						-- what happens if we have more than one target into an obj-script?
 						-- how to extract the lambdas..
-						break
+						--break
 					end
 				end
 			end
@@ -476,17 +484,26 @@ assert.eq(lambda.stmts[1].addr, target.addr)
 				o.stmts:remove()
 			end
 		end
+	end
 
-		-- if there's any lambdas that are nothing but a goto target
-		--  that points to another lambda
-		-- then replace this lambda with the other
-		if Lambda:isa(o)
-		and #o.stmts == 1
-		and game.ObjectCmds.BranchBack:isa(o)
-		then
-			print'TODO'
+	for j=#game.eventScriptCmds,1,-1 do
+		local l = game.eventScriptCmds[j]
+		-- if there's any lambdas that are nothing but a CallAndReturn that points to another lambda
+		if Lambda:isa(l) and #l.stmts == 1 then
+			local c = l.stmts[1]
+			if CallAndReturn:isa(c) then
+				-- then replace this lambda with the other
+--print(('collapsing tailcall at _%06x'):format(c.addr))
+				for _,w in ipairs(l.whoCallsThis) do
+					-- have them call through
+					w.func = c.func
+				end
+				-- and remove the unneeded lambda
+				game.eventScriptCmds:remove(j)
+			end
 		end
 	end
+
 
 --[=[
 	-- ok now that we've consolidated obj-scripts,
@@ -532,7 +549,7 @@ assert.eq(lambda.stmts[1].addr, target.addr)
 			-- have one just call the other, or equate to the other
 			local thisInFunc = addrsIsFunc[cmdobj.addr]
 			if thisInFunc then
-				io.write(label, '=||do\n')
+				io.write((' '):rep(24), label, '=||do\n')
 			else
 				io.write('::', label, '::\n')
 			end
@@ -555,7 +572,7 @@ assert.eq(lambda.stmts[1].addr, target.addr)
 
 		-- only print 'end' if the last command printed was a 'return'
 		if inFunc and lastWasReturn then
-			print'end -- return'
+			print((' '):rep(20), 'end -- return')
 			inFunc = false	-- ... or not?
 		else
 			print(cmdobj:toCodeLine())
