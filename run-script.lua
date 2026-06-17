@@ -178,10 +178,6 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 
 	--]]
 
-	local function tab(indent)
-		return ('    '):rep(indent)
-	end
-
 	-- return comment with address, bytes, and disasm code
 	-- TODO how about a few columsn on the left instead of every-other-line ?
 	-- and if the byte dump is too big then give this a few newlines
@@ -209,30 +205,41 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 				end)
 	end
 
-	local function Cmd_toCode(self)
-		return tab(self.indent + 1)
-			..tostring(self):gsub(
-				'\n',
-				'\n'..tab(self.indent+1)
-			)
+	local function Cmd_toCode(self, indent)
+		return ('\t'):rep(indent or 0)..tostring(self)
 	end
 
 	-- special-case for multiline indentation for some like charSwitch...
-	local function EventCmds_CallSwitchNPCFlags_toCode(self)
-		local indent = tab(self.indent + 1)
-		local s = indent..'charSwitch{\n'
+	local function EventCmds_CallSwitchNPCFlags_toCode(self, indent)
+		indent = indent or 0
+		local tab = ('\t'):rep(indent)
+		local s = tab..'charSwitch{\n'
 		for _,option in ipairs(self.options) do
+			if not cmdline.hideAddrs then
+				s = s .. (' '):rep(disasmcol)
+			end
 			s = s ..
-				indent..'    {'
+				tab..'\t{'
 				..option.characterIndex..', '
-				..game.addrLabel(scriptBaseAddr + option.addrOfs)
-				..'},\n'
+			if option.addrOfs then
+				assert(not option.stmts)
+				s = s .. game.addrLabel(scriptBaseAddr + option.addrOfs)
+			elseif option.stmts then
+				assert(not option.addrOfs)
+				s = s .. '||do\n'
+				for _,stmt in ipairs(option.stmts) do
+					s = s .. stmt:toCodeLine(indent+2) .. '\n'
+				end
+				s = s .. tab .. '\tend'
+			end
+			s = s ..'},\n'
 		end
-		s = s .. indent..'}\n'
+		s = s .. tab..'}\n'
 		return s
 	end
 
-	local function Cmd_toCodeLine(self)
+	local function Cmd_toCodeLine(self, indent)
+		indent = indent or 0
 		local s = ''
 		-- [[ labels:
 		local whatPointsToScriptAtAddr = game.whatsPointingToAddr[self.addr]
@@ -280,7 +287,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		local ls = table()
 		ls:insert((self:getAsmLine()))
 		-- TODO here insert labels if this is the target of a GOTO...
-		ls:insert(self:toCode())
+		ls:insert(self:toCode(indent))
 		s = s .. ls:concat'\n'
 		--]]
 		-- [[ lhs and rhs
@@ -288,24 +295,18 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 			local asmline = self:getAsmLine()
 			s = s .. align(disasmcol, asmline or '')
 		end
-		s = s .. self:toCode()
+		s = s .. ('\t'):rep(indent)..self:toCode(indent)
 		--]]
 		return s
 	end
 
 
 	local Patch  = class()
+	Patch.toCode = Cmd_toCode
 	Patch.toCodeLine = Cmd_toCodeLine
 	function Patch:getAsmLine()
 		if not self.addr then return end
 		return ('%06x patch'):format(self.addr)
-	end
-	function Patch:toCode()
-		return '\n'
-			..tab(self.indent)..self.code:gsub(
-				'\n',
-				'\n'..tab(self.indent)
-			)
 	end
 
 
@@ -315,25 +316,26 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		if not self.addr then return end
 		return ('%06x loop'):format(self.addr)
 	end
-	function Loop:toCode()
+	function Loop:toCode(indent)
+		indent = indent or 0
 		local s = table()
-		local indent = tab(self.indent+1)
 		if self.is5050 then
-			s:insert(indent..'repeat')
+			s:insert('repeat')
 		else
-			s:insert(indent..'while true do')
+			s:insert('while true do')
 		end
 		for _,stmt in ipairs(self.stmts) do
-			s:insert(stmt:toCodeLine())	-- toCodeLine means also insert asm if asked to
+			s:insert(stmt:toCodeLine(indent+1))	-- toCodeLine means also insert asm if asked to
 		end
+		local tab = ('\t'):rep(indent)
 		if self.is5050 then
 			s:insert(
 				(cmdline.hideAddrs and '' or (' '):rep(disasmcol))
-				..indent..'until math.random() < .5')
+				..tab..'until math.random() < .5')
 		else
 			s:insert(
 				(cmdline.hideAddrs and '' or (' '):rep(disasmcol))
-				..indent..'end'
+				..tab..'end'
 			)
 		end
 		return s:concat'\n'
@@ -350,10 +352,10 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		if not self.addr then return end
 		return ('%06x lambda'):format(self.addr)
 	end
-	function Lambda:toCode()
+	function Lambda:toCode(indent)
+		indent = indent or 0
 		-- same as ObjectScript:toCode, print stmts block:
 		local s = table()
-		local indent = tab(self.indent+1)
 
 		local def
 		if self.labels and #self.labels > 1 then
@@ -372,16 +374,17 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		if self.isLocal then
 			def = 'local '..def
 		end
-		s:insert(indent..def)
+		s:insert(def)
 
 		if self.stmts then
 			for _,stmt in ipairs(self.stmts) do
-				s:insert(stmt:toCodeLine())	-- toCodeLine means also insert asm if asked to
+				s:insert(stmt:toCodeLine(indent+1))	-- toCodeLine means also insert asm if asked to
 			end
 		end
+		local tab = ('\t'):rep(indent)
 		s:insert(
 			(cmdline.hideAddrs and '' or (' '):rep(disasmcol))
-			..indent..'end'
+			..tab..'end'
 		)
 		return s:concat'\n'
 	end
@@ -389,7 +392,6 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 
 	local TailCall = class()
 	function TailCall:init(args)
-		self.indent = assert.index(args, 'indent')
 		self.func = assert.index(args, 'func')
 		self.addr = args.addr	-- optional since the lambda calls dont have an addr
 	end
@@ -398,8 +400,8 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		if not self.addr then return end
 		return ('%06x tailcall'):format(self.addr)
 	end
-	function TailCall:toCode()
-		return tab(self.indent+1)..'return '..self.func.label..'(objIndex)'
+	function TailCall:toCode(indent)
+		return 'return '..self.func.label..'(objIndex)'
 	end
 
 	local If = class()
@@ -407,14 +409,15 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		--self.cond = assert.index(args, 'cond')
 		--self.stmts = assert.index(args, 'stmts')
 	end
-	function If:toCode()
-		local indent = tab(self.indent+1)
-		local s = indent..'if '..self.cond..' then\n'
+	function If:toCode(indent)
+		indent = indent or 0
+		local s = 'if '..self.cond..' then\n'
 		for _,stmt in ipairs(self.stmts) do
-			s = s .. stmt:toCodeLine()..'\n'
+			s = s .. stmt:toCodeLine(indent+1)..'\n'
 		end
+		local tab = ('\t'):rep(indent)
 		s = s .. (cmdline.hideAddrs and '' or (' '):rep(disasmcol))
-			..indent..'end'
+			..tab..'end'
 		return s
 	end
 	If.toCodeLine = Cmd_toCodeLine
@@ -425,32 +428,31 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 
 
 
-
-
 	-- EventCmds.ObjScript now has nested stmts
-	local function EventCmds_ObjectScript_toCode(self)
-		local indent = tab(self.indent+1)
+	local function EventCmds_ObjectScript_toCode(self, indent)
+		indent = indent or 0
+		local tab = ('\t'):rep(indent)
 		-- if it's just one call to a lambda then don't make our own lambda
 		if self.stmts and #self.stmts == 1
 		and TailCall:isa(self.stmts[1])
 		then
-			return indent..'objScript{objIndex='..self.cmd
+			return tab..'objScript{objIndex='..self.cmd
 				..(self.blocking and ', block=true' or '')
 				..', cb='..self.stmts[1].func.label
 				..'}'
 		end
 
-		local s = table{Cmd_toCode(self)}
+		local s = table{Cmd_toCode(self, indent)}
 		-- TODO if we have just one call-and-return then just insert that as our callback instead of a lambda of our stmts...
 		if self.stmts then
 			for _,stmt in ipairs(self.stmts) do
-				s:insert(stmt:toCodeLine())	-- toCodeLine means also insert asm if asked to
+				s:insert(stmt:toCodeLine(indent+1))
 			end
 		end
 		if self.stmts then
 			s:insert(
 				(cmdline.hideAddrs and '' or (' '):rep(disasmcol))
-				..indent..'end}'
+				..tab..'end}'
 			)
 		-- if we don't have self.stmts defined then expect the end} to come from the 'return' I guess?  I might have removed that one too soon...
 		end
@@ -492,7 +494,6 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 			local patch = Patch()
 			patch.addr = from
 			patch.code = code
-			patch.indent = game.eventScriptCmds[i1].indent+1
 			game.eventScriptCmds = table():append(
 				game.eventScriptCmds:sub(1, i1-1),
 				{patch},
@@ -781,7 +782,6 @@ assert.eq(branchSrc:getDestAddr(), target.addr)
 							local lambda = Lambda()
 							lambda.isLocal = true
 							lambda.args = {'objIndex'}
-							lambda.indent = o.indent
 							lambda.stmts = o.stmts:sub(i)
 							for _,n in ipairs(lambda.stmts) do
 								n.parent = lambda
@@ -792,7 +792,6 @@ assert.eq(lambda.stmts[1], target)
 
 							o.stmts = o.stmts:sub(1, i-1)
 							local ocall = TailCall{
-								indent = o.indent+1,
 								func = lambda,
 								addr = lambda.addr,
 							}
@@ -814,7 +813,6 @@ if not k then
 	print(('!!! %06x lost its parent pointer'):format(branch.addr))
 else
 									local bpcall = TailCall{
-										indent = o.indent+1,
 										func = lambda,
 										addr = branch.addr,
 									}
@@ -925,13 +923,11 @@ assert(game.whatsPointingToAddr[target.addr])
 							-- now we can cut this block out and put it in a while-loop
 							local if_ = If()
 							if_.cond = 'math.random() < .5'
-							if_.indent = bb.indent
 							if_.stmts = o.stmts:sub(i+1,j-1)
 							if_.addr = if_.stmts[1].addr
 							if_.parent = o
 							for _,c in ipairs(if_.stmts) do
 								c.parent = if_
-								c.indent = if_.indent + 1
 							end
 
 							o.stmts = table():append(
@@ -984,13 +980,11 @@ assert(game.whatsPointingToAddr[target.addr])
 							-- now we can cut this block out and put it in a while-loop
 							local loop = Loop()
 							loop.is5050 = game.ObjectCmds.BranchBack50:isa(bb)
-							loop.indent = bb.indent
 							loop.stmts = o.stmts:sub(j,i-1)
 							loop.addr = loop.stmts[1].addr
 							loop.parent = o
 							for _,c in ipairs(loop.stmts) do
 								c.parent = loop
-								c.indent = c.indent + 1
 							end
 
 							-- skip o.stmts[i] since it is the goto
@@ -1054,12 +1048,9 @@ for _,src in ipairs(whatPointsToScriptAtAddr) do
 end
 							-- now copy the stmts into our lambda-block at global-scope
 							local lambda = Lambda()
-							lambda.indent = 0
 							lambda.stmts = game.eventScriptCmds:sub(i,j)
 							for _,n in ipairs(lambda.stmts) do
 								n.parent = lambda
-								-- TODO don't use indent, use recursion in the serialization
-								n.indent = lambda.indent + 1
 							end
 assert.eq(lambda.stmts[1], cmdobj)
 							lambda.addr = lambda.stmts[1].addr
@@ -1097,6 +1088,8 @@ assert.eq(lambda.stmts[1], cmdobj)
 		end
 		--]=]
 
+		local Nop = class()
+
 		-- [=[ now inline our charSwitch's
 		do
 			local cmdForAddr = {}
@@ -1113,18 +1106,22 @@ assert.eq(lambda.stmts[1], cmdobj)
 			local function checkBlock(stmts)
 				local i=1
 				while i <= #stmts do
-					local o = stmts[i]
-					if o.stmts then
-						checkBlock(o.stmts)
+					local switch = stmts[i]
+					if switch.stmts then
+						checkBlock(switch.stmts)
 					end
-					if game.EventCmds.CallSwitchNPCFlags:isa(o) then
-						for optionIndex,option in ipairs(o.options) do
-							local destAddr = option.addrOfs + scriptBaseAddr
-							assert.index(game.whatsPointingToAddr, destAddr)
+					if game.EventCmds.CallSwitchNPCFlags:isa(switch) then
+						for optionIndex,option in ipairs(switch.options) do
+							if option.stmts then
+								assert(not option.addrOfs)
+							else
+								assert(not option.stmts)
+								local destAddr = option.addrOfs + scriptBaseAddr
+								assert.index(game.whatsPointingToAddr, destAddr)
 
 --[[ there's a few that are >1 call and so won't be inlined
 print('!!! char switch at '
-	..('%06x'):format(o.addr)
+	..('%06x'):format(switch.addr)
 	..' option #'..optionIndex
 	..' points to address with '
 	..#game.whatsPointingToAddr[destAddr]
@@ -1135,46 +1132,68 @@ print('!!! char switch at '
 			s=s..'cmdobj=nil'
 		else
 			s=s..'addr='..('%06x'):format(src.cmdobj.addr)
-			s=s..', cmdobj==o='..tostring(src.cmdobj==o)
+			s=s..', cmdobj==switch='..tostring(src.cmdobj==switch)
 		end
 		s=s..'}'
 		return s
 	end):concat', '
 )
 --]]
-							-- see if there is only one jump into the target
-							if #game.whatsPointingToAddr[destAddr] == 1
-							and game.whatsPointingToAddr[destAddr][1].cmdobj == o
-							then
-							-- then we can inline this function
+								-- see if there is only one jump into the target
+								if #game.whatsPointingToAddr[destAddr] == 1
+								and game.whatsPointingToAddr[destAddr][1].cmdobj == switch
+								then
+								-- then we can inline this function
 -- 180 pokemon caught here
-print('!!! found func at '
-	..('%06x'):format(destAddr)
-	..' that is only an option of charSwitch at '
-	..('%06x'):format(o.addr)
-	..' that we can inline')
+--print('!!! found func at '..('%06x'):format(destAddr)..' that is an only option of charSwitch at '..('%06x'):format(switch.addr)..' that we can inline')
 
-								-- doesn't always exist, especially if the lambda became inlined...
-								local destcmd = assert.index(cmdForAddr, destAddr)
-								if not Lambda:isa(destcmd) then
+									-- doesn't always exist, especially if the lambda became inlined...
+									local lambda = assert.index(cmdForAddr, destAddr)
+--assert.eq(lambda.addr, destAddr)
+									if not Lambda:isa(lambda) then
 -- TODO TODO TODO hmm
 -- There's one function that calls midway through another ...
 -- time to split the function and insert a tailcall at the end of the first into the second
-print("   !!! and it's not a Lambda !!!")
-								else
-									-- otherwise,
-									-- as long as they have no label ...
-									if destcmd.labels then
+print('!!! found func at '..('%06x'):format(destAddr)..' that is an only option of charSwitch at '..('%06x'):format(switch.addr).." that we can inline ... BUT it's not a Lambda!")
+									else
+										-- otherwise,
+										-- as long as they have no label ...
+										if lambda.labels then
 -- never happens, so we can safely inline
 print("   !!! and it has external labels !!!")
-									else
-										assert.eq(option.stmts, nil)
-										-- 1) copy destcmd.stmts into option.stmts
-										-- 2) remove the lambda from its parent
-										-- 3) filter out whatsPointingToAddr to the lambda (and cmdForAddr?)
+										else
+
+--[[ this happens every time, probably because the lambda's label
+for _,stmt in ipairs(lambda.stmts) do
+	if stmt.addr
+	and game.whatsPointingToAddr[stmt.addr]
+	then
+print('	!!! and the lambda contains goto labels !!!')
+		break
+	end
+end
+--]]
+											-- 1) copy lambda.stmts into option.stmts
+											option.stmts = lambda.stmts
+											for _,stmt in ipairs(option.stmts) do
+												stmt.parent = option
+											end
+											option.addrOfs = nil
+											-- 2) remove the lambda from its parent
+											if lambda.parent then
+												local j = lambda.parent.stmts:find(lambda)
+												lambda.parent.stmts[j] = Nop()	-- don't invalidate iterators
+												lambda.parent.stmts[j].parent = lambda
+											else
+												local j = game.eventScriptCmds:find(lambda)
+												game.eventScriptCmds[j] = Nop()	-- don't invalidate iterators
+											end
+											-- 3) filter out whatsPointingToAddr to the lambda (and cmdForAddr?)
+											game.whatsPointingToAddr[destAddr] = nil
+										end
 									end
+									--assert.is(lambda, Lambda)
 								end
-								--assert.is(destcmd, Lambda)
 							end
 						end
 					end
@@ -1182,6 +1201,19 @@ print("   !!! and it has external labels !!!")
 				end
 			end
 			checkBlock(game.eventScriptCmds)
+
+
+			-- only now remove
+			local function removeNops(stmts)
+				for j=#stmts,1,-1 do
+					local o = stmts[j]
+					if o.stmts then
+						removeNops(o.stmts)
+					end
+					if Nop:isa(o) then stmts:remove(j) end
+				end
+			end
+			removeNops(game.eventScriptCmds)
 		end
 		--]=]
 
@@ -1195,14 +1227,14 @@ print("   !!! and it has external labels !!!")
 		function Goto:init(args)
 			self.dest = assert.index(args, 'dest')
 		end
-		function Goto:toCode()
+		function Goto:toCode(indent)
 			return 'goto '..self.dest
 		end
 		Goto.toCodeLine = Cmd_toCodeLine
 		function Goto:getAsmLine() return 'goto' end
 
 		local Break = class()
-		function Break:toCode()
+		function Break:toCode(indent)
 			return 'break'
 		end
 		Break.toCodeLine = Cmd_toCodeLine
@@ -1222,7 +1254,6 @@ print("   !!! and it has external labels !!!")
 					for j=1,select('#', ...) do
 						local r = select(j, ...)
 						r.addr = o.addr
-						r.indent = o.indent
 						r.parent = o.parent
 						game.eventScriptCmds:insert(i, r)
 						i = i + 1
@@ -1318,7 +1349,7 @@ print("   !!! and it has external labels !!!")
 		-- only print 'end' if the last command printed was a 'return'
 		if inFunc and lastWasReturn then
 			if cmdline.skipOpts then
-				print(cmdobj:toCodeLine())
+				print(cmdobj:toCodeLine(1))
 			else
 				if not cmdline.hideAddrs then
 					io.write((' '):rep(disasmcol-4))
@@ -1327,7 +1358,7 @@ print("   !!! and it has external labels !!!")
 			end
 			inFunc = false	-- ... or not?
 		else
-			print(cmdobj:toCodeLine())
+			print(cmdobj:toCodeLine(0))
 		end
 	end
 	print()
