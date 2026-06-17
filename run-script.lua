@@ -304,15 +304,24 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	function Loop:toCode()
 		local s = table()
 		local indent = tab(self.indent+1)
-		s:insert(indent..'while true do')
+		if self.is5050 then
+			s:insert(indent..'repeat')
+		else
+			s:insert(indent..'while true do')
+		end
 		for _,stmt in ipairs(self.stmts) do
 			s:insert(stmt:toCodeLine())	-- toCodeLine means also insert asm if asked to
 		end
-		s:insert((' '):rep(disasmcol)..indent..'end')
+		if self.is5050 then
+			s:insert((' '):rep(disasmcol)..indent..'until math.random() < .5')
+		else
+			s:insert((' '):rep(disasmcol)..indent..'end')
+		end
 		return s:concat'\n'
 	end
 
 
+	-- TODO object-script lambda vs other lambdas?
 	local Lambda = class()
 	Lambda.toCodeLine = Cmd_toCodeLine
 	function Lambda:getAsmLine()
@@ -343,11 +352,34 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	CallAndReturn.toCodeLine = Cmd_toCodeLine
 	function CallAndReturn:getAsmLine()
 		if not self.addr then return end
-		return ('%06x'):format(self.addr)
+		return ('%06x tailcall'):format(self.addr)
 	end
 	function CallAndReturn:toCode()
 		return tab(self.indent+1)..'return '..self.func.label..'(objIndex)'
 	end
+
+	local If = class()
+	function If:init(args)
+		--self.cond = assert.index(args, 'cond')
+		--self.stmts = assert.index(args, 'stmts')
+	end
+	function If:toCode()
+		local indent = tab(self.indent+1)
+		local s = indent..'if '..self.cond..' then\n'
+		for _,stmt in ipairs(self.stmts) do
+			s = s .. stmt:toCodeLine()..'\n'
+		end
+		s = s .. (' '):rep(disasmcol)..indent..'end'
+		return s
+	end
+	If.toCodeLine = Cmd_toCodeLine
+	function If:getAsmLine()
+		if not self.addr then return end
+		return ('%06x if'):format(self.addr)
+	end
+
+
+
 
 
 	-- EventCmds.ObjScript now has nested stmts
@@ -808,12 +840,75 @@ end
 			if game.EventCmds.ObjectScript:isa(o)
 			or Lambda:isa(o)
 			then
+
+				-- convert branch-5050-fwd's into if-blocks
 				local i = 1
 				while i <= #o.stmts do
 					local bb = o.stmts[i]
 					assert(bb.addr)
-					if game.ObjectCmds.BranchBack:isa(bb)
-					and bb.offset ~= 0xff
+					if (
+						game.ObjectCmds.BranchFwd50:isa(bb)
+						-- doesn't exist
+						--or game.ObjectCmds.BranchFwd:isa(bb)
+					) then
+assert.eq(bb.parent, o)
+						local j, target = o.stmts:find(nil, function(o2) return o2.addr == bb:getDestAddr() end)
+						if not target then
+print('!!! WARNING !!! branch-fwd at '
+	..('_%06x'):format(bb.addr)
+	..' points to unknown dest '
+	..(bb:getDestAddr() and ('_%06x'):format(bb:getDestAddr()) or 'nil')
+)
+						else
+assert.eq(target.parent, o)
+assert.gt(j, i)
+
+assert(game.whatsPointingToAddr[target.addr])
+							for k=#game.whatsPointingToAddr[target.addr],1,-1 do
+								if game.whatsPointingToAddr[target.addr][k].branchSrc == bb then
+									game.whatsPointingToAddr[target.addr]:remove(k)
+								end
+							end
+							if #game.whatsPointingToAddr[target.addr] == 0 then
+								game.whatsPointingToAddr[target.addr] = nil
+								addrsIsGoto[target.addr] = nil
+								addrsIsFunc[target.addr] = nil
+							end
+
+							-- now we can cut this block out and put it in a while-loop
+							local if_ = If()
+							if_.cond = 'math.random() < .5'
+							if_.indent = bb.indent
+							if_.stmts = o.stmts:sub(i+1,j-1)
+							if_.addr = if_.stmts[1].addr
+							if_.parent = o
+							for _,c in ipairs(if_.stmts) do
+								c.parent = if_
+								c.indent = if_.indent + 1
+							end
+
+							o.stmts = table():append(
+								o.stmts:sub(1,i-1),
+								{if_},
+								o.stmts:sub(j)
+							)
+						end
+					else
+						i = i + 1
+					end
+				end
+
+
+
+				-- convert branch-back and branch-5050-back into while-loops
+				local i = 1
+				while i <= #o.stmts do
+					local bb = o.stmts[i]
+					assert(bb.addr)
+					if (
+						game.ObjectCmds.BranchBack:isa(bb)
+						or game.ObjectCmds.BranchBack50:isa(bb)
+					) and bb.offset ~= 0xff
 					then
 assert.eq(bb.parent, o)
 						local j, target = o.stmts:find(nil, function(o2) return o2.addr == bb:getDestAddr() end)
@@ -840,24 +935,25 @@ assert(game.whatsPointingToAddr[target.addr])
 							end
 
 							-- now we can cut this block out and put it in a while-loop
-							local busyloop = Loop()
-							busyloop.indent = o.stmts[1].indent
-							busyloop.stmts = o.stmts:sub(j,i-1)
-							--busyloop.addr = busyloop.stmts[1].addr
-							busyloop.parent = o
-							for _,c in ipairs(busyloop.stmts) do
-								c.parent = busyloop
+							local loop = Loop()
+							loop.is5050 = game.ObjectCmds.BranchBack50:isa(bb)
+							loop.indent = bb.indent
+							loop.stmts = o.stmts:sub(j,i-1)
+							loop.addr = loop.stmts[1].addr
+							loop.parent = o
+							for _,c in ipairs(loop.stmts) do
+								c.parent = loop
 								c.indent = c.indent + 1
 							end
 
 							-- skip o.stmts[i] since it is the goto
 							o.stmts = table():append(
 								o.stmts:sub(1,j-1),
-								{busyloop},
+								{loop},
 								o.stmts:sub(i+1)
 							)
 						end
-						i = j + 1
+						i = j
 					else
 						i = i + 1
 					end
@@ -871,22 +967,6 @@ assert(game.whatsPointingToAddr[target.addr])
 		-- if it is jump-fwd then change to an if
 		-- if it is jump-back then change to a repeat-until loop
 
-
-		local If = class()
-		function If:init(args)
-			self.cond = assert.index(args, 'cond')
-			self.stmts = assert.index(args, 'stmts')
-		end
-		function If:toCode()
-			local s = 'if '..self.cond..' then\n'
-			for _,stmt in ipairs(self.stmts) do
-				s = s .. '\t'..stmt:toCode()..'\n'
-			end
-			s = s .. 'end'
-			return s
-		end
-		If.toCodeLine = Cmd_toCodeLine
-		function If:getAsmLine() return 'if' end
 
 		local Goto = class()
 		function Goto:init(args)
