@@ -12,6 +12,7 @@ local disasmcol = 32
 
 local function align(n, s)
 	s = tostring(s)
+	assert.type(n, 'number')
 	return s..(' '):rep(n - #s)
 end
 
@@ -180,6 +181,9 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	-- TODO how about a few columsn on the left instead of every-other-line ?
 	-- and if the byte dump is too big then give this a few newlines
 	local function Cmd_getAsmLine(self)
+		if not self.addr then return end
+		assert.index(self, 'cmdset')
+		assert.index(self, 'sizeInBytes')
 		-- print addr
 		return
 			('%06x '):format(self.addr)
@@ -268,9 +272,9 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		s = s .. ls:concat'\n'
 		--]]
 		-- [[ lhs and rhs
-		s = s
-			.. align(disasmcol, self:getAsmLine() or '')
-			.. self:toCode()
+		local asmline = self:getAsmLine()
+		s = s .. align(disasmcol, asmline or '')
+		s = s .. self:toCode()
 		--]]
 		return s
 	end
@@ -279,6 +283,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	local Patch  = class()
 	Patch.toCodeLine = Cmd_toCodeLine
 	function Patch:getAsmLine()
+		if not self.addr then return end
 		return ('%06x patch'):format(self.addr)
 	end
 	function Patch:toCode()
@@ -293,6 +298,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	local Loop  = class()
 	Loop.toCodeLine = Cmd_toCodeLine
 	function Loop:getAsmLine()
+		if not self.addr then return end
 		return ('%06x loop'):format(self.addr)
 	end
 	function Loop:toCode()
@@ -310,6 +316,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	local Lambda = class()
 	Lambda.toCodeLine = Cmd_toCodeLine
 	function Lambda:getAsmLine()
+		if not self.addr then return end
 		return ('%06x lambda'):format(self.addr)
 	end
 	function Lambda:toCode()
@@ -335,9 +342,8 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	end
 	CallAndReturn.toCodeLine = Cmd_toCodeLine
 	function CallAndReturn:getAsmLine()
-		if self.addr then
-			return ('%06x'):format(self.addr)
-		end
+		if not self.addr then return end
+		return ('%06x'):format(self.addr)
 	end
 	function CallAndReturn:toCode()
 		return tab(self.indent+1)..'return '..self.func.label..'(objIndex)'
@@ -569,7 +575,8 @@ end}
 					and game.ObjectCmds.BranchBack:isa(dest)
 					and dest.offset ~= 0xff
 					then
-print('!!! goto-to-goto at '..('%06x'):format(dest.addr))
+-- caught 41 pokemon here
+--print('!!! goto-to-goto at '..('%06x'):format(dest.addr))
 						for _,c in ipairs(chain) do
 							-- make sure it's a branch-back...
 							if dest.addr < c.addr then
@@ -801,7 +808,9 @@ end
 			if game.EventCmds.ObjectScript:isa(o)
 			or Lambda:isa(o)
 			then
-				for i,bb in ipairs(o.stmts) do
+				local i = 1
+				while i <= #o.stmts do
+					local bb = o.stmts[i]
 					assert(bb.addr)
 					if game.ObjectCmds.BranchBack:isa(bb)
 					and bb.offset ~= 0xff
@@ -834,7 +843,7 @@ assert(game.whatsPointingToAddr[target.addr])
 							local busyloop = Loop()
 							busyloop.indent = o.stmts[1].indent
 							busyloop.stmts = o.stmts:sub(j,i-1)
-							busyloop.addr = busyloop.stmts[1].addr
+							--busyloop.addr = busyloop.stmts[1].addr
 							busyloop.parent = o
 							for _,c in ipairs(busyloop.stmts) do
 								c.parent = busyloop
@@ -848,11 +857,19 @@ assert(game.whatsPointingToAddr[target.addr])
 								o.stmts:sub(i+1)
 							)
 						end
+						i = j + 1
+					else
+						i = i + 1
 					end
 				end
 			end
 		end
 	--]=]
+
+
+		-- and same thing for the 50/50 loops?
+		-- if it is jump-fwd then change to an if
+		-- if it is jump-back then change to a repeat-until loop
 
 
 		local If = class()
