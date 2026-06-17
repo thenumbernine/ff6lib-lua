@@ -354,7 +354,26 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		-- same as ObjectScript:toCode, print stmts block:
 		local s = table()
 		local indent = tab(self.indent+1)
-		s:insert(indent..'local '..self.label..'=|objIndex|do')
+
+		local def
+		if self.labels and #self.labels > 1 then
+			def = ''
+			for i,label in ipairs(self.labels) do
+				def = def .. label .. (i == 1 and '=' or ':=')
+			end
+		else
+			def = self.label .. '='
+		end
+		def = def .. '|'
+		if self.args then
+			def = def .. table.concat(self.args, ', ')
+		end
+		def = def .. '|do'
+		if self.isLocal then
+			def = 'local '..def
+		end
+		s:insert(indent..def)
+
 		if self.stmts then
 			for _,stmt in ipairs(self.stmts) do
 				s:insert(stmt:toCodeLine())	-- toCodeLine means also insert asm if asked to
@@ -760,6 +779,8 @@ assert.eq(branchSrc:getDestAddr(), target.addr)
 							-- extract into preceding lambda starting at this stmt.
 							-- TODO
 							local lambda = Lambda()
+							lambda.isLocal = true
+							lambda.args = {'objIndex'}
 							lambda.indent = o.indent
 							lambda.stmts = o.stmts:sub(i)
 							for _,n in ipairs(lambda.stmts) do
@@ -1042,6 +1063,8 @@ end
 							end
 assert.eq(lambda.stmts[1], cmdobj)
 							lambda.addr = lambda.stmts[1].addr
+-- TODO 'labels' not 'label'
+							lambda.labels = labelsForAddr[cmdobj.addr]
 							lambda.label = labelsForAddr[cmdobj.addr]
 								and labelsForAddr[cmdobj.addr][1]
 								or ('_%06x'):format(lambda.addr)
@@ -1074,16 +1097,32 @@ assert.eq(lambda.stmts[1], cmdobj)
 		end
 		--]=]
 
-		--[=[ now inline our charSwitch's
+		-- [=[ now inline our charSwitch's
 		do
-			local i=1
-			while i <= #game.eventScriptCmds do
-				local o = game.eventScriptCmds[i]
-				if game.EventCmds.CallSwitchNPCFlags:isa(o) then
-					for optionIndex,option in ipairs(o.options) do
-						local destAddr = option.addrOfs + scriptBaseAddr
-						assert.index(game.whatsPointingToAddr, destAddr)
---[[
+			local cmdForAddr = {}
+			local function buildCmdForAddr(stmts)
+				for _,cmdobj in ipairs(stmts) do
+					if cmdobj.stmts then
+						buildCmdForAddr(cmdobj.stmts)
+					end
+					cmdForAddr[cmdobj.addr] = cmdobj
+				end
+			end
+			buildCmdForAddr(game.eventScriptCmds)
+
+			local function checkBlock(stmts)
+				local i=1
+				while i <= #stmts do
+					local o = stmts[i]
+					if o.stmts then
+						checkBlock(o.stmts)
+					end
+					if game.EventCmds.CallSwitchNPCFlags:isa(o) then
+						for optionIndex,option in ipairs(o.options) do
+							local destAddr = option.addrOfs + scriptBaseAddr
+							assert.index(game.whatsPointingToAddr, destAddr)
+
+--[[ there's a few that are >1 call and so won't be inlined
 print('!!! char switch at '
 	..('%06x'):format(o.addr)
 	..' option #'..optionIndex
@@ -1103,23 +1142,46 @@ print('!!! char switch at '
 	end):concat', '
 )
 --]]
-						-- see if there is only one jump into the target
-						if #game.whatsPointingToAddr[destAddr] == 1
-						and game.whatsPointingToAddr[destAddr][1].cmdobj == o
-						then
+							-- see if there is only one jump into the target
+							if #game.whatsPointingToAddr[destAddr] == 1
+							and game.whatsPointingToAddr[destAddr][1].cmdobj == o
+							then
 							-- then we can inline this function
 -- 180 pokemon caught here
 print('!!! found func at '
 	..('%06x'):format(destAddr)
 	..' that is only an option of charSwitch at '
 	..('%06x'):format(o.addr)
-	..' that we can online')
-							local
+	..' that we can inline')
+
+								-- doesn't always exist, especially if the lambda became inlined...
+								local destcmd = assert.index(cmdForAddr, destAddr)
+								if not Lambda:isa(destcmd) then
+-- TODO TODO TODO hmm
+-- There's one function that calls midway through another ...
+-- time to split the function and insert a tailcall at the end of the first into the second
+print("   !!! and it's not a Lambda !!!")
+								else
+									-- otherwise,
+									-- as long as they have no label ...
+									if destcmd.labels then
+-- never happens, so we can safely inline
+print("   !!! and it has external labels !!!")
+									else
+										assert.eq(option.stmts, nil)
+										-- 1) copy destcmd.stmts into option.stmts
+										-- 2) remove the lambda from its parent
+										-- 3) filter out whatsPointingToAddr to the lambda (and cmdForAddr?)
+									end
+								end
+								--assert.is(destcmd, Lambda)
+							end
 						end
 					end
+					i=i+1
 				end
-				i=i+1
 			end
+			checkBlock(game.eventScriptCmds)
 		end
 		--]=]
 
