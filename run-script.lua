@@ -236,11 +236,16 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		local s = ''
 		-- [[ labels:
 		local whatPointsToScriptAtAddr = game.whatsPointingToAddr[self.addr]
-		if whatPointsToScriptAtAddr then
-			-- if we're in-function and the last wasn't return then don't define a new func -- only a label
-			-- and if we still got a call here then we have a problem
+		if
+
+		-- if we're in-function and the last wasn't return then don't define a new func -- only a label
+		-- and if we still got a call here then we have a problem
+		cmdline.skipOpts and
+
+		whatPointsToScriptAtAddr then
 
 			-- print header
+			-- TODO baking this into the function-gathering of the AST ... but that means two separate pathways for skipOpts vs not skipOpts
 			s = s .. '\n'
 
 			local thisInFunc = addrsIsFunc[self.addr]
@@ -984,6 +989,7 @@ assert(game.whatsPointingToAddr[target.addr])
 	--]=]
 
 
+		-- [=[
 		-- now group our global-scope start/end points into functions
 		-- this is so-so because I don't know when the functions end/begin
 		-- and just stopping at 'return' isn't guaranteed because a 'return' with a jump over it could be an "if x then return" block.
@@ -994,14 +1000,16 @@ assert(game.whatsPointingToAddr[target.addr])
 				local cmdobj = game.eventScriptCmds[i]
 				-- i think true for all global-scope function-begin commands ...? or could it not be?
 				if cmdobj.addr then
+--io.stderr:write(('gathering function at %06x\n'):format(cmdobj.addr))
 					local whatPointsToScriptAtAddr = game.whatsPointingToAddr[cmdobj.addr]
 					if whatPointsToScriptAtAddr then
 						local thisInFunc = addrsIsFunc[cmdobj.addr]
 						if thisInFunc then
 							-- ... then trace to the next return/endscript
+							local nextobj
 							local j=i
 							while j<=#game.eventScriptCmds do
-								local nextobj = game.eventScriptCmds[j]
+								nextobj = game.eventScriptCmds[j]
 								if game.Cmds.Return:isa(nextobj)
 								or game.Cmds.EndScript:isa(nextobj)
 								then
@@ -1009,13 +1017,18 @@ assert(game.whatsPointingToAddr[target.addr])
 								end
 								j=j+1
 							end
+--io.stderr:write(('... until %06x\n'):format(nextobj.addr))
+
 
 							-- ok j is the last stmt of the function
 							-- make sure the caller is outside the function
 for _,src in ipairs(whatPointsToScriptAtAddr) do
 	if src.cmdobj then
-		assert(not (game.eventScriptCmds[i].addr <= src.cmdobj.addr
-					and src.cmdobj.addr <= game.eventScriptCmds[j].addr))
+		if game.eventScriptCmds[i].addr <= src.cmdobj.addr
+		and src.cmdobj.addr <= game.eventScriptCmds[j].addr
+		then
+			print('!!! WARNING !!! function at '..('%06x'):format(cmdobj.addr)..' called from '..('%06x'):format(src.cmdobj.addr)..' within the function')
+		end
 	end
 end
 							-- now copy the stmts into our lambda-block at global-scope
@@ -1030,7 +1043,22 @@ end
 assert.eq(lambda.stmts[1], cmdobj)
 							lambda.addr = lambda.stmts[1].addr
 							lambda.label = labelsForAddr[cmdobj.addr]
+								and labelsForAddr[cmdobj.addr][1]
 								or ('_%06x'):format(lambda.addr)
+
+
+							-- [[ remove trailing returns that nobody points to...
+							local last = lambda.stmts:last()
+							if (
+								game.Cmds.Return:isa(last)
+								-- this is like a hard exit() right?
+								--or game.Cmds.EndScript:isa(last)
+							) and not game.whatsPointingToAddr[last.addr]
+							then
+								lambda.stmts:remove()
+							end
+							--]]
+
 
 							game.eventScriptCmds = table():append(
 								game.eventScriptCmds:sub(1,i-1),
@@ -1040,8 +1068,11 @@ assert.eq(lambda.stmts[1], cmdobj)
 						end
 					end
 				end
+				i=i+1
 			end
+			i=i+1
 		end
+		--]=]
 
 		--[=[ now inline our charSwitch's
 		do
