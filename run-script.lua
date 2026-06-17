@@ -268,15 +268,9 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		s = s .. ls:concat'\n'
 		--]]
 		-- [[ lhs and rhs
-		local ls = string.split(self:toCode(), '\n')
-		for i,l in ipairs(ls) do
-			if i == 1 then
-				s = s .. align(disasmcol, self:getAsmLine() or '')..l
-			else
-				s = s .. (' '):rep(disasmcol)..l
-			end
-			if i < #ls then s = s .. '\n' end
-		end
+		s = s
+			.. align(disasmcol, self:getAsmLine() or '')
+			.. self:toCode()
 		--]]
 		return s
 	end
@@ -288,16 +282,20 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		return ('%06x patch'):format(self.addr)
 	end
 	function Patch:toCode()
-		return '\n'..self.code
+		return '\n'
+			..tab(self.indent)..self.code:gsub(
+				'\n',
+				'\n'..tab(self.indent)
+			)
 	end
 
 
-	local BusyLoopBlock  = class()
-	BusyLoopBlock.toCodeLine = Cmd_toCodeLine
-	function BusyLoopBlock:getAsmLine()
+	local Loop  = class()
+	Loop.toCodeLine = Cmd_toCodeLine
+	function Loop:getAsmLine()
 		return ('%06x loop'):format(self.addr)
 	end
-	function BusyLoopBlock:toCode()
+	function Loop:toCode()
 		local s = table()
 		local indent = tab(self.indent+1)
 		s:insert(indent..'while true do')
@@ -408,13 +406,14 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 			local patch = Patch()
 			patch.addr = from
 			patch.code = code
-			patch.indent = game.eventScriptCmds[i1].indent
+			patch.indent = game.eventScriptCmds[i1].indent+1
 			game.eventScriptCmds = table():append(
 				game.eventScriptCmds:sub(1, i1-1),
 				{patch},
 				(game.eventScriptCmds:sub(i2))
 			)
 		end
+
 		patch(0x0aefc8, 0x0af003, [[
 local _0aefca=|objIndex, dest|do
 	while true do
@@ -464,6 +463,139 @@ objScript{objIndex=21, cb=|objIndex|_0aefca(objIndex, 0x0aefd2)}
 objScript{objIndex=22, cb=|objIndex|_0aefca(objIndex, 0x0aefd7)}
 objScript{objIndex=23, cb=|objIndex|_0aefca(objIndex, 0x0aefdb)}
 ]])
+
+		--[[ this is the same ugly code block on repeat:
+		local search = {0x10, 0x04, 0x81, 0xfc, 0x01, 0xff, 0x11, 0x03, 0xfc, 0x05, 0xff, 0x12, 0x03, 0xfc, 0x05, 0xff, 0x13, 0x03, 0xfc, 0x05, 0xff}
+		for i=0,game.romsize-#search do
+			local dif
+			for j=0,#search-1 do
+				if j ~= 2	-- this is 0x8x for some x
+				and rom[i+j] ~= search[1+j]
+				then
+					dif = true
+					break
+				end
+			end
+			if not dif then
+				print('found at '..('_%06x'):format(i)..' with '..('%02x'):format(rom[i+2]))
+			end
+		end
+		--]]
+
+		for _,info in ipairs{
+			{0x0a14a4, 1},
+			{0x0a1947, 2},
+			{0x0a1ac7, 2},
+			{0x0a1d1c, 1},
+			{0x0a1edf, 3},
+			{0x0a241a, 3},
+			{0x0a2586, 3},
+			{0x0a268b, 3},
+		} do
+			local startAddr, xmove = table.unpack(info)
+			local endAddr = startAddr + 21
+			local label= ('_%06x'):format(startAddr+2)
+			patch(startAddr, endAddr,
+[[local ]]..label..[[=|objScript|do
+	while true do
+		objMove(objIndex, ]]..xmove..[[, 1)
+	end
+end
+objScript{objIndex=16, cb=]]..label..[[}
+objScript{objIndex=17, cb=]]..label..[[}
+objScript{objIndex=18, cb=]]..label..[[}
+objScript{objIndex=19, cb=]]..label..[[}
+]])
+		end
+
+		-- instead of  make two while loops inside each other, i'm just patching it
+		patch(0x0ae1ca, 0x0ae1de, [[
+objScript{objIndex=29, cb=|objIndex|do
+    objSetSpeed(objIndex, 4)
+	while true do
+		sleep(3/15)
+		objSetPos(objIndex, 61, 4)
+		objMoveDiag(objIndex, 8)
+		objMoveDiag(objIndex, 2)
+		objSetPos(objIndex, 0, 0)
+		if math.random() < .5 then
+			sleep(3/15)
+		end
+	end
+end}
+]])
+
+
+-- [[ hmm this is losing .parent pointers...
+		-- it's very popular for obj-gotos to goto obj-gotos...
+		-- try to consolidate them ...
+		do
+			-- TODO this  more often
+			local cmdForAddr = {}
+			for _,cmdobj in ipairs(game.eventScriptCmds) do
+				cmdForAddr[cmdobj.addr] = cmdobj
+			end
+			for _,o in ipairs(game.eventScriptCmds) do
+				if game.ObjectCmds.BranchBack:isa(o)
+				and o.offset ~= 0xff
+				then
+					local chain = table()
+
+					local dest = o
+					while true do
+						local nextDest = assert.index(cmdForAddr, dest:getDestAddr())
+
+						if not (
+							game.ObjectCmds.BranchBack:isa(nextDest)
+							and nextDest.offset ~= 0xff
+						) then break end
+
+						if game.whatsPointingToAddr[nextDest.addr] then
+							for j=#game.whatsPointingToAddr[nextDest.addr],1,-1 do
+								if game.whatsPointingToAddr[nextDest.addr][j].branchSrc == dest then
+									game.whatsPointingToAddr[nextDest.addr]:remove(j)
+								end
+							end
+							if #game.whatsPointingToAddr[nextDest.addr] == 0 then
+								game.whatsPointingToAddr[nextDest.addr] = nil
+							end
+						end
+
+						chain:insert(dest)
+						dest = nextDest
+					end
+
+					if dest ~= o
+					and game.ObjectCmds.BranchBack:isa(dest)
+					and dest.offset ~= 0xff
+					then
+print('!!! goto-to-goto at '..('%06x'):format(dest.addr))
+						for _,c in ipairs(chain) do
+							-- make sure it's a branch-back...
+							if dest.addr < c.addr then
+								c.offset = c.addr - dest.addr
+								--setmetatable(c, game.ObjectCmds.BranchBack)
+							elseif dest.addr > c.addr then
+								c.offset = dest.addr - c.addr
+								--setmetatable(c, game.ObjectCmds.BranchFwd)
+							else
+								error'here'
+							end
+							assert.eq(c:getDestAddr(), dest.addr)
+							-- and refresh whatsPointingToAddr[]
+							-- TODO why is this saying that some gotos no longer have whatsPointingHere entries?
+							game.whatsPointingToAddr[dest.addr] = game.whatsPointingToAddr[dest.addr] or table()
+							game.whatsPointingToAddr[dest.addr]:insert{
+								branchSrc = c,
+								branchFromAddr = c.addr,
+								cmdset = c.cmdset,
+							}
+						end
+					end
+				end
+			end
+		end
+--]]
 
 		-- first thing, collect objScript blocks.
 		-- notice this will break the other reverse-refs. meh.
@@ -562,8 +694,11 @@ assert.eq(branchSrc:getDestAddr(), target.addr)
 							local lambda = Lambda()
 							lambda.indent = o.indent
 							lambda.stmts = o.stmts:sub(i)
-	assert.eq(lambda.stmts[1], target)
-	assert.eq(lambda.stmts[1].addr, target.addr)
+							for _,n in ipairs(lambda.stmts) do
+								n.parent = lambda
+							end
+assert.eq(lambda.stmts[1], target)
+assert.eq(lambda.stmts[1].addr, target.addr)
 							lambda.addr = lambda.stmts[1].addr
 							lambda.label = ('_%06x'):format(lambda.addr)
 							lambda.whoCallsThis = table()
@@ -574,6 +709,7 @@ assert.eq(branchSrc:getDestAddr(), target.addr)
 								func = lambda,
 								addr = lambda.addr,
 							}
+							ocall.parent = o
 							o.stmts:insert(ocall)
 							lambda.whoCallsThis:insert(ocall)
 							-- o.parent.stmts is gloabl-scope...
@@ -587,20 +723,25 @@ assert.eq(branchSrc:getDestAddr(), target.addr)
 								local branchParent = branch.parent
 								assert(branchParent)
 								local k = branchParent.stmts:find(branch)
-								local bpcall = CallAndReturn{
-									indent = o.indent+1,
-									func = lambda,
-									addr = branch.addr,
-								}
-								branchParent.stmts[k] = bpcall
-								lambda.whoCallsThis:insert(bpcall)
+if not k then
+	-- why did I assume branch-back would have a parent always?
+	print(('!!! %06x lost its parent pointer'):format(branch.addr))
+else
+									local bpcall = CallAndReturn{
+										indent = o.indent+1,
+										func = lambda,
+										addr = branch.addr,
+									}
+									branchParent.stmts[k] = bpcall
+									lambda.whoCallsThis:insert(bpcall)
 
-								-- no more label
-								for k=#game.whatsPointingToAddr[lambda.addr],1,-1 do
-									if game.whatsPointingToAddr[lambda.addr][k].branchSrc == branch then
-										game.whatsPointingToAddr[lambda.addr]:remove(k)
+									-- no more label
+									for k=#game.whatsPointingToAddr[lambda.addr],1,-1 do
+										if game.whatsPointingToAddr[lambda.addr][k].branchSrc == branch then
+											game.whatsPointingToAddr[lambda.addr]:remove(k)
+										end
 									end
-								end
+end
 							end
 							if #game.whatsPointingToAddr[lambda.addr] == 0 then
 								game.whatsPointingToAddr[lambda.addr] = nil
@@ -657,7 +798,9 @@ assert.eq(branchSrc:getDestAddr(), target.addr)
 	-- [=[
 		-- now convert any branch-back within same obj-script block into a while-loop
 		for _,o in ipairs(game.eventScriptCmds) do
-			if game.EventCmds.ObjectScript:isa(o) then
+			if game.EventCmds.ObjectScript:isa(o)
+			or Lambda:isa(o)
+			then
 				for i,bb in ipairs(o.stmts) do
 					assert(bb.addr)
 					if game.ObjectCmds.BranchBack:isa(bb)
@@ -688,13 +831,14 @@ assert(game.whatsPointingToAddr[target.addr])
 							end
 
 							-- now we can cut this block out and put it in a while-loop
-							local busyloop = BusyLoopBlock()
+							local busyloop = Loop()
 							busyloop.indent = o.stmts[1].indent
 							busyloop.stmts = o.stmts:sub(j,i-1)
 							busyloop.addr = busyloop.stmts[1].addr
 							busyloop.parent = o
-							for _,s in ipairs(busyloop.stmts) do
-								s.indent = s.indent + 1
+							for _,c in ipairs(busyloop.stmts) do
+								c.parent = busyloop
+								c.indent = c.indent + 1
 							end
 
 							-- skip o.stmts[i] since it is the goto
@@ -711,42 +855,92 @@ assert(game.whatsPointingToAddr[target.addr])
 	--]=]
 
 
-		--[=[ now generalize all our common 'if's so I can inline their stmts later
+		local If = class()
+		function If:init(args)
+			self.cond = assert.index(args, 'cond')
+			self.stmts = assert.index(args, 'stmts')
+		end
+		function If:toCode()
+			local s = 'if '..self.cond..' then\n'
+			for _,stmt in ipairs(self.stmts) do
+				s = s .. '\t'..stmt:toCode()..'\n'
+			end
+			s = s .. 'end'
+			return s
+		end
+		If.toCodeLine = Cmd_toCodeLine
+		function If:getAsmLine() return 'if' end
+
+		local Goto = class()
+		function Goto:init(args)
+			self.dest = assert.index(args, 'dest')
+		end
+		function Goto:toCode()
+			return 'goto '..self.dest
+		end
+		Goto.toCodeLine = Cmd_toCodeLine
+		function Goto:getAsmLine() return 'goto' end
+
+		local Break = class()
+		function Break:toCode()
+			return 'break'
+		end
+		Break.toCodeLine = Cmd_toCodeLine
+		function Break:getAsmLine() return 'break' end
+
+--[=[ now generalize all our common 'if's so I can inline their stmts later
 		-- I could do this earlier... hmm...
 		-- just have to replace all the whatsPointingToAddr's .branchSrc's ...
 		-- TODO this makes me want to preface this whole file with a conversion into lua.parser.'s AST nodes...
 		local convertIfs
-		for i,o in ipairs(game.eventScriptCmds) do
-			if game.EventCmds.JumpBasedOnBattleFlag:isa(o)
-			or game.EventCmds.Jump5050:isa(o)
-			or game.Cmds.Cond:isa(o)
-			or (game.Cmds.Branch:isa(o) and o.random)
-			or game.WorldCmds.IfKeyThenGoto:isa(o)
-			or game.WorldCmds.IfFacingThenGoto:isa(o)
-			then
-				replace(
-					If{
-						cond = o:getCond(),
-						stmts = {
-							Goto{dest=o:getDestAddr()},
+		do
+			local i=1
+			while i <= #game.eventScriptCmds do
+				local o = game.eventScriptCmds[i]
+				local function replace(...)
+					game.eventScriptCmds:remove(i)
+					for j=1,select('#', ...) do
+						local r = select(j, ...)
+						r.addr = o.addr
+						r.indent = o.indent
+						r.parent = o.parent
+						game.eventScriptCmds:insert(i, r)
+						i = i + 1
+					end
+				end
+				if game.EventCmds.JumpBasedOnBattleFlag:isa(o)
+				or game.EventCmds.Jump5050:isa(o)
+				or game.Cmds.Cond:isa(o)
+				or (game.ObjectCmds.Branch:isa(o) and o.random)
+				or game.WorldCmds.IfKeyThenGoto:isa(o)
+				or game.WorldCmds.IfFacingThenGoto:isa(o)
+				then
+					replace(
+						If{
+							cond = o:getCond(),
+							stmts = {
+								Goto{dest=addrLabel(o:getDestAddr())},
+							},
+						}
+					)
+				elseif game.EventCmds.EndRepeatSwitch:isa(o) then
+					replace(
+						If{
+							cond = o:getCond(),
+							stmts = {Break()},
 						},
-					}
-				)
-			elseif game.EventCmds.EndRepeatSwitch:isa(o) then
-				replace(
-					If{
-						cond = o:getCond(),
-						stmts = {Break()},
-					},
-					-- this is a for-loop-end stmt
-					-- I should instead be nesting for-loop stmts
-					game.EventCmds.EndRepeat()
-				)
+						-- this is a for-loop-end stmt
+						-- I should instead be nesting for-loop stmts
+						game.EventCmds.EndRepeat()
+					)
+				end
+				i=i+1
 			end
 		end
 		--]=]
 
 
+--[==[
 		-- next trick, scan global-scope for goto-destinations
 		-- see who jumps into them
 		-- make sure the previous instruction is a 'return'/'endscript'
@@ -776,6 +970,7 @@ assert(game.whatsPointingToAddr[target.addr])
 				end
 			end
 		end
+--]==]
 
 	-- END HIGH LEVEL CODE CONVERSION
 	end	-- cmdline.skipOpts
