@@ -1,5 +1,10 @@
 #!/usr/bin/env luajit
--- this can be run standalone, but it is also included from run.lua to do the script portion
+--[[
+this can be run standalone, but it is also included from run.lua to do the script portion
+args:
+	skipOpts = just output script as-is
+	hideAddrs = hide the addresses and bytes of the disasm
+--]]
 local ffi = require 'ffi'
 local class = require 'ext.class'
 local path = require 'ext.path'
@@ -240,7 +245,9 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 
 			local thisInFunc = addrsIsFunc[self.addr]
 			if thisInFunc then
-				s = s .. (' '):rep(disasmcol)
+				if not cmdline.hideAddrs then
+					s = s .. (' '):rep(disasmcol)
+				end
 				if labelsForAddr[self.addr] then
 					if #labelsForAddr[self.addr] == 1 then
 						s = s .. labelsForAddr[self.addr][1]..'=||do\n'
@@ -272,8 +279,10 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		s = s .. ls:concat'\n'
 		--]]
 		-- [[ lhs and rhs
-		local asmline = self:getAsmLine()
-		s = s .. align(disasmcol, asmline or '')
+		if not cmdline.hideAddrs then
+			local asmline = self:getAsmLine()
+			s = s .. align(disasmcol, asmline or '')
+		end
 		s = s .. self:toCode()
 		--]]
 		return s
@@ -1088,7 +1097,10 @@ assert(game.whatsPointingToAddr[target.addr])
 			if cmdline.skipOpts then
 				print(cmdobj:toCodeLine())
 			else
-				print((' '):rep(disasmcol-4), 'end -- return')
+				if not cmdline.hideAddrs then
+					io.write((' '):rep(disasmcol-4))
+				end
+				print('end -- return')
 			end
 			inFunc = false	-- ... or not?
 		else
