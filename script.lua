@@ -2482,6 +2482,7 @@ print('!!! script oob !!! '..game.addrLabel(addr))
 					newBranch.inVehicle = trace.stateStack:last().cmdset == 'VehicleCmds'	-- right now trace.stateStack is just 1 or 2 in size, and 2 is always VehicleCmds, and 1 is always not...
 					newBranch.lastDialogPromptCount = trace.lastDialogPromptCount
 					newBranch.reverseRefInfo = {
+						cmdobj = cmdobj,
 						branchFromAddr = cmdaddr,
 						cmdset = newBranch.cmdset,
 					}
@@ -2850,7 +2851,7 @@ print("!!! WARNING !!!! branch from "
 	..('_%06x'):format(destAddr))
 				end
 				game.whatsPointingToAddr[destAddr]:insert{
-					branchSrc = cmdobj,
+					cmdobj = cmdobj,
 					branchFromAddr = cmdobj.addr,
 					cmdset = cmdobj.cmdset,
 				}
