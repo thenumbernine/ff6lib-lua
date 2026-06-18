@@ -91,7 +91,9 @@ local function runScript(game, cmdline)
 			addrsIsFunc[cmdobj:getDestAddr()] = true
 
 		-- call (right?)
-		elseif game.EventCmds.CallSwitchNPCFlags:isa(cmdobj) then
+		elseif game.EventCmds.CallSwitchNPCFlags:isa(cmdobj)
+		or game.EventCmds.CallForDialogResult:isa(cmdobj)
+		then
 			for _,option in ipairs(cmdobj.options) do
 				addrsIsFunc[scriptBaseAddr + option.addrOfs] = true
 			end
@@ -244,25 +246,68 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		return s
 	end
 
+	local function EventCmds_CallForDialogResult_toCode(self, indent)
+		indent = indent or 0
+		local tab = ('\t'):rep(indent)
+		local anyHaveStmts = table.findi(self.options, nil, function(option) return option.stmts end)
+		if anyHaveStmts then
+		else
+			return tostring(self)
+		end
+
+		indent = indent or 0
+		local tab = ('\t'):rep(indent)
+		local s = 'callForDialogResult(\n'
+		for i,option in ipairs(self.options) do
+			if not cmdline.hideAddrs then
+				s = s .. (' '):rep(disasmcol)
+			end
+			s = s ..tab..'\t'
+			if option.addrOfs then
+				assert(not option.stmts)
+				s = s .. game.addrLabel(scriptBaseAddr + option.addrOfs)
+			elseif option.stmts then
+				assert(not option.addrOfs)
+				s = s .. '||do\n'
+				for _,stmt in ipairs(option.stmts) do
+					s = s .. stmt:toCodeLine(indent+2) .. '\n'
+				end
+				if not cmdline.hideAddrs then
+					s = s .. (' '):rep(disasmcol)
+				end
+				s = s .. tab .. '\tend'
+			end
+			if i < #self.options then
+				s = s .. ',\n'
+			end
+		end
+		if not cmdline.hideAddrs then
+			s = s .. (' '):rep(disasmcol)
+		end
+		s = s .. tab..')'
+		return s
+	end
+
 	local function Cmd_toCodeLine(self, indent)
 		indent = indent or 0
 		local s = ''
+
 		-- [[ labels:
 		local whatPointsToScriptAtAddr = game.whatsPointingToAddr[self.addr]
-		if
-
-		-- if we're in-function and the last wasn't return then don't define a new func -- only a label
-		-- and if we still got a call here then we have a problem
-		cmdline.skipOpts and
-
-		whatPointsToScriptAtAddr then
+		if whatPointsToScriptAtAddr then
 
 			-- print header
 			-- TODO baking this into the function-gathering of the AST ... but that means two separate pathways for skipOpts vs not skipOpts
-			s = s .. '\n'
 
-			local thisInFunc = addrsIsFunc[self.addr]
-			if thisInFunc then
+			local thisIsFunc = addrsIsFunc[self.addr]
+			if thisIsFunc
+
+			-- if we're in-function and the last wasn't return then don't define a new func -- only a label
+			-- and if we still got a call here then we have a problem
+			and cmdline.skipOpts
+			then
+
+				s = s .. '\n'
 				if not cmdline.hideAddrs then
 					s = s .. (' '):rep(disasmcol)
 				end
@@ -278,6 +323,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 				else
 					s = s .. (addrLabel(self.addr)..'=||do\n')
 				end
+
 			else
 				if labelsForAddr[self.addr] then
 					for _,label in ipairs(labelsForAddr[self.addr]) do
@@ -477,6 +523,8 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 				cl.toCode = EventCmds_ObjectScript_toCode
 			elseif game.EventCmds.CallSwitchNPCFlags:isa(cl) then
 				cl.toCode = EventCmds_CallSwitchNPCFlags_toCode
+			elseif game.EventCmds.CallForDialogResult:isa(cl) then
+				cl.toCode = EventCmds_CallForDialogResult_toCode
 			else
 				cl.toCode = Cmd_toCode
 			end
@@ -1029,8 +1077,8 @@ assert(game.whatsPointingToAddr[target.addr])
 --io.stderr:write(('gathering function at %06x\n'):format(cmdobj.addr))
 					local whatPointsToScriptAtAddr = game.whatsPointingToAddr[cmdobj.addr]
 					if whatPointsToScriptAtAddr then
-						local thisInFunc = addrsIsFunc[cmdobj.addr]
-						if thisInFunc then
+						local thisIsFunc = addrsIsFunc[cmdobj.addr]
+						if thisIsFunc then
 							-- ... then trace to the next return/endscript
 							local nextobj
 							local j=i
@@ -1121,7 +1169,9 @@ assert.eq(lambda.stmts[1], cmdobj)
 					if switch.stmts then
 						checkBlock(switch.stmts)
 					end
-					if game.EventCmds.CallSwitchNPCFlags:isa(switch) then
+					if game.EventCmds.CallSwitchNPCFlags:isa(switch)
+					or game.EventCmds.CallForDialogResult:isa(switch)
+					then
 						for optionIndex,option in ipairs(switch.options) do
 							if option.stmts then
 								assert(not option.addrOfs)
@@ -1201,6 +1251,9 @@ end
 											end
 											-- 3) filter out whatsPointingToAddr to the lambda (and cmdForAddr?)
 											game.whatsPointingToAddr[destAddr] = nil
+
+											-- and check those stmts too
+											checkBlock(option.stmts)
 										end
 									end
 									--assert.is(lambda, Lambda)
@@ -1335,13 +1388,59 @@ end
 --]==]
 
 
+-- [[
 		-- now rearrange to match the generated ff6t3d script
 		-- eventually it's gonna be a matter of chopping it into scene/map pieces ...
 		-- from-to segments of how to arrange everything:
+		-- this will be just the addrs of the lambdas
 		local destOrder = {
---			{0x0aca64,
-		}
+			-- generic
+			0x0aca64,	-- SetCharFlagForDir
+			0x0aca8d,	-- MoveToFaceUpAtNPC
+			0x0ac766,	-- UpdateAndShowParty
+			0x0ac6ac,	-- SetPartyForCharFlag
+			0x0acb95,	-- PartyHideAllExceptLeaderAndGiveUserControl
+			0x0b2e2b,	-- PartySetSolid
+			0x0b2e34,	-- PartySetNotSolid
+			0x0ce499,	-- RestoreParty
+			0x0ce566,	-- GameOver
+			0x0a5ea9,	-- PostBattle
+			0x0c36a6,	-- MagiciteGhost := map104_npc4 := map221_npc18
 
+			-- intro
+			0x0a0003,	-- GameStart
+			0x0a5e33,	-- NewGame
+			0x0c985b,	-- Prologue
+
+			-- narshe
+			0x0c9a4f,	-- StartNarsheIntro
+			0x0cb1e7,	-- NarsheOpenSecretCave
+
+			-- map19
+			0x0c9b1d,	-- map19_touch0
+			0x0c9b71,	-- map19_touch1
+			0x0c9bb3,	-- map19_touch2, map19_touch3
+			0x0c9c08,	-- map19_touch4
+			0x0c9c94,	-- map19_touch5
+
+			-- map20
+			0x0c33b8,	-- map20_npc26
+			0x0c70ab,	-- map20_touch9
+			0x0c7083,	-- map20_touch8
+			0x0c7097,	-- map20_touch10
+			0x0ca279,	-- map20_touch3
+			0x0cb054,	-- map20_touch0
+			0x0cb06a,	-- map20_touch2
+			--0x0cb07b,	-- map20_touch1 ... but it's halfway through another function ...
+		}
+--]]
+
+		for i,dest in ipairs(destOrder) do
+			local j = game.eventScriptCmds:find(nil, function(o) return o.addr == dest end)
+			assert(j, "failed to find "..dest)
+			local o = game.eventScriptCmds:remove(j)
+			game.eventScriptCmds:insert(i, o)
+		end
 
 	-- END HIGH LEVEL CODE CONVERSION
 	end	-- cmdline.skipOpts

@@ -1099,26 +1099,26 @@ return function(game)
 		desc = 'sleep(<?=quarterSeconds?>/4)'
 	}
 
-	EventCmds.GotoForDialogResult = EventCmd:subclass{
+	EventCmds.CallForDialogResult = EventCmd:subclass{
 		cmd = 0xb6,
 		digest = function(self, read)
-			self.addrs = table()
+			self.options = table()
 			if not self.trace.lastDialogPromptCount then error("required choices but no dialog at "..game.addrLabel(self.addr)) end
 			for i=1,self.trace.lastDialogPromptCount do
-				self.addrs:insert(scriptBaseAddr + read(uint24_t))
+				self.options:insert{addrOfs = read(uint24_t)}
 			end
 		end,
 		__tostring = function(self)
-			return 'callForDialogChoice('
-				..self.addrs:mapi(function(addr)
-					return game.addrLabel(addr, '')
+			return 'callForDialogResult('
+				..self.options:mapi(function(option)
+					return game.addrLabel(scriptBaseAddr + option.addrOfs, '')
 				end):concat', '
 				..')'
 		end,
 
 		getBranchAddrs = function(self)
-			return self.addrs:mapi(function(addr)
-				return {addr=addr}
+			return self.options:mapi(function(option)
+				return {addr = scriptBaseAddr + option.addrOfs}
 			end)
 		end,
 	}
@@ -2649,9 +2649,11 @@ print()
 		[0x0b69ff] = "NotEnoughGP",
 		[0x0c36a6] = "MagiciteGhost",
 		[0x0c985b] = "Prologue",
+		[0x0c9a4f] = "StartNarsheIntro",
 		[0x0c9aeb] = "SavePoint",
 		[0x0ce499] = "RestoreParty",
 		[0x0ce566] = "GameOver",
+		[0x0cb1e7] = "NarsheOpenSecretCave",
 	} do
 		decompileFrom{
 			addr = addr,
