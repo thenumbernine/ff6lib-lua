@@ -206,7 +206,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	end
 
 	local function Cmd_toCode(self, indent)
-		return ('\t'):rep(indent or 0)..tostring(self)
+		return tostring(self)
 	end
 
 	-- special-case for multiline indentation for some like charSwitch...
@@ -230,11 +230,17 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 				for _,stmt in ipairs(option.stmts) do
 					s = s .. stmt:toCodeLine(indent+2) .. '\n'
 				end
+				if not cmdline.hideAddrs then
+					s = s .. (' '):rep(disasmcol)
+				end
 				s = s .. tab .. '\tend'
 			end
 			s = s ..'},\n'
 		end
-		s = s .. tab..'}\n'
+		if not cmdline.hideAddrs then
+			s = s .. (' '):rep(disasmcol)
+		end
+		s = s .. tab..'}'
 		return s
 	end
 
@@ -482,7 +488,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 
 	-- BEGIN HIGH LEVEL CODE CONVERSION
 	if not cmdline.skipOpts then
-		game.ObjectCmds.EndScript.desc = '    return'
+		game.ObjectCmds.EndScript.desc = 'return'
 
 		-- first first thing, patch any code directly
 		-- from = inclusive, to = exclusive, repl = code
@@ -598,7 +604,7 @@ objScript{objIndex=19, cb=]]..label..[[}
 		-- instead of  make two while loops inside each other, i'm just patching it
 		patch(0x0ae1ca, 0x0ae1de, [[
 objScript{objIndex=29, cb=|objIndex|do
-    objSetSpeed(objIndex, 4)
+	objSetSpeed(objIndex, 4)
 	while true do
 		sleep(3/15)
 		objSetPos(objIndex, 61, 4)
