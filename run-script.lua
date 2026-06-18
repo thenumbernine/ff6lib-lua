@@ -1157,6 +1157,80 @@ assert.eq(lambda.stmts[1], cmdobj)
 		end
 		--]=]
 
+
+		--[[
+		now after functions are built and before we inline anything,
+		sometimes char-switch or call-based-on-dialog-result will jump mid-func
+		so swap those out with tail-calls and new lambdas
+		(notice that if they are mid-some other block then this will break something, hopefully not silently)
+		--]]
+		do
+			-- build at global
+			local cmdForAddr = {}
+			for _,cmdobj in ipairs(game.eventScriptCmds) do
+				cmdForAddr[cmdobj.addr] = cmdobj
+			end
+
+			-- these will point to cmds inside the functions so we have to search the function statement address range
+			local addrs = table.keys(addrsIsFunc):sort()
+			for i=#addrs,1,-1 do
+				local addr = addrs[i]
+				if cmdForAddr[addr] then
+--print((' %06x is addrIsFunc and in eventScriptCmds'):format(addr))
+				else
+-- 108 of these:
+--print(('!!! WARNING %06x is addrIsFunc but not in eventScriptCmds!!!'):format(addr))
+					local start
+					for j=i-1,1,-1 do
+						if cmdForAddr[addrs[j]] then
+							start = j
+							break
+						end
+					end
+					assert(start)
+					local lambda = cmdForAddr[addrs[start]]
+					assert(Lambda:isa(lambda))
+					local eventScriptIndex = game.eventScriptCmds:find(lambda)
+					assert(eventScriptIndex)
+
+					local j = lambda.stmts:find(nil, function(o)
+						return o.addr == addr
+					end)
+					if not j then
+print(('!!! WARNING %06x is addrIsFunc but not in eventScriptCmds!!!'):format(addr))
+print(("  ... and found the previous function at %06x but !!! WARNING !!! couldn't find it among the function's stmts"):format(lambda.addr))
+					else
+-- [[
+						assert.gt(j, 1)	-- if it's the first stmt then there shouldn't be separate addresses...
+
+						-- now split off lambda into a new lambda
+						local newLambda = Lambda()
+						newLambda.stmts = lambda.stmts:sub(j)
+						for _,n in ipairs(newLambda.stmts) do
+							n.parent = newLambda
+						end
+						newLambda.addr = newLambda.stmts[1].addr
+						newLambda.labels = labelsForAddr[addr]
+						newLambda.label = labelsForAddr[addr]
+							and labelsForAddr[addr][1]
+							or ('_%06x'):format(addr)
+						game.eventScriptCmds:insert(eventScriptIndex+1, newLambda)
+
+						lambda.stmts = lambda.stmts:sub(1, j-1)
+						local tailCall = TailCall{
+							func = newLambda,
+							addr = lambda.stmts:last().addr,
+						}
+						newLambda.whoCallsThis:insert(tailCall)
+						tailCall.parent = lambda
+						lambda.stmts:insert(tailCall)
+--]]
+					end
+				end
+			end
+		end
+
+
 		local Nop = class()
 
 		-- [=[ now inline our charSwitch's
