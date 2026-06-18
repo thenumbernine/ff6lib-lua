@@ -213,7 +213,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	local function EventCmds_CallSwitchNPCFlags_toCode(self, indent)
 		indent = indent or 0
 		local tab = ('\t'):rep(indent)
-		local s = tab..'charSwitch{\n'
+		local s = 'charSwitch{\n'
 		for _,option in ipairs(self.options) do
 			if not cmdline.hideAddrs then
 				s = s .. (' '):rep(disasmcol)
@@ -299,7 +299,12 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		-- [[ lhs and rhs
 		if not cmdline.hideAddrs then
 			local asmline = self:getAsmLine()
-			s = s .. align(disasmcol, asmline or '')
+			if #asmline <= disasmcol then
+				s = s .. align(disasmcol, asmline or '')
+			else
+				s = s .. asmline..'\n'
+					..(' '):rep(disasmcol)
+			end
 		end
 		s = s .. ('\t'):rep(indent)..self:toCode(indent)
 		--]]
