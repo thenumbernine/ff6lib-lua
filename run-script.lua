@@ -288,6 +288,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		return s
 	end
 
+	local Lambda
 	local function Cmd_toCodeLine(self, indent)
 		indent = indent or 0
 		local s = ''
@@ -304,7 +305,10 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 
 			-- if we're in-function and the last wasn't return then don't define a new func -- only a label
 			-- and if we still got a call here then we have a problem
+			-- TODO if `not skipOpts` then we dont need the function labels that are spit out by Lambda ...
+			-- ideally, convert all these mid-function-functions into tailcall+separate function and there'll be no need for this condition:
 			and cmdline.skipOpts
+
 			then
 
 				s = s .. '\n'
@@ -325,12 +329,18 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 				end
 
 			else
-				if labelsForAddr[self.addr] then
-					for _,label in ipairs(labelsForAddr[self.addr]) do
-						s = s .. '::'..label..'::\n'
+				if not (
+					Lambda:isa(self)
+					or (Lambda:isa(self.parent) and self.parent.stmts[1] == self)
+				) then
+
+					if labelsForAddr[self.addr] then
+						for _,label in ipairs(labelsForAddr[self.addr]) do
+							s = s .. '::'..label..'::\n'
+						end
+					else
+						s = s .. '::' .. addrLabel(self.addr) .. '::\n'
 					end
-				else
-					s = s .. '::' .. addrLabel(self.addr) .. '::\n'
 				end
 			end
 		end
@@ -400,7 +410,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 
 
 	-- TODO object-script lambda vs other lambdas?
-	local Lambda = class()
+	Lambda = class()
 	function Lambda:init()
 		self.whoCallsThis = table()
 	end
@@ -1405,7 +1415,7 @@ end
 			0x0ce499,	-- RestoreParty
 			0x0ce566,	-- GameOver
 			0x0a5ea9,	-- PostBattle
-			0x0c36a6,	-- MagiciteGhost := map104_npc4 := map221_npc18
+			0x0c36a6,	-- MagiciteGhost, map104_npc4, map221_npc18
 
 			-- intro
 			0x0a0003,	-- GameStart
@@ -1431,7 +1441,47 @@ end
 			0x0ca279,	-- map20_touch3
 			0x0cb054,	-- map20_touch0
 			0x0cb06a,	-- map20_touch2
-			--0x0cb07b,	-- map20_touch1 ... but it's halfway through another function ...
+			--0x0cb07b,	-- map20_touch1 ... inside of map20_touch2
+			0x0cb133,	-- map20_touch4
+			0x0cb205,	-- map20_touch5
+			0x0cb21d,	-- map20_touch7
+			--0x0cb230,	-- map20_touch6 ... inside of map20_touch7
+			0x0cb37f,	-- map20 script
+			0x0cd0e7,	-- map20_start
+			0x0cd1ef,	-- map20_npc0, map20_npc6
+			0x0cd1f3,	-- map20_npc1
+			0x0cd1f7,	-- map20_npc2
+			0x0cd1fb,	-- map20_npc3
+			0x0cd1ff,	-- map20_npc4
+			0x0cd203,	-- map20_npc5
+			0x0cd207,	-- map20_npc18
+			0x0cd215,	-- map20_npc19
+			0x0cd223,	-- map20_npc20
+			0x0cd231,	-- map20_npc21
+			0x0cd23f,	-- map20_npc22
+			0x0cd331,	-- map20_touch11
+			0x0cd34a,	-- map20_touch13
+			--0x0cd35c,	-- map20_touch12, map20_touch14 ... inside of map20_touch13
+			0x0cd424,	-- map20_touch15
+			0x0cd456,	-- map20_touch16, map20_touch17, map20_touch18
+
+			-- map23
+			0x0cd4a8,	-- map23_touch0
+			0x0cd4dd,	-- map23_touch1
+			0x0cd4f1,	-- map23_touch3
+			--0x0cd4fe,	-- map23_touch2 ... inside of map23_touch3
+			0x0cd523,	-- map23_touch4, map23_touch5, map23_touch6
+			0x0cd594,	-- map23_npc11
+			0x0cd5df,	-- map23_npc12
+
+			-- map244
+			0x0c88bf,	-- VectorRoof_0c88bf
+			0x0c86eb,	-- map244_npc20
+			0x0c86ff,	-- map244_npc21
+			0x0c8713,	-- map244_npc22
+			0x0c8727,	-- map244_npc23
+			0x0c87a6,	-- map244_npc24
+			0x0c92b1,	-- map244_npc25
 		}
 --]]
 
