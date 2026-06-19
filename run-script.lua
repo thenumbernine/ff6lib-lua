@@ -1681,6 +1681,7 @@ io.stderr:flush()
 			0x0ce499,	-- RestoreParty
 			0x0ce566,	-- GameOver
 			0x0a5ea9,	-- PostBattle
+			{0x0c9aeb, 0x0c9b18}, 	-- SavePoint
 			0x0c36a6,	-- MagiciteGhost, map104_npc4, map221_npc18
 
 			-- intro
@@ -1759,6 +1760,12 @@ io.stderr:flush()
 			0x0c9d97,	-- map39_touch1
 			0x0c9da7,	-- map39_touch2
 			0x0c9db2,	-- map39_touch0
+
+			-- map41
+			0x0c9e23,	-- map41_touch0
+			0x0c9ef2,	-- map41_start
+			0x0c9f2a,	-- map41_touch1
+			0x0c9f37,	-- map41_touch2
 
 			-- map244
 			{0x0c88bf, 0x0c8a3f}, 	-- VectorRoof_0c88bf etc
