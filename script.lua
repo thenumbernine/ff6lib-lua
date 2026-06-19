@@ -209,12 +209,12 @@ return function(game)
 
 	EventCmds.LockScreen = EventCmd:subclass{
 		cmd = 0x38,
-		desc = 'screenLocked = true',
+		desc = 'setScreenLocked(true)',
 	}
 
 	EventCmds.UnlockScreen = EventCmd:subclass{
 		cmd = 0x39,
-		desc = 'screenLocked = false',
+		desc = 'setScreenLocked(false)',
 	}
 
 
@@ -238,7 +238,7 @@ return function(game)
 		cmd = 0x3d,
 		argtypes = {uint8_t},
 		argnames = {'objIndex'},
-		desc = "createObject(<?=objIndex?>)",
+		desc = "createObj(<?=objIndex?>)",
 	}
 
 	EventCmds.DeleteObject = EventCmd:subclass{
@@ -281,7 +281,7 @@ return function(game)
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'objIndex', 'paletteIndex'},
 		__tostring = function(self)
-			return 'change object #'..self.objIndex..' palette to #'..self.paletteIndex
+			return 'objSetPal('..self.objIndex..', '..self.paletteIndex..')'
 		end,
 	}
 
@@ -314,7 +314,7 @@ return function(game)
 		cmd = 0x46,
 		argtypes = {uint8_t},
 		argnames = {'partyIndex'},
-		desc = 'setActiveParty(<?=partyIndex?>)',
+		desc = 'partySetActive(<?=partyIndex?>)',
 	}
 
 	EventCmds.CreatePartyObject = EventCmd:subclass{
@@ -649,9 +649,14 @@ return function(game)
 
 	EventCmds.SetParentMap = EventCmd:subclass{
 		cmd = 0x6c,
+		--[[
+		16 bits for mapIndex, when it only needs 9 ...
+		8 bits for dir when it only needs 2 ...
+		and bit7 in dir is being used ...
+		--]]
 		argtypes = {uint16_t, uint8_t, uint8_t, uint8_t},
-		argnames = {'map', 'dir', 'x', 'y'},
-		desc = 'setParentMap{map=<?=map?>, dir=<?=dir?>, x=<?=x?>, y=<?=y?>}',
+		argnames = {'mapIndex', 'dir', 'x', 'y'},
+		desc = 'setParentMap{mapIndex=<?=mapIndex?>, dir=<?=dir?>, pos={<?=x?>, <?=y?>}}',
 	}
 
 	EventCmds.ChangeMapLayer = EventCmd:subclass{
@@ -1009,12 +1014,12 @@ return function(game)
 
 	EventCmds.OpenGameLoadMenu = EventCmd:subclass{
 		cmd = 0xab,
-		desc = 'loadGameMenu()',
+		desc = 'loadGame()',
 	}
 
 	EventCmds.LoadSavedCharacterObjectData = EventCmd:subclass{
 		cmd = 0xac,
-		desc = 'loadSavedCharacterObjectData()',
+		desc = 'restoreGame()',
 	}
 
 	EventCmds.ShowWoRCustscene = EventCmd:subclass{

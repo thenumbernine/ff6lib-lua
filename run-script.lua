@@ -72,6 +72,7 @@ local function runScript(game, cmdline)
 	end
 
 	local scriptBaseAddr = ffi.offsetof(game.Game, 'eventScript')	-- 0xa0000
+	local commonReturnAddr = 0x0a5eb3
 
 	-- now collect addrs and find if they are calls or not
 	-- (if they are calls then we will define them as functions)
@@ -267,7 +268,11 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 			s = s ..tab..'\t'
 			if option.addrOfs then
 				assert(not option.stmts)
-				s = s .. game.addrLabel(scriptBaseAddr + option.addrOfs)
+				if scriptBaseAddr + option.addrOfs == commonReturnAddr then	-- call return <-> do nothing
+					s = s .. '||do end'
+				else
+					s = s .. game.addrLabel(scriptBaseAddr + option.addrOfs)
+				end
 			elseif option.stmts then
 				assert(not option.addrOfs)
 				s = s .. '||do\n'
@@ -280,8 +285,9 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 				s = s .. tab .. '\tend'
 			end
 			if i < #self.options then
-				s = s .. ',\n'
+				s = s .. ','
 			end
+			s = s .. '\n'
 		end
 		if not cmdline.hideAddrs then
 			s = s .. (' '):rep(disasmcol)
