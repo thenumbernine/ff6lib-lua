@@ -315,11 +315,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		if not cmdline.hideAddrs then
 			s = s .. (' '):rep(disasmcol)
 		end
-		s = s .. tab .. 'end'
-		if not cmdline.hideAddrs then
-			s = s .. (' '):rep(disasmcol)
-		end
-		s = s .. tab..'}'
+		s = s .. tab .. 'end}'
 		return s
 	end
 
@@ -1637,7 +1633,7 @@ end
 			0x0cd5df,	-- map23_npc12
 
 			-- map244
-			0x0c88bf,	-- VectorRoof_0c88bf
+			{0x0c88bf, 0x0c8a3f}, 	-- VectorRoof_0c88bf etc
 			0x0c86eb,	-- map244_npc20
 			0x0c86ff,	-- map244_npc21
 			0x0c8713,	-- map244_npc22

@@ -753,7 +753,7 @@ return function(game)
 		cmd = 0x7f,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'objIndex', 'nameIndex'},
-		desc = "objSetName(<?=objIndex?>, <?=nameIndex?>)",
+		desc = "charSetName(<?=objIndex?>, <?=nameIndex?>)",
 	}
 
 	EventCmds.GiveItem = EventCmd:subclass{
