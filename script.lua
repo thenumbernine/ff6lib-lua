@@ -1193,8 +1193,12 @@ return function(game)
 			self.trace.indent = self.trace.indent - 1
 		end,
 		__tostring = function(self)
-			return '\tif '..self:getCond()..' then break end\n'
-				..'end--for'
+			if self.skipEndFor then
+				return 'if '..self:getCond()..' then break end'
+			else
+				return 'if '..self:getCond()..' then break end\n'
+					..'end--for'
+			end
 		end,
 		getCond = function(self)
 			return 'mapFlagGet('..self.cond..')'

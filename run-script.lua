@@ -410,6 +410,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	end
 
 
+	-- I think only used for ObjScript...
 	local Loop  = class()
 	Loop.toCodeLine = Cmd_toCodeLine
 	function Loop:getAsmLine()
@@ -1543,6 +1544,125 @@ end
 		end
 --]==]
 
+		-- I could bunch this up with 'Loop' ...
+		-- but for detection I want them separate classes ...
+		-- I should just make a common superclass ...
+		-- I should just use a proper langfix ast...
+		local ForLoop = class()
+		ForLoop.toCodeLine = Cmd_toCodeLine
+		function ForLoop:getAsmLine()
+			if not self.addr then return end
+			return ('%06x for-loop'):format(self.addr)
+		end
+		function ForLoop:toCode(indent)
+			indent = indent or 0
+			local s = table()
+			s:insert('for i=1,'..self.count..' do')
+			for _,stmt in ipairs(self.stmts) do
+				s:insert(stmt:toCodeLine(indent+1))	-- toCodeLine means also insert asm if asked to
+			end
+			local tab = ('\t'):rep(indent)
+			s:insert(
+				(cmdline.hideAddrs and '' or (' '):rep(disasmcol))
+				..tab..'end'
+			)
+			return s:concat'\n'
+		end
+
+		-- by here I should be able to build for-loop blocks, right?
+		do
+			local function buildForLoops(stmtsObj, stmtsKey, parent)
+				local stmts = assert.index(stmtsObj, stmtsKey)
+io.stderr:write(('block begin %06x\n'):format(stmts[1].addr))
+io.stderr:flush()
+				local i=1
+				local startIndexes = table()
+				while i <= #stmts do
+					local cmd = stmts[i]
+io.stderr:write('i '..i..' addr '..('%06x'):format(cmd.addr), '\n')
+io.stderr:flush()
+					if game.EventCmds.BeginRepeat:isa(cmd) then
+						assert(not cmd.stmts)
+						startIndexes:insert(i)
+						if #startIndexes >= 2 then
+							assert.lt(startIndexes[#startIndexes-1], startIndexes:last()) 
+						end
+io.stderr:write('found begin at '
+	..('%06x'):format(cmd.addr)
+	..', #startIndexes is now '..#startIndexes..'\n'
+)
+io.stderr:flush()
+					elseif game.EventCmds.EndRepeat:isa(cmd)
+					or game.EventCmds.EndRepeatSwitch:isa(cmd)
+					then
+						assert(not cmd.stmts)
+						if #startIndexes == 0 then
+							error(("found EndRepeat/Switch without BeginRepeat at %06x"):format(cmd.addr))
+						end
+
+						-- trace backwards from end--for
+						local startIndex = startIndexes:remove()
+						local startCmd = stmts[startIndex]
+io.stderr:write(('found loop from %06x to %06x'):format(startCmd.addr, cmd.addr)
+	..', #startIndexes is now '..#startIndexes..'\n'
+)
+io.stderr:flush()
+
+						local loop = ForLoop()
+						loop.count = startCmd.count
+
+						-- since we are throwing away the ending, make sure nothin points there
+						assert(not game.whatsPointingToAddr[stmts[i].addr])
+
+						if game.EventCmds.EndRepeatSwitch:isa(cmd) then
+							loop.stmts = stmts:sub(startIndex+1,i)
+							cmd.skipEndFor = true	-- hack, just reuse EndRepeatSwitch at the end
+							-- replace the "if mapFlagGet(436) then break end ... end--for"
+							-- with just "if mapFlagGet(436) then break end"
+						else
+							loop.stmts = stmts:sub(startIndex+1,i-1)
+						end
+
+
+						loop.addr = loop.stmts[1].addr
+						loop.parent = parent
+						for _,c in ipairs(loop.stmts) do
+							c.parent = loop
+						end
+
+						local newStmts = table():append(
+							stmts:sub(1,startIndex-1),
+							{loop},
+							stmts:sub(i+1)
+						)
+						stmtsObj[stmtsKey] = newStmts
+						stmts = newStmts
+
+						--buildForLoops(loop, 'stmts', loop)
+
+						assert.eq(stmts[startIndex], loop)
+						i = startIndex
+					else
+						if cmd.stmts then
+							buildForLoops(cmd, 'stmts', cmd)
+						end
+					end
+					i=i+1
+				end
+				if #startIndexes > 0 then
+					error('!!! found for-loops without end: '
+						..startIndexes:mapi(function(i)
+							return ('%06x'):format(stmts[i].addr)
+						end)
+						:concat', '
+					)
+				end
+io.stderr:write'block end\n'
+io.stderr:flush()
+			end
+			buildForLoops(game, 'eventScriptCmds')
+		end
+
 
 -- [[
 		-- now rearrange to match the generated ff6t3d script
@@ -1574,14 +1694,16 @@ end
 			0x0c9a4f,	-- StartNarsheIntro
 			0x0cb1e7,	-- NarsheOpenSecretCave
 
-			-- map19
+			-- map18 = cliff before narshe
+
+			-- map19 = intro narshe
 			0x0c9b1d,	-- map19_touch0
 			0x0c9b71,	-- map19_touch1
 			0x0c9bb3,	-- map19_touch2, map19_touch3
 			0x0c9c08,	-- map19_touch4
 			0x0c9c94,	-- map19_touch5
 
-			-- map20
+			-- map20 = narshe
 			0x0c33b8,	-- map20_npc26
 			0x0c70ab,	-- map20_touch9
 			{0x0c7120, 0x0c72ba},	-- map20_touch9 to-be-inlined
@@ -1623,7 +1745,7 @@ end
 			0x0cd424,	-- map20_touch15
 			0x0cd456,	-- map20_touch16, map20_touch17, map20_touch18
 
-			-- map23
+			-- map23 = narshe cliff
 			0x0cd4a8,	-- map23_touch0
 			0x0cd4dd,	-- map23_touch1
 			0x0cd4f1,	-- map23_touch3
@@ -1631,6 +1753,12 @@ end
 			0x0cd523,	-- map23_touch4, map23_touch5, map23_touch6
 			0x0cd594,	-- map23_npc11
 			0x0cd5df,	-- map23_npc12
+
+			-- map39 = intro north narshe
+			0x0c9d0d,	-- map39_touch3
+			0x0c9d97,	-- map39_touch1
+			0x0c9da7,	-- map39_touch2
+			0x0c9db2,	-- map39_touch0
 
 			-- map244
 			{0x0c88bf, 0x0c8a3f}, 	-- VectorRoof_0c88bf etc
