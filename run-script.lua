@@ -119,8 +119,10 @@ local function runScript(game, cmdline)
 			local destAddr = cmdobj:getDestAddr()
 			-- branch will return nil when it's an infinite-loop
 			if destAddr then
-				addrsIsGoto[destAddr] = addrsIsGoto[destAddr] or table()
-				addrsIsGoto[destAddr]:insert(cmdobj)
+				--`addrsIsGoto` is only used for converting gotos to funcs,
+				-- and ObjectCmds gotos are already converted by the time I start on non-object-cmds, so ...
+				--addrsIsGoto[destAddr] = addrsIsGoto[destAddr] or table()
+				--addrsIsGoto[destAddr]:insert(cmdobj)
 			end
 		end
 	end
@@ -1087,8 +1089,13 @@ assert(game.whatsPointingToAddr[target.addr])
 --io.stderr:write(('gathering function at %06x\n'):format(cmdobj.addr))
 					local whatPointsToScriptAtAddr = game.whatsPointingToAddr[cmdobj.addr]
 					if whatPointsToScriptAtAddr then
+						-- [[ only funcs?
 						local thisIsFunc = addrsIsFunc[cmdobj.addr]
 						if thisIsFunc then
+						--]]
+						--[[ gotos as well? (TODO convert gotos into while/if before doing this)
+						do
+						--]]
 							-- ... then trace to the next return/endscript
 							local nextobj
 							local j=i
@@ -1172,7 +1179,16 @@ assert.eq(lambda.stmts[1], cmdobj)
 			end
 
 			-- these will point to cmds inside the functions so we have to search the function statement address range
-			local addrs = table.keys(addrsIsFunc):sort()
+			local addrSet = {}
+			-- [[ only funcs?
+			for addr in pairs(addrsIsFunc) do addrSet[addr] = true end
+			--]]
+			--[[ gotos as well?
+			for addr in pairs(addrsIsFunc) do addrSet[addr] = true end
+			for addr in pairs(addrsIsGoto) do addrSet[addr] = true end
+			--]]
+			local addrs = table.keys(addrSet):sort()
+
 			for i=#addrs,1,-1 do
 				local addr = addrs[i]
 				if cmdForAddr[addr] then
@@ -1197,7 +1213,7 @@ assert.eq(lambda.stmts[1], cmdobj)
 						return o.addr == addr
 					end)
 					if not j then
-print(('!!! WARNING %06x is addrIsFunc but not in eventScriptCmds!!!'):format(addr))
+print(('!!! WARNING %06x is in addrSet but not in eventScriptCmds!!!'):format(addr))
 print(("  ... and found the previous function at %06x but !!! WARNING !!! couldn't find it among the function's stmts"):format(lambda.addr))
 					else
 -- [[
@@ -1520,7 +1536,7 @@ end
 			0x0cb205,	-- map20_touch5
 			0x0cb21d,	-- map20_touch7
 			--0x0cb230,	-- map20_touch6 ... inside of map20_touch7
-			0x0cb37f,	-- map20 script
+			0x0cb37f,	-- map20 script	<- if I start making functions out of goto targets then this doesn't get found anymore...
 			0x0cd0e7,	-- map20_start
 			0x0cd1ef,	-- map20_npc0, map20_npc6
 			0x0cd1f3,	-- map20_npc1
@@ -1559,12 +1575,18 @@ end
 		}
 --]]
 
+		local newCmds = table()
 		for i,dest in ipairs(destOrder) do
 			local j = game.eventScriptCmds:find(nil, function(o) return o.addr == dest end)
-			assert(j, "failed to find "..dest)
-			local o = game.eventScriptCmds:remove(j)
-			game.eventScriptCmds:insert(i, o)
+			if not j then
+				print(('!!! when reorganizing, failed to find %06x'):format(dest))
+			else
+				local o = game.eventScriptCmds:remove(j)
+				newCmds:insert(o)
+			end
 		end
+		newCmds:append(game.eventScriptCmds)
+		game.eventScriptCmds = newCmds
 
 	-- END HIGH LEVEL CODE CONVERSION
 	end	-- cmdline.skipOpts
