@@ -338,7 +338,7 @@ return function(game)
 		__tostring = function(self)
 			local dlg = game.dialog[self.dialogIndex]
 			local str = dlg and tolua(tostring(dlg)) or 'nil'
-			if self.dontWait
+			if self.async
 			or self.hideBG
 			or self.bottomOfScreen
 			then
@@ -346,7 +346,7 @@ return function(game)
 					'dialog('..str
 					..', {'
 					..table()
-					:append{self.dontWait and 'dontWait=true' or nil}
+					:append{self.async and 'async=true' or nil}
 					:append{self.hideBG and 'hideBG=true' or nil}
 					:append{self.bottomOfScreen and 'bottomOfScreen=true' or nil}
 					:concat','
@@ -359,7 +359,7 @@ return function(game)
 
 	EventCmds.DialogDontWait = EventCmds.Dialog:subclass{
 		cmd = 0x48,
-		dontWait = true,
+		async = true,
 	}
 
 	EventCmds.WaitForDialogWindow = EventCmd:subclass{

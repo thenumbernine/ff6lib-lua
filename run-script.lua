@@ -1573,25 +1573,16 @@ end
 		do
 			local function buildForLoops(stmtsObj, stmtsKey, parent)
 				local stmts = assert.index(stmtsObj, stmtsKey)
-io.stderr:write(('block begin %06x\n'):format(stmts[1].addr))
-io.stderr:flush()
 				local i=1
 				local startIndexes = table()
 				while i <= #stmts do
 					local cmd = stmts[i]
-io.stderr:write('i '..i..' addr '..('%06x'):format(cmd.addr), '\n')
-io.stderr:flush()
 					if game.EventCmds.BeginRepeat:isa(cmd) then
 						assert(not cmd.stmts)
 						startIndexes:insert(i)
 						if #startIndexes >= 2 then
 							assert.lt(startIndexes[#startIndexes-1], startIndexes:last()) 
 						end
-io.stderr:write('found begin at '
-	..('%06x'):format(cmd.addr)
-	..', #startIndexes is now '..#startIndexes..'\n'
-)
-io.stderr:flush()
 					elseif game.EventCmds.EndRepeat:isa(cmd)
 					or game.EventCmds.EndRepeatSwitch:isa(cmd)
 					then
@@ -1603,10 +1594,6 @@ io.stderr:flush()
 						-- trace backwards from end--for
 						local startIndex = startIndexes:remove()
 						local startCmd = stmts[startIndex]
-io.stderr:write(('found loop from %06x to %06x'):format(startCmd.addr, cmd.addr)
-	..', #startIndexes is now '..#startIndexes..'\n'
-)
-io.stderr:flush()
 
 						local loop = ForLoop()
 						loop.count = startCmd.count
@@ -1657,8 +1644,6 @@ io.stderr:flush()
 						:concat', '
 					)
 				end
-io.stderr:write'block end\n'
-io.stderr:flush()
 			end
 			buildForLoops(game, 'eventScriptCmds')
 		end
