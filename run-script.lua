@@ -296,6 +296,35 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		return s
 	end
 
+	local function EventCmds_StartTimer_toCode(self, indent)
+		if not self.stmts then return tostring(self) end
+		assert(not self.destAddrOfs)
+
+		indent = indent or 0
+		local tab = ('\t'):rep(indent)
+
+		indent = indent or 0
+		local tab = ('\t'):rep(indent)
+		local s = 'startTimer{duration='
+			..self.duration..', flags='
+			..self.flags..', cb='
+		s = s .. '||do\n'
+		for _,stmt in ipairs(self.stmts) do
+			s = s .. stmt:toCodeLine(indent+1) .. '\n'
+		end
+		if not cmdline.hideAddrs then
+			s = s .. (' '):rep(disasmcol)
+		end
+		s = s .. tab .. 'end'
+		if not cmdline.hideAddrs then
+			s = s .. (' '):rep(disasmcol)
+		end
+		s = s .. tab..'}'
+		return s
+	end
+
+
+
 	local Lambda
 	local function Cmd_toCodeLine(self, indent)
 		indent = indent or 0
@@ -543,6 +572,8 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 				cl.toCode = EventCmds_CallSwitchNPCFlags_toCode
 			elseif game.EventCmds.CallForDialogResult:isa(cl) then
 				cl.toCode = EventCmds_CallForDialogResult_toCode
+			elseif game.EventCmds.StartTimer:isa(cl) then
+				cl.toCode = EventCmds_StartTimer_toCode
 			else
 				cl.toCode = Cmd_toCode
 			end
@@ -1268,67 +1299,67 @@ print(("  ... and found the previous function at %06x but !!! WARNING !!! couldn
 			end
 			buildCmdForAddr(game.eventScriptCmds)
 
-			local function checkBlock(stmts)
-				local i=1
-				while i <= #stmts do
-					local switch = stmts[i]
-					if switch.stmts then
-						checkBlock(switch.stmts)
-					end
-					if game.EventCmds.CallSwitchNPCFlags:isa(switch)
-					or game.EventCmds.CallForDialogResult:isa(switch)
-					then
-						for optionIndex,option in ipairs(switch.options) do
-							if option.stmts then
-								assert(not option.addrOfs)
-							else
-								assert(not option.stmts)
-								local destAddr = option.addrOfs + scriptBaseAddr
-								assert.index(game.whatsPointingToAddr, destAddr)
+			local checkBlock
+			--[[
+			cmdobj = object that holds the cmd, to point into
+			dst = what to assign .stmts to
+			--]]
+			local function doInline(cmdobj, dst, destAddr)
+				assert.index(game.whatsPointingToAddr, destAddr)
 
 --[[ there's a few that are >1 call and so won't be inlined
-print('!!! char switch at '
-	..('%06x'):format(switch.addr)
-	..' option #'..optionIndex
-	..' points to address with '
+print('!!! cmd at '
+	..('%06x'):format(cmdobj.addr)
+	..' is potential for lambda-inline, points to address '
+	..('%06x'):format(destAddr)
+	..' with '
 	..#game.whatsPointingToAddr[destAddr]
-	..' other targets: '
+	..' targets: '
 	..game.whatsPointingToAddr[destAddr]:mapi(function(src)
 		local s = '{'
 		if not src.cmdobj then
 			s=s..'cmdobj=nil'
 		else
-			s=s..'addr='..('%06x'):format(src.cmdobj.addr)
-			s=s..', cmdobj==switch='..tostring(src.cmdobj==switch)
+local tmp = getmetatable(src.cmdobj)
+setmetatable(src.cmdobj, nil)
+local cmdobjrawname = tostring(src.cmdobj)
+setmetatable(src.cmdobj, tmp)
+			s=s..'cmdobj='..cmdobjrawname
+			s=s..', classname='..require 'ext.tolua'(src.cmdobj.classname)
+			s=s..', addr='..('%06x'):format(src.cmdobj.addr)
+			s=s..', cmdobj==cmdobj='..tostring(src.cmdobj==cmdobj)
 		end
 		s=s..'}'
 		return s
 	end):concat', '
 )
 --]]
-								-- see if there is only one jump into the target
-								if #game.whatsPointingToAddr[destAddr] == 1
-								and game.whatsPointingToAddr[destAddr][1].cmdobj == switch
-								then
-								-- then we can inline this function
--- 180 pokemon caught here
---print('!!! found func at '..('%06x'):format(destAddr)..' that is an only option of charSwitch at '..('%06x'):format(switch.addr)..' that we can inline')
+				-- see if there is only one jump into the target
+				if #game.whatsPointingToAddr[destAddr] ~= 1 then return end
+				if game.whatsPointingToAddr[destAddr][1].cmdobj ~= cmdobj then return end
 
-									-- doesn't always exist, especially if the lambda became inlined...
-									local lambda = assert.index(cmdForAddr, destAddr)
+				-- then we can inline this function
+-- 180 pokemon caught here
+--print('!!! found destAddr at '..('%06x'):format(destAddr)..' that is an only target of cmd at '..('%06x'):format(cmdobj.addr)..' that we can inline')
+
+				-- doesn't always exist, especially if the lambda became inlined...
+				local lambda = assert.index(cmdForAddr, destAddr)
 --assert.eq(lambda.addr, destAddr)
-									if not Lambda:isa(lambda) then
+				if not Lambda:isa(lambda) then
 -- TODO TODO TODO hmm
 -- There's one function that calls midway through another ...
 -- time to split the function and insert a tailcall at the end of the first into the second
-print('!!! found func at '..('%06x'):format(destAddr)..' that is an only option of charSwitch at '..('%06x'):format(switch.addr).." that we can inline ... BUT it's not a Lambda!")
-									else
-										-- otherwise,
-										-- as long as they have no label ...
-										if lambda.labels then
+print('!!! found destAddr at '..('%06x'):format(destAddr)..' that is an only target of cmd at '..('%06x'):format(cmdobj.addr).." that we can inline ... BUT it's not a Lambda!")
+					return
+				end
+
+				-- otherwise,
+				-- as long as they have no label ...
+				if lambda.labels then
 -- never happens, so we can safely inline
 print("   !!! and it has external labels !!!")
-										else
+					return
+				end
 
 --[[ this happens every time, probably because the lambda's label
 for _,stmt in ipairs(lambda.stmts) do
@@ -1340,31 +1371,54 @@ print('	!!! and the lambda contains goto labels !!!')
 	end
 end
 --]]
-											-- 1) copy lambda.stmts into option.stmts
-											option.stmts = lambda.stmts
-											for _,stmt in ipairs(option.stmts) do
-												stmt.parent = option
-											end
-											option.addrOfs = nil
-											-- 2) remove the lambda from its parent
-											if lambda.parent then
-												local j = lambda.parent.stmts:find(lambda)
-												lambda.parent.stmts[j] = Nop()	-- don't invalidate iterators
-												lambda.parent.stmts[j].parent = lambda
-											else
-												local j = game.eventScriptCmds:find(lambda)
-												game.eventScriptCmds[j] = Nop()	-- don't invalidate iterators
-											end
-											-- 3) filter out whatsPointingToAddr to the lambda (and cmdForAddr?)
-											game.whatsPointingToAddr[destAddr] = nil
+				-- 1) copy lambda.stmts into option.stmts
+				dst.stmts = lambda.stmts
+				for _,stmt in ipairs(dst.stmts) do
+					stmt.parent = cmdobj
+				end
+				-- whichever one it is ...
+				dst.addrOfs = nil
+				dst.destAddrOfs = nil
+				-- 2) remove the lambda from its parent
+				if lambda.parent then
+					local j = lambda.parent.stmts:find(lambda)
+					lambda.parent.stmts[j] = Nop()	-- don't invalidate iterators
+					lambda.parent.stmts[j].parent = lambda
+				else
+					local j = game.eventScriptCmds:find(lambda)
+					game.eventScriptCmds[j] = Nop()	-- don't invalidate iterators
+				end
+				-- 3) filter out whatsPointingToAddr to the lambda (and cmdForAddr?)
+				game.whatsPointingToAddr[destAddr] = nil
 
-											-- and check those stmts too
-											checkBlock(option.stmts)
-										end
-									end
-									--assert.is(lambda, Lambda)
-								end
+				-- and check those stmts too
+				checkBlock(dst.stmts)
+				--assert.is(lambda, Lambda)
+			end
+
+			function checkBlock(stmts)
+				local i=1
+				while i <= #stmts do
+					local cmdobj = stmts[i]
+					if cmdobj.stmts then
+						checkBlock(cmdobj.stmts)
+					end
+					if game.EventCmds.CallSwitchNPCFlags:isa(cmdobj)
+					or game.EventCmds.CallForDialogResult:isa(cmdobj)
+					then
+						for optionIndex,option in ipairs(cmdobj.options) do
+							if option.stmts then
+								assert(not option.addrOfs)
+							else
+								local destAddr = scriptBaseAddr + option.addrOfs
+								doInline(cmdobj, option, destAddr)
 							end
+						end
+					elseif game.EventCmds.StartTimer:isa(cmdobj) then
+						if cmdobj.stmts then
+							assert(not cmdobj.destAddrOfs)
+						else
+							doInline(cmdobj, cmdobj, cmdobj:getDestAddr())
 						end
 					end
 					i=i+1
@@ -1516,6 +1570,8 @@ end
 			-- intro
 			0x0a0003,	-- GameStart
 			0x0a5e33,	-- NewGame
+			{0x0a5e23, 0x0a5e33},	-- [incl,excl) NewGame to-be-inlined
+			0x0a5e8e,	-- NewGame to-be-inlined
 			0x0c985b,	-- Prologue
 
 			-- narshe
@@ -1532,16 +1588,21 @@ end
 			-- map20
 			0x0c33b8,	-- map20_npc26
 			0x0c70ab,	-- map20_touch9
+			{0x0c7120, 0x0c72ba},	-- map20_touch9 to-be-inlined
 			0x0c7083,	-- map20_touch8
 			0x0c7097,	-- map20_touch10
 			0x0ca279,	-- map20_touch3
 			0x0cb054,	-- map20_touch0
 			0x0cb06a,	-- map20_touch2
-			--0x0cb07b,	-- map20_touch1 ... inside of map20_touch2
+			0x0cb07b,	-- map20_touch1 ... inside of map20_touch2
 			0x0cb133,	-- map20_touch4
+			{0xcb154, 0xcb1e7},	-- map20_touch4 to-be-inlined
+			{0xcb148, 0xcb154},	-- map20_touch4 to-be-inlined
 			0x0cb205,	-- map20_touch5
+			{0x0cb35c, 0x0cb370},	-- map20_touch5 to-be-inlined
 			0x0cb21d,	-- map20_touch7
-			--0x0cb230,	-- map20_touch6 ... inside of map20_touch7
+			{0x0cb370, 0x0cb3f9},	-- map20_touch6 to-be-inlined NOTICE this continues into the next function which is _0cb37f
+			0x0cb230,	-- map20_touch6 ... inside of map20_touch7
 			0x0cb37f,	-- map20 script	<- if I start making functions out of goto targets then this doesn't get found anymore...
 			0x0cd0e7,	-- map20_start
 			0x0cd1ef,	-- map20_npc0, map20_npc6
@@ -1551,13 +1612,18 @@ end
 			0x0cd1ff,	-- map20_npc4
 			0x0cd203,	-- map20_npc5
 			0x0cd207,	-- map20_npc18
+			{0x0cd211, 0x0cd215},	-- map20_npc18 to-be-inlined
 			0x0cd215,	-- map20_npc19
+			{0x0cd21f, 0x0cd223},	-- map20_npc19 to-be-inlined
 			0x0cd223,	-- map20_npc20
+			{0x0cd22d, 0x0cd231},	-- map20_npc20 to-be-inlined
 			0x0cd231,	-- map20_npc21
+			{0x0cd23b, 0x0cd23f},	-- map20_npc21 to-be-inlined
 			0x0cd23f,	-- map20_npc22
+			{0x0cd249, 0x0cd24d},	-- map20_npc22 to-be-inlined
 			0x0cd331,	-- map20_touch11
 			0x0cd34a,	-- map20_touch13
-			--0x0cd35c,	-- map20_touch12, map20_touch14 ... inside of map20_touch13
+			0x0cd35c,	-- map20_touch12, map20_touch14 ... inside of map20_touch13
 			0x0cd424,	-- map20_touch15
 			0x0cd456,	-- map20_touch16, map20_touch17, map20_touch18
 
@@ -1565,7 +1631,7 @@ end
 			0x0cd4a8,	-- map23_touch0
 			0x0cd4dd,	-- map23_touch1
 			0x0cd4f1,	-- map23_touch3
-			--0x0cd4fe,	-- map23_touch2 ... inside of map23_touch3
+			0x0cd4fe,	-- map23_touch2 ... inside of map23_touch3
 			0x0cd523,	-- map23_touch4, map23_touch5, map23_touch6
 			0x0cd594,	-- map23_npc11
 			0x0cd5df,	-- map23_npc12
@@ -1583,12 +1649,33 @@ end
 
 		local newCmds = table()
 		for i,dest in ipairs(destOrder) do
-			local j = game.eventScriptCmds:find(nil, function(o) return o.addr == dest end)
-			if not j then
-				print(('!!! when reorganizing, failed to find %06x'):format(dest))
+			if type(dest) == 'number' then
+				local j = game.eventScriptCmds:find(nil, function(o) return o.addr == dest end)
+				if not j then
+					print(('!!! when reorganizing, failed to find %06x'):format(dest))
+				else
+					local o = game.eventScriptCmds:remove(j)
+					newCmds:insert(o)
+				end
+			elseif type(dest) == 'table' then
+				local destStart, destEnd = table.unpack(dest)
+				assert.type(destStart, 'number')
+				assert.type(destEnd, 'number')
+				local insertLoc = #newCmds+1
+				local found
+				for j=#game.eventScriptCmds,1,-1 do
+					local o = game.eventScriptCmds[j]
+					if destStart <= o.addr and o.addr < destEnd then
+						found = true
+						game.eventScriptCmds:remove(j)
+						newCmds:insert(insertLoc, o)
+					end
+				end
+				if not found then
+					print(('!!! when reorganizing, failed to find range {%06x, %06x}'):format(destStart, destEnd))
+				end
 			else
-				local o = game.eventScriptCmds:remove(j)
-				newCmds:insert(o)
+				error'here'
 			end
 		end
 		newCmds:append(game.eventScriptCmds)

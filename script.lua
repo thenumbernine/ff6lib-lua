@@ -1448,7 +1448,9 @@ return function(game)
 		cmd = 0xf6,
 		argtypes = {uint24_t},
 		argnames = {'destAddr'},
-		desc = 'spcInterrupt <?=destAddr?>',
+		__tostring = function(self)
+			return ('spcInterrupt(0x%06x)'):format(self.destAddr)
+		end,
 	}
 
 	EventCmds.ContinueSong = EventCmd:subclass{
@@ -1504,6 +1506,7 @@ return function(game)
 		local cl = EventCmds[k]
 		if cl.cmd then	-- some abstract classes are in EventCmds but don't have a .cmd
 			assert.type(cl.cmd, 'number')
+cl.classname = k
 			EventCmds[cl.cmd] = cl
 		end
 	end
@@ -1808,6 +1811,7 @@ return function(game)
 		local cl = ObjectCmds[k]
 		if cl.cmd then
 			assert.type(cl.cmd, 'number')
+cl.classname = k
 			ObjectCmds[cl.cmd] = cl
 		end
 	end
@@ -2031,6 +2035,7 @@ return function(game)
 		local cl = WorldCmds[k]
 		if cl.cmd then
 			assert.type(cl.cmd, 'number')
+cl.classname = k
 			WorldCmds[cl.cmd] = cl
 		end
 	end
@@ -2275,6 +2280,7 @@ return function(game)
 		local cl = VehicleCmds[k]
 		if cl.cmd then
 			assert.type(cl.cmd, 'number')
+cl.classname = k
 			VehicleCmds[cl.cmd] = cl
 		end
 	end
@@ -2758,14 +2764,37 @@ print()
 	game.eventScriptCmdIndexForAddr = {}
 	do
 		local i = 1
-		while i < #game.eventScriptCmds do
+		while i <= #game.eventScriptCmds do
 			local cmd = game.eventScriptCmds[i]
 			if game.eventScriptCmdIndexForAddr[cmd.addr] then
 				-- then we have duplicates ....
-				local ocmd = game.eventScriptCmds[i]
-				-- assert the cmdset all match
-				assert.eq(getmetatable(cmd), getmetatable(ocmd))
-				game.eventScriptCmds:remove(i)
+				assert.lt(game.eventScriptCmdIndexForAddr[cmd.addr], i)
+				local ocmd = game.eventScriptCmds[game.eventScriptCmdIndexForAddr[cmd.addr]]
+				assert.ne(rawequal(cmd, ocmd))
+				game.eventScriptCmds:remove(i)	-- removing cmd, keeping ocmd
+
+				-- also remove duplicate callbacks anywhere that this might have pointed...
+				-- [=[
+				if cmd.getBranchAddrs then
+					for _,branch in ipairs(cmd:getBranchAddrs()) do
+						local branchAddr = branch.addr
+						assert(game.whatsPointingToAddr[branchAddr])
+
+						-- duplicate equal cmds, so remove only one
+						local found
+						for j=#game.whatsPointingToAddr[branchAddr],1,-1 do
+							if game.whatsPointingToAddr[branchAddr][j].cmdobj == cmd then
+								game.whatsPointingToAddr[branchAddr]:remove(j)
+							elseif game.whatsPointingToAddr[branchAddr][j].cmdobj == ocmd then
+								found = true
+							end
+						end
+						assert(found)
+						-- shouldn't be zero because we should have a duplicate entry
+						assert.gt(#game.whatsPointingToAddr[branchAddr], 0)
+					end
+				end
+				--]=]
 			else
 				game.eventScriptCmdIndexForAddr[cmd.addr] = i
 				i = i + 1
