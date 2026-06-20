@@ -297,7 +297,7 @@ function EventScriptWindow:showIndexUI()
 							ig.igText('for i=1,'..cmd.count..' call')
 							ig.igSameLine()
 							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
-						elseif game.EventCmds.JumpBasedOnBattleFlag:isa(cmd) then
+						elseif game.EventCmds.CondBattleFlag:isa(cmd) then
 							ig.igText('if gameState.battleFlag'..cmd.flagIndex..' then goto')
 							ig.igSameLine()
 							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)

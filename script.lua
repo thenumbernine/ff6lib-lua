@@ -1128,7 +1128,7 @@ return function(game)
 		end,
 	}
 
-	EventCmds.JumpBasedOnBattleFlag = EventCmd:subclass{
+	EventCmds.CondBattleFlag = EventCmd:subclass{
 		cmd = 0xb7,
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'flagIndex', 'destAddrOfs'},

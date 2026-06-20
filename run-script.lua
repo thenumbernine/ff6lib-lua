@@ -99,7 +99,7 @@ local function runScript(game, cmdline)
 				addrsIsFunc[scriptBaseAddr + option.addrOfs] = true
 			end
 
-		elseif game.EventCmds.JumpBasedOnBattleFlag:isa(cmdobj)
+		elseif game.EventCmds.CondBattleFlag:isa(cmdobj)
 		or game.EventCmds.Jump5050:isa(cmdobj)
 		-- Branch is goto, fwd = skip code, backwards = loop
 		--  50/50 = 'if math.random() < .5 then...' cond on loop or if
@@ -1495,7 +1495,7 @@ end
 						i = i + 1
 					end
 				end
-				if game.EventCmds.JumpBasedOnBattleFlag:isa(o)
+				if game.EventCmds.CondBattleFlag:isa(o)
 				or game.EventCmds.Jump5050:isa(o)
 				or game.Cmds.Cond:isa(o)
 				or (game.ObjectCmds.Branch:isa(o) and o.random)
@@ -1670,7 +1670,12 @@ end
 				local i = #stmts
 				while i >= 1 do
 					local cmd = stmts[i]
-					if game.Cmds.Cond:isa(cmd) then
+					if (
+						game.Cmds.Cond:isa(cmd)
+						or game.EventCmds.CondBattleFlag:isa(cmd)
+					)
+					and stmtsObj ~= game	-- don't do global scope, or it'll mess up on the not-yet-lambda'd global stmts...
+					then
 						local destAddr = cmd:getDestAddr()
 						if destAddr ~= commonReturnAddr then
 --print(('!!! cond %06x -> %06x'):format(cmd.addr, destAddr))
@@ -1746,7 +1751,7 @@ print(('!!! replacing if-goto with while-loop %06x -> %06x'):format(cmd.addr, de
 							elseif i < j then
 -- first-to-last catches 792
 -- last-to-first catches 833
-print(('!!! replacing if-goto with if-then %06x -> %06x'):format(cmd.addr, destAddr))
+--print(('!!! replacing if-goto with if-then %06x -> %06x'):format(cmd.addr, destAddr))
 								-- if X then goto next; ... next: => if not X then ... end
 
 								local if_ = If()
