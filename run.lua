@@ -24,7 +24,8 @@ local rom = game.rom
 local romsize = game.romsize
 local countof = game.countof
 
-require 'run-script'(game)
+require 'run-script'(game)	-- event, vehicle, world, object scripts
+require 'run-battle-script'(game)	-- battle scripts
 
 
 for i=0,countof(game.spells)-1 do
@@ -133,7 +134,8 @@ for i=0,game.numMonsters-1 do
 		:filteri(function(ofs) return ofs > scriptOfs end)
 		[1] or ffi.sizeof(game.monsterScripts)
 
-	print('script = '..('0x%04x'):format(scriptOfs)..' - '..('0x%04x'):format(scriptNextOfs))
+	local baseAddr = ffi.offsetof(Game, 'monsterScripts')	-- 0x0f8700
+	print('script = '..('0x%04x'):format(baseAddr + scriptOfs)..' - '..('0x%04x'):format(baseAddr + scriptNextOfs))
 --	print('\t'..ffi.string(game.monsterScripts + scriptOfs, scriptNextOfs - scriptOfs):hex():gsub('..', ' %0'))
 	print()
 end

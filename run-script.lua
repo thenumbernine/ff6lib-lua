@@ -23,6 +23,7 @@ end
 
 -- cmdline is defined at the end for when you run this standalone
 local function runScript(game, cmdline)
+	cmdline = cmdline or {}
 	local rom = game.rom
 
 	local function fixname(s)
