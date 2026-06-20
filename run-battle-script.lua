@@ -1,16 +1,21 @@
 #!/usr/bin/env luajit
-
+--[[
+cmdline:
+	hideAddrs
+--]]
 local ffi = require 'ffi'
 local path = require 'ext.path'
 local assert = require 'ext.assert'
 local table = require 'ext.table'
 local range = require 'ext.range'
 local string = require 'ext.string'
+local tolua = require 'ext.tolua'
 
 local function runBattleScript(game, cmdline)
 	cmdline = cmdline or {}
 	local rom = game.rom
 	local Game = game.Game
+	local countof = game.countof
 
 	local monsterScriptsAddr = ffi.offsetof(Game, 'monsterScripts')	-- 0x0f8700
 
@@ -24,38 +29,57 @@ local function runBattleScript(game, cmdline)
 	end
 	scriptAddrs = table.keys(scriptAddrs):sort()
 
+	print'monsterScripts = {'
 	for i=1,#scriptAddrs do
-		local addr = scriptAddrs[i]
+		local startAddr = scriptAddrs[i]
 		local nextAddr = scriptAddrs[i+1]
 			or (monsterScriptsAddr + ffi.sizeof(game.monsterScripts))
 
-		print()
-		for _,monsterIndex in ipairs(monstersForAddr[addr]) do
-			local name = string.trim(tostring(game.monsterNames[monsterIndex]))
-			if name ~= '' then name = ' '..name end
-			print('monster #'..monsterIndex..name)
+		assert.eq(#monstersForAddr[startAddr], 1)
+		local monsterIndex = monstersForAddr[startAddr][1]
+		local name = string.trim(tostring(game.monsterNames[monsterIndex]))
+		if name ~= '' then name = ' '..name end
+		print('\t['..monsterIndex..'] = {\t-- '
+			..(' 0x%06x'):format(startAddr)
+			..'-'..('0x%06x'):format(nextAddr)
+			..name
+		)
+		print('\t\tthink=||do')
+
+		local function getItemName(i)
+			return tostring(game.itemNames[i])
+		end
+		local function getSpellName(i)
+			if i == 0xfe then return 'nothing' end
+			return tostring(game.getSpellName(i))
+		end
+		local function getActionName(i)
+			if i < countof(game.menuNames) then
+				return tostring(game.menuNames[i])
+			end
+			return 'action???'..i
 		end
 
-		print('script = '
-			..('0x%06x'):format(addr)
-			..' - '..('0x%06x'):format(nextAddr)
-		)
-		local startptr = rom + addr
-		local len = nextAddr - addr
+		local startptr = rom + startAddr
+		local len = nextAddr - startAddr
 		local data = ffi.string(startptr, len)
 		local p = ffi.cast('uint8_t*', startptr)
 		local pend = p + len
+		local returnCount = 0
+		local inCond
+		local lastWasCond
 		while p < pend do
+			local thisIsCond
 			local cmd = p[0]
-			io.write(('%06x\t'):format(p - rom))
+			local cmdAddr = p - rom
+			local out
 			if cmd < 0xf0 then
-				print('doAttack('..cmd..')\t-- '..game.getSpellName(cmd))
+				out = 'doAttack('..cmd..')\t-- '..getSpellName(cmd)
 				p=p+1
 			elseif cmd == 0xf0 then
 				local is = table{p[1], p[2], p[3]}
-				print('pickAttack('..is:concat', '..')'
-					..'\t-- options: '..is:mapi(function(i) return tostring(game.getSpellName(i)) end):concat', '
-				)
+				out = 'pickAttack('..is:concat', '..')'
+					..'\t-- options: '..is:mapi(function(i) return tostring(getSpellName(i)) end):concat', '
 				p=p+4
 			elseif cmd == 0xf1 then
 				local target
@@ -64,7 +88,7 @@ local function runBattleScript(game, cmdline)
 				else
 					target = 'target #'..p[1]
 				end
-				print('setTarget('..target..')')
+				out = 'setTarget('..target..')'
 				p=p+2
 			elseif cmd == 0xf2 then
 				local x1 = p[1]
@@ -73,13 +97,21 @@ local function runBattleScript(game, cmdline)
 				local x23 = ffi.cast('uint16_t*', p+2)[0]
 				local battleIndex = bit.band(0x7fff, x23)
 				local restoreMonsters = 0 ~= bit.band(0x8000, x23)
-				print('change battle', exitEffect, scrollBG, battleIndex, restoreMonsters)
+				out = 'change battle exitEffect='..exitEffect
+					..', scrollBG='..tostring(scrollBG)
+					..', battleIndex='..battleIndex
+					..', restoreMonsters='..tostring(restoreMonsters)
 				p=p+4
 			elseif cmd == 0xf3 then
-				print('dialog', ffi.cast('uint16_t*', p+1)[0])
+				-- numBattleDialogs = 0x100
+				-- numBattleDialog2s = 0x100
+				-- numBattleMessages = 0x100
+				local i = ffi.cast('uint16_t*', p+1)[0]
+				-- i is from 0 to 140
+				out = 'dialog('..tolua(game.battleDialog[i])..')\t-- '..i
 				p=p+3
 			elseif cmd == 0xf4 then
-				print('cmd', p[1], p[2], p[3])
+				out = 'cmd('..table{p[1], p[2], p[3]}:concat', '..')'
 				p=p+4
 			elseif cmd == 0xf5 then
 				local anim = p[1]
@@ -92,104 +124,117 @@ local function runBattleScript(game, cmdline)
 					[5] = "hide, debug mode"
 				})[p[2]] or 'op???'..p[2]
 				local enemyIndex = p[3]
-				print(('%q'):format(op), 'anim='..anim,
-					enemyIndex == 0 and 'this monster'
-					or enemyIndex == 0xff and 'all monsters'
-					or (enemyIndex-1))
+				out = ('%q'):format(op)..', anim='..anim
+					..', '..(
+						enemyIndex == 0 and 'this monster'
+						or enemyIndex == 0xff and 'all monsters'
+						or (enemyIndex-1)
+					)
 				p=p+4
 			elseif cmd == 0xf6 then
 				local useVsThrow = p[1]
-				local item12 = p[2]
-				local item3 = p[3]
+				local item12 = getItemName(p[2])
+				local item3 = getItemName(p[3])
 				if useVsThrow == 0 then
-					print('use', x, item12, item3)
+					out = ('useItem(%q, %q)'):format(item12, item3)
 				elseif useVsThrow == 1 then
-					print('throw', x, item12, item3)
+					out = ('throwItem(%q, %q)'):format(item12, item3)
 				else
-					print('use/throw???'..useVsThrow, item12, item3)
+					error'here'
 				end
 				p=p+4
 			elseif cmd == 0xf7 then
 				local x = p[1]
-				print('battle event', x)
+				-- this must be what does the battleDialog2[] or battleMessages[]....
+				out = 'doBattleEvent('..x..')'
 				p=p+1
 			elseif cmd == 0xf8 then
 				local var = p[1]
 				local op = bit.band(3, bit.rshift(p[2], 6))
 				local value = bit.band(0x3f, p[2])
 				if op == 0 then
-					print('var['..var..'] = '..value)
+					out = 'var['..var..'] = '..value
 				elseif op == 1 then
-					print('var['..var..'] ???= '..value)
+					out = 'var['..var..'] ???= '..value
 				elseif op == 2 then
-					print('var['..var..'] += '..value)
+					out = 'var['..var..'] += '..value
 				elseif op == 3 then
-					print('var['..var..'] -= '..value)
+					out = 'var['..var..'] -= '..value
 				end
 				p=p+3
 			elseif cmd == 0xf9 then
 				if p[1] == 0 then
-					print('xor flag', p[2], p[3])
+					out = 'xor flag '..p[2]..', '..p[3]
 				elseif p[1] == 1 then
-					print('set flag', p[2], p[3])
+					out = 'set flag '..p[2]..', '..p[3]
 				elseif p[1] == 2 then
-					print('clear flag', p[2], p[3])
+					out = 'clear flag '..p[2]..', '..p[3]
 				else
-					print('change flag???'..p[1], p[2], p[3])
+					error'here'
 				end
 				p=p+4
 			elseif cmd == 0xfa then
 				local x1 = p[1]
 				if x1 == 0x09 then
-					print('play sound', p[2], p[3])
+					out = 'playSound('..p[2]..', '..p[3]..')'
 				else
 					-- is fa09 special?
 					local x2 = p[2]
 					local x3 = p[3]
-					print('anim', x1, x2, x3)
+					out = 'anim('..table{x1, x2, x3}:concat', '..')'
 				end
 				p=p+4
 			elseif cmd == 0xfb then
 				local cmd2 = p[1]
 				if cmd2 < 0x0e then
-					print('misc', cmd2, p[2])
+					out = 'misc('..cmd2..', '..p[2]..')'
 				else
-					print('misc???', cmd2, p[2])
+					error'here'
 				end
 				p=p+3
 			elseif cmd == 0xfc then
+				local ifStmt = lastWasCond and 'and' or 'if'
+				thisIsCond = true
 				local condIndex = p[1]
 				if condIndex == 1 then
 					-- p[2] means command-2 which means menu-item-2 which is magic
-					print('if command', p[2], p[3])
+					local action1 = ('%q'):format(getActionName(p[2]))
+					local action2 = ('%q'):format(getActionName(p[3]))
+					local actions = action1 == action2 and action1 or action1..', '..action2
+					-- p[3] == 2 is targetting <-> this monster?
+					-- or p[2] == 2, ip[3] == 2 <-> action == magic, spell #2 == bolt?
+					out = ifStmt..' wasTargetedWithAction('..actions..')'
 				elseif condIndex == 2 then
-					print('if attack', p[2], p[3])
+					out = ifStmt..' wasTargetedWithFight('..p[2]..', '..p[3]..')'
 				elseif condIndex == 3 then
-					print('if item', p[2], p[3])
+					local item1 = ('%q'):format(getItemName(p[2]))
+					local item2 = ('%q'):format(getItemName(p[3]))
+					local items = item1 == item2 and item1 or item1..', '..item2
+					out = ifStmt..' wasTargetedWithItem('..items..')'
 				elseif condIndex == 4 then
 					assert.eq(p[3], 0)
-					print('if element', p[2])
+					out = ifStmt..' wasHitByElement('..p[2]..')'
 				elseif condIndex == 5 then
 					assert.eq(p[2], 0)
 					assert.eq(p[3], 0)
-					print('if wasTargeted() then')	-- what's this mean? if an action targeted this monster?
+					out = ifStmt..' wasTargeted()'	-- what's this mean? if any action targeted this monster?
 				elseif condIndex == 6 then
-					print('if target', p[2], 'hp', p[3] * 128)
+					out = ifStmt..' target '..p[2]..' hp '..(p[3] * 128)
 				elseif condIndex == 7 then
-					print('if target', p[2], 'mp', p[3])
+					out = ifStmt..' target '..p[2]..' mp '..p[3]
 				elseif condIndex == 8 then
-					print('if target', p[2], 'has status', p[3])
+					out = ifStmt..' target '..p[2]..' has status '..p[3]
 				elseif condIndex == 9 then
-					print('if target', p[2], "doesn't have status", p[3])
+					out = ifStmt..' target '..p[2].." doesn't have status "..p[3]
 				elseif condIndex == 11 then
 					assert.eq(p[3], 0)
-					print('if monster timer', p[2])
+					out = ifStmt..' monster timer '..p[2]
 				elseif condIndex == 12 then
-					print('if var['..p[2]..'] < '..p[3])
+					out = ifStmt..' var['..p[2]..'] < '..p[3]
 				elseif condIndex == 13 then
-					print('if var['..p[2]..'] > '..p[3])
+					out = ifStmt..' var['..p[2]..'] > '..p[3]
 				elseif condIndex == 14 then
-					print('if target', p[2], 'level <', p[3])
+					out = ifStmt..' target '..p[2]..' level <'..p[3]
 				elseif condIndex == 15 then
 					local target
 					-- for all target conds or just this one?
@@ -201,79 +246,128 @@ local function runBattleScript(game, cmdline)
 					else
 						target = 'getTarget('..p[2]..')'
 					end
-					print('if '..target..'.level > '..p[3]..' then')
+					out = ifStmt..' '..target..'.level > '..p[3]
 				elseif condIndex == 16 then
 					assert.eq(p[2], 0)
 					assert.eq(p[3], 0)
-					print('if one type of monster')
+					out = ifStmt..' onlyOneTypeOfEnemyAlive()'
 				elseif condIndex == 17 then
 					assert.eq(p[3], 0)
-					local monsterName = p[2] == 0 and 'this monster'
-						or p[2] == 0xff and 'all monsters'
+					local func = p[2] == 0 and 'thisEnemyIsAlive()'
+						or p[2] == 0xff and 'allEnemiesAreAlive()'
 						or 'monster '..(p[2]-1)
-					print('if', monsterName, 'is alive')
+					out = ifStmt..' '..func
 				elseif condIndex == 18 then
 					assert.eq(p[3], 0)
-					local monsterName = p[2] == 0 and 'this monster'
-						or p[2] == 0xff and 'all monsters'
+					local func = p[2] == 0 and 'thisEnemyIsDead()'
+						or p[2] == 0xff and 'allEnemiesAreDead()'
 						or 'monster '..(p[2]-1)
-					print('if', monsterName, 'is dead')
+					out = ifStmt..' '..func
 				elseif condIndex == 19 then
-					local team, op
+					local func, cmp
 					if p[2] == 0 then
-						team = 'party'
-						op = '>='
+						func = 'numPartyAlive()'
+						cmp = '>='
 					elseif p[2] == 1 then
-						team = 'enemies'
-						op = '<='
+						func = 'numEnemiesAlive()'
+						cmp = '<='
 					else
-						team = '???'..p[2]
-						op = '???'
+						func = '???'..p[2]
+						cmp = '???'
 					end
-					print('if #', team, 'alive',  op, p[3])
+					out = ifStmt..' '..func..' '..cmp..' '..p[3]
 				elseif condIndex == 20 then
-					print('if battleFlag['..p[3]..']')
+					out = ifStmt..' battleGetFlag('..p[3]..')'
 				elseif condIndex == 21 then
-					print('if not battleFlag['..p[3]..']')
+					out = ifStmt..' not battleGetFlag('..p[3]..')'
 				elseif condIndex == 22 then
 					assert.eq(p[3], 0)
-					print('if battle timer', p[2])
+					out = ifStmt..' battle timer '..p[2]
 				elseif condIndex == 23 then
 					assert.eq(p[3], 0)
-					print('if target', p[2], 'is valid')
+					out = ifStmt..' target['..p[2]..'] is valid'
 				elseif condIndex == 24 then
 					assert.eq(p[2], 0)
 					assert.eq(p[3], 0)
-					print('if gau present')
+					out = ifStmt..' gauIsPresent()'
 				elseif condIndex == 25 then
 					assert.eq(p[3], 0)
-					local monsterName = p[2] == 0 and 'this monster'
-						or p[2] == 0xff and 'all monsters'
-						or 'monster '..(p[2]-1)
-					print('if', monsterName, 'slot')	-- what does 'this monster slot' or 'all monster slot' mean?
+					local monsterName = p[2] == 0 and 'self'
+						or p[2] == 0xff and 'allEnemies()'
+						or 'enemy['..(p[2]-1)..']'
+					out = ifStmt..monsterName..' slot'	-- what does 'this monster slot' or 'all monster slot' mean?
 				elseif condIndex == 26 then
-					print('if element', p[3])
+					out = ifStmt..' element '..p[3]
 				elseif condIndex == 27 then
-					print('if battleFlag['..ffi.cast('uint16_t*', p+1)[0]..']')
+					out = ifStmt..' battleFlag['..ffi.cast('uint16_t*', p+1)[0]..']'
 				else
-					print('if???', p[1], p[2], p[3])
+					error'here'
 				end
 				p=p+4
 			elseif cmd == 0xfd then
-				print('passTurn()')
+				out = 'passTurn()'
 				p=p+1
 			elseif cmd == 0xfe then
-				print('end--if')
+				if not inCond then
+--print(('!!! found end-if when not in-cond at %06x'):format(cmdAddr))
+				end
+				inCond = false
+				out = 'end--if'
 				p=p+1
+			-- there should always only be 2 of these
+			-- 1st block is for the main routine
+			-- 2nd block is counter-attacks
 			elseif cmd == 0xff then
-				print('do return end')
+				returnCount = returnCount + 1
+				out = 'return'
 				p=p+1
 			else
-				print('unknown', p[0])
-				p=p+1
+				error'here'
+			end
+			assert(out, ("failed to write out on cmd 0x%02x"):format(cmd))
+			local tab = cmdline.hideAddrs and '\t\t\t' or '\t\t\t\t\t'
+			if lastWasCond and not thisIsCond and cmd ~= 0xfe then
+				if inCond then
+--print(('!!! lastWasCond, not thisIsCond, but inCond at %06x'):format(cmdAddr))
+				end
+				inCond = true
+				print(tab..'then')
+			end
+			if cmd == 0xff and inCond then
+				inCond = false
+				print(tab..'end--if')
+			end
+			if not cmdline.hideAddrs then
+				io.write(('%06x\t'):format(cmdAddr))
+			end
+			if out == 'return' then
+				-- last monster has like 9 of these
+				if returnCount <= 2 then
+					print((inCond and '\t\t\t' or '\t\t')..'end,')
+				end
+			else
+				print((inCond and '\t\t\t\t' or '\t\t\t')..out)
+			end
+			if cmd == 0xff and returnCount == 1 then
+				-- hmm instead, print a new lambda?
+				print('\t\tcounter=||do')
+			end
+			lastWasCond = thisIsCond
+		end
+		if returnCount ~= 2 then
+			-- mag roader #243's script at 0x0f9448 only has 1 return ...
+			-- monster #383 (empty?) has 9... and is really just a 'Battle' ...
+			print(('-- !!! battle script at %06x only has %d returns, expected 2'):format(startAddr, returnCount))
+			-- otherwise, the 2 returns denote term of 2 blocks of script
+			-- 1st is per-battle execution
+			-- 2nd is counterattacks
+			if returnCount == 1 then
+				print'\t\tend,'
 			end
 		end
+		print'\t},'
 	end
+	print'}'
 end
 
 --print('...', select('#', ...), ...)
