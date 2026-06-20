@@ -410,35 +410,48 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	end
 
 
-	-- I think only used for ObjScript...
-	local Loop  = class()
-	Loop.toCodeLine = Cmd_toCodeLine
-	function Loop:getAsmLine()
+	local Repeat  = class()
+	Repeat.toCodeLine = Cmd_toCodeLine
+	function Repeat:getAsmLine()
 		if not self.addr then return end
-		return ('%06x loop'):format(self.addr)
+		return ('%06x repeat'):format(self.addr)
 	end
-	function Loop:toCode(indent)
+	Repeat.stopCond = 'false'	-- forever by default
+	function Repeat:toCode(indent)
 		indent = indent or 0
 		local s = table()
-		if self.is5050 then
-			s:insert('repeat')
-		else
-			s:insert('while true do')
-		end
+		s:insert('repeat')
 		for _,stmt in ipairs(self.stmts) do
 			s:insert(stmt:toCodeLine(indent+1))	-- toCodeLine means also insert asm if asked to
 		end
 		local tab = ('\t'):rep(indent)
-		if self.is5050 then
-			s:insert(
-				(cmdline.hideAddrs and '' or (' '):rep(disasmcol))
-				..tab..'until math.random() < .5')
-		else
-			s:insert(
-				(cmdline.hideAddrs and '' or (' '):rep(disasmcol))
-				..tab..'end'
-			)
+		s:insert(
+			(cmdline.hideAddrs and '' or (' '):rep(disasmcol))
+			..tab..'until '..self.stopCond
+		)
+		return s:concat'\n'
+	end
+
+
+	local While  = class()
+	While.toCodeLine = Cmd_toCodeLine
+	function While:getAsmLine()
+		if not self.addr then return end
+		return ('%06x while'):format(self.addr)
+	end
+	While.goCond = 'true'	-- forever by default
+	function While:toCode(indent)
+		indent = indent or 0
+		local s = table()
+		s:insert('while '..self.goCond..' do')
+		for _,stmt in ipairs(self.stmts) do
+			s:insert(stmt:toCodeLine(indent+1))	-- toCodeLine means also insert asm if asked to
 		end
+		local tab = ('\t'):rep(indent)
+		s:insert(
+			(cmdline.hideAddrs and '' or (' '):rep(disasmcol))
+			..tab..'end'
+		)
 		return s:concat'\n'
 	end
 
@@ -1083,8 +1096,10 @@ assert(game.whatsPointingToAddr[target.addr])
 							end
 
 							-- now we can cut this block out and put it in a while-loop
-							local loop = Loop()
-							loop.is5050 = game.ObjectCmds.BranchBack50:isa(bb)
+							local loop = Repeat()
+							if game.ObjectCmds.BranchBack50:isa(bb) then
+								loop.stopCond = 'math.random() < .5'
+							end
 							loop.stmts = o.stmts:sub(j,i-1)
 							loop.addr = loop.stmts[1].addr
 							loop.parent = o
@@ -1544,7 +1559,7 @@ end
 		end
 --]==]
 
-		-- I could bunch this up with 'Loop' ...
+		-- I could bunch this up with 'Repeat' ...
 		-- but for detection I want them separate classes ...
 		-- I should just make a common superclass ...
 		-- I should just use a proper langfix ast...
@@ -1648,6 +1663,152 @@ end
 			buildForLoops(game, 'eventScriptCmds')
 		end
 
+		-- [[ same but with if-statements?
+		do
+			local function buildIfStmts(stmtsObj, stmtsKey)
+				local stmts = assert.index(stmtsObj, stmtsKey)
+				local i = #stmts
+				while i >= 1 do
+					local cmd = stmts[i]
+					if game.Cmds.Cond:isa(cmd) then
+						local destAddr = cmd:getDestAddr()
+						if destAddr ~= commonReturnAddr then
+--print(('!!! cond %06x -> %06x'):format(cmd.addr, destAddr))
+							-- then look for the goto in our stmts ...
+							local j = stmts:find(nil, function(c) return c.addr == destAddr end)
+							if not j then
+								-- this is a if-goto that goes outside this block...
+-- this is probably pretty common
+-- it's gonna have to turn into lambdas and tailcalls
+--print(('!!! jump to outside of block at %06x -> %06x'):format(cmd.addr, destAddr))
+							elseif j < i then
+								-- prev: ... if X then goto prev => repeat ... until not X
+
+								if game.whatsPointingToAddr[destAddr] then
+									for j=#game.whatsPointingToAddr[destAddr],1,-1 do
+										if game.whatsPointingToAddr[destAddr][j].cmdobj == cmd then
+											game.whatsPointingToAddr[destAddr]:remove(j)
+										end
+									end
+									if #game.whatsPointingToAddr[destAddr] == 0 then
+										game.whatsPointingToAddr[destAddr] = nil
+									end
+								end
+
+-- only 13
+-- replacing if-goto with while-loop 0a75ce -> 0a75b0
+-- replacing if-goto with while-loop 0af98f -> 0af78e
+-- replacing if-goto with while-loop 0afa6d -> 0af962 ... not hit
+-- replacing if-goto with while-loop 0b08db -> 0b08c2
+-- replacing if-goto with while-loop 0b1ff3 -> 0b1fef
+-- replacing if-goto with while-loop 0b1ffd -> 0b1ff3
+-- replacing if-goto with while-loop 0b4cd7 -> 0b4cd3
+-- replacing if-goto with while-loop 0b52d9 -> 0b4f73
+-- replacing if-goto with while-loop 0b52ed -> 0b522a
+-- replacing if-goto with while-loop 0b68f1 -> 0b6828
+-- replacing if-goto with while-loop 0b8183 -> 0b812c
+-- replacing if-goto with while-loop 0b819b -> 0b812c
+-- replacing if-goto with while-loop 0c5223 -> 0b69ff
+
+print(('!!! replacing if-goto with while-loop %06x -> %06x'):format(cmd.addr, destAddr))
+-- current impl only catches 10 of them
+-- replacing if-goto with while-loop 0a75ce -> 0a75b0
+-- replacing if-goto with while-loop 0af98f -> 0af78e
+-- replacing if-goto with while-loop 0b08db -> 0b08c2
+-- replacing if-goto with while-loop 0b1ff3 -> 0b1fef
+-- replacing if-goto with while-loop 0b1ffd -> 0b1ff3
+-- replacing if-goto with while-loop 0b4cd7 -> 0b4cd3
+-- replacing if-goto with while-loop 0b52d9 -> 0b4f73
+-- replacing if-goto with while-loop 0b68f1 -> 0b6828
+-- replacing if-goto with while-loop 0b8183 -> 0b812c
+-- replacing if-goto with while-loop 0c5223 -> 0b69ff
+
+								local loop = While()
+								loop.goCond = cmd:getCond()
+								-- TODO should it be the if's addr or the goto's addr?  both are needed...
+								loop.addr = destAddr
+								loop.parent = cmd.parent
+								loop.stmts = stmts:sub(j, i-1)
+								for _,c in ipairs(loop.stmts) do
+									c.parent = loop
+								end
+
+								local newStmts = table():append(
+									stmts:sub(1, j-1),
+									{loop},
+									stmts:sub(i+1)	-- skip cmd since it goes into the loop now
+								)
+								stmtsObj[stmtsKey] = newStmts
+								stmts = newStmts
+								i = j+1
+
+							-- if we handle these in reverse-order then we can catch more...
+							elseif i < j then
+-- first-to-last catches 792
+-- last-to-first catches 833
+print(('!!! replacing if-goto with if-then %06x -> %06x'):format(cmd.addr, destAddr))
+								-- if X then goto next; ... next: => if not X then ... end
+
+								local if_ = If()
+								local cond = cmd:getCond()
+								local rest = cond:match'^not (.*)$'
+								if rest then
+									if_.cond = rest
+								else
+									if_.cond = 'not '..cmd:getCond()
+								end
+								if_.parent = cmd.parent
+								if_.addr = cmd.addr
+								if_.stmts = stmts:sub(i+1, j-1)
+								for _,c in ipairs(if_.stmts) do
+									c.parent = if_
+								end
+
+								local newStmts = table():append(
+									stmts:sub(1, i-1),	-- skip cmd since it goes into the loop now
+									{if_},
+									stmts:sub(j)
+								)
+								stmtsObj[stmtsKey] = newStmts
+								stmts = newStmts
+
+								if game.whatsPointingToAddr[destAddr] then
+									for j=#game.whatsPointingToAddr[destAddr],1,-1 do
+										if game.whatsPointingToAddr[destAddr][j].cmdobj == cmd then
+											game.whatsPointingToAddr[destAddr]:remove(j)
+										end
+									end
+									if #game.whatsPointingToAddr[destAddr] == 0 then
+										game.whatsPointingToAddr[destAddr] = nil
+									end
+								end
+
+								-- also while we're here, if the 1st stmt is another 'if'
+								--  then we can turn it into an 'and'
+								if #if_.stmts == 1
+								and If:isa(if_.stmts[1])
+								then
+									if_.cond = '('..if_.cond..') and ('..if_.stmts[1].cond..')'
+									if_.stmts = if_.stmts[1].stmts
+									for _,c in ipairs(if_.stmts) do
+										c.parent = if_
+									end
+								end
+							elseif j == i then
+								-- same: if X then goto same => while X do end
+								-- nope, this doesn't exist.
+								error("does this exist?")
+							end
+						end
+					elseif cmd.stmts then
+						buildIfStmts(cmd, 'stmts')
+					end
+					i=i-1
+				end
+			end
+			buildIfStmts(game, 'eventScriptCmds')
+		end
+		--]]
 
 -- [[
 		-- now rearrange to match the generated ff6t3d script
