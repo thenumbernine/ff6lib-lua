@@ -441,6 +441,8 @@ local function outputMonsterScripts(game, cmdline)
 		print'\t},'
 	end
 	print'}'
+	print()
+	print'return monsterScripts'
 end
 
 --print('...', select('#', ...), ...)
