@@ -25,7 +25,7 @@ local romsize = game.romsize
 local countof = game.countof
 
 require 'run-script'(game)	-- event, vehicle, world, object scripts
-require 'run-battle-script'(game)	-- battle scripts
+require 'run-monster-script'(game)	-- battle scripts
 
 
 for i=0,countof(game.spells)-1 do

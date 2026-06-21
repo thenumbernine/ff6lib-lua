@@ -514,7 +514,10 @@ return function(rom, game, romsize)
 	for i,addr in ipairs(addrsInOrder) do
 		local addrend = addrsInOrder[i+1] or 0x107fb2
 		print('battleAnimScript addr=0x'..addr:hex()..':')
-		print(' used by effect #s: '..battleScriptAddrs[addr]:mapi(function(addr) return ('0x%04x'):format(addr) end):concat', ')
+		print(' used by effect #s: '..battleScriptAddrs[addr]:mapi(function(effectIndex)
+				-- I forgot already, is effectIndex 1:1 with spell index?
+				return ('0x%02x'):format(effectIndex)
+			end):concat', ')
 		local pc = addr
 		local linepc
 		local lhs

@@ -11,7 +11,7 @@ local range = require 'ext.range'
 local string = require 'ext.string'
 local tolua = require 'ext.tolua'
 
-local function runBattleScript(game, cmdline)
+local function outputMonsterScripts(game, cmdline)
 	cmdline = cmdline or {}
 	local rom = game.rom
 	local Game = game.Game
@@ -29,7 +29,7 @@ local function runBattleScript(game, cmdline)
 	end
 	scriptAddrs = table.keys(scriptAddrs):sort()
 
-	print'monsterScripts = {'
+	print'local monsterScripts = {'
 	for i=1,#scriptAddrs do
 		local startAddr = scriptAddrs[i]
 		local nextAddr = scriptAddrs[i+1]
@@ -453,7 +453,7 @@ if select('#', ...) > 0 then	-- luajit #... == 0 <-> this file was require'd
 		assert(path((...)):read())
 	))
 	print'--]]'
-	runBattleScript(game, cmdline)
+	outputMonsterScripts(game, cmdline)
 end
 
-return runBattleScript
+return outputMonsterScripts
