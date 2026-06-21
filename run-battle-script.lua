@@ -44,7 +44,7 @@ local function runBattleScript(game, cmdline)
 			..'-'..('0x%06x'):format(nextAddr)
 			..name
 		)
-		print('\t\tthink=||do')
+		print('\t\tact=|:|do')
 
 		local function getItemName(i)
 			return tostring(game.itemNames[i])
@@ -61,6 +61,7 @@ local function runBattleScript(game, cmdline)
 		end
 		local function getTarget(i)
 			if i == 54 then return 'self' end
+			if i == 71 then return '"nothing"' end
 			return tostring(i)
 		end
 
@@ -86,7 +87,7 @@ local function runBattleScript(game, cmdline)
 					..'\t-- options: '..is:mapi(function(i) return tostring(getSpellName(i)) end):concat', '
 				p=p+4
 			elseif cmd == 0xf1 then
-				out = 'setTarget('..getTarget(p[1])..')'
+				out = 'changeAttackTarget('..getTarget(p[1])..')'
 				p=p+2
 			elseif cmd == 0xf2 then
 				local x1 = p[1]
@@ -116,6 +117,7 @@ local function runBattleScript(game, cmdline)
 				local anim = p[1]
 				local op = ({
 					[0] = 'showAndSetHPToMax',
+					-- does "disable targeting" mean also "don't consider for win-condition?"
 					[1] = 'hideAndDisableTargeting',
 					[2] = 'show',
 					[3] = 'hideAndAllowTargeting',
@@ -191,9 +193,38 @@ local function runBattleScript(game, cmdline)
 				end
 				p=p+4
 			elseif cmd == 0xfb then
-				local cmd2 = p[1]
-				if cmd2 < 0x0e then
-					out = 'misc('..cmd2..', '..p[2]..')'
+				if p[1] == 0 then
+					assert.eq(p[2], 0)
+					out = 'resetMonsterTimer(self)'
+				elseif p[1] == 1 then
+					out = 'makeInvisible('..p[2]..')'
+				elseif p[1] == 2 then
+					assert.eq(p[2], 0)
+					out = 'endBattle()'
+				elseif p[1] == 3 then
+					assert.eq(p[2], 0)
+					out = 'addGauToParty()'
+				elseif p[1] == 4 then
+					assert.eq(p[2], 0)
+					out = 'resetBattleTimer()'
+				elseif p[1] == 5 then
+					out = 'removeInvisible('..p[2]..')'
+				elseif p[1] == 6 then
+					out = 'makeTargetable('..p[2]..')'
+				elseif p[1] == 7 then
+					out = 'makeUntargetable('..p[2]..')'
+				elseif p[1] == 8 then
+					out = 'setATBToMax('..p[2]..')'
+				elseif p[1] == 9 then
+					assert.eq(p[2], 0)
+					out = 'sendGauToVeldt()'
+				elseif p[1] == 11 then
+					out = 'setStatus(self, '..p[2]..')'	-- on who?
+				elseif p[1] == 12 then		-- not used?
+					out = 'removeStatus(self, '..p[2]..')'
+				elseif p[1] == 13 then
+					assert.eq(p[2], 0)
+					out = 'hideMonster(self)'
 				else
 					error'here'
 				end
@@ -236,11 +267,11 @@ local function runBattleScript(game, cmdline)
 					out = ifStmt..' targetDoesntHaveStatus{target='..p[2]..', status='..p[3]..'}'
 				elseif condIndex == 11 then
 					assert.eq(p[3], 0)
-					out = ifStmt..' monsterTimer() < '..p[2]
+					out = ifStmt..' monsterTimer(self) > '..(p[2] * 2)	-- seconds?
 				elseif condIndex == 12 then
-					out = ifStmt..' var['..p[2]..'] < '..p[3]
+					out = ifStmt..' battleVarGet('..p[2]..') < '..p[3]
 				elseif condIndex == 13 then
-					out = ifStmt..' var['..p[2]..'] > '..p[3]
+					out = ifStmt..' battleVarGet('..p[2]..') >= '..p[3]
 				elseif condIndex == 14 then
 					out = ifStmt..' '..getTarget(p[2])..'.level <'..p[3]
 				elseif condIndex == 15 then
@@ -261,15 +292,15 @@ local function runBattleScript(game, cmdline)
 					out = ifStmt..' onlyOneTypeOfEnemyAlive()'
 				elseif condIndex == 17 then
 					assert.eq(p[3], 0)
-					local func = p[2] == 0 and 'thisEnemyIsAlive()'
-						or p[2] == 0xff and 'allEnemiesAreAlive()'
+					local func = p[2] == 0 and 'isAlive(self)'
+						or p[2] == 0xff and 'isAlive("all enemies")'
 						or 'enemyIsAlive('..(p[2]-1)..')'
 					out = ifStmt..' '..func
 				elseif condIndex == 18 then
 					assert.eq(p[3], 0)
-					local func = p[2] == 0 and 'thisEnemyIsDead()'
-						or p[2] == 0xff and 'allEnemiesAreDead()'
-						or 'enemyIsDead('..(p[2]-1)..')'
+					local func = p[2] == 0 and 'isDead(self)'
+						or p[2] == 0xff and 'isDead("all enemies")'
+						or 'enemyIsDead('..(p[2]-1)..')'	-- 0-based, lines up with the formation's monsters 0-5
 					out = ifStmt..' '..func
 				elseif condIndex == 19 then
 					local func, cmp
@@ -386,7 +417,7 @@ local function runBattleScript(game, cmdline)
 			end
 			if cmd == 0xff and returnCount == 1 then
 				-- hmm instead, print a new lambda?
-				print('\t\tcounter=||do')
+				print('\t\tcounter=|:|do')
 			end
 			lastWasCond = thisIsCond
 
