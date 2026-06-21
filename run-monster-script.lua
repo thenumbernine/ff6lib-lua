@@ -278,14 +278,15 @@ local function outputMonsterScripts(game, cmdline)
 					local target
 					-- for all target conds or just this one?
 					if p[2] == 68 then
-						target = 'randomTarget()'
+						out = ifStmt..' randomTargetsLevelGt('..p[3]..')'
 					elseif p[2] < 16 then
 						-- target 0-15 is character 0-15 is object 0-15
 						target = 'getObj('..p[2]..')'
+						out = ifStmt..' '..target..'.level > '..p[3]
 					else
 						target = 'getTarget('..p[2]..')'
+						out = ifStmt..' '..target..'.level > '..p[3]
 					end
-					out = ifStmt..' '..target..'.level > '..p[3]
 				elseif condIndex == 16 then
 					assert.eq(p[2], 0)
 					assert.eq(p[3], 0)
@@ -300,7 +301,7 @@ local function outputMonsterScripts(game, cmdline)
 					assert.eq(p[3], 0)
 					local func = p[2] == 0 and 'isDead(self)'
 						or p[2] == 0xff and 'isDead("all enemies")'
-						or 'enemyIsDead('..(p[2]-1)..')'	-- 0-based, lines up with the formation's monsters 0-5
+						or 'isDead('..(p[2]-1)..')'	-- 0-based, lines up with the formation's monsters 0-5
 					out = ifStmt..' '..func
 				elseif condIndex == 19 then
 					local func, cmp
