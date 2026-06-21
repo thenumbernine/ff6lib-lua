@@ -59,6 +59,10 @@ local function runBattleScript(game, cmdline)
 			end
 			return 'action???'..i
 		end
+		local function getTarget(i)
+			if i == 54 then return 'self' end
+			return tostring(i)
+		end
 
 		local startptr = rom + startAddr
 		local len = nextAddr - startAddr
@@ -82,13 +86,7 @@ local function runBattleScript(game, cmdline)
 					..'\t-- options: '..is:mapi(function(i) return tostring(getSpellName(i)) end):concat', '
 				p=p+4
 			elseif cmd == 0xf1 then
-				local target
-				if p[1] == 54 then
-					target = 'self'	 -- ? who is 'self'?
-				else
-					target = 'target #'..p[1]
-				end
-				out = 'setTarget('..target..')'
+				out = 'setTarget('..getTarget(p[1])..')'
 				p=p+2
 			elseif cmd == 0xf2 then
 				local x1 = p[1]
@@ -97,10 +95,11 @@ local function runBattleScript(game, cmdline)
 				local x23 = ffi.cast('uint16_t*', p+2)[0]
 				local battleIndex = bit.band(0x7fff, x23)
 				local restoreMonsters = 0 ~= bit.band(0x8000, x23)
-				out = 'change battle exitEffect='..exitEffect
+				out = 'changeBattle{exitEffect='..exitEffect
 					..', scrollBG='..tostring(scrollBG)
 					..', battleIndex='..battleIndex
 					..', restoreMonsters='..tostring(restoreMonsters)
+					..'}'
 				p=p+4
 			elseif cmd == 0xf3 then
 				-- numBattleDialogs = 0x100
@@ -116,20 +115,21 @@ local function runBattleScript(game, cmdline)
 			elseif cmd == 0xf5 then
 				local anim = p[1]
 				local op = ({
-					[0] = "show, set hp to max",
-					[1] = "hide, normal",
-					[2] = "show, at current hp",
-					[3] = "hide, allow targeting",
-					[4] = "hide, battle won't end",
-					[5] = "hide, debug mode"
-				})[p[2]] or 'op???'..p[2]
+					[0] = 'showAndSetHPToMax',
+					[1] = 'hideAndDisableTargeting',
+					[2] = 'show',
+					[3] = 'hideAndAllowTargeting',
+					[4] = 'hideButDontEndBattle',
+					[5] = 'hideDebugMode',	-- not used
+				})[p[2]] or error'here'
 				local enemyIndex = p[3]
-				out = ('%q'):format(op)..', anim='..anim
-					..', '..(
-						enemyIndex == 0 and 'this monster'
-						or enemyIndex == 0xff and 'all monsters'
+				out = op..'{'
+					..'target='..(
+						enemyIndex == 0 and 'self'
+						or enemyIndex == 0xff and '"all enemies"'
 						or (enemyIndex-1)
-					)
+					)..', anim='..anim
+					..'}'
 				p=p+4
 			elseif cmd == 0xf6 then
 				local useVsThrow = p[1]
@@ -153,22 +153,28 @@ local function runBattleScript(game, cmdline)
 				local op = bit.band(3, bit.rshift(p[2], 6))
 				local value = bit.band(0x3f, p[2])
 				if op == 0 then
-					out = 'var['..var..'] = '..value
+					out = 'battleVarSet('..var..', '..value..')'
 				elseif op == 1 then
-					out = 'var['..var..'] ???= '..value
+					error'here'
 				elseif op == 2 then
-					out = 'var['..var..'] += '..value
+					out = 'battleVarInc('..var..', '..value..')'
 				elseif op == 3 then
-					out = 'var['..var..'] -= '..value
+					out = 'battleVarDec('..var..', '..value..')'
 				end
 				p=p+3
 			elseif cmd == 0xf9 then
+				local flagIndex = bit.bor(
+					bit.lshift(p[2], 3),
+					bit.band(7, p[3])
+				)
+				local rest = bit.rshift(p[3], 3)
+				assert.eq(rest, 0)	-- why even only use 3 lower bits? weird.
 				if p[1] == 0 then
-					out = 'xor flag '..p[2]..', '..p[3]
+					out = 'battleFlagToggle('..flagIndex..')'
 				elseif p[1] == 1 then
-					out = 'set flag '..p[2]..', '..p[3]
+					out = 'battleFlagSet('..flagIndex..')'
 				elseif p[1] == 2 then
-					out = 'clear flag '..p[2]..', '..p[3]
+					out = 'battleFlagClear('..flagIndex..')'
 				else
 					error'here'
 				end
@@ -219,22 +225,24 @@ local function runBattleScript(game, cmdline)
 					assert.eq(p[3], 0)
 					out = ifStmt..' wasTargeted()'	-- what's this mean? if any action targeted this monster?
 				elseif condIndex == 6 then
-					out = ifStmt..' target '..p[2]..' hp '..(p[3] * 128)
+					-- is it always < ?
+					out = ifStmt..' '..getTarget(p[2])..'.hp < '..(p[3] * 128)
 				elseif condIndex == 7 then
-					out = ifStmt..' target '..p[2]..' mp '..p[3]
+					-- is it always < ?
+					out = ifStmt..' '..getTarget(p[2])..'.mp < '..p[3]
 				elseif condIndex == 8 then
-					out = ifStmt..' target '..p[2]..' has status '..p[3]
+					out = ifStmt..' targetHasStatus{target='..p[2]..', status='..p[3]..'}'
 				elseif condIndex == 9 then
-					out = ifStmt..' target '..p[2].." doesn't have status "..p[3]
+					out = ifStmt..' targetDoesntHaveStatus{target='..p[2]..', status='..p[3]..'}'
 				elseif condIndex == 11 then
 					assert.eq(p[3], 0)
-					out = ifStmt..' monster timer '..p[2]
+					out = ifStmt..' monsterTimer() < '..p[2]
 				elseif condIndex == 12 then
 					out = ifStmt..' var['..p[2]..'] < '..p[3]
 				elseif condIndex == 13 then
 					out = ifStmt..' var['..p[2]..'] > '..p[3]
 				elseif condIndex == 14 then
-					out = ifStmt..' target '..p[2]..' level <'..p[3]
+					out = ifStmt..' '..getTarget(p[2])..'.level <'..p[3]
 				elseif condIndex == 15 then
 					local target
 					-- for all target conds or just this one?
@@ -255,13 +263,13 @@ local function runBattleScript(game, cmdline)
 					assert.eq(p[3], 0)
 					local func = p[2] == 0 and 'thisEnemyIsAlive()'
 						or p[2] == 0xff and 'allEnemiesAreAlive()'
-						or 'monster '..(p[2]-1)
+						or 'enemyIsAlive('..(p[2]-1)..')'
 					out = ifStmt..' '..func
 				elseif condIndex == 18 then
 					assert.eq(p[3], 0)
 					local func = p[2] == 0 and 'thisEnemyIsDead()'
 						or p[2] == 0xff and 'allEnemiesAreDead()'
-						or 'monster '..(p[2]-1)
+						or 'enemyIsDead('..(p[2]-1)..')'
 					out = ifStmt..' '..func
 				elseif condIndex == 19 then
 					local func, cmp
@@ -277,15 +285,30 @@ local function runBattleScript(game, cmdline)
 					end
 					out = ifStmt..' '..func..' '..cmp..' '..p[3]
 				elseif condIndex == 20 then
-					out = ifStmt..' battleGetFlag('..p[3]..')'
+					-- {p[2], p[3]}:
+					-- {9, 1} = 0x61
+					-- {6, 1} = 0x49
+					local flagIndex = bit.bor(
+						bit.lshift(p[2], 3),
+						bit.band(7, p[3])
+					)
+					local rest = bit.rshift(p[3], 3)
+					assert.eq(rest, 0)	-- why even only use 3 lower bits? weird.
+					out = ifStmt..' battleFlagGet('..flagIndex..')'
 				elseif condIndex == 21 then
-					out = ifStmt..' not battleGetFlag('..p[3]..')'
+					local flagIndex = bit.bor(
+						bit.lshift(p[2], 3),
+						bit.band(7, p[3])
+					)
+					local rest = bit.rshift(p[3], 3)
+					assert.eq(rest, 0)	-- why even only use 3 lower bits? weird.
+					out = ifStmt..' not battleFlagGet('..flagIndex..')'
 				elseif condIndex == 22 then
 					assert.eq(p[3], 0)
-					out = ifStmt..' battle timer '..p[2]
+					out = ifStmt..' battleTimer() < '..p[2]
 				elseif condIndex == 23 then
 					assert.eq(p[3], 0)
-					out = ifStmt..' target['..p[2]..'] is valid'
+					out = ifStmt..' targetIsValid('..p[2]..')'
 				elseif condIndex == 24 then
 					assert.eq(p[2], 0)
 					assert.eq(p[3], 0)
@@ -293,13 +316,13 @@ local function runBattleScript(game, cmdline)
 				elseif condIndex == 25 then
 					assert.eq(p[3], 0)
 					local monsterName = p[2] == 0 and 'self'
-						or p[2] == 0xff and 'allEnemies()'
-						or 'enemy['..(p[2]-1)..']'
-					out = ifStmt..monsterName..' slot'	-- what does 'this monster slot' or 'all monster slot' mean?
+						or p[2] == 0xff and '"all enemies"'
+						or tostring(p[2]-1)
+					out = ifStmt..' battlePlaceAvailable('..monsterName..')'	-- what does 'this monster slot' or 'all monster slot' mean?
 				elseif condIndex == 26 then
-					out = ifStmt..' element '..p[3]
+					out = ifStmt..' wasHitWithElement('..p[2]..', '..p[3]..')'
 				elseif condIndex == 27 then
-					out = ifStmt..' battleFlag['..ffi.cast('uint16_t*', p+1)[0]..']'
+					out = ifStmt..' battleIndex['..ffi.cast('uint16_t*', p+1)[0]..']'
 				else
 					error'here'
 				end
@@ -311,8 +334,13 @@ local function runBattleScript(game, cmdline)
 				if not inCond then
 --print(('!!! found end-if when not in-cond at %06x'):format(cmdAddr))
 				end
+				-- i need to distinguish between mid-if and after-if ...
+				if inCond or lastWasCond then
+					out = 'end--if'
+				else
+					out = '--end--if'
+				end
 				inCond = false
-				out = 'end--if'
 				p=p+1
 			-- there should always only be 2 of these
 			-- 1st block is for the main routine
@@ -325,16 +353,23 @@ local function runBattleScript(game, cmdline)
 				error'here'
 			end
 			assert(out, ("failed to write out on cmd 0x%02x"):format(cmd))
-			local tab = cmdline.hideAddrs and '\t\t\t' or '\t\t\t\t\t'
-			if lastWasCond and not thisIsCond and cmd ~= 0xfe then
+			if lastWasCond
+			and not thisIsCond
+			--and cmd ~= 0xfe
+			then
 				if inCond then
 --print(('!!! lastWasCond, not thisIsCond, but inCond at %06x'):format(cmdAddr))
 				end
-				inCond = true
-				print(tab..'then')
+				if cmd ~= 0xfe then
+					inCond = true
+				end
+				local indent = cmdline.hideAddrs and 3 or 5
+				--if cmd == 0xfe then indent = indent - 1 end
+				print(('\t'):rep(indent)..'then')
 			end
-			if cmd == 0xff and inCond then
+			if inCond and (cmd == 0xff or cmd == 0xfc) then
 				inCond = false
+				local tab = cmdline.hideAddrs and '\t\t\t' or '\t\t\t\t\t'
 				print(tab..'end--if')
 			end
 			if not cmdline.hideAddrs then
@@ -346,13 +381,20 @@ local function runBattleScript(game, cmdline)
 					print((inCond and '\t\t\t' or '\t\t')..'end,')
 				end
 			else
-				print((inCond and '\t\t\t\t' or '\t\t\t')..out)
+				local indent = inCond and cmd ~= 0xfc and cmd ~= 0xfe and 4 or 3
+				print(('\t'):rep(indent)..out)
 			end
 			if cmd == 0xff and returnCount == 1 then
 				-- hmm instead, print a new lambda?
 				print('\t\tcounter=||do')
 			end
 			lastWasCond = thisIsCond
+
+			-- reset state on return
+			if cmd == 0xff then
+				inCond = nil
+				lastWasCond = nil
+			end
 		end
 		if returnCount ~= 2 then
 			-- mag roader #243's script at 0x0f9448 only has 1 return ...
@@ -375,9 +417,11 @@ if select('#', ...) > 0 then	-- luajit #... == 0 <-> this file was require'd
 	local cmdline = require 'ext.cmdline'(...)
 	-- hmm if luajit does get ... upon require then ff6 will get passed a bad file
 	-- maybe xpcall and bailout on fail?
+	print'--[['
 	local game = require 'ff6'((
 		assert(path((...)):read())
 	))
+	print'--]]'
 	runBattleScript(game, cmdline)
 end
 
