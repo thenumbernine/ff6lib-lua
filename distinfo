@@ -8,7 +8,6 @@ git = "https://github.com/thenumbernine/ff6lib-lua"
 
 files = {
 	"README.md",
-	"battleanim.lua",
 	"charsprite.lua",
 	"decompress.lua",
 	"distinfo",
@@ -18,9 +17,11 @@ files = {
 	"maps.lua",
 	"monstersprite.lua",
 	"reftype.lua",
+	"run-battleanim.lua",
+	"run-battleanim-script.lua",
+	"run-event-script.lua",
 	"run-maps.lua",
 	"run-monster-script.lua",
-	"run-script.lua",
 	"run.lua",
 	"script.lua",
 	"sounds.lua",

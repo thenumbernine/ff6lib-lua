@@ -7,8 +7,8 @@ local ffi = require 'ffi'
 local path = require 'ext.path'
 local assert = require 'ext.assert'
 local table = require 'ext.table'
-local range = require 'ext.range'
 local string = require 'ext.string'
+local range = require 'ext.range'
 local tolua = require 'ext.tolua'
 
 local function outputMonsterScripts(game, cmdline)

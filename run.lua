@@ -24,7 +24,7 @@ local rom = game.rom
 local romsize = game.romsize
 local countof = game.countof
 
-require 'run-script'(game)	-- event, vehicle, world, object scripts
+require 'run-event-script'(game)	-- event, vehicle, world, object scripts
 require 'run-monster-script'(game)	-- battle scripts
 
 
@@ -735,7 +735,8 @@ print('battleRedPalette = '..game.battleRedPalette)
 print('battleMenuPalettes = '..game.battleMenuPalettes)
 print()
 
-require 'ff6.battleanim'(rom, game, romsize)
+require 'ff6.run-battleanim'(game)
+require 'ff6.run-battleanim-script'(game)
 
 do
 	local img = Image(8*16, 8*16, 1, 'uint8_t')
