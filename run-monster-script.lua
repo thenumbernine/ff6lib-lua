@@ -1,5 +1,9 @@
 #!/usr/bin/env luajit
 --[[
+source is
+everything8215 ff6/notes/battle-lists.txt
+everything8215 ff6tool/ff6/ff3u-sfc.json /scriptEncoding/monster
+
 cmdline:
 	hideAddrs
 --]]

@@ -1,4 +1,7 @@
 #!/usr/bin/env luajit
+--[[
+source is everything8215 ff6/notes/battle-lists.txt:952 Battle Animation Commands
+--]]
 local ffi = require 'ffi'
 local path = require 'ext.path'
 local assert = require 'ext.assert'
@@ -36,6 +39,9 @@ local function outputBattleAnimScripts(game)
 				-- I forgot already, is effectIndex 1:1 with spell index?
 				return ('0x%02x'):format(effectIndex)
 			end):concat', ')
+		print('-- '..battleScriptAddrs[addr]:mapi(function(effectIndex)
+			return ('%q'):format(tostring(game.getSpellName(effectIndex)))
+		end):concat', ')
 		local pc = addr
 		local linepc
 		local lhs
@@ -165,15 +171,15 @@ assert.type(b, 'number')
 				local y = bit.band(subcmd, 4)
 				assert.eq(x, 0)
 				assert.eq(y, 0)
-				rhsprint('speed '..speed..' align '..align)
+				rhsprint('setSpeedAndAlign('..speed..', '..align..')')
 			elseif cmd >= 0 and cmd < 0x20 then
-				rhsprint('show frame '..u8(cmd))
+				rhsprint('showFrame('..u8(cmd)..')')
 			elseif cmd >= 0x20 and cmd < 0x80 then
 				rhsprint('-')	-- that's all it has in the notes ... '-'
 			elseif cmd == 0x80 then
 				local subcmd = read()
 				if subcmd == 0x00 then
-					rhsprint('quadra slam/quadra slice')
+					rhsprint('quadraSlamSlice()')
 				elseif subcmd == 0x01 then
 					rhsprint('')
 				elseif subcmd == 0x02 then
@@ -181,21 +187,21 @@ assert.type(b, 'number')
 				elseif subcmd == 0x03 then
 					rhsprint('')
 				elseif subcmd == 0x04 then
-					rhsprint('randomize vector angle and position (init fire dance sprites)')
+					rhsprint('randomizeVectorAngleAndPosInitFireDanceSprites()')
 				elseif subcmd == 0x05 then
-					rhsprint('bum rush')
+					rhsprint('bumRush()')
 				elseif subcmd == 0x06 then
-					rhsprint('init tornado (w wind/spiraler)')
+					rhsprint('initTornado()')
 				elseif subcmd == 0x07 then
-					rhsprint('move tornado to thread position (w wind/spiraler)')
+					rhsprint('moveTornadoToThreadPos()')
 				elseif subcmd == 0x08 then
-					rhsprint('move thread to vector position (w wind/spiraler)')
+					rhsprint('moveThreadToVectorPosition()')
 				elseif subcmd == 0x09 then
-					rhsprint('update character/monster sprite tile priority for tornado (w wind/spiraler)')
+					rhsprint('updateObjSpriteTilePriorityForTornado()')
 				elseif subcmd == 0x0A then
-					rhsprint('white/effect magic intro')
+					rhsprint('whiteEffectMagicIntro()')
 				elseif subcmd == 0x0B then
-					rhsprint('update esper pre-animation balls position')
+					rhsprint('updateEsperPreAnimationBallsPos()')
 				elseif subcmd == 0x0C then
 					rhsprint('')
 				elseif subcmd == 0x0D then
@@ -205,34 +211,34 @@ assert.type(b, 'number')
 				elseif subcmd == 0x0F then
 					rhsprint('')
 				elseif subcmd == 0x10 then
-					rhsprint('move to target position')
+					rhsprint('moveToTargetPos()')
 				elseif subcmd == 0x11 then
-					rhsprint('randomize vector angle')
+					rhsprint('randomizeVectorAngle()')
 				elseif subcmd == 0x12 then
 					rhsprint('')
 				elseif subcmd == 0x13 then
-					rhsprint('toggle imp graphics for target (imp)')
+					rhsprint('makeTargetImp()')
 				elseif subcmd == 0x14 then
-					rhsprint('make target vanish (vanish)')
+					rhsprint('makeTargetVanish()')
 				elseif subcmd == 0x15 then
-					rhsprint('move circle to thread position')
+					rhsprint('moveCircleToThreadPos()')
 				elseif subcmd == 0x16 then
 					rhsprint('')
 				elseif subcmd == 0x17 then
-					rhsprint('update sprite layer priority based on target')
+					rhsprint('updateSpriteLayerPriorityBasedOnTarget()')
 				elseif subcmd == 0x18 then
-					rhsprint('load sketched monster palette')
+					rhsprint('loadSketchedMonsterPalette()')
 				elseif subcmd == 0x19 then
-					rhsprint('sketch')
+					rhsprint('sketch()')
 				elseif subcmd == 0x1A then
 					local arg = read()
 					rhsprint('')
 				elseif subcmd == 0x1B then
-					rhsprint('transform into magicite')
+					rhsprint('transformIntoMagicite()')
 				elseif subcmd == 0x1C then
-					rhsprint('decrement screen brightness')
+					rhsprint('decrScreenBrightness()')
 				elseif subcmd == 0x1D then
-					rhsprint('transform into magicite')
+					rhsprint('transformIntoMagicite()')
 				elseif subcmd == 0x1E then
 					rhsprint('')
 				elseif subcmd == 0x1F then
@@ -240,135 +246,121 @@ assert.type(b, 'number')
 				elseif subcmd == 0x20 then
 					rhsprint('')
 				elseif subcmd == 0x21 then
-					rhsprint('update rotating sprite layer priority')
+					rhsprint('updateRotatingSpriteLayerPriority()')
 				elseif subcmd == 0x22 then
-					rhsprint('pearl wind')
+					rhsprint('pearlWind()')
 				elseif subcmd == 0x23 then
-					rhsprint('pearl wind')
+					rhsprint('pearlWind()')
 				elseif subcmd == 0x24 then
-					rhsprint('clear BG3 HDMA scroll data')
+					rhsprint('clear_BG3_HDMA_scrolldata()')
 				elseif subcmd == 0x25 then
-					rhsprint('clear BG1 HDMA scroll data')
+					rhsprint('clear_BG1_HDMA_scrolldata()')
 				elseif subcmd == 0x26 then
 					local arg = read()
-					rhsprint(''
-						..(arg == 0 and 'enable' or 'disable')
-						..' character color palette updates')
+					rhsprint('setCharColorPalUpdates('..tostring(arg ~= 0)..')')
 				elseif subcmd == 0x27 then
 					local arg = read()
-					rhsprint(''
-						..(arg == 0 and 'show' or 'hide')
-						..' characters for esper attack')
+					rhsprint('showCharsForEsperAttack('..tostring(arg ~= 0)..')')
 				elseif subcmd == 0x28 then
 					local arg = read()
-					rhsprint('affects all characters. sprite priority = '
-						..bit.band(3, bit.rshift(arg, 4)))
+					rhsprint('setAllCharsSpritePriority('
+						..bit.band(3, bit.rshift(arg, 4))
+						..')')
 				elseif subcmd == 0x29 then
 					local arg = read()
-					rhsprint(''
-						..(arg == 0 and 'show' or 'hide')
-						..' cursor sprites (esper attack)')
+					rhsprint('showEsperAttackCursorSprite('..tostring(arg ~= 0)..')')
 				elseif subcmd == 0x2A then
 					local arg = read()
-					rhsprint('load animation palette '
-						..u8(arg)..', sprite')
+					rhsprint('loadSpriteAndAnimPal('..u8(arg)..')')
 				elseif subcmd == 0x2B then
 					local arg = read()
-					rhsprint('load animation palette '
-						..u8(arg)
-						..', bg1 (inferno)')
+					rhsprint('loadBG1AnimPal('..u8(arg)..')')
 				elseif subcmd == 0x2C then
 					local arg = read()
-					rhsprint('load animation palette '
-						..u8(arg)
-						..', BG3 (justice, earth aura)')
+					rhsprint('loadBG3AnimPal('..u8(arg)..')')
 				elseif subcmd == 0x2D then
 					local x = readu16()
 					local y = readu16()
 					local z = readu16()
-					rhsprint('jump to '
-						..addrtostr(x)..' for normal attack, '
-						..addrtostr(y)..' for back attack (or side and attacker is #3 or #4), '
-						..addrtostr(z)..' for pincer attack (or side and attacker is #1 or #2 or monster)')
+					rhsprint('jumpBasedOnAttackType{'
+						..'normal='..addrtostr(x)
+						..', backOrSide34='..addrtostr(y)
+						..', pincerOrSide12='..addrtostr(z)
+						..'}')
 				elseif subcmd == 0x2E then
 					local x = read()
 					local y = read()
-					rhsprint('move sprite to ('
+					rhsprint('moveSpriteTo('
 						..u8(x)..', '
 						..u8(y)..')')
 				elseif subcmd == 0x2F then
 					rhsprint('')
 				elseif subcmd == 0x30 then
 					local arg = read()
-					rhsprint('load animation palette '
-						..u8(arg)
-						..' for character 1')
+					rhsprint('loadChar1AnimPal('..u8(arg)..')')
 				elseif subcmd == 0x31 then
-					local arg = read()
-					rhsprint('move in wide vertical sine wave with speed '
-						..u8(arg)
-						..' (hope song, sea song)')
+					local speed = read()
+					rhsprint('moveInWideSineWave('..u8(speed)..')')
 				elseif subcmd == 0x32 then
 					local x = readu16()
 					local y = readu16()
 					if x == y then
-						rhsprint('jump to '..addrtostr(x))
+						rhsprint('jumpTo('..addrtostr(x)..')')
 					else
-						rhsprint('jump to '
-							..addrtostr(x)..' if facing left, '
-							..addrtostr(y)..' if facing right')
+						rhsprint('jumpIfFacing('
+							..addrtostr(x)..', '
+							..addrtostr(y)..')')
 					end
 				elseif subcmd == 0x33 then
 					local arg = read()
-					rhsprint('update rainbow gradient lines')
+					rhsprint('updateRainbowGradientLines()')
 				elseif subcmd == 0x34 then
-					rhsprint('copy monster palettes to character palettes (hope song)')
+					rhsprint('copyMonsterToCharPalettes()')
 				elseif subcmd == 0x35 then
-					rhsprint('use character palettes for monster sprite data (hope song)')
+					rhsprint('useCharPalsForMonsterSpriteData()')
 				elseif subcmd == 0x36 then
-					rhsprint('restore palettes for monster sprite data (hope song)')
+					rhsprint('restoreMonsterSpritePals()')
 				elseif subcmd == 0x37 then
-					rhsprint('clear fixed color value hdma data ($2132)')
+					rhsprint('clearFixedColorValueHDMAData()')
 				elseif subcmd == 0x38 then
-					rhsprint('enable high priority BG3 (justice)')
+					rhsprint('enableHighPriorityBG3()')
 				elseif subcmd == 0x39 then
 					local arg = read()
-					rhsprint('update blue gradient lines (S. Cross, Carbunkl, Odin/Raiden)')
+					rhsprint('updateBlueGradientLines()')
 				elseif subcmd == 0x3A then
 					local arg = read()
 					rhsprint('')
 				elseif subcmd == 0x3B then
-					rhsprint('set target color palette to animation palette')
+					rhsprint('setTargetColorPalToAnimPal()')
 				elseif subcmd == 0x3C then
-					rhsprint('set target color palette to normal')
+					rhsprint('setTargetColorPaletteToNormal()')
 				elseif subcmd == 0x3D then
-					rhsprint('quadra slam/quadra slice')
+					rhsprint('quadraSlamSlice()')
 				elseif subcmd == 0x3E then
 					local arg = read()
-					rhsprint('set main screen designation ($212C)')
+					rhsprint('setMainScreenDesignation()')
 				elseif subcmd == 0x3F then
-					rhsprint('sonic dive')
+					rhsprint('sonicDive()')
 				elseif subcmd == 0x40 then
 					local arg = read()
-					rhsprint('set screen mode ($2105) to '
-						..u8(arg))
+					rhsprint('setScreenMode('..u8(arg)..')')
 				elseif subcmd == 0x41 then
 					local cx, cy, dx, dy = reads8(), reads8(), reads8(), reads8()
-					rhsprint('shrink BG1 by ('
-						..s8(cx)..','..s8(cy)..') and move ('
-						..s8(dx)..','..s8(dy)..')')
+					rhsprint('shrinkBG1AndMove('
+						..s8(cx)..','..s8(cy)..', '	-- shrink-x shrink-y
+						..s8(dx)..','..s8(dy)..')')	-- move-x move-y
 				elseif subcmd == 0x42 then
 					local vh = read()
-					rhsprint('set MODE7 Settings register ($211A)'
-						..' vflip='..tostring(0 ~= bit.band(2, vh))
-						..' hflip='..tostring(0 ~= bit.band(1, vh)))
+					rhsprint('set_MODE7_register('
+						..tostring(0 ~= bit.band(2, vh))..', '		-- vflip
+						..tostring(0 ~= bit.band(1, vh))..')')		-- hflip
 				elseif subcmd == 0x43 then
-					rhsprint('moon song/charm')
+					rhsprint('moonSongCharm()')
 				elseif subcmd == 0x44 then
-					rhsprint('fire beam/bolt beam/ice beam')
+					rhsprint('fireBoltIceBeam()')
 				elseif subcmd == 0x45 then
 					local arg = read()
-					rhsprint('set BG1/BG2 mask settings hardware register ($2123)')
+					rhsprint('set_BG12_mask_register()')
 				elseif subcmd == 0x46 then
 					rhsprint('')
 				elseif subcmd == 0x47 then
@@ -376,15 +368,15 @@ assert.type(b, 'number')
 				elseif subcmd == 0x48 then
 					rhsprint('clear')
 				elseif subcmd == 0x49 then
-					rhsprint('ink hit/virite')
+					rhsprint('inkHitVirite()')
 				elseif subcmd == 0x4A then
 					rhsprint('')
 				elseif subcmd == 0x4B then
-					rhsprint('update red/yellow gradient lines (megazerk)')
+					rhsprint('updateRedYellowGradientLines()')
 				elseif subcmd == 0x4C then
-					rhsprint('move triangle to thread position')
+					rhsprint('moveTriangleToThreadPosition()')
 				elseif subcmd == 0x4D then
-					rhsprint('set vector from triangle to target')
+					rhsprint('setVectorFromTriangleToTarget()')
 				elseif subcmd == 0x4E then
 					rhsprint('')
 				elseif subcmd == 0x4F then
@@ -392,73 +384,69 @@ assert.type(b, 'number')
 				elseif subcmd == 0x50 then
 					rhsprint('')
 				elseif subcmd == 0x51 then
-					rhsprint('rippler')
+					rhsprint('rippler()')
 				elseif subcmd == 0x52 then
-					rhsprint('stone')
+					rhsprint('stone()')
 				elseif subcmd == 0x53 then
-					rhsprint('r.polarity')
+					rhsprint('rpolarity()')
 				elseif subcmd == 0x54 then
-					rhsprint('r.polarity')
+					rhsprint('rpolarity()')
 				elseif subcmd == 0x55 then
-					rhsprint('quasar')
+					rhsprint('quasar()')
 				elseif subcmd == 0x56 then
-					rhsprint('goner')
+					rhsprint('goner()')
 				elseif subcmd == 0x57 then
 					local arg = read()
-					rhsprint('set BG3/BG4 window mask settings ($2124) to '..u8(arg))
+					rhsprint('set_BG34_window_mask('..u8(arg)..')')
 				elseif subcmd == 0x58 then
 					local arg = read()
-					rhsprint('set circle shape to '..u8(arg))
+					rhsprint('setCircleShape('..u8(arg)..')')
 				elseif subcmd == 0x59 then
-					rhsprint('goner/flare star')
+					rhsprint('gonerFlareStar()')
 				elseif subcmd == 0x5A then
-					rhsprint('mind blast')
+					rhsprint('mindBlast()')
 				elseif subcmd == 0x5B then
-					rhsprint('mind blast')
+					rhsprint('mindBlast()')
 				elseif subcmd == 0x5C then
-					rhsprint('mind blast')
+					rhsprint('mindBlast()')
 				elseif subcmd == 0x5D then
 					rhsprint('')
 				elseif subcmd == 0x5E then
-					rhsprint('overcast')
+					rhsprint('overcast()')
 				elseif subcmd == 0x5F then
 					local arg = reads8()
-					rhsprint('increase blue backdrop gradient by '..s8(arg)..' (used by Overcast)')
+					rhsprint('incBlueBgGrad('..s8(arg)..')')
 				elseif subcmd == 0x60 then
 					local flags = readu32()	-- TODO is aabbccdd 4 sets of 2 bits or 4 bytes?
-					rhsprint('toggle attacker status'
-						..u32(flags)
-						..' (morph/revert)')
+					rhsprint('toggleAttackerStatus('..u32(flags)..')')
 				elseif subcmd == 0x61 then
 					local xx, yy, zz = read(), read(), read()
 					rhsprint('')
 				elseif subcmd == 0x62 then
-					rhsprint('evil toot/fader')
+					rhsprint('evilTootFader()')
 				elseif subcmd == 0x63 then
 					local arg = read()
-					rhsprint('move in narrow vertical sine wave with speed '
-						..u8(arg)
-						..' (evil toot)')
+					rhsprint('moveInNarrowVertSineWave('..u8(arg)..')')	-- speed
 				elseif subcmd == 0x64 then
-					rhsprint('purifier/inviz edge')
+					rhsprint('purifierInvizEdge()')
 				elseif subcmd == 0x65 then
 					rhsprint('')
 				elseif subcmd == 0x66 then
-					rhsprint('shock wave')
+					rhsprint('shockWave()')
 				elseif subcmd == 0x67 then
-					rhsprint('load extra esper palette (purifier)')
+					rhsprint('loadExtraEsperPalette()')
 				elseif subcmd == 0x68 then
-					rhsprint('purifier')
+					rhsprint('purifier()')
 				elseif subcmd == 0x69 then
-					rhsprint('update sprite layer priority based on attacker')
+					rhsprint('updateSpriteLayerPriorityBasedOnAttacker(')
 				elseif subcmd == 0x6A then
-					rhsprint('align bottom of thread with bottom of target (ice 3)')
+					rhsprint('alignBottomOfThreadWithBottomOfTarget()')
 				elseif subcmd == 0x6B then
-					rhsprint('l? pearl')
+					rhsprint('lqpearl()')
 				elseif subcmd == 0x6C then
-					rhsprint('overcast')
+					rhsprint('overcast()')
 				elseif subcmd == 0x6D then
-					rhsprint('disable battle menu')
+					rhsprint('disableBattleMenu()')
 				elseif subcmd == 0x6E then
 					rhsprint('')
 				elseif subcmd == 0x6F then
@@ -466,18 +454,17 @@ assert.type(b, 'number')
 				elseif subcmd == 0x70 then
 					rhsprint('')
 				elseif subcmd == 0x71 then
-					rhsprint('restore character palettes (purifier/hope song)')
+					rhsprint('restoreCharPals()')
 				elseif subcmd == 0x72 then
 					local arg = read()
-					rhsprint('if attack hit then branch to '..addrtostr(pc + arg)..' (+'..u8(arg)..')')
+					rhsprint('branchIfAttackHit('..addrtostr(pc + arg)..')')
 				elseif subcmd == 0x73 then
 					local arg = read()
-					rhsprint('set graphics for dice roll (die index = '
-						..u8(arg)..')')
+					rhsprint('setDiceGraphics('..u8(arg)..')')
 				elseif subcmd == 0x74 then
 					rhsprint('')
 				elseif subcmd == 0x75 then
-					rhsprint('super ball')
+					rhsprint('superball()')
 				elseif subcmd == 0x76 then
 					local arg = read()
 					rhsprint('seize')
@@ -495,7 +482,7 @@ assert.type(b, 'number')
 					rhsprint('swap target and attacker')
 				elseif subcmd == 0x7D then
 					local arg = read()
-					rhsprint('if dragon horn effect is active then branch to '..addrtostr(pc + arg)..' (+'..u8(arg)..')')
+					rhsprint('if dragonHornEffectIsActive() then goto _'..addrtostr(pc + arg)..' end')
 				elseif subcmd == 0x7E then
 					rhsprint('flip target character vertically')
 				elseif subcmd == 0x7F then
@@ -576,11 +563,11 @@ assert.type(b, 'number')
 					..u8(arg)..[[ and jump forward with weapon]])
 			elseif cmd == 0x89 then
 				local arg = read()
-				rhsprint('loop from 0 to '..u8(arg-1))
+				rhsprint('for i=0,'..u8(arg-1)..' do')
 				tab = tab + 1
 			elseif cmd == 0x8A then
 				tab = tab - 1
-				rhsprint('end loop')
+				rhsprint('end--for')
 			elseif cmd == 0x8B then
 				local arg = read()
 				rhsprint('animated loop frame offset from +0 to +'..u8(arg-1))
@@ -590,9 +577,9 @@ assert.type(b, 'number')
 				rhsprint('end animated loop')
 			elseif cmd == 0x8D then
 				local arg = read()
-				rhsprint('if animation is hflipped then set dir='
+				rhsprint('if animationIsHflipped() then setDirAndMove('
 					..movedirs[bit.rshift(arg, 5)]
-					..' and move '..u8(bit.band(arg, 0x1f)+1))
+					..', '..u8(bit.band(arg, 0x1f)+1)..') end')
 			elseif cmd == 0x8E then
 				local arg = read()
 				rhsprint('show thread'
@@ -603,9 +590,9 @@ assert.type(b, 'number')
 			elseif cmd == 0x8F then
 				-- TODO either 0x8D or 0x8F should probably be 'vflipped'
 				local arg = read()
-				rhsprint('if animation is hflipped then set dir='
+				rhsprint('if animationIsHflipped() then setDirAndMove('
 					..movedirs[bit.rshift(arg, 5)]
-					..' and move '..u8(bit.band(arg, 0x1f)+1))
+					..' an, '..u8(bit.band(arg, 0x1f)+1)..') end')
 			elseif cmd == 0x90 then
 				local arg = read()
 				rhsprint('set thread sprite tile priority to '
@@ -627,7 +614,7 @@ assert.type(b, 'number')
 				rhsprint('set vector from attacker to target')
 			elseif cmd == 0x96 then
 				local xx, yy = read(), read()
-				rhsprint('if ??? then jump backwards '..u8(xx))
+				rhsprint('if idk then jump backwards '..u8(xx))
 			elseif cmd == 0x97 then
 				rhsprint('boomerang/wing edge/full moon/rising sun')
 			elseif cmd == 0x98 then
@@ -858,50 +845,52 @@ assert.type(b, 'number')
 				local abc_____ = read()
 				rhsprint('unpause animation a: unpause BG1 b: unpause BG3 c: unpause sprites')
 			elseif cmd == 0xC3 then
-				rhsprint('move circle to target')
+				rhsprint('moveCircleToTarget()')
 			elseif cmd == 0xC4 then
 				local arg = read()
-				rhsprint('move'
-					..(0 ~= bit.band(arg, 0x80) and ' BG1' or '')
-					..(0 ~= bit.band(arg, 0x40) and ' BG3' or '')
-					..' thread to this thread position')
+				rhsprint('moveThreadToThisThreadPos('
+					..(0 ~= bit.band(arg, 0x80) and '1' or '')	-- BG1
+					..(0 ~= bit.band(arg, 0x40) and '3' or '')	-- BG3
+					..')')
 			elseif cmd == 0xC5 then
 				local a, b, c, d = readu16(), readu16(), readu16(), readu16()
-				rhsprint('jump based on swdtech hit: {'
-					..table{addrtostr(a), addrtostr(b), addrtostr(c), addrtostr(d)}:concat', '..'}'
+				rhsprint('jumpBasedOnSwdtechHit('
+					..table{addrtostr(a), addrtostr(b), addrtostr(c), addrtostr(d)}:concat', '..')'
 					)
 			elseif cmd == 0xC6 then
 				local xx, yy = read(), read()
-				rhsprint('quadra slam/quadra slice')
+				rhsprint('quadraSlamSlice()')
 			elseif cmd == 0xC7 then
 				local subcmd = read()
 				if subcmd == 0x00 then
 					local arg = read()
-					rhsprint('set attacking character direction to face '
+					rhsprint('setAttackingCharacterDirectionToFace()'
 						..(arg == 0 and 'left' or 'right'))
 				elseif subcmd == 0x01 then
-					rhsprint('reset position offsets for attacking character')
+					rhsprint('resetPositionOffsetsForAttackingCharacter()')
 				elseif subcmd == 0x02 then
-					rhsprint('save attacking character position')
+					rhsprint('saveAttackingCharacterPosition()')
 				elseif subcmd == 0x03 then
-					rhsprint('restore attacking character position and reset offsets')
+					rhsprint('restoreAttackingCharacterPositionAndResetOffsets()')
 				elseif subcmd == 0x04 then
-					rhsprint('restore attacking character position')
+					rhsprint('restoreAttackingCharacterPosition()')
 				elseif subcmd == 0x05 then
 					local arg = read()
+					error'here'
 					rhsprint('(unused)')
 				elseif subcmd == 0x06 then
 					local arg, arg2 = read(), read()
 					rhsprint('')
 				elseif subcmd == 0x07 then
-					rhsprint('update character action based on vector direction (walking)')
+					rhsprint('updateCharacterActionBasedOnVectorDirectionWalking()')
 				elseif subcmd == 0x08 then
 					local x, y = read(), read()
-					rhsprint('set vector target ('..u8(x)..','..u8(y)..') from attacker')
+					rhsprint('setVectorTargetFromAttacker('..u8(x)..','..u8(y)..')')
 				elseif subcmd == 0x09 then
-					rhsprint('update character action based on vector direction (arms up)')
+					rhsprint('updateCharacterActionBasedOnVectorDirectionArmsUp()')
 				elseif subcmd == 0x0A then
 					local xx = read()
+					error'here'
 					rhsprint('(unused)')
 				elseif subcmd == 0x0B then
 					local x, y, z = read(), read(), read()
@@ -909,15 +898,16 @@ assert.type(b, 'number')
 						..table{u8(x), u8(y), u8(z)}:concat', '..')'
 					)
 				elseif subcmd == 0x0C then
-					local arg, arg2 = read(), read()
-					rhsprint('set actor '..u8(arg)..' graphic index to '..u8(arg2))
+					local actor, graphicsIndex = read(), read()
+					rhsprint('setActorGraphicIndex('..u8(actor)..', '..u8(graphicsIndex)..')')
 				elseif subcmd == 0x0D then
 					local arg = read()
 					rhsprint('')
 				elseif subcmd == 0x0E then
 					local arg = read()
-					rhsprint('screen shaking ($6285) = '..u8(arg))
+					rhsprint('screenShaking( '..u8(arg)..')')	-- $6285
 				elseif subcmd == 0x0F then
+					error'here'
 					rhsprint('(unused)')
 				elseif subcmd == 0x10 then
 					local xx = read()
@@ -978,12 +968,12 @@ assert.type(b, 'number')
 				local arg = read()
 				rhsprint(
 					(arg == 0 and 'validate' or 'invalidate')
-					..' character/monster order priority')
+					..'CharacterMonsterOrderPriority()')
 			elseif cmd == 0xD2 then
 				local xx, yy = read(), read()
-				rhsprint('set target position ('..u8(xx)..','..u8(yy)..') without moving')
+				rhsprint('setTargetPositionWithoutMoving('..u8(xx)..', '..u8(yy)..')')
 			elseif cmd == 0xD3 then
-				rhsprint('move circle to attacking character')
+				rhsprint('moveCircleToAttackingCharacter()')
 			elseif cmd == 0xD4 then
 				local xxxx, yy = readu16(), read()
 				-- hmm cant tell bit/byte order from desc...
@@ -1009,7 +999,7 @@ assert.type(b, 'number')
 				rhsprint('update tornado (w wind/spiraler)')
 			elseif cmd == 0xDB then
 				local arg = read()
-				rhsprint('if character already stepped forward to attack then branch to '..addrtostr(pc - arg)..' (+'..u8(arg)..')')
+				rhsprint('if characterAlreadySteppedForwardToAttack() then goto _'..addrtostr(pc - arg)..' end')
 			elseif cmd == 0xDC then
 				rhsprint('rotate triangle 2D')
 			elseif cmd == 0xDD then
@@ -1112,7 +1102,7 @@ assert.type(b, 'number')
 				-- this is always a command "if magitek mode is enabled then jump to" (with no else)
 				-- and that means this is really an if-block: "if magitek mode is not enabled"
 				--  that we can pop once we reach that address
-				rhsprint'if not magitek mode then'
+				rhsprint'if not magitekMode() then'
 				tab = tab + 1
 				--]]
 			elseif cmd == 0xF9 then

@@ -1,5 +1,9 @@
 #!/usr/bin/env luajit
 --[[
+source is
+everything8215 src/event/event_main.asm
+everything8215 ff6tool/ff6/ff3u-sfc.json /scriptEncoding/event
+
 this can be run standalone, but it is also included from run.lua to do the script portion
 args:
 	skipOpts = just output script as-is
