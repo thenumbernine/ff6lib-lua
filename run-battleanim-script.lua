@@ -40,7 +40,7 @@ local function outputBattleAnimScripts(game)
 				return ('0x%02x'):format(effectIndex)
 			end):concat', ')
 		print('-- '..battleScriptAddrs[addr]:mapi(function(effectIndex)
-			return ('%q'):format(tostring(game.getSpellName(effectIndex)))
+			return effectIndex < 255 and ('%q'):format(tostring(game.getSpellName(effectIndex))) or ""
 		end):concat', ')
 		local pc = addr
 		local linepc
