@@ -81,6 +81,7 @@ do
 		end
 	end
 	check('md5', require 'sha2'.md5(romstr), '544311e104805e926083acf29ec664da')
+	check('sha1', require 'sha2'.sha1(romstr), '057ada1c641e3e0b3ca34e6e4f4eb1b05a87143a')
 	check('sha256', require 'sha2'.sha256(romstr), '10eccc5d2fab81346dd759f6be478dcb682eef981e8d3d662da176e1f9a996bc')
 	print()
 end
