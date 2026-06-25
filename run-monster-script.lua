@@ -196,7 +196,7 @@ local function outputMonsterScripts(game, cmdline)
 				local x = p[1]
 				-- this must be what does the battleDialog2[] or battleMessages[]....
 				out = 'doBattleEvent('..x..')'
-				p=p+1
+				p=p+2
 			elseif cmd == 0xf8 then
 				local var = p[1]
 				local op = bit.band(3, bit.rshift(p[2], 6))
