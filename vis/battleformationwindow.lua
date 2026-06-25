@@ -85,7 +85,7 @@ function BattleFormationWindow:showIndexUI()
 			if ig.luatableCheckbox('active', info, 'active') then
 				formation['active'..i] = info.active and 1 or 0
 			end
-			if info.active then
+			do--if info.active then	-- fun fact, hidden monsters can still pop into play, like Telstar's Soldiers...
 				if self:editMonsterRef(info, 'monster') then
 					formation['monster'..i] = info.monster
 				end

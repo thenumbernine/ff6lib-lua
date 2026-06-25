@@ -48,7 +48,6 @@ local function outputMonsterScripts(game, cmdline)
 			..'-'..('0x%06x'):format(nextAddr)
 			..name
 		)
-		print('\t\tact=|:|do')
 
 		local function getItemName(i)
 			return tostring(game.itemNames[i])
@@ -64,19 +63,66 @@ local function outputMonsterScripts(game, cmdline)
 			return 'action???'..i
 		end
 		local function getTarget(i)
-			if i == 54 then return 'self' end
-			if i == 71 then return '"nothing"' end
-			return tostring(i)
+			if i < 16 then
+				-- absolute character-based target
+				-- notice, 14 == Banon ... is that always where he is?
+				return 'characters[1+'..i..']'	-- 1+ cuz it's a 1-based table...
+			end
+			if i >= 48 and i < 54 then
+				return 'enemyFormationSlot['..(i-48)..']'	-- 0-5 for battle formation index
+			end
+			if i >= 72 and i < 76 then
+				return 'characterFormationSlot['..(i-72)..']'
+			end
+			return ({
+				[54] = 'self',
+				[55] = '"all other enemies"',
+				[56] = '"all enemies"',
+				[57] = '"random other enemy"',
+				[58] = '"random enemy"',
+				[59] = '"all dead characters"',
+				[60] = '"random dead character"',
+				[61] = '"all dead enemies"',
+				[62] = '"random dead enemy"',
+				[63] = '"all characters with reflect"',
+				[64] = '"random character with reflect"',
+				[65] = '"all enemies with reflect"',
+				[66] = '"random enemy with reflect"',
+				[67] = '"all characters"',
+				[68] = '"random character"',
+				[69] = '"attacker"',
+				[70] = '"all targets"',
+				[71] = '"nothing"',
+				[77] = '"targeting target"',	-- hmm... that's a weird one
+			})[i] or i
 		end
+		-- honestly I should just keep the args and translate them in the glue layer...
+		-- btw who uses this?
+		local function getTargetMask(i)
+			if i == 0 then return 'self' end
+			if i == 0xff then return '"all enemies"' end
+			return range(0,5)
+			:filteri(function(j)
+				return 0 ~= bit.band(i, bit.lshift(1, j))
+			end)
+			:mapi(function(j)
+				return 'enemyFormationSlot['..j..']'
+			end):concat', '
+		end
+
+		local returnCount = 0
+		local funcNames = {'act', 'counter'}
+		local funcs = table()
+		funcs[1+returnCount] = table()
 
 		local startptr = rom + startAddr
 		local len = nextAddr - startAddr
 		local data = ffi.string(startptr, len)
 		local p = ffi.cast('uint8_t*', startptr)
 		local pend = p + len
-		local returnCount = 0
 		local inCond
 		local lastWasCond
+
 		while p < pend do
 			local thisIsCond
 			local cmd = p[0]
@@ -91,7 +137,7 @@ local function outputMonsterScripts(game, cmdline)
 					..'\t-- options: '..is:mapi(function(i) return tostring(getSpellName(i)) end):concat', '
 				p=p+4
 			elseif cmd == 0xf1 then
-				out = 'changeAttackTarget('..getTarget(p[1])..')'
+				out = 'setTargets('..getTarget(p[1])..')'
 				p=p+2
 			elseif cmd == 0xf2 then
 				local x1 = p[1]
@@ -120,21 +166,18 @@ local function outputMonsterScripts(game, cmdline)
 			elseif cmd == 0xf5 then
 				local anim = p[1]
 				local op = ({
-					[0] = 'showAndSetHPToMax',
+					[0] = 'setVis{visible=true, restoreHP=true',
 					-- does "disable targeting" mean also "don't consider for win-condition?"
-					[1] = 'hideAndDisableTargeting',
-					[2] = 'show',
-					[3] = 'hideAndAllowTargeting',
-					[4] = 'hideButDontEndBattle',
-					[5] = 'hideDebugMode',	-- not used
+					[1] = 'setVis{visible=false, allowTargeting=false',
+					[2] = 'setVis{visible=true',
+					[3] = 'setVis{visible=false, allowTargeting=true',
+					[4] = 'setVis{visible=false, dontEndBattle=true',
+					[5] = 'setVis{visible=false, debugMode=true',	-- not used
 				})[p[2]] or error'here'
 				local enemyIndex = p[3]
-				out = op..'{'
-					..'target='..(
-						enemyIndex == 0 and 'self'
-						or enemyIndex == 0xff and '"all enemies"'
-						or (enemyIndex-1)
-					)..', anim='..anim
+				out = op
+					..', anim='..anim
+					..', targets={'..getTargetMask(enemyIndex)..'}'
 					..'}'
 				p=p+4
 			elseif cmd == 0xf6 then
@@ -266,9 +309,9 @@ local function outputMonsterScripts(game, cmdline)
 					-- is it always < ?
 					out = ifStmt..' '..getTarget(p[2])..'.mp < '..p[3]
 				elseif condIndex == 8 then
-					out = ifStmt..' targetHasStatus{target='..p[2]..', status='..p[3]..'}'
+					out = ifStmt..' 0 ~= targetStatus('..getTarget(p[2])..') & (1 << '..('0x02%x'):format(p[3])..')'
 				elseif condIndex == 9 then
-					out = ifStmt..' targetDoesntHaveStatus{target='..p[2]..', status='..p[3]..'}'
+					out = ifStmt..' 0 == targetStatus('..getTarget(p[2])..') & (1 << '..('0x%02x'):format(p[3])..')'
 				elseif condIndex == 11 then
 					assert.eq(p[3], 0)
 					out = ifStmt..' monsterTimer(self) > '..(p[2] * 2)	-- seconds?
@@ -297,16 +340,10 @@ local function outputMonsterScripts(game, cmdline)
 					out = ifStmt..' onlyOneTypeOfEnemyAlive()'
 				elseif condIndex == 17 then
 					assert.eq(p[3], 0)
-					local func = p[2] == 0 and 'isAlive(self)'
-						or p[2] == 0xff and 'isAlive("all enemies")'
-						or 'enemyIsAlive('..(p[2]-1)..')'
-					out = ifStmt..' '..func
+					out = ifStmt..' isAlive('..getTargetMask(p[2])..')'
 				elseif condIndex == 18 then
 					assert.eq(p[3], 0)
-					local func = p[2] == 0 and 'isDead(self)'
-						or p[2] == 0xff and 'isDead("all enemies")'
-						or 'isDead('..(p[2]-1)..')'	-- 0-based, lines up with the formation's monsters 0-5
-					out = ifStmt..' '..func
+					out = ifStmt..' isDead('..getTargetMask(p[2])..')'
 				elseif condIndex == 19 then
 					local func, cmp
 					if p[2] == 0 then
@@ -382,12 +419,15 @@ local function outputMonsterScripts(game, cmdline)
 			-- 1st block is for the main routine
 			-- 2nd block is counter-attacks
 			elseif cmd == 0xff then
-				returnCount = returnCount + 1
 				out = 'return'
 				p=p+1
 			else
 				error'here'
 			end
+
+			-- I thought I could quickly implement this as a state-machine, but I was wrong...
+			-- I really need to buffer the commands as objects - esp if I want to add them to the visualizer.
+
 			assert(out, ("failed to write out on cmd 0x%02x"):format(cmd))
 			if lastWasCond
 			and not thisIsCond
@@ -401,28 +441,23 @@ local function outputMonsterScripts(game, cmdline)
 				end
 				local indent = cmdline.hideAddrs and 3 or 5
 				--if cmd == 0xfe then indent = indent - 1 end
-				print(('\t'):rep(indent)..'then')
+				funcs[1+returnCount]:insert(('\t'):rep(indent)..'then')
 			end
 			if inCond and (cmd == 0xff or cmd == 0xfc) then
 				inCond = false
 				local tab = cmdline.hideAddrs and '\t\t\t' or '\t\t\t\t\t'
-				print(tab..'end--if')
+				funcs[1+returnCount]:insert(tab..'end--if')
 			end
 			if not cmdline.hideAddrs then
 				io.write(('%06x\t'):format(cmdAddr))
 			end
 			if out == 'return' then
 				-- last monster has like 9 of these
-				if returnCount <= 2 then
-					print((inCond and '\t\t\t' or '\t\t')..'end,')
-				end
+				returnCount = returnCount + 1
+				funcs[1+returnCount] = funcs[1+returnCount] or table()
 			else
 				local indent = inCond and cmd ~= 0xfc and cmd ~= 0xfe and 4 or 3
-				print(('\t'):rep(indent)..out)
-			end
-			if cmd == 0xff and returnCount == 1 then
-				-- hmm instead, print a new lambda?
-				print('\t\tcounter=|:|do')
+				funcs[1+returnCount]:insert(('\t'):rep(indent)..out)
 			end
 			lastWasCond = thisIsCond
 
@@ -435,14 +470,21 @@ local function outputMonsterScripts(game, cmdline)
 		if returnCount ~= 2 then
 			-- mag roader #243's script at 0x0f9448 only has 1 return ...
 			-- monster #383 (empty?) has 9... and is really just a 'Battle' ...
-			print(('-- !!! battle script at %06x only has %d returns, expected 2'):format(startAddr, returnCount))
-			-- otherwise, the 2 returns denote term of 2 blocks of script
-			-- 1st is per-battle execution
-			-- 2nd is counterattacks
-			if returnCount == 1 then
+			funcs[1+returnCount]:insert(('-- !!! battle script at %06x only has %d returns, expected 2'):format(startAddr, returnCount))
+		end
+
+		for i,func in ipairs(funcs) do
+			if #func > 0
+			and i <= 2	-- TODO... not need this condition
+			then
+				print('\t\t'..(funcNames[i] or '['..i..']')..'=|:|do')
+				for _,line in ipairs(func) do
+					print(line)
+				end
 				print'\t\tend,'
 			end
 		end
+
 		print'\t},'
 	end
 	print'}'
