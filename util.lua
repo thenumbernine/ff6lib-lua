@@ -56,6 +56,7 @@ local function bitflagtype(args)
 			-- me being lazy in how to do bitflag-detect.
 			-- because this is a ctype you'll have to do op.safeindex which is an xpcall which is expensive every frame, so ... try to get rid of imgui
 			mt.isBitflags = true
+			mt.options = args.options
 		end,
 	}
 end

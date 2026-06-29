@@ -1273,27 +1273,29 @@ local numRareItems = 20
 
 ---------------- MONSTERS ----------------
 
--- Monster 0x1f
-local monsterSpecialAttackNames = {
-	'None',
-	'Steal Item',
-	'Attack increases as HP increases',
-	'Kill (with X)',
-	'Cause 2x damage to humans',
-	'Drain HP',
-	'Drain MP',
-	'Attack with MP',
-	'',
-	'Dice',
-	'Attack increases as HP decreases',
-	'Wind attack',
-	'Recover HP',
-	'Kill',
-	'Uses MP to inflict mortal blow',
-	'Uses (more) MP to inflict mortal blow',
-}
-
-local monsterAttackNamesAddr = 0x0fd0d0
+local monsterSpecialAttackNames = table()
+for i=1,8 do
+	monsterSpecialAttackNames:insert('inflict '..Effect1.options[i])
+end
+for i=1,8 do
+	monsterSpecialAttackNames:insert('inflict '..Effect2.options[i])
+end
+for i=1,8 do
+	monsterSpecialAttackNames:insert('inflict '..Effect3.options[i])
+end
+for i=1,8 do
+	monsterSpecialAttackNames:insert('inflict '..Effect4.options[i])
+end
+assert.len(monsterSpecialAttackNames, 32)
+for i=32,47 do
+	monsterSpecialAttackNames:insert(((i-32)/2+1.5)..'x damage')
+end
+assert.len(monsterSpecialAttackNames, 48)
+monsterSpecialAttackNames:insert'drain HP'
+monsterSpecialAttackNames:insert'drain MP'
+-- just reflect, or all effects?
+monsterSpecialAttackNames:insert'remove reflect'
+-- and value 63 is used by SkullDrgn...
 
 local Monster = ff6struct{
 	ctypeOnly = true,
@@ -1376,8 +1378,9 @@ local Monster = ff6struct{
 		{unused_1e_6 = 'uint8_t:1'},
 		{Paranha = 'uint8_t:1'},
 		-- 0x1f:
-		{specialAttack = 'uint8_t:7'},
+		{specialAttack = 'uint8_t:6'},
 		{specialAttackDealsNoDamage = 'uint8_t:1'},
+		{specialAttackDealsCantMiss = 'uint8_t:1'},
 	},
 	metatable = function(mt)
 		local oldFieldToString = mt.fieldToString
@@ -2853,7 +2856,7 @@ assertOffset('monsterSpells', 0x0f3d00)
 assertOffset('monsterSketches', 0x0f4300)
 assertOffset('monsterRages', 0x0f4600)
 assertOffset('monsterNames', 0x0fc050)
-assertOffset('monsterAttackNames', monsterAttackNamesAddr)
+assertOffset('monsterAttackNames', 0x0fd0d0)
 assertOffset('blitzDescBase', 0x0ffc00)
 assertOffset('swordTechDescBase', 0x0ffd00)
 assertOffset('esperDescOffsets', 0x0ffe40)
