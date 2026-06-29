@@ -111,7 +111,7 @@ local function outputMonsterScripts(game, cmdline)
 		end
 
 		local returnCount = 0
-		local funcNames = {'act', 'counter'}
+		local funcNames = {'act', 'react'}
 		local funcs = table()
 		funcs[1+returnCount] = table()
 
@@ -417,7 +417,7 @@ local function outputMonsterScripts(game, cmdline)
 				p=p+1
 			-- there should always only be 2 of these
 			-- 1st block is for the main routine
-			-- 2nd block is counter-attacks
+			-- 2nd block is reaction/counter-attack
 			elseif cmd == 0xff then
 				out = 'return'
 				p=p+1
