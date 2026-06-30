@@ -381,7 +381,7 @@ return function(game)
 			self.noBlur = 0 ~= bit.band(0x80, arg)
 		end,
 		__tostring = function(self)
-			return 'battle{'
+			return 'eventBattle{'
 				..'eventBattleOptionsIndex='..self.eventBattleOptionsIndex
 				..', background='..bit.band(0x3f, self.battleBG)
 				..(self.noSound and ', noSound=true' or '')
