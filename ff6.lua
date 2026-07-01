@@ -403,6 +403,20 @@ local Palette4 = createVec{
 }
 assert.eq(ffi.sizeof(Palette4), 2*4)
 
+local Palette7 = createVec{
+	ctypeOnly = true,
+	ctype = RGBA5551,
+	dim = 7,
+}
+assert.eq(ffi.sizeof(Palette7), 2*7)
+
+local Palette7_8 = createVec{
+	ctypeOnly = true,
+	ctype = Palette7,
+	dim = 8,
+}
+assert.eq(ffi.sizeof(Palette7_8), 2*7*8)
+
 local Palette8 = createVec{
 	ctypeOnly = true,
 	ctype = RGBA5551,
@@ -2266,12 +2280,14 @@ local CharacterSave = struct{
 		{name='name', type=CharacterName},
 		{name='level', type=uint8_t},
 		{name='hp', type=uint16_t},
-		{name='hpMax', type=uint16_t},
+		{name='hpMax', type='uint16_t:14'},
+		{name='hpBoost', type='uint16_t:2'},	-- boost is: 0 = none, 1 = +25%, 2 = +50%, 3 = +12.5%
 		{name='mp', type=uint16_t},
-		{name='mpMax', type=uint16_t},
+		{name='mpMax', type='uint16_t:14'},
+		{name='mpBoost', type='uint16_t:2'},
 		{name='exp', type=uint24_t},
 		{name='effect1', type=Effect1},
-		{name='effect4', type=Effect4},
+		{name='effect4', type=Effect4},			-- only float and interceptor (last two) are used
 		--[[
 		{name='menus', type=MenuNameRef4},
 		--]]
@@ -2317,7 +2333,7 @@ local Roster = ff6struct{
 		{place = 'uint8_t:2'},
 		{row = 'uint8_t:1'},
 		{available = 'uint8_t:1'},
-		{leader = 'uint8_t:1'},
+		{leader = 'uint8_t:1'},		-- 'visible' in some notes ...
 	},
 }
 local Roster16 = createVec{
@@ -2326,6 +2342,8 @@ local Roster16 = createVec{
 	dim = 16,
 }
 
+-- save slots mirror RAM at [$1600,$2000)
+-- https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:field_ram
 local SaveSlot = struct{
 	ctypeOnly = true,
 	packed = true,
@@ -2345,67 +2363,98 @@ local SaveSlot = struct{
 		{name='esperFlags', type=arrayType(uint8_t, 4)},					-- 0x469 - 0x46d
 		{name='activeParty', type=uint8_t},									-- 0x46d - 0x46e	-- for when you are in multi-party mode, like phoenix cave / kefka's tower
 		{name='spellsLearned', type=arrayType(uint8_t, 12 * 54)},			-- 0x46e - 0x6f6 ... spell learned[12][54]
-		{name='unknown_6f6', type=uint8_t},									-- 0x6f6 - 0x6f7
+		{name='morphCounter', type=uint8_t},								-- 0x6f6 - 0x6f7
 		{name='swdtechFlags', type=arrayType(uint8_t, 1)},					-- 0x6f7 - 0x6f8	-- wait, in-rom it is 12 bytes per swdtech (right?)
 		{name='swdtechNames', type=Str12_4},								-- 0x6f6 - 0x728
 		{name='blitzFlags', type=arrayType(uint8_t, 1)},					-- 0x728 - 0x729
 		{name='loreFlags', type=arrayType(uint8_t, 3)},						-- 0x729 - 0x72c
 		{name='rageFlags', type=arrayType(uint8_t, 32)},					-- 0x72c - 0x74c
 		{name='danceFlags', type=arrayType(uint8_t, 1)},					-- 0x74c - 0x74d
-
-		{name='unknown_74d', type=arrayType(uint8_t, -(0x74d - 0x7c7))},	-- 0x74d - 0x7c7
-
-		{name='numSaves', type=uint8_t},									-- 0x7c7 - 0x7c8
-
-		{name='unknown_7c8', type=uint8_t},									-- 0x7c8 - 0x7c9
+		{name='battleSpeed', type='uint8_t:3'},								-- 0x74d - ...
+		{name='activeOrWait', type='uint8_t:1'},							--         ...
+		{name='messageSpeed', type='uint8_t:3'},							--         ...
+		{name='windowOrShort', type='uint8_t:1'},							--         ... - 0x74e
+		{name='wallpaper', type='uint8_t:4'},								-- 0x74e - ...
+		{name='reequipOrEmpty', type='uint8_t:1'},							--         ...
+		{name='monoOrStereo', type='uint8_t:1'},							--         ...
+		{name='cursorMemory', type='uint8_t:1'},							--         ...
+		{name='activeOrWait', type='uint8_t:1'},							--         ... - 0x74f
+		{name='controller2CharacterFlags', type=uint8_t},					-- 0x74f - 0x750 -- bits 0-3 = characters 0-3
+		{name='buttonB', type='uint8_t:4'},									-- 0x750 - ...		<- for all button-remapping, values are: 0=start, 1=A, 2=B, 3=X, 4=Y, 5=L, 6=R, 7=select
+		{name='buttonA', type='uint8_t:4'},									--         ... - 0x751
+		{name='buttonY', type='uint8_t:4'},									-- 0x751 - ...
+		{name='buttonX', type='uint8_t:4'},									--         ... - 0x752
+		{name='buttonR', type='uint8_t:4'},									-- 0x752 - ...
+		{name='buttonL', type='uint8_t:4'},									--         ... - 0x753
+		{name='buttonSelect', type='uint8_t:4'},							-- 0x753 - ...
+		{name='buttonStart', type='uint8_t:4'},								--         ... - 0x754
+		{name='spellOrderIndex', type='uint8_t:3'},							-- 0x754 - ...
+		{name='fontWindowPalette', type='uint8_t:3'},						--         ...
+		{name='customButtonConfig', type='uint8_t:1'},						--         ...
+		{name='controller2Enabled', type='uint8_t:1'},						--         ... - 0x755
+		{name='fontColor', type=RGBA5551},									-- 0x755 - 0x757
+		{name='windowPalette', type=Palette7_8},							-- 0x757 - 0x7c7
+		{name='numSaves', type=uint16_t},									-- 0x7c7 - 0x7c9
 
 		-- 0x7c9 = 'battle variables'
 		-- with doom gate's hp at 0x7d3-0x7d4
 		-- cursed shield counter at 0x7d5
 		{name='battleVars', type=arrayType(uint8_t, 20)},					-- 0x7c9 - 0x7dd
+		{name='battleFormationFlags', type=arrayType(uint8_t, 0x40)},		-- 0x7dd - 0x81d = flags of what formations you've encountered, so they can show up on the veldt (fun fact, if all monsters in a formation are >= 256 such that Gau cannot rage them then their formation's bit just won't set, even if you encounter it).
 
-		{name='battleFormationFlags', type=arrayType(uint8_t, 0x40)},		-- 0x7dd - 0x81d
+		{name='unknown_81d', type=arrayType(uint8_t, -(0x81d - 0x840))},	-- 0x81d - 0x840 = 35 bytes ...
 
-		{name='unknown_81d', type=arrayType(uint8_t, -(0x81d - 0x840))},	-- 0x81d - 0x840 = 23 bytes ...
-
-		-- past flag 48==0x30 it is something else ... right?
-		{name='treasureFlags', type=arrayType(uint8_t, 0x30)},				-- 0x840 - 0x870 = "treasure bits" here: https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:field_ram&s[]=%2Asram%2A#fffsave_ram
-
-		{name='unknown_870', type=arrayType(uint8_t, 0x10)},				-- 0x870 - 0x880
-
-		{name='mapFlags', type=arrayType(uint8_t, 0x60)},					-- 0x880 - 0x8e0 = 768 = 0x300 flags /8 = 0x60 bytes. everything8215's "mapSwitches", or this page's "event bits": https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:field_ram&s[]=%2Asram%2A#fffsave_ram
+		{name='treasureFlags', type=arrayType(uint8_t, 0x40)},				-- 0x840 - 0x870 = 512=0x200 treasure flags /8 = 0x40 bytes.  here: https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:field_ram&s[]=%2Asram%2A#fffsave_ram
+		{name='mapFlags', type=arrayType(uint8_t, 0x60)},					-- 0x880 - 0x8e0 = 768=0x300 flags /8 = 0x60 bytes. everything8215's "mapSwitches", or this page's "event bits": https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:field_ram&s[]=%2Asram%2A#fffsave_ram
 
 		-- offset 0x90e <-> npc flags byte ofs 0x2e <-> flag #368-376 looks like it is the previous world map used
-		{name='npcFlags', type=arrayType(uint8_t, 0x80)},					-- 0x8e0 - 0x960
+		{name='npcFlags', type=arrayType(uint8_t, 0x80)},					-- 0x8e0 - 0x960 = 1024=0x400 flags /8 = 0x80 bytes.
 
-		{name='mapPos', type=XY8b},											-- 0x960 - 0x962 - this is last pos on the overworld map
+		{name='worldPos', type=XY8b},										-- 0x960 - 0x962 - this is last pos on the overworld map
 		{name='airshipPos', type=XY8b},										-- 0x962 - 0x964 - this is where the airship is
-		{name='map', type='uint16_t:9'},									-- 0x964 - 0x966
-		{name='mapFlags2', type='uint16_t:7'},								-- idk but mask 0x2000 is set when i saved on world map after the airship crashed before kings banquet...
+
+		{name='map', type='uint16_t:9'},									-- 0x964 - ... = current map index
+		{name='setDestAsParent', type='uint8_t:1'},
+		{name='zLevel', type='uint8_t:1'},
+		{name='showMapName', type='uint8_t:1'},
+		{name='direction', type='uint8_t:2'},								-- how is this different from 0x968 'facingDir'?
+		{name='unused_765_6', type='uint8_t:2'},							--         ... - 0x966
 
 		-- last town xy you were before ... entering a door?  before entering a door to sleep? idk
 		-- when the map is not 0-1 then this holds the party's location in the non-overworld map
-		{name='pos', type=XY8b},											-- 0x966 - 0x968 - this is save pos within non-overworld stages.  not sure if this is overworld pos as well ...
+		{name='bg1scrollPos', type=XY8b},									-- 0x966 - 0x968 - this is save pos within non-overworld stages.  not sure if this is overworld pos as well ...
+		{name='facingDir', type=uint8_t},									-- 0x968 - 0x969 - ff6hacking says only parent-facing-dir if flag 0x80 is set, but we already have direction at 0x960 and parentFacingDir at 0x9d2 ...
+		{name='parentMap', type=uint16_t},									-- 0x969 - 0x96b - ff6hacking doesnt say if it is just an index or if it flags above like 0x964 'map' ...
+		{name='parentMapPos', type=XY8b},									-- 0x96b - 0x96d - this is the last town that you exited to get to the overworld map
+		{name='npcWalkingRNGSeed', type=uint8_t},							-- 0x96d - 0x96e
+		{name='dangerCounterForRandomBattles', type=uint16_t},				-- 0x96e - 0x970
+		{name='savedCharacterPaletteIndexes', type=arrayType(uint8_t, 16)},	-- 0x970 - 0x980
+		{name='currentSong', type=uint8_t},									-- 0x980 - 0x981
+		{name='savedObjectMapIndexes', type=arrayType(uint8_t, 32)},		-- 0x981 - 0x9a1
+		{name='stepCounterRNGSeedForRandomEncounters', type=uint8_t},		-- 0x9a1 - 0x9a2
+		{name='battleCounterRNGSeedForFormation', type=uint8_t},			-- 0x9a2 - 0x9a3
+		{name='rngSalt1', type=uint8_t},									-- 0x9a3 - 0x9a4
+		{name='rngSalt2', type=uint8_t},									-- 0x9a4 - 0x9a5
+		{name='veldtBattleGroup', type=uint8_t},							-- 0x9a5 - 0x9a6
+		{name='curCharObjDataPtr', type=uint16_t},							-- 0x9a6 - 0x9a8
+		{name='savedTimerData', type=arrayType(uint8_t, 24)},				-- 0x9a8 - 0x9c0
+		{name='mapPos', type=XY8b},											-- 0x9c0 - 0x9c2 - current-map-position.  this is also save pos within non-overworld maps...
+		{name='eventVars', type=arrayType(uint8_t, 16)},					-- 0x9c2 - 0x9d2 , +0 = u16 narshe security / emperor's banquet, +2 = u16 narshe security, +c = u16 number of dragons left, +e = u16 cid's health
+		{name='parentFacingDir', type=uint8_t},								-- 0x9d2 - 0x9d3 ... this is the 3rd facing-direction variable ...
+		{name='charSavePos', type=arrayType(XY8b, 16)},						-- 0x9d3 - 0x9f3
+		{name='partyZLevels', type=arrayType(uint8_t, 4)},					-- 0x9f3 - 0x9f7
 
-		{name='unknown_968', type=arrayType(uint8_t, -(0x968 - 0x96b))},	-- 0x968 - 0x96b
-
-		{name='lastTownPos', type=XY8b},									-- 0x96b - 0x96c - this is the last town that you exited to get to the overworld map
-
-		{name='unknown_96d', type=arrayType(uint8_t, -(0x96d - 0x9c0))},	-- 0x96d - 0x9c0
-
-		-- same as pos?
-		{name='pos2', type=XY8b},											-- 0x9c0 - 0x9c2 - this is also save pos within non-overworld maps...
-
-		{name='unknown_9c2', type=arrayType(uint8_t, -(0x9c2 - 0x9d3))},	-- 0x9c2 - 0x9d3
-
-		-- this looks like it is the last town xy you were before exiting to overworld...
-		{name='pos3', type=XY8b},											-- 0x9d3 - 0x9d5 - this is also save pos.  not sure pos vs pos2 ...
-
-		{name='unknown_9d5', type=arrayType(uint8_t, -(0x9d5 - 0x9fe))},	-- 0x9d5 - 0x9fe
+		{name='unknown_9f7', type=arrayType(uint8_t, -(0x9f7 - 0x9fe))},	-- 0x9f7 - 0x9fe
 
 		{name='checksum', type=uint16_t},									-- 0x9fe - 0xa00	-- byte sum of everything in this except the checksum
 	},
 }
+assert.eq(ffi.offsetof(SaveSlot, 'treasureFlags'), 0x840)
+assert.eq(ffi.offsetof(SaveSlot, 'bg1scrollPos'), 0x966)
+assert.eq(ffi.offsetof(SaveSlot, 'parentMapPos'), 0x96b)
+assert.eq(ffi.offsetof(SaveSlot, 'savedCharacterPaletteIndexes'), 0x970)
+assert.eq(ffi.offsetof(SaveSlot, 'stepCounterRNGSeedForRandomEncounters'), 0x9a1)
+assert.eq(ffi.offsetof(SaveSlot, 'rngSalt1'), 0x9a3)
 assert.eq(ffi.sizeof(SaveSlot), 0xa00)
 
 -- arrayType doesn't give you tostring support so
@@ -2415,7 +2464,6 @@ local SaveSlot3 = createVec{
 	dim = 3,
 }
 
--- wait is this true? or was I looking at RAM, not SRAM?
 local SRAM = struct{
 	ctypeOnly = true,
 	packed = true,
@@ -2425,13 +2473,15 @@ local SRAM = struct{
 	tostringOmitEmpty = true,
 
 	fields = {
-		{name='saves', type=SaveSlot3},						-- 0x0000 - 0x1e00
+		{name='saves', type=SaveSlot3},										-- 0x0000 - 0x1e00
+
 		{name='unknown_1e00', type=arrayType(uint8_t, -(0x1e00 - 0x1ff0))},	-- 0x1e00 - 0x1ff0
+
 		{name='mostRecentSaveSlot', type=uint8_t},							-- 0x1ff0 - 0x1ff1
 		{name='randomNumberSeed', type=uint8_t},							-- 0x1ff1 - 0x1ff2
+
 		{name='unknown_1ff2', type=arrayType(uint8_t, -(0x1ff2 - 0x1ff8))},	-- 0x1ff2 - 0x1ff8
 
-		-- previous 8 bytes ... first is 01, next is the ... save count?  maybe first is hi byte?
 		{name='tailsig', type=arrayType(uint8_t, 8)},						-- 0x1ff8 - 0x2000 .. 1b e4 1b e4 1b e4 1b e4
 	},
 }

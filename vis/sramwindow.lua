@@ -179,12 +179,13 @@ function SRAMWindow:showIndexUI()
 	end
 
 	for _,field in ipairs{
-		'pos', 'pos2', 'pos3', 'mapPos', 'lastTownPos', 'airshipPos'
+		'mapPos', 'bg1scrollPos', 'worldPos', 'parentMapPos', 'airshipPos',
+		--'charSavePos' <- is an array of 16 ...
 	} do
 		if ig.igButton('goto '..field..'...') then
 			if field == 'airshipPos'
-			or field == 'lastTownPos'
-			or field == 'mapPos'
+			or field == 'parentMapPos'
+			or field == 'worldPos'
 			then
 				local inWoR = readbit(save.mapFlags, 164)
 				app.mapWindow:open(inWoR and 1 or 0)

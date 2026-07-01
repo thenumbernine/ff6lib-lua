@@ -33,7 +33,13 @@ local function outputMonsterScripts(game, cmdline)
 	end
 	scriptAddrs = table.keys(scriptAddrs):sort()
 
-	print'local monsterScripts = {'
+	print[[
+----------------------------------------------------------------
+-- THE GENERATED GAME SCRIPT                                  --
+----------------------------------------------------------------
+setfenv(1, require 'ff6.monster-battle-script-env')
+return {
+]]
 	for i=1,#scriptAddrs do
 		local startAddr = scriptAddrs[i]
 		local nextAddr = scriptAddrs[i+1]
@@ -488,8 +494,6 @@ local function outputMonsterScripts(game, cmdline)
 		print'\t},'
 	end
 	print'}'
-	print()
-	print'return monsterScripts'
 end
 
 --print('...', select('#', ...), ...)

@@ -624,13 +624,13 @@ function App:onLoadSRAM(fn, index)
 	self.sramWindow:open(index)
 	local save = self.sramWindow:getCurIndex()
 	self.mapWindow:open(save.map)
-	-- pos, pos2, pos3, mapPos, lastTownPos, airshipPos ... which to use ...
+	-- mapPos, bg1scrollPos, charSavePos, worldPos, parentMapPos, airshipPos ... which to use ...
 	if save.map < 3 then
+		self.tileWindow:setXY(save.worldPos.x, save.worldPos.y)
+		self:centerView(save.worldPos.x, save.worldPos.y)
+	else
 		self.tileWindow:setXY(save.mapPos.x, save.mapPos.y)
 		self:centerView(save.mapPos.x, save.mapPos.y)
-	else
-		self.tileWindow:setXY(save.pos.x, save.pos.y)
-		self:centerView(save.pos.x, save.pos.y)
 	end
 end
 
