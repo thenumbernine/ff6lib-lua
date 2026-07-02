@@ -2406,8 +2406,6 @@ local SaveSlot = struct{
 
 		{name='treasureFlags', type=arrayType(uint8_t, 0x40)},				-- 0x840 - 0x870 = 512=0x200 treasure flags /8 = 0x40 bytes.  here: https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:field_ram&s[]=%2Asram%2A#fffsave_ram
 		{name='mapFlags', type=arrayType(uint8_t, 0x60)},					-- 0x880 - 0x8e0 = 768=0x300 flags /8 = 0x60 bytes. everything8215's "mapSwitches", or this page's "event bits": https://www.ff6hacking.com/wiki/doku.php?id=ff3:ff3us:doc:asm:ram:field_ram&s[]=%2Asram%2A#fffsave_ram
-
-		-- offset 0x90e <-> npc flags byte ofs 0x2e <-> flag #368-376 looks like it is the previous world map used
 		{name='npcFlags', type=arrayType(uint8_t, 0x80)},					-- 0x8e0 - 0x960 = 1024=0x400 flags /8 = 0x80 bytes.
 
 		{name='worldPos', type=XY8b},										-- 0x960 - 0x962 - this is last pos on the overworld map
