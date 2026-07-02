@@ -334,7 +334,7 @@ function EventScriptWindow:showIndexUI()
 							ig.igSameLine()
 							ig.igText(' duration='..cmd.duration..', flags='..cmd.flags)
 						elseif game.EventCmds.ChangeObjectEvent:isa(cmd) then
-							ig.igText('objs['..cmd.objectIndex..'].script =')
+							ig.igText('objs['..cmd.objIndex..'].script =')
 							ig.igSameLine()
 							self:popupButtonForAddr(scriptBaseAddr + cmd.newScriptAddrOfs)
 						elseif game.EventCmds.CallSwitchNPCFlags:isa(cmd) then
