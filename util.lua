@@ -92,7 +92,7 @@ local Effect1 = bitflagtype{
 		'dark',
 		'zombie',
 		'poison',
-		'magitech',
+		'magitek',
 		'invisible',
 		'imp',
 		'petrify',

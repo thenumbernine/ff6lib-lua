@@ -1027,9 +1027,9 @@ return function(game)
 		desc = "cutscene'world of ruin'",
 	}
 
-	EventCmds.ShowMagitechFactoryCutscene = EventCmd:subclass{
+	EventCmds.ShowMagitekFactoryCutscene = EventCmd:subclass{
 		cmd = 0xae,
-		desc = "cutscene'magitech factory'",
+		desc = "cutscene'magitek factory'",
 	}
 
 	EventCmds.BeginRepeat = EventCmd:subclass{
