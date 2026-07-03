@@ -912,8 +912,8 @@ return function(game)
 	EventCmds.OpenCharacterNameChangeMenu = EventCmd:subclass{
 		cmd = 0x98,
 		argtypes = {uint8_t},
-		argnames = {'characterIndex'},
-		desc = 'characterNameChange(<?=characterIndex?>)',
+		argnames = {'objIndex'},
+		desc = 'charNameChange(<?=objIndex?>)',
 	}
 
 	EventCmds.OpenSelectPartyMenu = EventCmd:subclass{
