@@ -245,7 +245,7 @@ return function(game)
 		cmd = 0x3e,
 		argtypes = {uint8_t},
 		argnames = {'objIndex'},
-		desc = "deleteObject(<?=objIndex?>)",
+		desc = "deleteObj(<?=objIndex?>)",
 	}
 
 	EventCmds.SetCharacterParty = EventCmd:subclass{
