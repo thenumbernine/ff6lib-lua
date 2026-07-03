@@ -692,7 +692,7 @@ return function(game)
 		cmd = 0x77,
 		argtypes = {uint8_t},
 		argnames = {'objIndex'},
-		desc = 'objSetFullHPMP(<?=objIndex?>])',
+		desc = 'objSetFullHPMP(<?=objIndex?>)',
 	}
 
 	EventCmds.DisablePassabilityOfObject = EventCmd:subclass{
