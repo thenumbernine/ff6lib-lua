@@ -731,15 +731,15 @@ return function(game)
 	EventCmds.EnableCollisionEvent = EventCmd:subclass{
 		cmd = 0x7c,
 		argtypes = {uint8_t},
-		argnames = {'index'},
-		desc = 'collisionEvents[<?=index?>].enabled = true',
+		argnames = {'objIndex'},
+		desc = 'objEnableCollisionEvent(<?=objIndex?>, true)',
 	}
 
 	EventCmds.DisableCollisionEvent = EventCmd:subclass{
 		cmd = 0x7d,
 		argtypes = {uint8_t},
-		argnames = {'index'},
-		desc = 'collisionEvents[<?=index?>].enabled = false',
+		argnames = {'objIndex'},
+		desc = 'objEnableCollisionEvent(<?=objIndex?>, false)',
 	}
 
 	EventCmds.ChangeCurrentPartyPosition = EventCmd:subclass{
