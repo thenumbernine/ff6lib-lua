@@ -2397,8 +2397,9 @@ local SaveSlot = struct{
 		{name='numSaves', type=uint16_t},									-- 0x7c7 - 0x7c9
 
 		-- 0x7c9 = 'battle variables'
-		-- with doom gate's hp at 0x7d3-0x7d4
+		-- with doom gate's hp at 0x7d3-0x7d4 = byte 10 = bits 80-87
 		-- cursed shield counter at 0x7d5
+		-- so wrt the battle flags, the first 4 byte are cut off battle flags (locals), and the rest is saved here.
 		{name='battleVars', type=arrayType(uint8_t, 20)},					-- 0x7c9 - 0x7dd
 		{name='battleFormationFlags', type=arrayType(uint8_t, 0x40)},		-- 0x7dd - 0x81d = flags of what formations you've encountered, so they can show up on the veldt (fun fact, if all monsters in a formation are >= 256 such that Gau cannot rage them then their formation's bit just won't set, even if you encounter it).
 
