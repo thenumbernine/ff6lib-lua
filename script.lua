@@ -706,7 +706,7 @@ return function(game)
 		cmd = 0x79,
 		argtypes = {uint8_t, uint16_t},
 		argnames = {'partyIndex', 'mapIndex'},
-		desc = 'party[<?=partyIndex?>]:setMap(<?=mapIndex?>)',
+		desc = 'partySetMap(<?=partyIndex?>, <?=mapIndex?>)',
 	}
 
 	EventCmds.ChangeObjectEvent = EventCmd:subclass{
