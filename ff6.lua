@@ -557,13 +557,13 @@ local Spell = ff6struct{
 		-- 09:
 		{specialEffect = uint8_t},
 		-- 0x0a:
-		{givesEffect1 = Effect1},
+		{effect1 = Effect1},
 		-- 0x0b:
-		{givesEffect2 = Effect2},
+		{effect2 = Effect2},
 		-- 0x0c:
-		{givesEffect3 = Effect3},
+		{effect3 = Effect3},
 		-- 0x0d:
-		{givesEffect4 = Effect4},
+		{effect4 = Effect4},
 	},
 	metatable = function(mt)
 		local oldFieldToString = mt.fieldToString

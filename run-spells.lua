@@ -34,7 +34,7 @@ local function runSpells(game, cmdline)
 				then
 				else
 					-- skip false's
-					if value ~= false then
+					if value ~= false and value ~= 0 then
 						print('\t\t'..fieldname..' = '..tostring(value)..',')
 					end
 				end
