@@ -516,36 +516,36 @@ local Spell = ff6struct{
 		-- 00:
 		{targeting = Targeting},
 		-- 01:
-		{elementDamage = Element},
+		{elements = Element},
 		-- 02:
 		{physical = 'uint8_t:1'},
-		{isAMortalAttack = 'uint8_t:1'},	-- miss if protected from death
-		{canTargetWounded = 'uint8_t:1'},
+		{mortalAttack = 'uint8_t:1'},	-- miss if protected from death
+		{targetDead = 'uint8_t:1'},
 		{oppositeToUndead = 'uint8_t:1'},
 		{randomizeTarget = 'uint8_t:1'},
 		{undefendable = 'uint8_t:1'},
-		{dontDivideDamageForMultipleTargets = 'uint8_t:1'},
+		{noPenaltyForMultiple = 'uint8_t:1'},
 		{onlyTargetEnemies = 'uint8_t:1'},
 		-- 03:
-		{canUseInMenu = 'uint8_t:1'},	-- rpglegion says this is use-in-battle
+		{useInMenu = 'uint8_t:1'},	-- rpglegion says this is use-in-battle
 		{cannotReflect = 'uint8_t:1'},
-		{isLore = 'uint8_t:1'},
-		{enableRunic = 'uint8_t:1'},	-- ???
+		{lore = 'uint8_t:1'},
+		{runic = 'uint8_t:1'},
 		{usedByWarpAndQuick = 'uint8_t:1'},	-- warp, quick
 		{retargetDead = 'uint8_t:1'},	-- ???
 		{killsCaster = 'uint8_t:1'},
-		{damagesTargetsMP = 'uint8_t:1'},
+		{affectsMP = 'uint8_t:1'},
 		-- 04:
-		{heals = 'uint8_t:1'},
-		{drainsLife = 'uint8_t:1'},
-		{removesEffects = 'uint8_t:1'},
+		{cures = 'uint8_t:1'},
+		{drains = 'uint8_t:1'},
+		{removeEffects = 'uint8_t:1'},
 		{toggleEffects = 'uint8_t:1'},	-- imp, vanish, imp song ... rpglegion says gives status conditions
 		{evadeByStamina = 'uint8_t:1'},
-		{cannotEvade = 'uint8_t:1'},
-		{hitIfLevelDivisibleBySpellHitChance = 'uint8_t:1'},
-		{damageIsPercentOfLifeTimesSpellPowerOver16 = 'uint8_t:1'},
+		{alwaysHit = 'uint8_t:1'},
+		{hitsIfLevelDivides = 'uint8_t:1'},	-- ... by spell hit chance
+		{oneSixteenthOfMax = 'uint8_t:1'},
 		-- 05:
-		{mp = uint8_t},
+		{cost = uint8_t},	-- mp cost
 		-- 06:
 		{power = uint8_t},
 		-- 07:
@@ -555,7 +555,7 @@ local Spell = ff6struct{
 		-- 08:
 		{hitChance = uint8_t},
 		-- 09:
-		{specialEffect = uint8_t},
+		{specialAbility = uint8_t},
 		-- 0x0a:
 		{effect1 = Effect1},
 		-- 0x0b:
@@ -1156,9 +1156,9 @@ local Item = ff6struct{
 	fields = {
 		-- 0x00:
 		{itemType = 'uint8_t:4'},		-- not the same as 'itemTypeNames'
-		{canBeThrown = 'uint8_t:1'},
-		{canUseInBattle = 'uint8_t:1'},
-		{canUseInMenu = 'uint8_t:1'},
+		{throwable = 'uint8_t:1'},
+		{useInBattle = 'uint8_t:1'},
+		{useInMenu = 'uint8_t:1'},
 		{unused_0_7 = 'uint8_t:1'},		-- only here for the ptr union size calc in struct.lua
 		-- 0x01:
 		{equip = EquipFlags},

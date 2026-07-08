@@ -75,68 +75,117 @@ local Element = bitflagtype{
 	},
 }
 
+--[[
 local Targeting = bitflagtype{
 	options = {
-		'one',			-- can move cursor?
-		'oneSideOnly',
+		'chooseTarget',			-- can move cursor?
+		'cantChangeParty',
+
 		'everyone',		-- auto select all?
 		'groupDefault',	-- auto select one side
-		'automatic',	-- auto confirm
-		'group',		-- manual party select
-		'enemyDefault',
-		'random',
+
+		'autoConfirm',
+		'canToggleMultiple',
+		'startOnEnemy',
+		'roulette',
 	},
 }
+--]]
+-- [[
+local Targeting = ff6struct{
+	ctypeOnly = true,
+	fields = {
+		{chooseTarget = 'uint8_t:1'},
+		{cantChangeParty = 'uint8_t:1'},
+		{targetMultiple = 'uint8_t:2'},
+		{autoConfirm = 'uint8_t:1'},
+		{canToggleMultiple = 'uint8_t:1'},
+		{startOnEnemy = 'uint8_t:1'},
+		{roulette = 'uint8_t:1'},
+	},
+	metatable = function(mt)
+		mt.__tostring = function(self)
+			local s = '{'
+			local sep = ''
+			for fieldname in self:fielditer() do
+				local value = self[fieldname]
+				if fieldname == 'targetMultiple' then
+					if value == 0 then
+						s = s .. sep .. 'targetUnit=true'
+						sep = ', '
+					elseif value == 1 then
+						s = s .. sep .. 'targetAll=true'
+						sep = ', '
+					elseif value == 2 then
+						s = s .. sep .. 'targetGroup=true'
+						sep = ', '
+					elseif value == 3 then
+						s = s .. sep .. 'targetParty=true'
+						sep = ', '
+					end
+				else
+					if value ~= 0 then
+						s = s .. sep .. fieldname .. '=true'
+						sep = ', '
+					end
+				end
+			end
+			s = s .. '}'
+			return s
+		end
+	end
+}
+--]]
 
 local Effect1 = bitflagtype{
 	options = {
-		'dark',
-		'zombie',
-		'poison',
-		'magitek',
-		'invisible',
-		'imp',
-		'petrify',
-		'mortal',
+		'Dark',
+		'Zombie',
+		'Poison',
+		'Magitek',
+		'Clear',
+		'Imp',
+		'Petrify',
+		'Mortal',
 	},
 }
 
 local Effect2 = bitflagtype{
 	options = {
-		'countdown',
-		'nearFatal',
-		'image',
-		'mute',
-		'berzerk',
-		'muddle',
-		'hpLeak',
-		'sleep',
+		'Countdown',
+		'NearFatal',
+		'Image',
+		'Mute',
+		'Berzerk',
+		'Confuse',
+		'Seizure',
+		'Sleep',
 	},
 }
 
 local Effect3 = bitflagtype{
 	options = {
-		'danceFloat',
-		'regen',
-		'slow',
-		'haste',
-		'stop',
-		'shell',
-		'safe',
-		'reflect',
+		'Float',
+		'Regen',
+		'Slow',
+		'Haste',
+		'Stop',
+		'Shell',
+		'Safe',
+		'Reflect',
 	},
 }
 
 local Effect4 = bitflagtype{
 	options = {
-		'raging',
-		'frozen',
-		'reraise',
-		'morphed',
-		'casting',
-		'removedFromBattle',
-		'interceptor',
-		'floating',
+		'Rage',
+		'Frozen',
+		'Reraise',
+		'Morphed',
+		'Casting',
+		'RemovedFromBattle',
+		'Interceptor',
+		'Float',
 	},
 }
 
