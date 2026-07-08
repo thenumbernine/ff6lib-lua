@@ -770,7 +770,7 @@ return function(game)
 		desc = 'takeItem(<?=("%q"):format(tostring(game.itemNames[itemIndex]))?>)',
 	}
 
-	EventCmds.ResetPreviousParty = EventCmd:subclass {
+	EventCmds.ResetPreviousParty = EventCmd:subclass{
 		cmd = 0x82,
 		desc = 'resetPreviousParty()',
 	}

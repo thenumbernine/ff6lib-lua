@@ -24,42 +24,11 @@ local rom = game.rom
 local romsize = game.romsize
 local countof = game.countof
 
+-- meh the one giant out file is too big
+-- maybe make run.lua spit out individual files?
 require 'run-event-script'(game)	-- event, vehicle, world, object scripts
 require 'run-monster-script'(game)	-- battle scripts
-
-
-for i=0,countof(game.spells)-1 do
-	print('spell #'..i)
-	print('Name="'..game.getSpellName(i)..'"')
-	if i < 54 then
-		print('Desc="'..game.gamezstr(game.spellDescBase + game.spellDescOffsets[i])..'"')
-	elseif i >= 54 and i < 64 then
-		-- should I put esper descs here, or in the esper output, or both?
-	end
-	print(game.spells[i])
-	print()
-end
-
-for i=0,countof(game.spells)-1 do
-	if game.spells[i].isLore ~= 0 then
-		print('Name="'..game.getSpellName(i)..'"')
-		for j=0,game.numMonsters-1 do
-			for k=0,1 do
-				if game.monsterSketches[j].s[k].i == i then
-					print('\tsketch '..game.monsterNames[j])
-				end
-			end
-			if j < countof(game.monsterRages) then
-				for k=0,1 do
-					if game.monsterRages[j].s[k].i == i then
-						print('\trage '..game.monsterNames[j])
-					end
-				end
-			end
-		end
-	end
-end
-print()
+require 'run-spells'(game)			-- spell table
 
 for i=0,game.numEspers-1 do
 	print('esper #'..i)

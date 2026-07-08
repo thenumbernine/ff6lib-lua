@@ -458,19 +458,37 @@ local numBRRSamples = 63
 
 ---------------- SPELLS ----------------
 
+local numMenuSpells = 54
+local numEspers = 27
 
--- needs 'game' as a parameter ... but can't always get it there ... so look for a global instead
 local function getSpellName(i)
 	i = bit.band(i, 0xff)
 	-- black, grey, white
-	if i >= 0 and i < 54 then return string.trim(tostring(gameC.spellNames_0to53[i])) end
-	i = i - 54
+	if i >= 0 and i < numMenuSpells then
+		return string.trim(tostring(gameC.spellNames_0to53[i]))
+	end
+	i = i - numMenuSpells
 	-- esper
-	if i >= 0 and i < 27 then return string.trim(tostring(gameC.spellNames_54to80[i])) end
-	i = i - 27
+	if i < numEspers then
+		return string.trim(tostring(game.esperAttackNames[i]))
+	end
+	i = i - numEspers
 	-- rest:
-	if i >= 0 and i < 175 then return string.trim(tostring(gameC.spellNames_81to255[i])) end
+	if i < 175 then
+		return string.trim(tostring(gameC.spellNames_81to255[i]))
+	end
 	error'here'
+end
+
+local function getSpellDesc(i)
+	i = bit.band(i, 0xff)
+	if i >= 0 and i < numMenuSpells then
+		return game.gamezstr(game.spellDescBase + game.spellDescOffsets[i])
+	end
+	i = i - numMenuSpells
+	if i < numEspers then
+		return game.gamezstr(game.esperDescBase + game.esperDescOffsets[i])
+	end
 end
 
 -- needs 'game' to correctly call 'getSpellName' with a parameter
@@ -569,7 +587,7 @@ local EsperBonus = reftype{
 }
 
 local function getEsperName(i)
-	return getSpellName(i + 54)
+	return string.trim(tostring(gameC.esperNames[i]))
 end
 
 local SpellLearn = ff6struct{
@@ -596,7 +614,6 @@ local Esper = ff6struct{
 	},
 }
 assert.eq(ffi.sizeof(Esper), 11)
-local numEspers = 27
 
 local EsperRef = reftype{
 	ctypeOnly = true,
@@ -2785,7 +2802,7 @@ Game = struct{
 		{name = 'mpIncPerLevelUp', type = arrayType(uint8_t, numLevels)},										-- 0x26f502 - 0x26f564
 		{name = 'stragoInitialLores', type = arrayType(uint8_t, 3)},											-- 0x26f564 - 0x26f567 ... hmm TODO?
 		{name = 'spellNames_0to53', type = arrayType(Str7, 54)}, 												-- 0x26f567 - 0x26f6e1
-		{name = 'spellNames_54to80', type = arrayType(Str8, 27)},                             					-- 0x26f6e1 - 0x26f7b9
+		{name = 'esperNames', type = arrayType(Str8, 27)},                             					-- 0x26f6e1 - 0x26f7b9
 		{name = 'spellNames_81to255', type = arrayType(Str10, 175)},											-- 0x26f7b9 - 0x26fe8f
 		{name = 'esperAttackNames', type = arrayType(Str10, numEspers)},										-- 0x26fe8f - 0x26ff9d
 		{name = 'mogDanceNames', type = arrayType(MogDanceName, numMogDances)},									-- 0x26ff9d - 0x26fffd
@@ -2973,6 +2990,7 @@ game.romsize = romsize
 
 game.numEsperBonuses = numEsperBonuses
 game.numEspers = numEspers
+game.numMenuSpells = numMenuSpells
 game.numMonsters = numMonsters
 game.numItems = numItems
 game.numRareItems = numRareItems
@@ -3001,6 +3019,7 @@ game.compzstr = compzstr
 game.gamestr = gamestr
 game.compstr = compstr
 game.getSpellName = getSpellName
+game.getSpellDesc = getSpellDesc
 game.getEsperName = getEsperName
 
 game.countof = countof
