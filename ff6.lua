@@ -46,7 +46,7 @@ local arrayType = ff6_util.arrayType
 local uint24_t = ff6_util.uint24_t
 local EquipFlags = ff6_util.EquipFlags
 local Element = ff6_util.Element
-local Targetting = ff6_util.Targetting
+local Targeting = ff6_util.Targeting
 local Effect1 = ff6_util.Effect1
 local Effect2 = ff6_util.Effect2
 local Effect3 = ff6_util.Effect3
@@ -514,7 +514,7 @@ local Spell = ff6struct{
 	ctypeOnly = true,
 	fields = {
 		-- 00:
-		{targetting = Targetting},
+		{targeting = Targeting},
 		-- 01:
 		{elementDamage = Element},
 		-- 02:
@@ -1225,7 +1225,7 @@ local Item = ff6struct{
 		{unused_d_6 = 'uint8_t:1'},
 		{makeUndead = 'uint8_t:1'},
 		-- 0x0e:
-		{targetting = Targetting},
+		{targeting = Targeting},
 		-- 0x0f:
 		-- TODO UNION
 		{element_weaponDamage_equipHalfDamage = uint8_t},
@@ -3114,7 +3114,7 @@ game.Effect2 = Effect2
 game.Effect3 = Effect3
 game.Effect4 = Effect4
 game.Element = Element
-game.Targetting = Targetting
+game.Targeting = Targeting
 game.Spell = Spell
 game.SpellLearn = SpellLearn
 game.SpellRef = SpellRef

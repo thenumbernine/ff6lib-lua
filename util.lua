@@ -75,7 +75,7 @@ local Element = bitflagtype{
 	},
 }
 
-local Targetting = bitflagtype{
+local Targeting = bitflagtype{
 	options = {
 		'one',			-- can move cursor?
 		'oneSideOnly',
@@ -229,7 +229,7 @@ return {
 	uint24_t = uint24_t,
 	EquipFlags = EquipFlags,
 	Element = Element,
-	Targetting = Targetting,
+	Targeting = Targeting,
 	Effect1 = Effect1,
 	Effect2 = Effect2,
 	Effect3 = Effect3,

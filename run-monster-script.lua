@@ -291,7 +291,7 @@ return {
 					local action1 = ('%q'):format(getActionName(p[2]))
 					local action2 = ('%q'):format(getActionName(p[3]))
 					local actions = action1 == action2 and action1 or action1..', '..action2
-					-- p[3] == 2 is targetting <-> this monster?
+					-- p[3] == 2 is targeting <-> this monster?
 					-- or p[2] == 2, ip[3] == 2 <-> action == magic, spell #2 == bolt?
 					out = ifStmt..' wasTargetedWithAction('..actions..')'
 				elseif condIndex == 2 then
