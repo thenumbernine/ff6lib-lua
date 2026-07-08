@@ -467,17 +467,17 @@ local function getSpellName(i)
 	if i >= 0 and i < numMenuSpells then
 		return string.trim(tostring(gameC.spellNames_0to53[i]))
 	end
-	i = i - numMenuSpells
 	-- esper
-	if i < numEspers then
+	if i >= numMenuSpells and i < numMenuSpells + numEspers then
+		i = i - numMenuSpells
 		return string.trim(tostring(game.esperAttackNames[i]))
 	end
-	i = i - numEspers
-	-- rest:
-	if i < 175 then
-		return string.trim(tostring(gameC.spellNames_81to255[i]))
+	-- swdtechs
+	if i >= 85 and i < 93 then
+		return string.trim(tostring(game.swordTechNames[i - 85]))
 	end
-	error'here'
+	-- rest:
+	return string.trim(tostring(gameC.spellNames_81to255[i - 81]))
 end
 
 local function getSpellDesc(i)
@@ -485,9 +485,18 @@ local function getSpellDesc(i)
 	if i >= 0 and i < numMenuSpells then
 		return game.gamezstr(game.spellDescBase + game.spellDescOffsets[i])
 	end
-	i = i - numMenuSpells
-	if i < numEspers then
+	if i >= numMenuSpells and i < numMenuSpells + numEspers then
+		i = i - numMenuSpells
 		return game.gamezstr(game.esperDescBase + game.esperDescOffsets[i])
+	end
+	if i >= 85 and i < 93 then
+		return string.trim(tostring(game.gamezstr(game.swordTechDescBase + game.swordTechDescOffsets[i - 85])))
+	end
+	if i >= 93 and i < 101 then
+		return string.trim(tostring(game.gamezstr(game.blitzDescBase + game.blitzDescOffsets[i - 93])))
+	end
+	if i >= 139 and i < 163 then
+		return string.trim(tostring(game.gamezstr(game.loreDescBase + game.loreDescOffsets[i - 139])))
 	end
 end
 
@@ -530,9 +539,9 @@ local Spell = ff6struct{
 		{heals = 'uint8_t:1'},
 		{drainsLife = 'uint8_t:1'},
 		{removesEffects = 'uint8_t:1'},
-		{invertsEffects = 'uint8_t:1'},	-- imp, vanish, imp song ... rpglegion says gives status conditions
+		{toggleEffects = 'uint8_t:1'},	-- imp, vanish, imp song ... rpglegion says gives status conditions
 		{evadeByStamina = 'uint8_t:1'},
-		{unevadable = 'uint8_t:1'},
+		{cannotEvade = 'uint8_t:1'},
 		{hitIfLevelDivisibleBySpellHitChance = 'uint8_t:1'},
 		{damageIsPercentOfLifeTimesSpellPowerOver16 = 'uint8_t:1'},
 		-- 05:
@@ -540,8 +549,8 @@ local Spell = ff6struct{
 		-- 06:
 		{power = uint8_t},
 		-- 07:
-		{maybe_noDamage = 'uint8_t:1'},
-		{mabye_hitBasedOnLevel = 'uint8_t:1'},
+		{missIfImmuneToStatus = 'uint8_t:1'},
+		{showMessage = 'uint8_t:1'},
 		{unused_7_2 = 'uint8_t:6'},
 		-- 08:
 		{hitChance = uint8_t},
