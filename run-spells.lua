@@ -44,7 +44,7 @@ local function runSpells(game, cmdline)
 				and ffi.cast(ctype.baseType..'*', value.s)[0] == 0
 				then
 				else
-					-- skip false's
+					-- skip false's and 0's
 					if value ~= false and value ~= 0 then
 						print('\t\t'..fieldname..' = '..tostring(value)..',')
 					end

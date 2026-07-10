@@ -28,7 +28,8 @@ local countof = game.countof
 -- maybe make run.lua spit out individual files?
 require 'run-event-script'(game)	-- event, vehicle, world, object scripts
 require 'run-monster-script'(game)	-- battle scripts
-require 'run-spells'(game)			-- spell table
+require 'run-spells'(game)			-- spells table
+require 'run-items'(game)			-- items table
 
 for i=0,game.numEspers-1 do
 	print('esper #'..i)
@@ -43,15 +44,6 @@ for i=0,game.numEsperBonuses-1 do
 	print('esper bonus #'..i)
 	print('desc = "'..game.esperBonusDescs[i]..'"')
 	print('long desc = "'..game.gamezstr(game.longEsperBonusDescBase  + game.longEsperBonusDescOffsets[i])..'"')
-	print()
-end
-
-for i=0,game.numItems-1 do
-	print('item #'..i)
-	print('Name="'..game.itemNames[i]..'"')
-	print('Desc="'..game.gamezstr(game.itemDescBase + game.itemDescOffsets[i])..'"')
-	print(game.items[i])
-	print(game.itemColosseumInfos[i])
 	print()
 end
 
