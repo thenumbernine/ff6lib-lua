@@ -833,7 +833,7 @@ Quick	99
 
 	local itemsForType = table()
 	for i=0,game.numItems-1 do
-		local key = game.items[i].itemType
+		local key = game.items[i].type
 		itemsForType[key] = itemsForType[key] or table()
 		itemsForType[key]:insert(ffi.new('itemref_t', i))
 	end

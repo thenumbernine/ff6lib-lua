@@ -1155,7 +1155,7 @@ local Item = ff6struct{
 	ctypeOnly = true,
 	fields = {
 		-- 0x00:
-		{itemType = 'uint8_t:4'},		-- not the same as 'itemTypeNames'
+		{type = 'uint8_t:4'},		-- not the same as 'itemTypeNames'
 		{throwable = 'uint8_t:1'},
 		{useInBattle = 'uint8_t:1'},
 		{useInMenu = 'uint8_t:1'},
@@ -1165,12 +1165,12 @@ local Item = ff6struct{
 		-- 0x03:
 		{spellLearn = SpellLearn},
 		-- 0x05:
-		{isCharmBangle = 'uint8_t:1'},
-		{isMoogleCharm = 'uint8_t:1'},
+		{reduceRandomBattles = 'uint8_t:1'},	-- charm bangle
+		{preventRandomBattles = 'uint8_t:1'},	-- moogle charm
 		{unused_5_2 = 'uint8_t:3'},
-		{isSprintShoes = 'uint8_t:1'},
+		{sprintWhileWalking = 'uint8_t:1'},		-- sprint shoes
 		{unused_5_6 = 'uint8_t:1'},
-		{isTintinabar = 'uint8_t:1'},
+		{recoverHPWhileWalking = 'uint8_t:1'},	-- tintinabar
 		-- 0x06:
 		{immuneToEffect1 = Effect1},
 		-- 0x07:
@@ -1178,12 +1178,12 @@ local Item = ff6struct{
 		-- 0x08:
 		{hasEffect3 = Effect3},
 		-- 0x09:
-		{raiseFightDamage = 'uint8_t:1'},
+		{raisePhysDamage = 'uint8_t:1'},
 		{raiseMagicDamage = 'uint8_t:1'},
 		{raiseHPByQuarter = 'uint8_t:1'},
 		{raiseHPByHalf = 'uint8_t:1'},
 		{raiseHPByEighth = 'uint8_t:1'},
-		{raiseMagDef = 'uint8_t:1'},
+		{raiseMagicDefense = 'uint8_t:1'},
 		{raiseMPByHalf = 'uint8_t:1'},
 		{raiseMPByEighth = 'uint8_t:1'},
 		-- 0x0a:
@@ -1196,11 +1196,11 @@ local Item = ff6struct{
 		{changeStealToCapture = 'uint8_t:1'},
 		{changeJumpToXJump = 'uint8_t:1'},
 		-- 0x0b:
-		{raiseStealChance = 'uint8_t:1'},
+		{raiseStealRate = 'uint8_t:1'},
 		{unused_b_1 = 'uint8_t:1'},
-		{raiseSketchChance = 'uint8_t:1'},
-		{raiseControlChance = 'uint8_t:1'},
-		{fightAlwaysHits = 'uint8_t:1'},
+		{raiseSketchRate = 'uint8_t:1'},
+		{raiseControlRate = 'uint8_t:1'},
+		{alwaysHit = 'uint8_t:1'},				-- sniper sight
 		{halfMPConsumed = 'uint8_t:1'},
 		{magicCosts1 = 'uint8_t:1'},
 		{raiseVigorByHalf = 'uint8_t:1'},
@@ -1211,14 +1211,14 @@ local Item = ff6struct{
 		{holdOneWeaponWithTwoHands = 'uint8_t:1'},
 		{holdTwoWeapons = 'uint8_t:1'},
 		{equipMeritAwardItems = 'uint8_t:1'},
-		{protectPartyMembersLowOnHP = 'uint8_t:1'},
+		{protectPartyMembersNearFatal = 'uint8_t:1'},
 		{unused_c_7 = 'uint8_t:1'},
 		-- 0x0d:
-		{castShellWhenHPIsLow = 'uint8_t:1'},
-		{castSafeWhenHPIsLow = 'uint8_t:1'},
+		{castShellWhenNearFatal = 'uint8_t:1'},
+		{castSafeWhenNearFatal = 'uint8_t:1'},
 		{unused_d_2 = 'uint8_t:1'},
-		{doubleExpGained = 'uint8_t:1'},
-		{pickUpMoreGP = 'uint8_t:1'},
+		{doubleExpGained = 'uint8_t:1'},		-- exp egg
+		{pickUpMoreGP = 'uint8_t:1'},			-- cat hood
 		{unused_d_5 = 'uint8_t:2'},
 		{makeUndead = 'uint8_t:1'},
 		-- 0x0e:
@@ -1236,15 +1236,16 @@ local Item = ff6struct{
 		{spellCast = 'uint8_t:6'},	-- should be SpellRef, but it looks like you can't use structs with bitfields
 		{castOnAttack = 'uint8_t:1'},
 		{castOnItemUse = 'uint8_t:1'},	-- "destroy if used"
+		-- TODO for itemtype-items, this is 'attributesRemoved'
 		-- 0x13:
-		{protectFromMortalBlows = 'uint8_t:1'},	-- memento ring
-		{runicCompatible = 'uint8_t:1'},
+		{protectFromMortalMagicAttacks = 'uint8_t:1'},	-- memento ring
+		{runic = 'uint8_t:1'},
 		{unused_13_2 = 'uint8_t:1'},
 		{healsHP = 'uint8_t:1'},
-		{healsMP= 'uint8_t:1'},
+		{healsMP = 'uint8_t:1'},
 		{sameDamageFromBackRow = 'uint8_t:1'},
-		{canEquipTwoHands = 'uint8_t:1'},
-		{swdTechCompatible = 'uint8_t:1'},
+		{twoHands = 'uint8_t:1'},
+		{swordTech = 'uint8_t:1'},
 		-- 0x14:
 		-- TODO UNION
 		{battlePower_defense = uint8_t},
@@ -1288,9 +1289,9 @@ local Item = ff6struct{
 		end
 	end,
 }
-assert.eq(ffi.offsetof(Item, 'itemType'), 0)
+assert.eq(ffi.offsetof(Item, 'type'), 0)
 assert.eq(ffi.offsetof(Item, 'spellLearn'), 3)
-assert.eq(ffi.offsetof(Item, 'raiseStealChance'), 0x0b)
+assert.eq(ffi.offsetof(Item, 'raiseStealRate'), 0x0b)
 assert.eq(ffi.offsetof(Item, 'changeFightToXFight'), 0x0c)
 assert.eq(ffi.sizeof(Item), 0x1e)
 
