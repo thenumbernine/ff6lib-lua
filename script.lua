@@ -575,7 +575,7 @@ return function(game)
 			--  if so, then does setting vehicle to nonzero in ObjectCmds.ChangeVehicle or EventCmds.ChangeObjectVehicle also do this?
 			--  also is it for event cmds, world cmds, or vehicle cmds? (ironic for vehicle cmds, you already need to be in this state...)
 			self.vehicle = bit.band(3, flags)
-			self.flag2 = 0 ~= bit.band(4, flags)	-- TODO one of these is async
+			self.flag2 = 0 ~= bit.band(4, flags)
 			self.flag3 = 0 ~= bit.band(8, flags)
 			self.flag4 = 0 ~= bit.band(16, flags)
 			self.noSizeUpdate = self.mapIndex >= 3 and 0 ~= bit.band(0x20, flags)
@@ -639,13 +639,14 @@ return function(game)
 				..(self.noSizeUpdate and ", noSizeUpdate=true" or '')
 				..(self.noFadeIn and ", noFadeIn=true" or '')
 				..(self.useStartEvent and ", useStartEvent=true" or '')
+				..(self.async and ", async=true" or '')	-- what does 'async' mean?
 			..'}'
 		end,
 	}
 	Cmds.SetMap = SetMap
 
 	EventCmds.SetMap = EventCmd:subclass(SetMap, {cmd = 0x6a})
-	EventCmds.SetMap2 = EventCmd:subclass(SetMap, {cmd = 0x6b})
+	EventCmds.SetMapAsync = EventCmd:subclass(SetMap, {cmd = 0x6b, async = true})
 
 	EventCmds.SetParentMap = EventCmd:subclass{
 		cmd = 0x6c,
@@ -1867,7 +1868,7 @@ cl.classname = k
 
 	-- in EventCmds as 0x6a, 0x6b
 	WorldCmds.SetMap = WorldCmd:subclass(SetMap, {cmd = 0xd2})
-	WorldCmds.SetMap2 = WorldCmd:subclass(SetMap, {cmd = 0xd3})
+	WorldCmds.SetMapAsync = WorldCmd:subclass(SetMap, {cmd = 0xd3, async = true})
 
 	-- in EventCmds for 0xc0-0xcf and in WorldCmds for 0xb0-0xbf
 	for cmd=0xb0,0xbf do
@@ -2161,7 +2162,7 @@ cl.classname = k
 
 	-- also EventCmds 0x6a, 0x6b and WorldCmds 0xd2, 0xd3
 	VehicleCmds.SetMap = VehicleCmd:subclass(SetMap, {cmd = 0xd2})
-	VehicleCmds.SetMap2 = VehicleCmd:subclass(SetMap, {cmd = 0xd3})
+	VehicleCmds.SetMapAsync = VehicleCmd:subclass(SetMap, {cmd = 0xd3, async = true})
 
 	-- also WorldCmds 0xd8, 0xd9
 	VehicleCmds.FadeIn = VehicleCmd:subclass{
