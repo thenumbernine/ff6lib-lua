@@ -806,21 +806,21 @@ return function(game)
 		cmd = 0x88,
 		argtypes = {uint8_t, uint16_t},
 		argnames = {'objIndex', 'status'},
-		desc = "objRemoveStatus(<?=objIndex?>, 0x<?=bit.tohex(status, 4)?>)",
+		desc = "objStatusAnd(<?=objIndex?>, 0x<?=bit.tohex(status, 4)?>)",
 	}
 
 	EventCmds.SetObjectStatus = EventCmd:subclass{
 		cmd = 0x89,
 		argtypes = {uint8_t, uint16_t},
 		argnames = {'objIndex', 'status'},
-		desc = "objSetStatus(<?=objIndex?>, 0x<?=bit.tohex(status, 4)?>)",
+		desc = "objStatusOr(<?=objIndex?>, 0x<?=bit.tohex(status, 4)?>)",
 	}
 
 	EventCmds.ToggleObjectStatus = EventCmd:subclass{
 		cmd = 0x8a,
 		argtypes = {uint8_t, uint16_t},
 		argnames = {'objIndex', 'status'},
-		desc = "objToggleStatus(<?=objIndex?>, 0x<?=bit.tohex(status, 4)?>)",
+		desc = "objStatusXor(<?=objIndex?>, 0x<?=bit.tohex(status, 4)?>)",
 	}
 
 	EventCmds.GiveCharacterHP = EventCmd:subclass{
