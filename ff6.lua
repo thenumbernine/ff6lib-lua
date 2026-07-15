@@ -169,8 +169,7 @@ local function compstr(p, size)
 			elseif p[0] == 18 then
 				c:insert'[KEYPRESS]'
 			elseif p[0] == 19 then	-- clear and new message
-				c:insert'\n[CLEAR]'
-				c:insert'\n'
+				c:insert'[CLEAR]'
 			elseif p[0] == 20 then
 				-- read 1 more char ... horizontal tab?
 				p=p+1
