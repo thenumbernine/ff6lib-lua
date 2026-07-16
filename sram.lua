@@ -5,6 +5,7 @@ local ffi = require 'ffi'
 local table = require 'ext.table'
 local path = require 'ext.path'
 local assert = require 'ext.assert'
+local string = require 'ext.string'
 local createVec = require 'vec-ffi.create_vec'
 local struct = require 'struct'
 
@@ -78,6 +79,14 @@ for i=saveMin, saveMax do
 	local save = sram.saves.s + i
 	print()
 	print('save', i)
+
+	print('map flag hex data')
+	print((string.hex(ffi.string(save.mapFlags, 0x60)):gsub('..', '%0 ')))
+
+	print('npc flag hex data')
+	print((string.hex(ffi.string(save.npcFlags, 0x80)):gsub('..', '%0 ')))
+
+
 	for fieldname in save:fielditer() do
 		if fieldname ~= 'characters' then
 			print('', fieldname, save[fieldname])
