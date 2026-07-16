@@ -2571,7 +2571,9 @@ Game = struct{
 
 		-- 0x00d23c - ? = bank pointer & # bytes to copy for map char gfx (2 bytes each)
 		-- 0x00dfa0 - 0x00e0a0 = 'DTE table' -rgplegion
-		{name = 'unknown_00d27c', type = arrayType(uint8_t, -(0x00d386 - 0x02ce2b))},							-- 0x00d386 - 0x02ce2b
+		{name = 'unknown_00d386', type = arrayType(uint8_t, -(0x00d386 - 0x00e0a0))},							-- 0x00d386 - 0x00e0a0
+		{name = 'initNPCFlags', type = arrayType(uint8_t, 0x80)}, 												-- 0x00e0a0 - 0x00e120 = initial NPC flags
+		{name = 'unknown_00e120', type = arrayType(uint8_t, -(0x00e120 - 0x02ce2b))},							-- 0x00e120 - 0x02ce2b
 
 		-- battle character palette assignment (1 byte each)
 		-- or actually last bit probably means something else since it's not indexable
