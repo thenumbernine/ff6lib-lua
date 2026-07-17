@@ -89,7 +89,7 @@ local function runSpells(game, cmdline)
 			end
 		end
 		if #effectNames > 0 then
-			print('\t\t'..destField..' = {'..effectNames:concat', '..'},')
+			print('\t\t'..destField..' = {'..effectNames:mapi(function(e) return ('%q'):format(e) end):concat', '..'},')
 		end
 
 		print('\t},')
