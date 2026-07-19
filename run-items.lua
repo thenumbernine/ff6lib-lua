@@ -230,7 +230,7 @@ assert.ne(itemType, 'Item')	-- Item already has attributes
 
 		local colinfo = game.itemColosseumInfos[i]
 		print('\t\tcolosseumMonster = '..colinfo.monster..',')
-		print('\t\t colosseumWinItem = '..colinfo.itemWon..',')
+		print('\t\tcolosseumWinItem = '..colinfo.itemWon..',')
 		if colinfo.hideName ~= 0 then
 			print('\t\tcolosseumHideName = true,')
 		end
