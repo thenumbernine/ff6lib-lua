@@ -1143,7 +1143,7 @@ local itemSpecialAbilityNames = {
 	'whatever a hawk eye does ???',
 	'dice - what dice do',
 	'gains power as HP decreases',
-	'randomally casts "wind slash"',
+	'randomally casts wind slash',
 	'heals person',
 	'randomally dices up an enemy',
 	'uses MP for mortal blow, may break',
