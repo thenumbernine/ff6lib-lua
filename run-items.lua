@@ -84,15 +84,15 @@ local function runItems(game, cmdline)
 			elseif fieldname == 'type' then
 				print('\t\ttype = "'..itemTypes[1+value]..'",')
 			elseif fieldname == 'equip' then
-				local x = value.s[0]
-				local equipFlags = bit.band(0x3f, x)
+				local x = ffi.cast(value.baseType..'*', value.s)[0]
+				local equipFlags = bit.band(0x3fff, x)
 				if equipFlags ~= 0 then
-					print('\t\tequipFlags = 0x'..bit.tohex(equipFlags, 2)..',')
+					print('\t\tequipFlags = 0x'..bit.tohex(equipFlags, 4)..',')
 				end
-				if 0 ~= bit.band(0x40, x) then
+				if 0 ~= bit.band(0x4000, x) then
 					print('\t\timpItem = true,')
 				end
-				if 0 ~= bit.band(0x80, x) then
+				if 0 ~= bit.band(0x8000, x) then
 					print('\t\tmeritAward = true,')
 				end
 			elseif fieldname == 'spellLearn' then
