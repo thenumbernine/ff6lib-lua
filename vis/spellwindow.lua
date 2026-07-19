@@ -40,10 +40,10 @@ function SpellWindow:showIndexUI()
 			then
 				self.itemsWithThis:insert{itemIndex=i, type='spellLearn'}
 			end
-			if item.spellCast == self.index
-			and (item.castOnAttack ~= 0 or item.castOnItemUse ~= 0)
+			if item.casts == self.index
+			and (item.castsOnAttack ~= 0 or item.castsOnItemUse ~= 0)
 			then
-				self.itemsWithThis:insert{itemIndex=i, type='spellCast'}
+				self.itemsWithThis:insert{itemIndex=i, type='casts'}
 			end
 		end
 	end

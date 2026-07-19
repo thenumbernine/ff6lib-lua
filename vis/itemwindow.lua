@@ -32,10 +32,10 @@ function ItemWindow:showIndexUI()
 				--end
 				--ig.igText(' spell learn rate = '..item.spellLearn.rate)
 				--self:editField(item, fieldname, ctype, field)
-			elseif fieldname == 'spellCast' then
+			elseif fieldname == 'casts' then
 				-- is this the right condition?
-				--if item.castOnAttack ~= 0 or item.castOnItemUse ~= 0 then
-					--app.spellWindow:popupButton(item.spellCast)
+				--if item.castsOnAttack ~= 0 or item.castsOnItemUse ~= 0 then
+					--app.spellWindow:popupButton(item.casts)
 					self:editSpellRef(item, fieldname, ctype, field)
 				--end
 			else

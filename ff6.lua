@@ -1175,7 +1175,7 @@ local Item = ff6struct{
 		-- 0x07:
 		{immuneToEffect2 = Effect2},
 		-- 0x08:
-		{hasEffect3 = Effect3},
+		{givesEffect3 = Effect3},
 		-- 0x09:
 		{raisePhysDamage = 'uint8_t:1'},
 		{raiseMagicDamage = 'uint8_t:1'},
@@ -1200,31 +1200,31 @@ local Item = ff6struct{
 		{raiseSketchRate = 'uint8_t:1'},
 		{raiseControlRate = 'uint8_t:1'},
 		{alwaysHit = 'uint8_t:1'},				-- sniper sight
-		{halfMPConsumed = 'uint8_t:1'},
-		{magicCosts1 = 'uint8_t:1'},
+		{spellsCostHalf = 'uint8_t:1'},
+		{spellsCostsOne = 'uint8_t:1'},
 		{raiseVigorByHalf = 'uint8_t:1'},
 		-- 0x0c:
 		{changeFightToXFight = 'uint8_t:1'},
-		{randomlyCounterattacks = 'uint8_t:1'},
-		{randomlyEvadeAttacks = 'uint8_t:1'},
+		{randomlyCounterAttacks = 'uint8_t:1'},
+		{randomlyEvadesAttacks = 'uint8_t:1'},
 		{holdOneWeaponWithTwoHands = 'uint8_t:1'},
-		{holdTwoWeapons = 'uint8_t:1'},
-		{equipMeritAwardItems = 'uint8_t:1'},
-		{protectPartyMembersNearFatal = 'uint8_t:1'},
+		{holdTwoWeaponsAtOnce = 'uint8_t:1'},
+		{canEquipMeritAwardCompat = 'uint8_t:1'},
+		{protectsPartyMembersNearFatal = 'uint8_t:1'},
 		{unused_c_7 = 'uint8_t:1'},
 		-- 0x0d:
 		{castShellWhenNearFatal = 'uint8_t:1'},
 		{castSafeWhenNearFatal = 'uint8_t:1'},
-		{unused_d_2 = 'uint8_t:1'},
+		{castReflectWhenNearFatal = 'uint8_t:1'},	-- not used
 		{doubleExpGained = 'uint8_t:1'},		-- exp egg
-		{pickUpMoreGP = 'uint8_t:1'},			-- cat hood
+		{gainAllGoldPossible = 'uint8_t:1'},			-- cat hood
 		{unused_d_5 = 'uint8_t:2'},
-		{makeUndead = 'uint8_t:1'},
+		{undead = 'uint8_t:1'},
 		-- 0x0e:
-		{targeting = Targeting},
+		{targeting = Targeting},	-- Targeting for Tool, what about others?
 		-- 0x0f:
 		-- TODO UNION
-		{element_weaponDamage_equipHalfDamage = uint8_t},
+		{element_weaponDamage_equipHalfDamage = Element},
 		-- 0x10:
 		{vigor = 'uint8_t:4'},
 		{speed = 'uint8_t:4'},
@@ -1232,30 +1232,30 @@ local Item = ff6struct{
 		{stamina = 'uint8_t:4'},
 		{magicPower = 'uint8_t:4'},
 		-- 0x12:
-		{spellCast = 'uint8_t:6'},	-- should be SpellRef, but it looks like you can't use structs with bitfields
-		{castOnAttack = 'uint8_t:1'},
-		{castOnItemUse = 'uint8_t:1'},	-- "destroy if used"
+		{casts = 'uint8_t:6'},		-- should be SpellRef, but it looks like you can't use structs with bitfields
+		{castsOnAttack = 'uint8_t:1'},
+		{castsOnItemUse = 'uint8_t:1'},	-- "destroy if used"
 		-- TODO for itemtype-items, this is 'attributesRemoved'
 		-- 0x13:
 		{protectFromMortalMagicAttacks = 'uint8_t:1'},	-- memento ring
-		{runic = 'uint8_t:1'},
-		{unused_13_2 = 'uint8_t:1'},
-		{healsHP = 'uint8_t:1'},
-		{healsMP = 'uint8_t:1'},
-		{sameDamageFromBackRow = 'uint8_t:1'},
-		{twoHands = 'uint8_t:1'},
 		{swordTech = 'uint8_t:1'},
+		{unused_13_2 = 'uint8_t:1'},
+		{restoresHP = 'uint8_t:1'},
+		{restoresMP = 'uint8_t:1'},
+		{sameDamageFromBackRow = 'uint8_t:1'},	-- for Item this is "remove attributes instead of give"
+		{twoHands = 'uint8_t:1'},
+		{runic = 'uint8_t:1'},
 		-- 0x14:
 		-- TODO UNION
 		{battlePower_defense = uint8_t},
 		-- 0x15:
-		{hitChance_magicDefense = uint8_t},
+		{hitChance_magicDefense = uint8_t},	-- for Item this is Effect1 attributes given/removed
 		-- 0x16:
-		{elementAbsorb = Element},
+		{elementsAbsorb = Element},
 		-- 0x17:
-		{elementNoEffect = Element},
+		{elementsImmune = Element},
 		-- 0x18:
-		{elementWeak = Element},
+		{elementsWeak = Element},
 		-- 0x19:
 		{givesEffect2 = Effect2},
 		-- 0x1a:
@@ -1268,12 +1268,12 @@ local Item = ff6struct{
 		{itemSpecialAbility = 'uint8_t:4'},
 		-- 0x1c:
 		-- sell price is half of buy price
-		{buyPrice = uint16_t},
+		{price = uint16_t},
 	},
 	metatable = function(mt)
 		local oldFieldToString = mt.fieldToString
 		mt.fieldToString = function(self, name, ctype)
-			if name == 'spellCast' then
+			if name == 'casts' then
 				local i = self[name]
 				if i == 0xff then return nil end
 				return '"'..getSpellName(i)..'"'

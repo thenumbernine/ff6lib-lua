@@ -856,10 +856,10 @@ Quick	99
 -- [[ swords cast random things
 	for _,ref in ipairs(itemsForType[1]) do
 		local item = game.items[ref.i]
-		item.spellCast = math.random(0,53)
+		item.casts = math.random(0,53)
 		-- this isn't working...
-		item.castOnAttack = 1
-		item.castOnItemUse = 1
+		item.castsOnAttack = 1
+		item.castsOnItemUse = 1
 		item.canUseInBattle = 1	-- this uses the spell
 		item.canBeThrown = 1
 		item.battlePower_defense = 0
@@ -876,7 +876,7 @@ Quick	99
 	end
 
 	-- mithril knife teaches quick
-	--game.items[1].spellCast = 43
+	--game.items[1].casts = 43
 --]]
 
 --[[ espers ... gobbleygook everywhere

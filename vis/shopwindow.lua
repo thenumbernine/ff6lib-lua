@@ -32,7 +32,7 @@ function ShopWindow:showIndexUI()
 		ig.igPushID_Int(i)
 		self:editItemRef(items.s+i, 'i')
 		local item = game.items + items.s[i].i
-		local price = item.buyPrice
+		local price = item.price
 		ig.igSameLine()
 		ig.igText('$'..price)
 		ig.igPopID()
