@@ -379,7 +379,9 @@ print('song #'..i
 	..' addr '..('0x%06x'):format(startAddr)..' - '..('0x%06x'):format(endAddr)
 	..' len', '0x'..bit.tohex(endAddr - startAddr))
 print('instruments: '..ffi.string(
-		ffi.cast('uint8_t*', game.songInstruments + i), 32
+		ffi.cast('uint8_t*', game.songInstruments + i)-1,
+			-- -1 because I guess the instruments first entry is only 31 bytes?
+		32
 	):gsub('.', function(ch)
 		return (' %02x'):format(ch:byte())
 	end)
