@@ -454,6 +454,7 @@ assert.eq(ffi.sizeof(MapColorMathProps), 3)
 ---------------- AUDIO ----------------
 
 local numBRRSamples = 63
+local numSongs = 85
 
 ---------------- SPELLS ----------------
 
@@ -2632,16 +2633,14 @@ Game = struct{
 
 		{name = 'unknown_051ec7', type = arrayType(uint8_t, -(0x051ec7 - 0x053c5f))},							-- 0x051ec7 - 0x053c5f
 
-		{name = 'brrSamplePtrs', type = arrayType(uint24_t, numBRRSamples)},									-- 0x053c5f - 0x053d1c -- BRR sample pointers (x63, 3 bytes each)
+		{name = 'brrSampleOfs', type = arrayType(uint24_t, numBRRSamples)},										-- 0x053c5f - 0x053d1c -- BRR sample pointers (x63, 3 bytes each)
 		{name = 'brrLoopStartOfs', type = arrayType(uint16_t, numBRRSamples)},									-- 0x053d1c - 0x053d9a -- loop start pointers (x63, 2 bytes each)
 		{name = 'brrPitchMults', type = arrayType(uint16_t, numBRRSamples)},									-- 0x053d9a - 0x053e18 -- pitch multipliers (x63, 2 bytes each)
 		{name = 'adsrData', type = arrayType(uint16_t, numBRRSamples)},											-- 0x053e18 - 0x053e96 -- ADSR data (x63, 2 bytes each)
-
-		{name = 'unknown_053e96', type = arrayType(uint8_t, -(0x053e96 - 0x054a35))},							-- 0x053e96 - 0x054a35
-
-		{name = 'brrSamples', type = arrayType(uint8_t, -(0x054a35 - 0x085c7a))},								-- 0x054a35 - 0x085c7a -- BRR samples (does divide evenly by  3195 x63...)
-
-		{name = 'unknown_085c7a', type = arrayType(uint8_t, -(0x085c7a - 0x09fe00))},							-- 0x085c7a - 0x09fe00
+		{name = 'songDataOfs', type = arrayType(uint24_t, numSongs)},											-- 0x053e96 - 0x053f95
+		{name = 'songInstruments', type = arrayType(arrayType(uint8_t, 32), numSongs)},							-- 0x053f95 - 0x054a35
+		{name = 'brrSampleBase', type = arrayType(uint8_t, -(0x054a35 - 0x085c7a))},							-- 0x054a35 - 0x085c7a -- BRR samples (does divide evenly by 3195 x63...)
+		{name = 'songData', type = arrayType(uint8_t, -(0x085c7a - 0x09fe00))},									-- 0x085c7a - 0x09fe00
 
 		{name = 'theEndGraphics2', type = arrayType(uint8_t, -(0x09fe00 - 0x09ff00))},							-- 0x09fe00 - 0x09ff00 = 4bpp
 		{name = 'theEndPalette', type = Palette16_8},															-- 0x09ff00 - 0x0a0000
@@ -2911,11 +2910,11 @@ assertOffset('font16_widths', 0x048fc0)
 assertOffset('font16_20_to_7f', 0x0490c0)
 assertOffset('spcMainCodeLoopLen', 0x05070e)
 assertOffset('spcMainCode', 0x050710)
-assertOffset('brrSamplePtrs', 0x053c5f)
+assertOffset('brrSampleOfs', 0x053c5f)
 assertOffset('brrLoopStartOfs', 0x053d1c)
 assertOffset('brrPitchMults', 0x053d9a)
 assertOffset('adsrData', 0x053e18)
-assertOffset('brrSamples', 0x054a35)
+assertOffset('brrSampleBase', 0x054a35)
 assertOffset('dialogOffsets', 0x0ce602)
 assertOffset('dialogBase', 0x0d0000)
 assertOffset('mapNameBase', 0x0ef100)
@@ -3019,6 +3018,7 @@ game.numFormations = numFormations
 game.numFormationSizeOffsets = numFormationSizeOffsets
 game.numPositionedText = numPositionedText
 game.numBRRSamples = numBRRSamples
+game.numSongs = numSongs
 game.numMenuChars = numMenuChars
 
 game.findu8 = findu8
