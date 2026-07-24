@@ -727,30 +727,7 @@ do
 	end):concat' ')
 end
 
---[[
-TODO
-output font ...
-	font16_20_to_7f
-
-output audio ...
-	spcMainCodeLoopLen
-	spcMainCode
-	spcMainCode
-	brrSamplePtrs
-	brrLoopStartOfs
-	brrPitchMults
-	adsrData
-	brrSamples
---]]
-
-print('spcMainCodeLoopLen = '..game.spcMainCodeLoopLen)
---[[
-print('spcMainCode = '..
-	range(0,math.min(game.spcMainCodeLoopLen, ffi.sizeof(game.spcMainCode))-1)
-	:mapi(function(i) return (' %02x'):format(game.spcMainCode[i]) end):concat()
-)
---]]
-require 'ff6.sounds'(rom, game, romsize)
+require 'ff6.run-sounds'(game)
 
 print'end of rom output'
 
