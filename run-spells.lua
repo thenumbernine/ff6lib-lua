@@ -9,7 +9,8 @@ local function runSpells(game, cmdline)
 	print'spells = {'
 	local countof = game.countof
 	for i=0,countof(game.spells)-1 do
-		print('\t['..i..'] = {')
+		--print('\t['..i..'] = {')
+		print('\t{')
 		print('\t\tname="'..game.getSpellName(i)..'",')
 		local desc = game.getSpellDesc(i)
 		if desc then
