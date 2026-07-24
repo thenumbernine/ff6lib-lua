@@ -31,6 +31,18 @@ require 'run-monster-script'(game)	-- battle scripts
 require 'run-spells'(game)			-- spells table
 require 'run-items'(game)			-- items table
 
+for i=0,countof(game.itemTypeNames)-1 do
+	print('item type #'..i..' = '..game.itemTypeNames[i])
+end
+print()
+
+for i=0,game.numRareItems-1 do
+	print('rare item #'..i)
+	print('name="'..game.rareItemNames[i]..'"')
+	print('desc="'..game.gamezstr(game.rareItemDescBase + game.rareItemDescOffsets[i])..'"')
+	print()
+end
+
 for i=0,game.numEspers-1 do
 	print('esper #'..i)
 	print('Name="'..game.getEsperName(i)..'"')
@@ -44,18 +56,6 @@ for i=0,game.numEsperBonuses-1 do
 	print('esper bonus #'..i)
 	print('desc = "'..game.esperBonusDescs[i]..'"')
 	print('long desc = "'..game.gamezstr(game.longEsperBonusDescBase  + game.longEsperBonusDescOffsets[i])..'"')
-	print()
-end
-
-for i=0,countof(game.itemTypeNames)-1 do
-	print('item type #'..i..' = '..game.itemTypeNames[i])
-end
-print()
-
-for i=0,game.numRareItems-1 do
-	print('rare item #'..i)
-	print('name="'..game.rareItemNames[i]..'"')
-	print('desc="'..game.gamezstr(game.rareItemDescBase + game.rareItemDescOffsets[i])..'"')
 	print()
 end
 

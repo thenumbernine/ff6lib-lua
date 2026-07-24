@@ -252,7 +252,6 @@ local function runSound(game, cmdline)
 	end
 
 
-
 	--[[
 	now to hack out the songs
 	this is from http://www.rpglegion.com/ff6/hack/ff3info.txt
