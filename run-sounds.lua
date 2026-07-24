@@ -369,15 +369,27 @@ local function runSound(game, cmdline)
 	local musicPath = path'music'
 	musicPath:mkdir(true)
 	for i=0,#songAddrs-1 do
-		local startAddr = songAddrs[i+1]
+		local lenAddr = songAddrs[i+1]
+		-- length of track minus 2 bytes (for the length of the track)
+		local len = ffi.cast('uint16_t*', rom + lenAddr)[0]
+
+		--[[ this matches endAddr except last track...
 		local sortedIndex = sortedSongAddrs:find(startAddr)
 		local endAddr = sortedIndex
 			and sortedSongAddrs[sortedIndex+1]
 			or (ffi.offsetof(game.Game, 'songData') + ffi.sizeof(game.songData))
 		-- now ...... what's the format?
+		local len2 = endAddr - startAddr
+		print('len', len, 'len2', len2)
+		--]]
+		-- [[
+		local startAddr = lenAddr + 2
+		local ptr = rom + startAddr
+		local endAddr = startAddr + len
+		--]]
 print('song #'..i
-	..' addr '..('0x%06x'):format(startAddr)..' - '..('0x%06x'):format(endAddr)
-	..' len', '0x'..bit.tohex(endAddr - startAddr))
+	..' addr '..('0x%06x'):format(lenAddr)..' - '..('0x%06x'):format(endAddr)
+	..' len', '0x'..bit.tohex(endAddr - lenAddr))
 		local instruments = ffi.cast('uint8_t*', game.songInstruments + i)-1
 		-- -1 because I guess the instruments first entry is only 31 bytes?
 print('instruments: '..ffi.string(instruments, 32)
@@ -386,8 +398,8 @@ print('instruments: '..ffi.string(instruments, 32)
 	end)
 )
 
-		local d = ffi.string(rom + startAddr, endAddr - startAddr)
-		musicPath('song'..i..'.bin'):write(d)
+		local d = ffi.string(ptr-2, len+2)
+		musicPath('song'..i..'.spc'):write(d)
 		musicPath('song'..i..'.hex'):write(string.hexdump(d))
 
 		--[[
@@ -425,8 +437,11 @@ F1 ss xx    Fade tempo to xx at speed ss
 F2 xx       Set echo to xx
 F3 ss xx    Fade echo to xx at speed ss
 
-TODO what is MIDI's format?
+TODO what is MIDI's format?  how to convert?
+or should I bake it into WAV? then convert to mp3?
+and how about exporting to numo9's music format?
 		--]]
+
 	end
 end
 
