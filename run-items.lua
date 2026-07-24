@@ -27,7 +27,7 @@ local equippableTypes = table{'Weapon', 'Body', 'Shield', 'Headgear', 'Accessory
 local function runItems(game, cmdline)
 	print'items = {'
 	for i=0,game.numItems-1 do
-		print('\t['..i..'] = {')
+		print('\t{')
 		print('\t\tname="'..game.itemNames[i]..'",')
 		local desc = string.trim(game.gamezstr(game.itemDescBase + game.itemDescOffsets[i]))
 		if desc ~= '' then
