@@ -82,6 +82,7 @@ local function runSound(game, cmdline)
 	brrpath:mkdir()
 	local wavpath = path'wav'
 	wavpath:mkdir()
+	local wavSamples = table()
 	print'brr data:'
 	for i=0,game.numBRRSamples-1 do
 		local startAddr = brrAddrs[i] + 2			-- skip past the length info
@@ -110,7 +111,7 @@ local function runSound(game, cmdline)
 
 		-- write out the brr
 		-- should I put pitch, adsr, loop info at the start of the brr sample?
-		brrpath(i..'.brr'):write(ffi.string(rom + startAddr, len))
+		brrpath(('%02X'):format(i+1)..'.brr'):write(ffi.string(rom + startAddr, len))
 		-- write out the wav too
 		-- that means converting it from brr to wav
 		-- that means ... 16bpp samples, x16 samples per brr-frame
@@ -119,6 +120,7 @@ local function runSound(game, cmdline)
 		local brrptr = rom + startAddr
 		local wavptr = wavData + 0
 		local lastSample = ffi.new('int16_t[2]', {0,0})	-- for filters
+		wavSamples[i+1] = {data=wavData, numSamples=numSamples}
 		local function clampbits(x, b)
 			return math.clamp(x, bit.lshift(-1, b-1), bit.lshift(1, b-1)-1)
 		end
@@ -422,8 +424,11 @@ SPC song data:
 80-8A       Play note, frequency 8
 90-9A       Play note, frequency 9
 A0-AA       Play note, frequency 10
+	-- "play note at frequency" but notes are frequencies.  they are a frequency of `f0 * 2^(i/12)`
+	-- does 'note' in this case mean 'instrument'?
 B0-BA       Play silence
 C4 xx       Set volume of channel to xx (00-7F), higher values == greater volume.
+	-- how to change channel? or can you?
 C5 ss xx    Fade volume to xx at speed ss
 C6 xx       Pan song left->right as xx (00-7F) increases
 C7 xx       Pan song right->left as xx (00-7F) increases
@@ -448,7 +453,108 @@ or should I bake it into WAV? then convert to mp3?
 and how about exporting to numo9's music format?
 		--]]
 
+		local cmds = table()
+		local endptr = rom + endAddr
+		local ptr = rom + startAddr
+		while ptr < endptr do
+			local cmd = ptr[0]
+			local lo = bit.band(0xf, cmd)
+			local hi = bit.band(0xf, bit.rshift(cmd, 4))
+			if lo < 11 and hi < 11 then
+				cmds:insert('play instrument '..lo..' at note '..hi)	-- 
+			elseif cmd >= 0xb0 and cmd <= 0xba then
+				cmds:insert('silence '..cmd)
+			elseif cmd == 0xc4 then
+				cmds:insert('set volume to '..ptr[1])	-- last bit means something
+				ptr = ptr + 1
+			elseif cmd == 0xc5 then
+				cmds:insert('fade volume to '..ptr[2]..' at speed '..ptr[1])
+				ptr = ptr + 2
+			elseif cmd == 0xc6 then
+				cmds:insert('pan song left->right as '..ptr[1]..' increases')	-- last bit means something
+				ptr = ptr + 1
+			elseif cmd == 0xc7 then
+				cmds:insert('pan song right->left as '..ptr[1]..' increases')	-- last bit means something
+				ptr = ptr + 1
+			elseif cmd == 0xcd then
+				cmds:insert('pan repeatedly back and forth at speed '..ptr[1])
+				ptr = ptr + 1
+			elseif cmd == 0xce then
+				cmds:insert('disable pan loop')
+			elseif cmd == 0xd7 then
+				cmds:insert('raise octave by 1')
+			elseif cmd == 0xd8 then
+				cmds:insert('lower octave by 1')
+			elseif cmd == 0xe6 then
+				cmds:insert('enable vibrato')
+			elseif cmd == 0xe7 then
+				cmds:insert('disable vibrato')
+			elseif cmd == 0xf0 then
+				cmds:insert('set tempo to '..ptr[1])
+				ptr = ptr + 1
+			elseif cmd == 0xf1 then
+				cmds:insert('set tempo to '..ptr[2]..' at speed '..ptr[1])
+				ptr = ptr + 2
+			elseif cmd == 0xf2 then
+				cmds:insert('set echo to '..ptr[1])
+				ptr = ptr + 1
+			elseif cmd == 0xf1 then
+				cmds:insert('fade echo to '..ptr[2]..' at speed '..ptr[1])
+				ptr = ptr + 2
+			else
+				cmds:insert('unknown '..('$%02X'):format(cmd))
+			end
+			ptr = ptr + 1
+		end
+		musicPath('song'..i..'-cmds.txt'):write(cmds:concat'\n'..'\n')
+
+		-- to port this over to numo9 all I gotta do is remap the instruments, then convert note freq to freq time scalar
 	end
+
+-- [=[ testing
+	local samplesPerSec = 32000	-- hz
+	local secondsPerNote = .5
+	local samplesPerNote = math.floor(samplesPerSec * secondsPerNote)
+	local lengthInNotes = 8
+	local lengthInSeconds = math.floor(secondsPerNote * lengthInNotes)
+	local numSamples = math.floor(samplesPerSec * lengthInSeconds)	-- 1 second worth
+	local wavData = ffi.new('int16_t[?]', numSamples)
+	local maxAmpl = 32767
+	local notes = {0, 2, 4, 5, 7, 9, 11, 12}
+	for i=0,numSamples-1 do
+		local t = i / samplesPerSec
+		local noteIndex = math.floor(t / secondsPerNote)
+		local sampleInNote = i % samplesPerNote
+		local freqNote = notes[1+noteIndex]
+		local freq = 2^(freqNote/12)
+		local vol = 1
+		--[[ pure sine wave
+		wavData[i] = math.floor(
+			vol
+			* maxAmpl
+			* math.sin(
+				2 * math.pi
+				* t
+				* freq
+				* 440
+			)
+		)
+		--]]
+		-- [[ one of our samples
+		local sample = wavSamples[12]
+		local srci = math.floor(sampleInNote * freq)
+		wavData[i] = srci < sample.numSamples and sample.data[srci] or 0
+		--]]
+	end
+	AudioWAV():save{
+		filename = 'test.wav',
+		ctype = 'int16_t',
+		channels = 1,
+		data = wavData,
+		size = numSamples * ffi.sizeof'int16_t',
+		freq = samplesPerSec,
+	}
+--]=]
 end
 
 --print('...', select('#', ...), ...)
