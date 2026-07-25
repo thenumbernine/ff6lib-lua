@@ -110,7 +110,7 @@ local function runSound(game, cmdline)
 
 		-- write out the brr
 		-- should I put pitch, adsr, loop info at the start of the brr sample?
-		brrpath:write(i..'.brr', ffi.string(rom + startAddr, len))
+		brrpath(i..'.brr'):write(ffi.string(rom + startAddr, len))
 		-- write out the wav too
 		-- that means converting it from brr to wav
 		-- that means ... 16bpp samples, x16 samples per brr-frame
@@ -389,13 +389,20 @@ local function runSound(game, cmdline)
 print('song #'..i
 	..' addr '..('0x%06x'):format(lenAddr)..' - '..('0x%06x'):format(endAddr)
 	..' len', '0x'..bit.tohex(endAddr - lenAddr))
-		local instruments = ffi.cast('uint8_t*', game.songInstruments + i)-1
-		-- -1 because I guess the instruments first entry is only 31 bytes?
-print('instruments: '..ffi.string(instruments, 32)
-	:gsub('.', function(ch)
-		return (' %02x'):format(ch:byte())
-	end)
-)
+		-- there should be no more than 11 instruments per song
+		local maxInstruments = 11
+		local instrumentsPtr = ffi.cast('uint16_t*', game.songInstruments + i)
+		local instruments = table()
+		for i=0,15 do
+			local value = instrumentsPtr[i]
+			if i >= maxInstruments then
+				assert.eq(value, 0)
+			else
+				instruments:insert(value)
+			end
+		end
+		assert.len(instruments, maxInstruments)
+print('instruments: '..instruments:mapi(function(value) return ('%04x'):format(value) end):concat' ')
 
 		local d = ffi.string(ptr-2, len+2)
 		musicPath('song'..i..'.spc'):write(d)
