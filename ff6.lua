@@ -1368,17 +1368,17 @@ local Monster = ff6struct{
 		{metamorphSet = 'uint8_t:5'},		-- TODO metamorphSetRef_t ?
 		{metamorphResist = 'uint8_t:3'},
 		-- 0x12:
-		{diesIfRunOutOfMP = 'uint8_t:1'},
+		{livesByMp = 'uint8_t:1'},
 		{unused_12_1 = 'uint8_t:1'},
 		{hideName = 'uint8_t:1'},
 		{unused_12_3 = 'uint8_t:1'},
 		{human = 'uint8_t:1'},
 		{unused_12_5 = 'uint8_t:1'},
-		{impCritical = 'uint8_t:1'},
+		{critHitIfImp = 'uint8_t:1'},
 		{undead = 'uint8_t:1'},
 		-- 0x13:
 		{hardToRun = 'uint8_t:1'},
-		{firstStrike = 'uint8_t:1'},
+		{attackFirst = 'uint8_t:1'},
 		{cantSuplex = 'uint8_t:1'},
 		{cantRun = 'uint8_t:1'},
 		{cantScan = 'uint8_t:1'},
@@ -1390,13 +1390,13 @@ local Monster = ff6struct{
 		-- 0x15:
 		{immuneToEffect2 = Effect2},
 		-- 0x16:
-		{elementHalfDamage = Element},
+		{elementsHalfDamage = Element},
 		-- 0x17:
-		{elementAbsorb = Element},
+		{elementsAbsorb = Element},
 		-- 0x18:
-		{elementNoEffect = Element},
+		{elementsNoEffect = Element},
 		-- 0x19:
-		{elementWeak = Element},
+		{elementsWeak = Element},
 		-- 0x1a:
 		{fightAnimation = uint8_t},
 		-- 0x1b:
@@ -1409,11 +1409,7 @@ local Monster = ff6struct{
 		-- for some reason I thought this byte was Effect4 ...
 		{unused_1e_0 = 'uint8_t:1'},
 		{Speck = 'uint8_t:1'},
-		{unused_1e_2 = 'uint8_t:1'},
-		{unused_1e_3 = 'uint8_t:1'},
-		{unused_1e_4 = 'uint8_t:1'},
-		{unused_1e_5 = 'uint8_t:1'},
-		{unused_1e_6 = 'uint8_t:1'},
+		{unused_1e_2 = 'uint8_t:5'},
 		{Paranha = 'uint8_t:1'},
 		-- 0x1f:
 		{specialAttack = 'uint8_t:6'},
