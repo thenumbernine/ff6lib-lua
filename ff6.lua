@@ -1434,8 +1434,8 @@ local MonsterItem = ff6struct{
 	fields = {
 		{rareSteal = ItemRef},
 		{commonSteal = ItemRef},
-		{rareDrop = ItemRef},
-		{commonDrop = ItemRef},
+		{rareReceive = ItemRef},
+		{commonReceive = ItemRef},
 	},
 }
 
