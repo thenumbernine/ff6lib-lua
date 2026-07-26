@@ -27,6 +27,7 @@ files = {
 	"run-spells.lua",
 	"run.lua",
 	"script.lua",
+	"sound.lua",
 	"sram.lua",
 	"util.lua",
 	"vis.lua",

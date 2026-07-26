@@ -727,7 +727,7 @@ do
 	end):concat' ')
 end
 
-require 'ff6.run-sounds'(game)
+require 'ff6.run-sound'(game)
 
 print'end of rom output'
 

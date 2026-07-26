@@ -42,38 +42,32 @@ local function runSound(game, cmdline)
 	local brrLengths = table()
 	print'brr info:'
 	for i=0,game.numBRRSamples-1 do
+		local brr = game.getBRR(i)
+
 		-- addrs are in ascending order
-		local brrAddr = bit.bor(
-			game.brrSampleOfs[i].lo,
-			bit.lshift(game.brrSampleOfs[i].hi, 16)
-		)
-		assert.ne(bit.band(0xc00000, brrAddr), 0)
-		brrAddr = brrAddr - 0xc00000
-		brrAddrs[i] = brrAddr
+		brrAddrs[i] = brr.addr
+
 		io.write(('#%02d: '):format(i))
 
 		-- first two bytes fo the sampleAddr is the length-in-bytes of the brr sample
-		local brrLen = ffi.cast('uint16_t*', rom+brrAddr)[0]
-		assert.eq(brrLen % 9, 0, "why isn't the brr length aligned to brr frames?")
-		brrLengths[i] = brrLen
+		brrLengths[i] = brr.len
 
-		local brrEndAddr = brrAddr + brrLen + 2	-- length excludes the 2 bytes of length info
-		brrEndAddrs[i] = brrEndAddr
+		brrEndAddrs[i] = brr.endAddr
 		if i > 0 then
 			-- brr data is contiguous
-			assert.eq(brrAddr, brrEndAddrs[i-1], "failed for brr sample "..i)
+			assert.eq(brr.addr, brrEndAddrs[i-1], "failed for brr sample "..i)
 		end
 
-		io.write(' sampleAddr: '..('0x%06x'):format(brrAddr))
-		io.write(' - '..('0x%06x'):format(brrEndAddr))
-		io.write(' length: '..('0x%04x'):format(brrLen))
+		io.write(' sampleAddr: '..('0x%06x'):format(brr.addr))
+		io.write(' - '..('0x%06x'):format(brr.endAddr))
+		io.write(' length: '..('0x%04x'):format(brr.len))
 
 		-- if loopStartPtr is only 16bit then it can't span the full range of the brrSample data, which covers 0x31245 bytes
 		-- so it must be an offset into the structure
 		assert.eq(game.brrLoopStartOfs[i] % 9, 0, "why isn't the brr loop aligned to brr frames?")
-		io.write(' loopStartPtr: '..('0x%04x'):format(tonumber(game.brrLoopStartOfs[i])))
-		io.write(' brrPitchMults: '..('0x%04x'):format(tonumber(game.brrPitchMults[i])))
-		io.write(' adsrData: '..('0x%04x'):format(tonumber(game.adsrData[i])))
+		io.write(' loopStartOfs: '..('0x%04x'):format(brr.loopStartOfs))
+		io.write(' pitchMult: '..('0x%04x'):format(brr.pitchMult))
+		io.write(' adsrData: '..('0x%04x'):format(brr.adsrDataAddr))
 
 		print()
 		-- then the brr data should decode until it gets to a loop frame, and ideally that'll be right before the next brr's address

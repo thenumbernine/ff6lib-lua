@@ -3179,6 +3179,8 @@ require 'ff6.maps'(game)
 -- do some initial loading ...
 require 'ff6.script'(game)
 
+-- setup functions for extracting audio
+require 'ff6.sound'(game)
 
 -- another file for this or nah?
 function game.getMenuCharImage(charIndex)
