@@ -23,7 +23,7 @@ files = {
 	"run-items.lua",
 	"run-maps.lua",
 	"run-monster-script.lua",
-	"run-sounds.lua",
+	"run-sound.lua",
 	"run-spells.lua",
 	"run.lua",
 	"script.lua",
