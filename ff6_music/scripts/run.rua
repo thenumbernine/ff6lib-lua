@@ -1,0 +1,22 @@
+#!/usr/bin/env rua
+local AudioWAV = require 'audio.io.wav'
+
+-- chdir to the script's location
+-- assume it is in ff6_music/scripts/
+path(arg[0]):getdir():cd()
+
+local dst = path'..'
+
+local game = assert(require 'ff6'((assert(path'../../../ff6/ff3usa.sfc':read()))))
+
+-- writes out 0-62
+for i=0,game.numBRRSamples-1 do
+	local brr = game.getBRR(i)
+
+	local wavArgs = brr:getWAV()
+	local basename = ('%02X'):format(i+1)
+	wavArgs.filename = dst('sfx'..(i==0 and '' or i)..'.wav').path
+	AudioWAV():save(wavArgs)
+end
+
+-- TODO now write out music into my weird delta-compressed tracker format
