@@ -366,14 +366,20 @@ end
 
 ---------------- GRAPHICS ----------------
 
-local RGBA5551 = ff6struct{
+local RGBA5551 = struct{
 	ctypeOnly = true,
+	tostringFields = true,
+	tostringOmitFalse = true,
+	tostringOmitNil = true,
+	tostringOmitEmpty = true,
+
 	fields = {
-		{r = 'uint16_t:5'},
-		{g = 'uint16_t:5'},
-		{b = 'uint16_t:5'},
-		{a = 'uint16_t:1'},
+		{name='r', type='uint16_t:5'},
+		{name='g', type='uint16_t:5'},
+		{name='b', type='uint16_t:5'},
+		{name='a', type='uint16_t:1'},
 	},
+
 	metatable = function(mt)
 		mt.rgba = function(self)
 			return
