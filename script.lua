@@ -506,7 +506,7 @@ return function(game)
 				-- 1's comp is negative scrolling?
 				desc = 'scrollBackgroundLayer{'
 					..'layer=<?=layer?>'
-					..'<?=_1scomp and ", 1sCompliment=true" or ""?>'
+					..'<?=_1scomp and ", _1scomp=true" or ""?>'
 					..', hscroll=<?=hscroll?>'
 					..', vscroll=<?=vscroll?>'
 					..'}',
