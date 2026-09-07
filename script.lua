@@ -656,7 +656,7 @@ return function(game)
 		and bit7 in dir is being used ...
 		--]]
 		argtypes = {uint16_t, uint8_t, uint8_t, uint8_t},
-		argnames = {'mapIndex', 'dir', 'x', 'y'},
+		argnames = {'mapIndex', 'x', 'y', 'dir'},
 		desc = 'setParentMap{mapIndex=<?=mapIndex?>, dir=<?=dir?>, pos={<?=x?>, <?=y?>}}',
 	}
 
