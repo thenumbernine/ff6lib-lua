@@ -2161,7 +2161,7 @@ local Door = ff6struct{
 		-- TODO also MapDest ... anonymous inline?
 		{mapIndex = 'uint16_t:9'},		-- 2.0-3.0: maps[]
 		{setParentMap = 'uint16_t:1'},	-- 3.1
-		{zLevel = 'uint16_t:1'},		-- 3.2
+		{zLevel = 'uint16_t:1'},		-- 3.2 ... TODO "zUpper", to match script.lua's setMap ?
 		{showDestName = 'uint16_t:1'},	-- 3.3
 		{destFacingDir = 'uint16_t:2'},	-- 3.4-3.5
 		{unknown_3_6 = 'uint16_t:2'},	-- 3.6-3.7
@@ -2191,9 +2191,9 @@ local BigDoor = struct{
 				tostringOmitNil = true,
 				tostringOmitEmpty = true,
 				fields = {
-					{name='mapIndex', type='uint16_t:9'},	-- 3.0-4.0: maps[]
+					{name='mapIndex', type='uint16_t:9'},		-- 3.0-4.0: maps[]
 					{name='setParentMap', type='uint16_t:1'},	-- 3.1
-					{name='zLevel', type='uint16_t:1'},		-- 3.2
+					{name='zLevel', type='uint16_t:1'},			-- 3.2 -- TODO "zUpper" ?
 					{name='showDestName', type='uint16_t:1'},	-- 3.3
 					{name='destFacingDir', type='uint16_t:2'},	-- 3.4-3.5
 					{name='unknown_3_6', type='uint16_t:2'},	-- 3.6-3.7
