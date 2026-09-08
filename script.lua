@@ -415,7 +415,7 @@ return function(game)
 		argnames = {'arg'},
 		paletteName = 'Background',
 		desc = 'change<?=paletteName?>Palette{'
-			..'func=<?=bit.band(3, bit.rshift(arg, 6))?>'
+			..'func=<?=bit.band(7, bit.rshift(arg, 5))?>'
 			..', color=<?=bit.band(7, bit.rshift(arg, 2))?>'
 			..', intensity=<?=bit.band(3, arg)?>'
 			..'<?=firstColor and ", "..firstColor or ""?>'
