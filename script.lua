@@ -2652,7 +2652,7 @@ print()
 		[0x0aca64] = "SetCharFlagForDir",
 		[0x0aca8d] = "MoveToFaceUpAtNPC",
 		[0x0acb95] = "PartyHideAllExceptLeaderAndGiveUserControl",
-		[0x0acd31] = "InnNoCream",
+		[0x0acd31] = "InnNoDream",
 		[0x0acd3c] = "InnNormal",
 		[0x0acd5b] = "InnDream1",
 		[0x0acdd9] = "InnDream2",
