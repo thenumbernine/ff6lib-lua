@@ -2,8 +2,7 @@
 --[[
 source is everything8215 ff6/notes/battle-lists.txt:952 Battle Animation Commands
 
-this is both battleAnimScripts, for what to do when you cast a spell/effect (there's 660 of those)
-and it is battleEventScripst, 33 special events run mid-battle
+TODO convert this to use ff6.script please
 --]]
 local ffi = require 'ffi'
 local path = require 'ext.path'
@@ -26,11 +25,14 @@ local function outputBattleAnimScripts(game)
 			--n = 660,
 			offsetArray = game.battleAnimScriptOffsets,
 		},
+		--[[ hmm TODO this isn't battle-animation cmd-set after all
+		-- TODO make this out of ff6.script
 		{
 			name = 'battleEventScript',
 			n = game.countof(game.battleEventScriptOfs),
 			offsetArray = game.battleEventScriptOfs,
 		},
+		--]]
 	} do
 		local n = info.n
 		local name = info.name

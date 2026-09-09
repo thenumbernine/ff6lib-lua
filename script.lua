@@ -142,6 +142,7 @@ return function(game)
 	local WorldCmds = {}
 	local ObjectCmds = {}
 	local VehicleCmds = {}
+	local BattleEventCmds = {}	-- only used by game.battleEventScript[]
 
 
 	-- event-commands:
@@ -216,7 +217,6 @@ return function(game)
 		cmd = 0x39,
 		desc = 'setScreenLocked(false)',
 	}
-
 
 	EventCmds.EnableUserControl = EventCmd:subclass{
 		cmd = 0x3a,
@@ -2298,6 +2298,118 @@ cl.classname = k
 			}
 		end
 	end
+
+
+	-- battle-event-script:
+
+
+	game.BattleEventCmds = BattleEventCmds
+	local BattleEventCmd = Cmd:subclass()
+	game.BattleEventCmd  = BattleEventCmd
+
+	BattleEventCmds.BattleDialogTop = BattleEventCmd:subclass{
+		cmd = 0x00,
+		argtypes = {uint8_t},
+		argnames = {'index'},
+		__tostring = function(self)
+			return 'dialogTop('..tolua(tostring(game.battleDialog[self.index]))..')'
+		end,
+	}
+	BattleEventCmds.BattleDialogBottom = BattleEventCmd:subclass{
+		cmd = 0x01,
+		argtypes = {uint8_t},
+		argnames = {'index'},
+		__tostring = function(self)
+			return 'dialogBottom('..tolua(tostring(game.battleDialog[self.index]))..')'
+		end,
+	}
+	-- 0x02 is unused?
+	for i=0,3 do
+		BattleEventCmds['CharAnim'..i] = BattleEventCmd:subclass{
+			cmd = 0x03 + i,
+			argtypes = {uint8_t, uint16_t},
+			argnames = {'char', 'addrOfs'},	-- addrOfs relative to 0x100000 / 0xd00000 probably for all battle events
+			__tostring = function(self)
+				return 'charAnim('
+					..i..', '
+					..self.char..', '
+					..('0x04x'):format(self.addOfs)
+				')'
+			end,
+		}
+	end
+	for i=0,5 do
+		BattleEventCmds['MonsterAnim'..i] = BattleEventCmd:subclass{
+			cmd = 0x07 + i,
+			argtypes = {uint8_t, uint16_t},
+			argnames = {'char', 'addrOfs'},	-- addrOfs relative to 0x100000 / 0xd00000 probably for all battle events
+			__tostring = function(self)
+				return 'monsterAnim('
+					..i..', '
+					..self.char..', '
+					..('0x04x'):format(self.addOfs)
+				')'
+			end,
+		}
+	end
+	BattleEventCmds.AttackAnim = BattleEventCmd:subclass{
+		cmd = 0x0d,
+		argtypes = {uint8_t, uint8_t, uint8_t},
+		argnames = {'anim', 'attacker', 'targets'},
+		desc = 'attackAnim(<?=anim?>, <?=attacker?>, <?=targets?>)',
+	}
+	BattleEventCmds.ResetAnim = BattleEventCmd:subclass{
+		cmd = 0x0e,
+		desc = 'resetAnim()',
+	}
+	BattleEventCmds.ExecAnim = BattleEventCmd:subclass{
+		cmd = 0x0f,
+		desc = 'execAnim()',
+	}
+	BattleEventCmds.CloseDialog = BattleEventCmd:subclass{
+		cmd = 0x10,
+		desc = 'closeDialog()',
+	}
+	BattleEventCmds.OpenDialog = BattleEventCmd:subclass{
+		cmd = 0x11,
+		desc = 'openDialog()',
+	}
+	BattleEventCmds.AllCharsAnim = BattleEventCmd:subclass{
+		cmd = 0x12,
+		desc = 'allCharsAnim()',
+	}
+	BattleEventCmds.AddCharTarget = BattleEventCmd:subclass{
+		cmd = 0x13,
+		argtypes = {uint8_t},
+		argnames = {'target'},
+		desc = 'addCharTarget(<?=target?>)',
+	}
+	BattleEventCmds.ShowCharMenu = BattleEventCmd:subclass{
+		cmd = 0x14,
+		argtypes = {uint8_t},
+		argnames = {'target'},
+		desc = 'showCharMenu(<?=target?>)',
+	}
+	BattleEventCmds.EndScript = BattleEventCmd:subclass(EndScript, {
+		cmd = 0xff,
+	})
+	for _,k in ipairs(table.keys(BattleEventCmds)) do
+		local cl = BattleEventCmds[k]
+		if cl.cmd then	-- some abstract classes are in BattleEventCmds but don't have a .cmd
+			assert.type(cl.cmd, 'number')
+cl.classname = k
+			BattleEventCmds[cl.cmd] = cl
+		end
+	end
+	for i=0,255 do
+		if not BattleEventCmds[i] then
+			BattleEventCmds[i] = BattleEventCmd:subclass{
+				cmd = i,
+				desc = '??? '..('0x%02x'):format(i),
+			}
+		end
+	end
+
 
 
 	-- still to do, monster-script maybe?

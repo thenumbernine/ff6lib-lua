@@ -667,6 +667,7 @@ print(game.dialog)
 -- referenced by game.monsterScripts[]'s command 0xf3
 print(game.monsterDialog)
 
+-- referenced by battleEventScripts[]
 print(game.battleDialog)
 
 -- used for skills?
