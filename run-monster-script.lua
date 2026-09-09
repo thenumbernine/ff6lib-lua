@@ -295,7 +295,11 @@ return {
 					-- or p[2] == 2, ip[3] == 2 <-> action == magic, spell #2 == bolt?
 					out = ifStmt..' wasTargetedWithAction('..actions..')'
 				elseif condIndex == 2 then
-					out = ifStmt..' wasTargetedWithSpell('..p[2]..', '..p[3]..')'
+					out = ifStmt..' wasTargetedWithSpell('..(
+						p[2] == p[3]
+						and tostring(p[2])
+						or (p[2]..', '..p[3])
+					)..')'
 				elseif condIndex == 3 then
 					local item1 = ('%q'):format(getItemName(p[2]))
 					local item2 = ('%q'):format(getItemName(p[3]))
