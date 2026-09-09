@@ -661,10 +661,18 @@ print()
 
 require 'ff6.run-maps'(rom, game, romsize)
 
+-- referenced by event-scripts:
 print(game.dialog)
+
+-- referenced by game.monsterScripts[]'s command 0xf3
+print(game.monsterDialog)
+
 print(game.battleDialog)
-print(game.battleDialog2)
+
+-- used for skills?
 print(game.battleMessages)
+
+-- used for shop names?
 print(game.positionedText)
 
 

@@ -2690,8 +2690,8 @@ Game = struct{
 		{name = 'monsterNameThing', type = arrayType(uint8_t, numMonsters)},									-- 0x0fcf50 - 0x0fd0d0
 		{name = 'monsterAttackNames', type = arrayType(MonsterName, numMonsters)},								-- 0x0fd0d0 - 0x0fdfd0
 		{name = 'padding_0fdfd0', type = arrayType(uint8_t, 0x10)},												-- 0x0fdfd0 - 0x0fdfe0 = 'ff's
-		{name = 'battleDialogOffsets', type = arrayType(uint16_t, numBattleDialogs)},							-- 0x0fdfe0 - 0x0fe1e0
-		{name = 'battleDialogBase', type = arrayType(uint8_t, -(0x0fe1e0 - 0x0ff450))},							-- 0x0fe1e0 - 0x0ff450
+		{name = 'monsterDialogOffsets', type = arrayType(uint16_t, numBattleDialogs)},							-- 0x0fdfe0 - 0x0fe1e0
+		{name = 'monsterDialogBase', type = arrayType(uint8_t, -(0x0fe1e0 - 0x0ff450))},							-- 0x0fe1e0 - 0x0ff450
 
 		{name = 'unknown_0ff450', type = arrayType(uint8_t, -(0x0ff450 - 0x0ffc00))},							-- 0x0ff450 - 0x0ffc00
 
@@ -2715,8 +2715,8 @@ Game = struct{
 
 		{name = 'unknown_109800', type = arrayType(uint8_t, -(0x109800 - 0x10d000))},							-- 0x109800 - 0x10d000
 
-		{name = 'battleDialog2Offsets', type = arrayType(uint16_t, numBattleDialog2s)},							-- 0x10d000 - 0x10d200
-		{name = 'battleDialog2Base', type = arrayType(uint8_t, -(0x10d200 - 0x10fd00))},						-- 0x10d200 - 0x10fd00
+		{name = 'battleDialogOffsets', type = arrayType(uint16_t, numBattleDialog2s)},							-- 0x10d000 - 0x10d200
+		{name = 'battleDialogBase', type = arrayType(uint8_t, -(0x10d200 - 0x10fd00))},						-- 0x10d200 - 0x10fd00
 
 		{name = 'battleAI', type = arrayType(uint8_t, -(0x10fd00 - 0x10ff40))},									-- 0x10fd00 - 0x10ff40
 		{name = 'unknown_10ff40', type = arrayType(uint8_t, -(0x10ff40 - 0x110141))},							-- 0x10ff40 - 0x110141
@@ -2940,7 +2940,7 @@ assertOffset('blitzDescOffsets', 0x0fff9e)
 assertOffset('swordTechDescOffsets', 0x0fffae)
 assertOffset('battleAnimScripts', 0x0fffbe)
 assertOffset('battleAnimSets', 0x107fb2)
-assertOffset('battleDialog2Offsets', 0x10d000)
+assertOffset('battleDialogOffsets', 0x10d000)
 assertOffset('battleAnimFrame16x16Tiles', 0x110141)
 assertOffset('battleMessageOffsets', 0x11f7a0)
 assertOffset('mogDanceBackgrounds', 0x11f9ab)
@@ -3071,17 +3071,18 @@ game.dialog = StringList{
 	end,
 }
 
+game.monsterDialog = StringList{
+	name = 'monster dialog',
+	data = gameC.monsterDialogBase,
+	offsets = gameC.monsterDialogOffsets,
+	addrBase = rom + 0x0f0000,
+}
+
+-- these are in-battle dialogs
 game.battleDialog = StringList{
 	name = 'battle dialog',
 	data = gameC.battleDialogBase,
 	offsets = gameC.battleDialogOffsets,
-	addrBase = rom + 0x0f0000,
-}
-
-game.battleDialog2 = StringList{
-	name = 'battle dialog2',
-	data = gameC.battleDialog2Base,
-	offsets = gameC.battleDialog2Offsets,
 	addrBase = rom + 0x100000,
 }
 

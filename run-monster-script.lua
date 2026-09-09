@@ -164,7 +164,7 @@ return {
 				-- numBattleMessages = 0x100
 				local i = ffi.cast('uint16_t*', p+1)[0]
 				-- i is from 0 to 140
-				out = 'dialog('..tolua(game.battleDialog[i])..')\t-- '..i
+				out = 'dialog('..tolua(game.monsterDialog[i])..')\t-- '..i
 				p=p+3
 			elseif cmd == 0xf4 then
 				out = 'cmd('..table{p[1], p[2], p[3]}:concat', '..')'
@@ -200,7 +200,7 @@ return {
 				p=p+4
 			elseif cmd == 0xf7 then
 				local x = p[1]
-				-- this must be what does the battleDialog2[] or battleMessages[]....
+				-- this must be what does the battleDialog[]....
 				out = 'doBattleEvent('..x..')'
 				p=p+2
 			elseif cmd == 0xf8 then
