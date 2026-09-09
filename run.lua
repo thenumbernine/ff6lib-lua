@@ -27,7 +27,7 @@ local countof = game.countof
 -- meh the one giant out file is too big
 -- maybe make run.lua spit out individual files?
 require 'run-event-script'(game)	-- event, vehicle, world, object scripts
-require 'run-monster-script'(game)	-- battle scripts
+require 'run-monster-script'(game)	-- monstere ai scripts
 require 'run-spells'(game)			-- spells table
 require 'run-items'(game)			-- items table
 
@@ -703,6 +703,31 @@ print('battleGreenPalette = '..game.battleGreenPalette)
 print('battleRedPalette = '..game.battleRedPalette)
 print('battleMenuPalettes = '..game.battleMenuPalettes)
 print()
+
+do
+	local n = game.countof(game.battleEventScriptOfs)
+	-- get all addrs in order
+	-- because they're not sorted, right?
+	local addrs = range(0,n-1):mapi(function(i)
+		return game.battleEventScriptOfs[i]
+	end)
+	:mapi(function(addr) return true, addr end)
+	:keys():sort()
+
+	for i=0,n-1 do
+		local addr = game.battleEventScriptOfs[i]
+		local addrIndex = addrs:find(addr)
+		local nextAddr = addrs[addrIndex+1] or 0xd000
+		local len = nextAddr - addr
+		print('battle event script #'..i
+			..' addr 0x'..('%04x'):format(addr)
+			..' len 0x'..('%04x'):format(len)
+		)
+		print(ffi.string(rom + (0x100000 + addr), len):gsub('.', function(ch)
+			return (' %02x'):format(ch:byte())
+		end))
+	end
+end
 
 require 'ff6.run-battleanim'(game)
 require 'ff6.run-battleanim-script'(game)

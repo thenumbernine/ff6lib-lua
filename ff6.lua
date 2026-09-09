@@ -2713,7 +2713,8 @@ Game = struct{
 		{name = 'battleAnimSets', type = arrayType(BattleAnimSet, 444)},										-- 0x107fb2 - 0x1097fa
 		{name = 'padding_1097fa', type = arrayType(uint8_t, -(0x1097fa - 0x109800))},							-- 0x1097fa - 0x109800 = 'ff's, just like the end of battleAnimSets
 
-		{name = 'unknown_109800', type = arrayType(uint8_t, -(0x109800 - 0x10d000))},							-- 0x109800 - 0x10d000
+		{name = 'battleEventScriptOfs', type = arrayType(uint16_t, 33)},										-- 0x109800 - 0x109842 = relative to 0x100000, within battleEventScripts[]
+		{name = 'battleEventScripts', type = arrayType(uint8_t, -(0x109842 - 0x10d000))},						-- 0x109842 - 0x10d000
 
 		{name = 'battleDialogOffsets', type = arrayType(uint16_t, numBattleDialog2s)},							-- 0x10d000 - 0x10d200
 		{name = 'battleDialogBase', type = arrayType(uint8_t, -(0x10d200 - 0x10fd00))},							-- 0x10d200 - 0x10fd00
