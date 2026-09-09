@@ -704,6 +704,7 @@ print('battleRedPalette = '..game.battleRedPalette)
 print('battleMenuPalettes = '..game.battleMenuPalettes)
 print()
 
+--[=[ now in run-battleanim-script (TODO rename the file)
 do
 	local n = game.countof(game.battleEventScriptOfs)
 	-- get all addrs in order
@@ -728,6 +729,7 @@ do
 		end))
 	end
 end
+--]=]
 
 require 'ff6.run-battleanim'(game)
 require 'ff6.run-battleanim-script'(game)

@@ -1,6 +1,9 @@
 #!/usr/bin/env luajit
 --[[
 source is everything8215 ff6/notes/battle-lists.txt:952 Battle Animation Commands
+
+this is both battleAnimScripts, for what to do when you cast a spell/effect (there's 660 of those)
+and it is battleEventScripst, 33 special events run mid-battle
 --]]
 local ffi = require 'ffi'
 local path = require 'ext.path'
