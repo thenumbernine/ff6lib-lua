@@ -2716,7 +2716,7 @@ Game = struct{
 		{name = 'unknown_109800', type = arrayType(uint8_t, -(0x109800 - 0x10d000))},							-- 0x109800 - 0x10d000
 
 		{name = 'battleDialogOffsets', type = arrayType(uint16_t, numBattleDialog2s)},							-- 0x10d000 - 0x10d200
-		{name = 'battleDialogBase', type = arrayType(uint8_t, -(0x10d200 - 0x10fd00))},						-- 0x10d200 - 0x10fd00
+		{name = 'battleDialogBase', type = arrayType(uint8_t, -(0x10d200 - 0x10fd00))},							-- 0x10d200 - 0x10fd00
 
 		{name = 'battleAI', type = arrayType(uint8_t, -(0x10fd00 - 0x10ff40))},									-- 0x10fd00 - 0x10ff40
 		{name = 'unknown_10ff40', type = arrayType(uint8_t, -(0x10ff40 - 0x110141))},							-- 0x10ff40 - 0x110141
