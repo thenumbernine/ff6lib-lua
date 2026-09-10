@@ -59,10 +59,14 @@ return function(game)
 
 	-- should I even bounds check?
 	local scriptBaseAddr = ffi.offsetof(Game, 'eventScript')	-- 0xa0000
-	local scriptBaseAddrEnd = ffi.offsetof(Game, 'eventScript') + ffi.sizeof(game.eventScript)
+	local scriptBaseAddrEnd = scriptBaseAddr + ffi.sizeof(game.eventScript)
 
 	local scriptBaseAddr2 = ffi.offsetof(Game, 'dialogBase')
-	local scriptBaseAddrEnd2 = ffi.offsetof(Game, 'dialogBase') + ffi.sizeof(game.dialogBase)
+	local scriptBaseAddrEnd2 = scriptBaseAddr2 + ffi.sizeof(game.dialogBase)
+
+	-- 0x109800 - 0x10d000
+	local battleEventScriptAddr = ffi.offsetof(Game, 'battleEventScriptOfs')
+	local battleEventScriptAddrEnd = battleEventScriptAddr + ffi.sizeof(game.battleEventScriptOfs) + ffi.sizeof(game.battleEventScripts)
 
 --DEBUG:print('event script ranges:')
 --DEBUG:print(game.addrLabel(scriptBaseAddr)..'-'..game.addrLabel(scriptBaseAddrEnd))
@@ -2334,7 +2338,7 @@ cl.classname = k
 					..i..', '
 					..self.char..', '
 					..('0x04x'):format(self.addOfs)
-				')'
+				..')'
 			end,
 		}
 	end
@@ -2348,7 +2352,7 @@ cl.classname = k
 					..i..', '
 					..self.char..', '
 					..('0x04x'):format(self.addOfs)
-				')'
+				..')'
 			end,
 		}
 	end
@@ -2376,7 +2380,21 @@ cl.classname = k
 	}
 	BattleEventCmds.AllCharsAnim = BattleEventCmd:subclass{
 		cmd = 0x12,
-		desc = 'allCharsAnim()',
+		argtypes = table{uint16_t}:rep(24),
+		__tostring = function(self)
+			return 'allCharsAnim('
+				..self.args
+				:mapi(function(addr)
+					return ('0x%04x'):format(addr)
+				end)
+				:concat', '
+			..')'
+		end,
+		getBranchAddrs = function(self)
+			return self.args:mapi(function(addr)
+				return {addr = 0x100000 + addr}
+			end)
+		end,
 	}
 	BattleEventCmds.AddCharTarget = BattleEventCmd:subclass{
 		cmd = 0x13,
@@ -2548,6 +2566,7 @@ print(('BEGIN '..game.addrLabel(startAddr))
 			if not (
 				(scriptBaseAddr <= addr and addr < scriptBaseAddrEnd)
 				or (scriptBaseAddr2 <= addr and addr < scriptBaseAddrEnd2)
+				or (battleEventScriptAddr <= addr and addr < battleEventScriptAddrEnd)
 			) then
 print('!!! script oob !!! '..game.addrLabel(addr))
 				break
@@ -2813,6 +2832,17 @@ print()
 			cmdset = 'EventCmds',
 			inVehicle = true,
 			reverseRefInfo = {builtin = name},
+		}
+	end
+
+	-- battle-event scripts here too?
+	-- they will have a different base-offset than the other 4 cmdsets
+	for i=0,countof(game.battleEventScriptOfs)-1 do
+		local addr = 0x100000 + game.battleEventScriptOfs[i]
+		decompileFrom{
+			addr = addr,
+			cmdset = 'BattleEventCmds',
+			reverseRefInfo = {builtin = 'battleEvent'..i},
 		}
 	end
 	--]]

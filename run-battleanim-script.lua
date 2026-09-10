@@ -25,14 +25,6 @@ local function outputBattleAnimScripts(game)
 			--n = 660,
 			offsetArray = game.battleAnimScriptOffsets,
 		},
-		--[[ hmm TODO this isn't battle-animation cmd-set after all
-		-- TODO make this out of ff6.script
-		{
-			name = 'battleEventScript',
-			n = game.countof(game.battleEventScriptOfs),
-			offsetArray = game.battleEventScriptOfs,
-		},
-		--]]
 	} do
 		local n = info.n
 		local name = info.name

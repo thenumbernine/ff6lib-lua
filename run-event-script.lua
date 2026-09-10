@@ -205,6 +205,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 				WorldCmds = 'WO',
 				ObjectCmds = 'OB',
 				VehicleCmds = 'VE',
+				BattleEventCmds = 'BE',
 			})[self.cmdset]
 
 			-- print out bytes
@@ -600,6 +601,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		check(game.ObjectCmds[i])
 		check(game.WorldCmds[i])
 		check(game.VehicleCmds[i])
+		check(game.BattleEventCmds[i])
 	end
 
 
