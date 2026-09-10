@@ -2337,7 +2337,7 @@ cl.classname = k
 				return 'charAnim('
 					..i..', '
 					..self.char..', '
-					..('0x04x'):format(self.addOfs)
+					..('0x%04x'):format(self.addrOfs)
 				..')'
 			end,
 		}
@@ -2351,7 +2351,7 @@ cl.classname = k
 				return 'monsterAnim('
 					..i..', '
 					..self.char..', '
-					..('0x04x'):format(self.addOfs)
+					..('0x%04x'):format(self.addrOfs)
 				..')'
 			end,
 		}
