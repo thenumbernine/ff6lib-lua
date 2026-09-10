@@ -2390,11 +2390,13 @@ cl.classname = k
 				:concat', '
 			..')'
 		end,
+		--[[ TODO switch to BattleAnimCmds
 		getBranchAddrs = function(self)
 			return self.args:mapi(function(addr)
 				return {addr = 0x100000 + addr}
 			end)
 		end,
+		--]]
 	}
 	BattleEventCmds.AddCharTarget = BattleEventCmd:subclass{
 		cmd = 0x13,
