@@ -97,6 +97,7 @@ local function runEventScript(game, cmdline)
 			addrsIsFunc[cmdobj:getDestAddr()] = true
 
 		-- call (right?)
+		-- TODO TODO TODO this is a GOTO not a CALL!
 		elseif game.EventCmds.CallSwitchNPCFlags:isa(cmdobj)
 		or game.EventCmds.CallForDialogResult:isa(cmdobj)
 		then

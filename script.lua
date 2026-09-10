@@ -1109,6 +1109,7 @@ return function(game)
 		desc = 'sleep(<?=quarterSeconds?>/4)'
 	}
 
+	-- TODO TODO TODO this is GOTO, not CALL
 	EventCmds.CallForDialogResult = EventCmd:subclass{
 		cmd = 0xb6,
 		digest = function(self, read)
