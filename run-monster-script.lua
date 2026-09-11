@@ -225,11 +225,11 @@ return {
 				local rest = bit.rshift(p[3], 3)
 				assert.eq(rest, 0)	-- why even only use 3 lower bits? weird.
 				if p[1] == 0 then
-					out = 'battleFlagToggle('..flagIndex..')'
+					out = 'battleFlagSet('..flagIndex..', not battleFlagGet('..flagIndex..'))'
 				elseif p[1] == 1 then
-					out = 'battleFlagSet('..flagIndex..')'
+					out = 'battleFlagSet('..flagIndex..', true)'
 				elseif p[1] == 2 then
-					out = 'battleFlagClear('..flagIndex..')'
+					out = 'battleFlagSet('..flagIndex..', false)'
 				else
 					error'here'
 				end
