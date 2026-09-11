@@ -328,7 +328,7 @@ return {
 				elseif condIndex == 12 then
 					out = ifStmt..' battleVarGet('..p[2]..') < '..p[3]
 				elseif condIndex == 13 then
-					out = ifStmt..' battleVarGet('..p[2]..') >= '..p[3]
+					out = ifStmt..' battleVarGet('..p[2]..') > '..p[3]
 				elseif condIndex == 14 then
 					out = ifStmt..' '..getTarget(p[2])..'.level <'..p[3]
 				elseif condIndex == 15 then
