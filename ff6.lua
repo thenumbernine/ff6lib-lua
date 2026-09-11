@@ -1846,11 +1846,7 @@ local Treasure = ff6struct{
 		{unused_2_2 = 'uint16_t:1'},	-- 3.2
 		{empty = 'uint16_t:1'},			-- 3.3		= set iff type == 0 i.e. empty
 		{unused_2_4 = 'uint16_t:1'},	-- 3.4
-
-		-- wait is this 2 bits or 3 bits?  what does type==4 mean? or, bit 2:7 is only set when the lower two bits of type==0 ...
-		{type = 'uint16_t:2'},			-- 3.5-3.6	= 0=empty, 1=monster, 2=item, 3=gp
-		{unknown_2_7 = 'uint16_t:1'},	-- 3.7		= ???
-
+		{type = 'uint16_t:3'},			-- 3.5-3.7	= 0=empty, 1=monster, 2=item, 4=gp
 		-- depends on 'type':
 		-- ... union plz.
 		{battleOrItemOrGP = uint8_t},	-- GP is x100
@@ -1869,7 +1865,7 @@ local Treasure = ff6struct{
 				)..'"'
 			elseif self.type == 2 then
 				contents = 'item="'..tostring(gameC.itemNames[self.battleOrItemOrGP])..'"'
-			elseif self.type == 3 then
+			elseif self.type == 4 then
 				contents = 'GP='..(self.battleOrItemOrGP * 100)
 			else
 				contents = 'unknownType='..self.type
@@ -1878,7 +1874,6 @@ local Treasure = ff6struct{
 				..'pos='..self.pos
 				..', flag='..self.flag
 				..', '..contents
-				..(self.unknown_2_7 ~= 0 and ', unknown_2_7=1' or '')
 				..'}'
 		end
 	end,
