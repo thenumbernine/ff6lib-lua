@@ -1374,28 +1374,29 @@ return function(game)
 		cmd = 0xe8,
 		argtypes = {uint8_t, uint16_t},
 		argnames = {'var', 'value'},
-		desc = 'vars[<?=var?>] = <?=value?>',
+		desc = 'eventVars[<?=var?>] = <?=value?>',
 	}
 
 	EventCmds.VarAdd = EventCmd:subclass{
 		cmd = 0xe9,
 		argtypes = {uint8_t, uint16_t},
 		argnames = {'var', 'value'},
-		desc = 'vars[<?=var?>] = vars[<?=var?>] + <?=value?>',
+		desc = 'eventVars[<?=var?>] += <?=value?>',
 	}
 
 	EventCmds.VarSub = EventCmd:subclass{
 		cmd = 0xea,
 		argtypes = {uint8_t, uint16_t},
 		argnames = {'var', 'value'},
-		desc = 'vars[<?=var?>] = vars[<?=var?>] - <?=value?>',
+		desc = 'eventVars[<?=var?>] -= <?=value?>',
 	}
 
 	EventCmds.VarCmp = EventCmd:subclass{
 		cmd = 0xeb,
 		argtypes = {uint8_t, uint16_t},
 		argnames = {'var', 'value'},
-		desc = 'vars[<?=var?>] = vars[<?=var?>] < <?=value?> and 1 or 0',	-- idk what this is really
+		-- 0 = equal, 1 = var is greater, 2 = var is less
+		desc = 'eventVars[<?=var?>] = eventVarCmp(eventVars[<?=var?>], <?=value?>)',
 	}
 
 	EventCmds.PlaySongVol = EventCmd:subclass{
