@@ -1488,7 +1488,7 @@ return function(game)
 
 	EventCmds.WaitForSound = EventCmd:subclass{
 		cmd = 0xfb,
-		desc = 'waitforSound()',
+		desc = 'waitForSound()',
 	}
 
 	local Return = Cmd:subclass{
