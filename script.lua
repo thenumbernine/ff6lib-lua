@@ -958,13 +958,29 @@ return function(game)
 		getargs = function(self, duration, arg)
 			self.duration = duration
 			self.destAddrOfs = bit.band(0x3ffff, arg)
-			self.flags = bit.rshift(arg, 20)
+			self.timerIndex = bit.band(3, bit.rshift(arg, 18))		-- 0-3
+			self.showInMenu = 0 ~= bit.band(arg, bit.lshift(1, 20))	-- timer 0 only
+			-- "banquet" in everything8215's ff6
+			self.endsBattle = 0 ~= bit.band(arg, bit.lshift(1, 21))
+			-- "field visible" in everything8215's ff6
+			self.showInMap = 0 ~= bit.band(arg, bit.lshift(1, 22))	-- timer 0 only
+			-- "field only" in everything8215's ff6
+			self.pauseInMenu = 0 ~= bit.band(arg, bit.lshift(1, 23))
 		end,
-		desc = 'startTimer{'
-			..'duration=<?=duration?>'
-			..', flags=<?=flags?>'
-			..', cb=<?=game.addrLabel(getDestAddr(self))?>'
-		..'}',
+		getDescArgsWithoutCB = function(self)
+			return 'duration='..self.duration
+				..', timerIndex='..self.timerIndex
+				..(self.showInMenu and ', showInMenu=true' or '')
+				..(self.endsBattle and ', endsBattle=true' or '')
+				..(self.showInMap and ', showInMap=true' or '')
+				..(self.pauseInMenu and ', pauseInMenu=true' or '')
+		end,
+		__tostring = function(self)
+			return 'startTimer{'
+				..self:getDescArgsWithoutCB()
+				..', cb='..game.addrLabel(self:getDestAddr())
+			..'}'
+		end,
 		getDestAddr = function(self)
 			return scriptBaseAddr + self.destAddrOfs
 		end,
@@ -978,7 +994,8 @@ return function(game)
 	EventCmds.StopTimer = EventCmd:subclass{
 		cmd = 0xa1,
 		argtypes = {uint8_t},
-		desc = 'stopTimer(<?=args[1]?>)',
+		argnames = {'timerIndex'},
+		desc = 'stopTimer(<?=timerIndex?>)',
 	}
 
 	EventCmds.ClearOverlay = EventCmd:subclass{

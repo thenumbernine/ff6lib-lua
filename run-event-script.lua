@@ -312,9 +312,9 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 
 		indent = indent or 0
 		local tab = ('\t'):rep(indent)
-		local s = 'startTimer{duration='
-			..self.duration..', flags='
-			..self.flags..', cb='
+		local s = 'startTimer{'
+			..self:getDescArgsWithoutCB()
+			..', cb='
 		s = s .. '||do\n'
 		for _,stmt in ipairs(self.stmts) do
 			s = s .. stmt:toCodeLine(indent+1) .. '\n'
@@ -1604,7 +1604,7 @@ end
 						assert(not cmd.stmts)
 						startIndexes:insert(i)
 						if #startIndexes >= 2 then
-							assert.lt(startIndexes[#startIndexes-1], startIndexes:last()) 
+							assert.lt(startIndexes[#startIndexes-1], startIndexes:last())
 						end
 					elseif game.EventCmds.EndRepeat:isa(cmd)
 					or game.EventCmds.EndRepeatSwitch:isa(cmd)
