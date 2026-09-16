@@ -643,11 +643,11 @@ for i=0,countof(game.mapAnimPropsLayer3Ofs)-1 do
 end
 print()
 
--- same with this, 
+-- same with this,
 -- frames seems to be a list whose first element is always 0
 -- and whose successive are alwyas equally spaced by '.size'
 -- ... except [3], whose size is 640 and frames are {0, 640, 0, 640} ...
--- so only it has a count of 2, 
+-- so only it has a count of 2,
 -- the others have a count of 4
 -- and all of them are just += size
 for i=0,countof(game.mapAnimPropsLayer3)-1 do
@@ -714,7 +714,7 @@ for i=0,countof(game.doors)-1 do
 end
 print()
 
--- there are more big door offsets than big doors 
+-- there are more big door offsets than big doors
 for i=0,countof(game.bigDoorsOfs)-1 do
 	local addr = game.bigDoorsOfs[i] + ffi.offsetof(Game, 'bigDoorsOfs')
 	--assert.eq((addr - ffi.offsetof(Game, 'bigDoors')) % ffi.sizeof(game.BigDoor), 0)
