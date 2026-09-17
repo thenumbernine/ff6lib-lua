@@ -2092,8 +2092,8 @@ local NPC = struct{
 		{name='movement', type='uint8_t:4'},						-- 7.0-7.3 = 0=none, 1=script, 2=user, 3=random
 		{name='spritePriority', type='uint8_t:2'},					-- 7.4-7.5 = 0=normal 1=high 2=low 3=low
 
-		-- "speed" when animation == 0
-		-- "vehicle" when animation != 0
+		-- "speed" when animation != 0
+		-- "vehicle" when animation == 0
 		{name='vehicle_or_speed', type='uint8_t:2'},				-- 7.6-7.7 = 0=none 1=chocobo 2=magitek 3=raft
 
 		-- "direction" when animation == 0
