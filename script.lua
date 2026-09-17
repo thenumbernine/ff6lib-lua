@@ -294,19 +294,12 @@ return function(game)
 		argtypes = {uint8_t, uint8_t},
 		getargs = function(self, objIndex, arg)
 			self.objIndex = objIndex
-			-- TODO why to use struct bitfields......
 			self.vehicleIndex = bit.band(3, bit.rshift(arg, 5))
 			self.showRider = 0 ~= bit.band(0x80, arg)
+			assert.eq(bit.band(0x1f, arg), 0)	-- is the rest empty?
 		end,
-		__tostring = function(self)
-			return 'objSetVehicle('
-				..self.objIndex
-				..', '
-				..self.vehicleIndex
-				..', '
-				..tostring(self.showRider)
-			..')'
-		end,
+		-- why do I need 'self.' for it not to be nil? I thought 'self' was the template env ...
+		desc = 'objSetVehicle(<?=objIndex?>, <?=vehicleIndex?>, <?=self.showRider?>)',
 	}
 
 	EventCmds.UpdateCharacterObjects = EventCmd:subclass{
@@ -1637,11 +1630,16 @@ cl.classname = k
 		desc = 'changeLayerPriority(<?=arg?>)',
 	}
 
+	-- same as above but without objIndex
 	ObjectCmds.ChangeVehicle = ObjectCmd:subclass{
 		cmd = 0xc9,
 		argtypes = {uint8_t},
-		argnames = {'vehicleIndex'},
-		desc = 'objSetVehicle(objIndex, <?=bit.band(0x7f, vehicleIndex)?>, <?=0 ~= bit.band(0x80, vehicleIndex)?>)',
+		getargs = function(self, arg)
+			self.vehicleIndex = bit.band(3, bit.rshift(arg, 5))
+			self.showRider = 0 ~= bit.band(0x80, arg)
+			assert.eq(bit.band(0x1f, arg), 0)	-- is the rest empty?
+		end,
+		desc = 'objSetVehicle(objIndex, <?=vehicleIndex?>, <?=self.showRider?>)',
 	}
 
 	ObjectCmds.ChangeDir = ObjectCmd:subclass{
