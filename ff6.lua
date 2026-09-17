@@ -2092,11 +2092,8 @@ local NPC = struct{
 		{name='movement', type='uint8_t:4'},						-- 7.0-7.3 = 0=none, 1=script, 2=user, 3=random
 		{name='spritePriority', type='uint8_t:2'},					-- 7.4-7.5 = 0=normal 1=high 2=low 3=low
 
-		-- "speed" when vehicle == 0
-		-- "vehicle" otherwise
-		-- wait, isn't that circular?
-		-- having a hard time telling what fields determine what
-		-- there is clearly about 2-4-8 different structs at play here
+		-- "speed" when animation == 0
+		-- "vehicle" when animation != 0
 		{name='vehicle_or_speed', type='uint8_t:2'},				-- 7.6-7.7 = 0=none 1=chocobo 2=magitek 3=raft
 
 		-- "direction" when animation == 0
