@@ -3,8 +3,8 @@
 --------------------------------------------
 
 name = "ff6"
+git = "https://github.com/thenumbernine/ff6lib-lua.git"
 luaArgs = "vis.lua"	-- default execution will be the visualizer
-git = "https://github.com/thenumbernine/ff6lib-lua"
 
 files = {
 	"README.md",
@@ -12,6 +12,8 @@ files = {
 	"decompress.lua",
 	"distinfo",
 	"ff6.lua",
+	"ff6_music/README.md",
+	"ff6_music/scripts/run.rua",
 	"ff6struct.lua",
 	"graphics.lua",
 	"maps.lua",
@@ -25,6 +27,7 @@ files = {
 	"run-monster-script.lua",
 	"run-sound.lua",
 	"run-spells.lua",
+	"run-vehicle-sheet.lua",
 	"run.lua",
 	"script.lua",
 	"sound.lua",
