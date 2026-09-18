@@ -2751,7 +2751,10 @@ Game = struct{
 		{name = 'battleAnimEffects', type = arrayType(BattleAnimEffect, 650)},									-- 0x14d000 - 0x14df3c
 		{name = 'battleAnimFrame16x16TileOffsets', type = arrayType(uint16_t, 4194)},							-- 0x14df3c - 0x150000	-- +0x110000 ... really just 2949 that are valid.  each is a uint16_t, add to 0x110000 to get the start of the variable-length BattleAnim16x16Tile list into battleAnimFrame16x16Tiles
 
+		-- 4bpp, same as menu graphics? where is the tile layout info?
 		{name = 'fieldSpriteGraphics', type = arrayType(uint8_t, -(0x150000 - 0x185000))},						-- 0x150000 - 0x185000 = character images, 0x16a0 bytes each
+		-- separate?
+		--{name = 'vehicleGraphics', type = arrayType(uint8_t, -(0x183000 - 0x185000))},
 
 		{name = 'items', type = arrayType(Item, numItems)},														-- 0x185000 - 0x186e00
 		{name = 'espers', type = arrayType(Esper, numEspers)},													-- 0x186e00 - 0x186f29
