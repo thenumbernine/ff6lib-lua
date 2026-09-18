@@ -71,10 +71,10 @@ local function run(game)
 	local sheetImg = Image(256,256,1,uint8_t):clear()
 	sheetImg.palette = tilesImg.palette
 
-	local i = 0
+	local i = 1
 	local function pasteNext(args)
-		i = i + 1
 		args.image = tile16x16Imgs[i]
+		i = i + 1
 		sheetImg:pasteInto(args)
 	end
 	-- raft up/down
@@ -118,34 +118,47 @@ local function run(game)
 	pasteNext{x=64, y=112}	-- chocobo eyes closed
 
 	-- magitek stand d
+	local magitek = i
 	pasteNext{x=0, y=0}
 	pasteNext{x=0, y=16}
 	-- and then the last two, hflipped
+	sheetImg:pasteInto{image=tile16x16Imgs[magitek+0]:mirror(), x=16, y=0}
+	sheetImg:pasteInto{image=tile16x16Imgs[magitek+1]:mirror(), x=16, y=16}
 
 	-- magitek walk d
 	pasteNext{x=32, y=0}
 	pasteNext{x=32, y=16}
 	-- and then walk d #2 hflipped
+	sheetImg:pasteInto{image=tile16x16Imgs[magitek+4]:mirror(), x=48, y=0}
+	sheetImg:pasteInto{image=tile16x16Imgs[magitek+5]:mirror(), x=48, y=16}
 
 	-- magitek walk d #2
 	pasteNext{x=64, y=0}
 	pasteNext{x=64, y=16}
 	-- and then walk d #1 hflipped
+	sheetImg:pasteInto{image=tile16x16Imgs[magitek+2]:mirror(), x=80, y=0}
+	sheetImg:pasteInto{image=tile16x16Imgs[magitek+3]:mirror(), x=80, y=16}
 
 	-- magitek stand u
 	pasteNext{x=0, y=32}
 	pasteNext{x=0, y=48}
 	-- and then the last two, hflipped
+	sheetImg:pasteInto{image=tile16x16Imgs[magitek+6]:mirror(), x=16, y=32}
+	sheetImg:pasteInto{image=tile16x16Imgs[magitek+7]:mirror(), x=16, y=48}
 
 	-- magitek walk u
 	pasteNext{x=32, y=32}
 	pasteNext{x=32, y=48}
 	-- and then walk u #2 hflipped
+	sheetImg:pasteInto{image=tile16x16Imgs[magitek+10]:mirror(), x=48, y=32}
+	sheetImg:pasteInto{image=tile16x16Imgs[magitek+11]:mirror(), x=48, y=48}
 
 	-- magitek walk u #2
 	pasteNext{x=64, y=32}
 	pasteNext{x=64, y=48}
 	-- and then walk u #1 hflipped
+	sheetImg:pasteInto{image=tile16x16Imgs[magitek+8]:mirror(), x=80, y=32}
+	sheetImg:pasteInto{image=tile16x16Imgs[magitek+9]:mirror(), x=80, y=48}
 
 	-- stand l
 	pasteNext{x=0, y=64}
