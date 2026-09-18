@@ -116,6 +116,7 @@ local function readCharSprite(game, charIndex, processFrame)
 	local numFrames = game.getNumFramesForCharSpriteSheet(charIndex)
 
 	for frameIndex=0,numFrames-1 do
+-- points into fieldSpriteGraphics == 0x150000 ?
 		local charBaseOffset = bit.band(
 			bit.bnot(0xc00000),
 			bit.bor(

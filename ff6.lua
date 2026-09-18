@@ -2755,6 +2755,9 @@ Game = struct{
 		{name = 'fieldSpriteGraphics', type = arrayType(uint8_t, -(0x150000 - 0x185000))},						-- 0x150000 - 0x185000 = character images, 0x16a0 bytes each
 		-- separate?
 		--{name = 'vehicleGraphics', type = arrayType(uint8_t, -(0x183000 - 0x185000))},
+		-- 4bpp means 32 bytes per 8x8 tile ...
+		-- 0x183000 - 0x185000 has 256 8x8 tiles = 64 16x16 tiles
+		-- 0x150000 - 0x185000 has 6784 8x8 tiles = 1696 16x16 tiles
 
 		{name = 'items', type = arrayType(Item, numItems)},														-- 0x185000 - 0x186e00
 		{name = 'espers', type = arrayType(Esper, numEspers)},													-- 0x186e00 - 0x186f29
