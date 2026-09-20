@@ -508,15 +508,17 @@ for _,tilesetIndex in ipairs(game.mapTilesetCache:keys():sort()) do
 				assert.eq(startOffset % ffi.sizeof(game.MapAnimProps), 0)
 				local startIndex = startOffset / ffi.sizeof(game.MapAnimProps)
 				local count = 32
+				--[[
 				local animLayers1And2Props = table()
 				for i=0,count-1 do
 					local p = game.mapAnimProps + startIndex + i
 					animLayers1And2Props:insert(p)
 				end
+				--]]
 
 				gfxDatas[5] = range(0,count-1):mapi(function(i)
 					local p = game.mapAnimProps[startIndex + i]
-					return ffi.string(game.mapAnimGraphics + p.frames.s[frameIndex ], 0x80)
+					return ffi.string(game.mapAnimGraphics + p.frames.s[frameIndex], 0x80)
 				end):concat()
 			end
 

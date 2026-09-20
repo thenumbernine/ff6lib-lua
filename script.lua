@@ -1909,7 +1909,7 @@ cl.classname = k
 		cmd = 0xc7,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'x', 'y'},
-		desc = "airship:setPos(<?=x?>, <?=y?>)",
+		desc = "airshipSetPos(<?=x?>, <?=y?>)",
 	}
 
 	-- like VehicleCmds SetFlag
@@ -2129,21 +2129,21 @@ cl.classname = k
 		cmd = 0xc5,
 		argtypes = {uint16_t},
 		argnames = {'alt'},
-		desc = "airship.alt = <?=alt?>",
+		desc = "airshipSetAlt(<?=alt?>)",
 	}
 
 	VehicleCmds.MoveForward = VehicleCmd:subclass{
 		cmd = 0xc6,
 		argtypes = {uint16_t},
 		argnames = {'speed'},
-		desc = "airship:moveFwd{speed=<?=speed?>}",
+		desc = "airshipMoveFwd(<?=speed?>)",
 	}
 
 	VehicleCmds.SetAirshipPos = VehicleCmd:subclass{
 		cmd = 0xc7,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'x', 'y'},
-		desc = "airship:setPos(<?=x?>, <?=y?>)",
+		desc = "airshipSetPos(<?=x?>, <?=y?>)",
 	}
 
 	-- like WorldSetFlag
