@@ -2244,7 +2244,7 @@ cl.classname = k
 
 	VehicleCmds.ChangeVehicleGraphicToFalcon = VehicleCmd:subclass{
 		cmd = 0xf4,
-		desc = 'vehicle.graphics = "falcon"',
+		desc = 'vehicleSetGfx"falcon"',
 	}
 
 	VehicleCmds.Cinematic_LightOfJudgment2 = VehicleCmd:subclass{
@@ -2257,7 +2257,7 @@ cl.classname = k
 	}
 	VehicleCmds.ChangeVehicleGraphicToBird = VehicleCmd:subclass{
 		cmd = 0xf7,
-		desc = 'vehicle.graphics = "bird"',
+		desc = 'vehicleSetGfx"bird"',
 	}
 	VehicleCmds.Cinematic_LightOfJudgment3 = VehicleCmd:subclass{
 		cmd = 0xf8,
@@ -2281,7 +2281,7 @@ cl.classname = k
 	}
 	VehicleCmds.ChangeVehicleGraphicToMorphedTerra= VehicleCmd:subclass{
 		cmd = 0xfd,
-		desc = 'vehicle.graphics = "morphed_terra"',
+		desc = 'vehicleSetGfx"morphed_terra"',
 	}
 	-- another 0xFE opcode, like FigaroEmerge, I am suspicous this will not always be used ...
 	VehicleCmds.Cinematic_VectorApproach = VehicleCmd:subclass{
