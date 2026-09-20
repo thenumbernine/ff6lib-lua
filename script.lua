@@ -2088,7 +2088,7 @@ cl.classname = k
 			cmd = cmd,
 			argtypes = {uint8_t},
 			argnames = {'dist'},
-			desc = "moveVehicle{dir=<?=cmd?>, dist=<?=dist?>}",
+			desc = "vehicleMove(<?=cmd?>, <?=dist?>)",
 		}
 	end
 
@@ -2197,15 +2197,15 @@ cl.classname = k
 
 	VehicleCmds.ShowDirArrows = VehicleCmd:subclass{
 		cmd = 0xda,
-		desc = 'vehicleDirArrows = "show"',
+		desc = 'vehicleSetDirArrows(true)',
 	}
 	VehicleCmds.LockDirArrows = VehicleCmd:subclass{
 		cmd = 0xdb,
-		desc = 'vehicleDirArrows = "lock"',
+		desc = 'vehicleSetDirArrows"lock"',
 	}
 	VehicleCmds.HideDirArrows = VehicleCmd:subclass{
 		cmd = 0xdc,
-		desc = 'vehicleDirArrows = "hide"',
+		desc = 'vehicleSetDirArrows(false)',
 	}
 
 	-- also WorldCmds 0xdd 0xdf
@@ -2235,7 +2235,7 @@ cl.classname = k
 
 	VehicleCmds.Cinematic_EndingAirship = VehicleCmd:subclass{
 		cmd = 0xf2,
-		desc = "showEndingAirship()",
+		desc = "airshipShowEnding()",
 	}
 	VehicleCmds.Cinematic_LightOfJudgment1 = VehicleCmd:subclass{
 		cmd = 0xf3,
@@ -2273,11 +2273,11 @@ cl.classname = k
 	}
 	VehicleCmds.Cinematic_AirshipSmoking = VehicleCmd:subclass{
 		cmd = 0xfb,
-		desc = "showAirshipSmoking()",
+		desc = "airshipShowSmoking()",
 	}
 	VehicleCmds.Cinematic_AirshipCrashing = VehicleCmd:subclass{
 		cmd = 0xfc,
-		desc = "showAirshipCrashing()",
+		desc = "airshipShowCrashing()",
 	}
 	VehicleCmds.ChangeVehicleGraphicToMorphedTerra= VehicleCmd:subclass{
 		cmd = 0xfd,
