@@ -916,8 +916,19 @@ return function(game)
 
 	EventCmds.OpenSelectPartyMenu = EventCmd:subclass{
 		cmd = 0x99,
-		argtypes = {uint8_t,uint8_t, uint8_t},
-		desc = 'openSelectPartyMenu(<?=args:concat", "?>)',
+		argtypes = {uint8_t, uint16_t},
+		getargs = function(self, numParties, eventIndex)
+			self.numParties = bit.band(0x7f, numParties)
+			self.reset = 0 ~= bit.band(0x80, numParties)
+			self.eventIndex = eventIndex
+		end
+		__tostring = function(self)
+			return 'openSelectPartyMenu('
+				..self.numParties..', '
+				..eventIndex
+				..(self.reset and ', true', or '')
+				..')'
+		end
 	}
 
 	EventCmds.OpenColosseumMenu = EventCmd:subclass{
