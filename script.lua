@@ -788,13 +788,15 @@ return function(game)
 	EventCmds.GiveEsper = EventCmd:subclass{
 		cmd = 0x86,
 		argtypes = {uint8_t},
-		desc = 'giveEsper(<?=args[1]?>)',
+		argnames = {'esperIndex'},	-- TODO this is +54 what it should be
+		desc = 'giveEsper(<?=esperIndex?>)',
 	}
 
 	EventCmds.TakeEsper = EventCmd:subclass{
 		cmd = 0x87,
 		argtypes = {uint8_t},
-		desc = 'takeEsper(<?=args[1]?>)',
+		argnames = {'esperIndex'},	-- TODO this is +54 what it should be
+		desc = 'takeEsper(<?=esperIndex?>)',
 	}
 
 	-- is there except for 'remove none' meaning 'remove all' ?
