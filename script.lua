@@ -928,7 +928,7 @@ return function(game)
 			return 'openSelectPartyMenu('
 				..self.numParties..', '
 				..eventIndex
-				..(self.reset and ', true', or '')
+				..(self.reset and ', true' or '')
 				..')'
 		end,
 	}
