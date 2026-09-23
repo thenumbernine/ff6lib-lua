@@ -2054,6 +2054,8 @@ cl.classname = k
 
 	--[[ everything8215 has this listed in his WorldScript as an opcode,
 	--  but in the functions themselves it is clearly a return
+	--  or wait, in everything8215-ff6/src/event/event_main.asm it is first just a `.byte $FE` then load_map then end-of-world-script (to event-script), and then a few more commands, and then a proper `return` from $FE...
+	-- maybe you have to track the state of figaroSubmerge() to find when 0xfe will be emerge vs return?
 	WorldCmds.FigaroEmerge = WorldCmd:subclass{
 		cmd = 0xfe,
 		desc = 'figaroEmerge()',
