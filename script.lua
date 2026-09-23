@@ -923,14 +923,14 @@ return function(game)
 			self.numParties = bit.band(0x7f, numParties)
 			self.reset = 0 ~= bit.band(0x80, numParties)
 			self.eventIndex = eventIndex
-		end
+		end,
 		__tostring = function(self)
 			return 'openSelectPartyMenu('
 				..self.numParties..', '
 				..eventIndex
 				..(self.reset and ', true', or '')
 				..')'
-		end
+		end,
 	}
 
 	EventCmds.OpenColosseumMenu = EventCmd:subclass{
