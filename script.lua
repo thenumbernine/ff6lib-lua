@@ -1143,7 +1143,8 @@ return function(game)
 			end
 		end,
 		__tostring = function(self)
-			return 'callForDialogResult('
+			-- it's a goto, so return
+			return 'return callForDialogResult('
 				..self.options:mapi(function(option)
 					return game.addrLabel(scriptBaseAddr + option.addrOfs, '')
 				end):concat', '

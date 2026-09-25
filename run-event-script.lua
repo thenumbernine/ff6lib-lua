@@ -267,7 +267,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 
 		indent = indent or 0
 		local tab = ('\t'):rep(indent)
-		local s = 'callForDialogResult(\n'
+		local s = 'return callForDialogResult(\n'
 		for i,option in ipairs(self.options) do
 			if not cmdline.hideAddrs then
 				s = s .. (' '):rep(disasmcol)
