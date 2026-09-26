@@ -1426,29 +1426,46 @@ return function(game)
 	EventCmds.PlaySongVol = EventCmd:subclass{
 		cmd = 0xef,
 		argtypes = {uint8_t, uint8_t},
-		argnames = {'song', 'volume'},
-		desc = 'playSong{'
-			..'<?=bit.band(0x7f, song)?>'
-			..'<?=0 ~= bit.band(0x80, song) and "altStart=true, " or ""?>'
-			..', volume=<?=volume?>'
-		..'}',
+		getargs = function(song, volume)
+			-- 7th bit of song is altStart
+			-- but playSongFadeIn, 7th bit of speed is altStart
+			-- hmmm
+			self.song = bit.band(0x7f, song)
+			self.altStart = 0 ~= bit.band(0x80, song)
+			self.volume = volume
+		end,
+		__tostring = function(self)
+			return 'playSong('
+				..self.song..', '
+				..self.volume..', '
+				..(self.altStart and ', true' or '')
+				..')'
+		end,
 	}
 
 	EventCmds.PlaySong = EventCmd:subclass{
 		cmd = 0xf0,
 		argtypes = {uint8_t},
-		desc = 'playSong(<?=args[1]?>)',
+		argnames = {'song'},
+		desc = 'playSong(<?=song?>)',
 	}
 
 	EventCmds.PlaySongFadeIn = EventCmd:subclass{
 		cmd = 0xf1,
 		argtypes = {uint8_t, uint8_t},
+		getargs = function(song, speed)
+			self.song = song
+			self.altStart = 0 ~= bit.band(0x80, speed)
+			self.speed = bit.band(0x7f, speed)
+		end,
 		argnames = {'song', 'speed'},
-		desc = 'fadeInSong{'
-			..'song=<?=song?>'
-			..', speed=<?=bit.band(0x7f, speed)?>'
-			..'<?=0 ~= bit.band(0x80, speed) and ", altStart=true" or ""?>'
-			..'}',
+		__tostring = function(self)
+			return 'fadeInSong('
+				..self.song..', '
+				..self.speed
+				..(self.altStart and ', true' or '')
+				..'}'
+		end,
 	}
 
 	EventCmds.PlaySongFadeOut = EventCmd:subclass{
