@@ -284,9 +284,7 @@ return function(game)
 		cmd = 0x43,
 		argtypes = {uint8_t, uint8_t},
 		argnames = {'objIndex', 'paletteIndex'},
-		__tostring = function(self)
-			return 'objSetPal('..self.objIndex..', '..self.paletteIndex..')'
-		end,
+		desc = 'objSetPal(<?=objIndex?>, <?=paletteIndex?>)',
 	}
 
 	EventCmds.ChangeObjectVehicle = EventCmd:subclass{
@@ -470,13 +468,15 @@ return function(game)
 	EventCmds.FadeInRate = EventCmd:subclass{
 		cmd = 0x59,
 		argtypes = {uint8_t},
-		desc = 'fadeIn(<?=args[1]?>)',
+		argnames = {'dt'},
+		desc = 'fadeIn(<?=dt?>)',
 	}
 
 	EventCmds.FadeOutRate = EventCmd:subclass{
 		cmd = 0x5a,
 		argtypes = {uint8_t},
-		desc = 'fadeOut(<?=args[1]?>)'
+		argnames = {'dt'},
+		desc = 'fadeOut(<?=dt?>)'
 	}
 
 	EventCmds.StopFade = EventCmd:subclass{
