@@ -1455,14 +1455,14 @@ return function(game)
 		cmd = 0xf2,
 		argtypes = {uint8_t},
 		argnames = {'speed'},
-		desc = 'fadeOutSong{speed=<?=speed?>}',
+		desc = 'fadeOutSong(<?=speed?>)',
 	}
 
 	EventCmds.FadeInPrevSong = EventCmd:subclass{
 		cmd = 0xf3,
 		argtypes = {uint8_t},
 		argnames = {'speed'},
-		desc = 'fadeInPrevSong{speed=<?=speed?>}',
+		desc = 'fadeInPrevSong(<?=speed?>)',
 	}
 
 	EventCmds.PlaySound = EventCmd:subclass{
@@ -1476,7 +1476,7 @@ return function(game)
 		cmd = 0xf5,
 		argtypes = {uint8_t, uint8_t, uint8_t},
 		argnames = {'sfx', 'pan', 'envelope'},
-		desc = 'playSound{sfx=<?=sfx?>, pan=<?=pan?>, envelope=<?=envelope?>}',
+		desc = 'playSound(<?=sfx?>, <?=pan?>, <?=envelope?>)',
 	}
 
 	EventCmds.SPCInterrupt = EventCmd:subclass{
