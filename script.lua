@@ -1495,19 +1495,19 @@ return function(game)
 
 	EventCmds.WaitForSPC = EventCmd:subclass{
 		cmd = 0xf8,
-		desc = 'waitForSPC{port=2}',
+		desc = 'waitForSPC(2)',
 	}
 
 	EventCmds.SyncSPC = EventCmd:subclass{
 		cmd = 0xf9,
 		argtypes = {uint8_t},
 		argnames = {'pos'},
-		desc = 'syncSPC{pos=<?=pos?>}',
+		desc = 'syncSPC(<?=pos?>)',
 	}
 
 	EventCmds.WaitForSPC = EventCmd:subclass{
 		cmd = 0xfa,
-		desc = 'waitForSPC{port=3}',
+		desc = 'waitForSPC(3)',
 	}
 
 	EventCmds.WaitForSound = EventCmd:subclass{
