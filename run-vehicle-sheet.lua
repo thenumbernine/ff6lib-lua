@@ -34,7 +34,7 @@ local function run(game)
 		--  0x150000 - 0x185000 has 6784 8x8 tiles = 1696 16x16 tiles
 		local ptr = game.fieldSpriteGraphics
 		local tilesWide = 83
-		local tilesHigh = 193
+		local tilesHigh = 108
 
 		local tilesImg = Image(tileWidth*tilesWide, tileHeight*tilesHigh, 4, uint8_t):clear()
 		local tileImg = Image(tileWidth, tileHeight, 1, uint8_t)

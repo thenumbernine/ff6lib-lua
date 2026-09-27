@@ -498,7 +498,7 @@ for charIndex=0,game.numCharacterSprites-1 do
 	local chx, chy = 0, 0
 	--]=]
 	readCharSprite(game, charIndex, function(charIndex, frameIndex, im, palIndex)
-		-- [=[ save each frame individually...
+		--[=[ save each frame individually...
 		--local frameName = frameNames[frameIndex+1] or tostring(frameIndex)
 		--local frameName = tostring(frameIndex)
 		local frameName = ('%02d'):format(frameIndex)
