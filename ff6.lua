@@ -2557,6 +2557,10 @@ Game = struct{
 		-- interleaved row-major, 2x3
 		{name = 'characterFrameTileOffsets', type = arrayType(uint16_t, numCharacterSpriteFrames * 6)},			-- 0x00ce3a - 0x00d026
 
+		-- 9 of these should be for npc sprites 22-31
+		-- 1 should be npc sprites 63 ...
+		-- what about the other 7?
+		-- uint16_t[17][6]
 		{name = 'unknown_00d026', type = arrayType(uint8_t, -(0x00d026 - 0x00d0f2))},							-- 0x00d026 - 0x00d0f2
 
 		-- 0x00d0f2 - ? = pointer to map character graphics (2 bytes each)

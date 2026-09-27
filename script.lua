@@ -1426,7 +1426,7 @@ return function(game)
 	EventCmds.PlaySongVol = EventCmd:subclass{
 		cmd = 0xef,
 		argtypes = {uint8_t, uint8_t},
-		getargs = function(song, volume)
+		getargs = function(self, song, volume)
 			-- 7th bit of song is altStart
 			-- but playSongFadeIn, 7th bit of speed is altStart
 			-- hmmm
@@ -1453,7 +1453,7 @@ return function(game)
 	EventCmds.PlaySongFadeIn = EventCmd:subclass{
 		cmd = 0xf1,
 		argtypes = {uint8_t, uint8_t},
-		getargs = function(song, speed)
+		getargs = function(self, song, speed)
 			self.song = song
 			self.altStart = 0 ~= bit.band(0x80, speed)
 			self.speed = bit.band(0x7f, speed)

@@ -21,41 +21,59 @@ local function run(game)
 	local tileHeight = require 'ff6.graphics'.tileHeight
 	local bpp = 4
 
-	--4bpp means 32 bytes per 8x8 tile ...
-	--[[ 0x150000 - 0x185000 has 6784 8x8 tiles = 1696 16x16 tiles
-	local ptr = game.fieldSpriteGraphics
-	local tilesWide = 64
-	local tilesHigh = 106
-	--]]
-	-- [[ 0x183000 - 0x185000 has 256 8x8 tiles = 64 16x16 tiles
-	local ptr = game.rom + 0x183000
-	local tilesWide = 16
-	local tilesHigh = 16
-	--]]
+	local tilesImg
+	for _,info in ipairs{
 
-	local tilesImg = Image(tileWidth*tilesWide, tileHeight*tilesHigh, 1, uint8_t):clear()
+		--4bpp means 32 bytes per 8x8 tile ...
+		-- [[ 0x150000 - 0x185000 has 6784 8x8 tiles = 1696 16x16 tiles
+		{
+			ptr = game.fieldSpriteGraphics,
+			tilesWide = 64,
+			tilesHigh = 106,
+			fn = 'all-field-tiles.png',
+		},
+		--]]
+		-- [[ 0x183000 - 0x185000 has 256 8x8 tiles = 64 16x16 tiles
+		{
+			ptr = game.rom + 0x183000,
+			tilesWide = 16,
+			tilesHigh = 16,
+			fn = 'vehicle-tiles.png',
+		},
+		--]]
+	} do
+		local ptr = info.ptr
+		local tilesWide = info.tilesWide
+		local tilesHigh = info.tilesHigh
 
-	--everything8215 vehicleGraphics says mapSpritePalettes[7] and [11]
-	tilesImg.palette = table.append(
-		makePalette(game, game.characterPalettes + 7, 4, 16),
-		makePalette(game, game.characterPalettes + 11, 4, 16)
-	)
-
-	local tileImgs = table()
-	local tileIndex = 0
-	for ty=0,tilesHigh-1 do
-		for tx=0,tilesWide-1 do
-			local tileImg = Image(8, 8, 1, uint8_t):clear()
-			local palor = tileIndex < 32 and 0x10 or 0
-			readTile(tileImg, 0, 0, ptr, bpp, false, false, palor)
-			tilesImg:pasteInto{image=tileImg, x=tx*tileWidth, y=ty*tileHeight}
-			ptr = ptr + 32
-			tileIndex = tileIndex + 1
-			tileImgs:insert(tileImg)
+		info.tilesImg = Image(tileWidth*tilesWide, tileHeight*tilesHigh, 1, uint8_t):clear()
+		if info.fn == 'vehicle-tiles.png' then
+			-- use this for later making vehicle-sheet
+			tilesImg = info.tilesImg
 		end
-	end
 
-	tilesImg:save'vehicle-tiles.png'
+		--everything8215 vehicleGraphics says mapSpritePalettes[7] and [11]
+		info.tilesImg.palette = table.append(
+			makePalette(game, game.characterPalettes + 7, 4, 16),
+			makePalette(game, game.characterPalettes + 11, 4, 16)
+		)
+
+		local tileImgs = table()
+		local tileIndex = 0
+		for ty=0,tilesHigh-1 do
+			for tx=0,tilesWide-1 do
+				local tileImg = Image(8, 8, 1, uint8_t):clear()
+				local palor = tileIndex < 32 and 0x10 or 0
+				readTile(tileImg, 0, 0, ptr, bpp, false, false, palor)
+				info.tilesImg:pasteInto{image=tileImg, x=tx*tileWidth, y=ty*tileHeight}
+				ptr = ptr + 32
+				tileIndex = tileIndex + 1
+				tileImgs:insert(tileImg)
+			end
+		end
+
+		info.tilesImg:save(info.fn)
+	end
 
 	-- now rearrange them and put them into a 256x256 sprite-sheet (this is ff6t3d-specific)
 	-- is it just me or does it look like the tiles were meant to be laid out in rows of 16 to make a 128x128 sheet?
