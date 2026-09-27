@@ -2858,6 +2858,17 @@ Game = struct{
 		-- 0x2e4842 - 0x2e4851     Sprites used for various positions of map character
 		{name = 'unknown_2dfff2', type = arrayType(uint8_t, -(0x2dfff2 - 0x2e9b14))},
 
+		-- ... what page is this?
+		-- 0x573e - 0x5816 = offset table for world animation, uint16_t[0x6c]
+		-- 0x5816 - 0x6bec = first byte = # tiles, then 4 bytes of {x,y,tile,tileflags} (some have more tiles than #tiles)
+		-- 0x6bec - 0x7084 = world control code
+		-- 0x7084 - 0x76fb = vehicle event code
+		-- 0x76fb - 0x78fb = vehicle event cmd table
+		-- 0x78fb - 0x8189 = world event cmd code
+		-- 0x8189 - 0x8389 = world event cmd table
+		-- 0x8389 - 0x8399 = some song tables
+		-- 0x8399 - 0x94d3 = world code
+
 		{name = 'WoBTileProps', type = arrayType(WorldTileProps, 0x100)},										-- 0x2e9b14 - 0x2e9d14
 		{name = 'WoRTileProps', type = arrayType(WorldTileProps, 0x100)},										-- 0x2e9d14 - 0x2e9f14
 
