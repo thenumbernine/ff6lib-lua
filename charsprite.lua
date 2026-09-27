@@ -82,14 +82,29 @@ local frameNames = {
 local tilesWide = 2
 local tilesHigh = 3
 
-local function readFrame(im, charBasePtr, frameTileOffset, bitsPerPixel)
+local function readFrame(charIndex, im, charBasePtr, frameTileOffset, bitsPerPixel)
+	local tileCount =
+		charIndex < 87 and 6
+		or charIndex < 116 and 5
+		or 4
+
 	-- characters have a set of ptrs-to-tiles (cuz they are reused often)
 	-- no flags on/off (cuz the sprites are often dense/with no 8x8 holes)
-	for y=0,tilesHigh-1 do
-		for x=0,tilesWide-1 do
-			local tile = charBasePtr + frameTileOffset[x + 2 * y]
-			readTile(im, x*tileWidth, y*tileHeight, tile, bitsPerPixel)
+	for spriteTileIndex=0,tileCount-1 do
+		local x, y
+		if charIndex < 87 then
+			x = spriteTileIndex % 2
+			y = (spriteTileIndex - x) / 2
+		elseif charIndex < 116 then
+			x = (spriteTileIndex+1) % 2
+			y = (spriteTileIndex+1 - x) / 2
+		else
+			x = spriteTileIndex % 2
+			y = (spriteTileIndex - x) / 2
 		end
+
+		local tile = charBasePtr + frameTileOffset[spriteTileIndex]
+		readTile(im, x*tileWidth, y*tileHeight, tile, bitsPerPixel)
 	end
 end
 
@@ -125,7 +140,7 @@ local function readCharSprite(game, charIndex, processFrame)
 			))
 		local im = Image(width, height, 1, 'uint8_t')
 			:clear()
-		readFrame(im,
+		readFrame(charIndex, im,
 			rom + charBaseOffset,
 			game.characterFrameTileOffsets + frameIndex * tilesWide * tilesHigh,
 			bitsPerPixel)

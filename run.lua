@@ -466,6 +466,16 @@ local function flushCharSheet()
 	chx, chy = 0, 0
 end
 local function pushSpriteFrame(charIndex, frameIndex, im, palIndex)
+	-- the 9-frame sprites can overflow into the next sheet
+	-- so instead flush sheet early
+	if charIndex >= 22 and charIndex < 63
+	and frameIndex == 0
+	and chy + 2 * im.height >= charSheet.height
+	and chx + 9 * 16 >= charSheet.width
+	then
+		flushCharSheet()
+	end
+
 	--[[ offset into our palette
 	im = im + bit.lshift(palIndex, 4)
 	--]]
