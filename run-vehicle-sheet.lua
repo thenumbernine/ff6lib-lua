@@ -3,6 +3,13 @@
 oh yeah, 0x150000 - 0x185000 is where the tile data for character sprites goes
 but the end of it is vehicles
 so this is now the vehicle-extraction script
+
+this has some overlap with charsprites
+it's probably gonna also output all npc sprites
+
+and it's gonna use `characterFrameTileOffset`
+... and the next struct that I haven't charted yet
+
 --]]
 local ffi = require 'ffi'
 local path = require 'ext.path'
@@ -12,6 +19,7 @@ local assert = require 'ext.assert'
 local uint8_t = ffi.typeof'uint8_t'
 
 local function run(game)
+	local rom = game.rom
 
 	local Image = require 'image'
 	local makePalette = require 'ff6.graphics'.makePalette
@@ -21,58 +29,125 @@ local function run(game)
 	local tileHeight = require 'ff6.graphics'.tileHeight
 	local bpp = 4
 
-	local tilesImg
-	for _,info in ipairs{
-
+	do
 		--4bpp means 32 bytes per 8x8 tile ...
-		-- [[ 0x150000 - 0x185000 has 6784 8x8 tiles = 1696 16x16 tiles
-		{
-			ptr = game.fieldSpriteGraphics,
-			tilesWide = 64,
-			tilesHigh = 106,
-			fn = 'all-field-tiles.png',
-		},
-		--]]
-		-- [[ 0x183000 - 0x185000 has 256 8x8 tiles = 64 16x16 tiles
-		{
-			ptr = game.rom + 0x183000,
-			tilesWide = 16,
-			tilesHigh = 16,
-			fn = 'vehicle-tiles.png',
-		},
-		--]]
-	} do
-		local ptr = info.ptr
-		local tilesWide = info.tilesWide
-		local tilesHigh = info.tilesHigh
+		--  0x150000 - 0x185000 has 6784 8x8 tiles = 1696 16x16 tiles
+		local ptr = game.fieldSpriteGraphics
+		local tilesWide = 83
+		local tilesHigh = 193
 
-		info.tilesImg = Image(tileWidth*tilesWide, tileHeight*tilesHigh, 1, uint8_t):clear()
-		if info.fn == 'vehicle-tiles.png' then
-			-- use this for later making vehicle-sheet
-			tilesImg = info.tilesImg
+		local tilesImg = Image(tileWidth*tilesWide, tileHeight*tilesHigh, 4, uint8_t):clear()
+		local tileImg = Image(tileWidth, tileHeight, 1, uint8_t)
+
+		local dstx = 0
+		local dsty = 0
+		for sprite=0,game.numCharacterSprites-1 do
+			local palIndex = game.characterPaletteIndexes[sprite]
+			-- palette 6 for morphed terra is wrong... it's also used for tutor house middle room and is wrong there too
+			palIndex = bit.band(palIndex, 7)
+			local palette = makePalette(game, game.characterPalettes + palIndex, 4, 16)
+			tileImg.palette = palette
+
+			-- TODO 120 elevator is messed up...
+			local maxFrames =
+				sprite < 22 and 41
+				or sprite < 63 and 9
+				or 1
+
+			local spriteTileCount =
+				sprite < 87 and 6
+				or sprite < 116 and 5
+				or 4
+
+			if dstx + 16*maxFrames >= tilesImg.width then
+				dstx = 0
+				dsty = dsty + 24
+			end
+
+			for frame=0,maxFrames-1 do
+				-- blit to our 8x8 with palette set up
+				tileImg:clear()
+
+				-- points into fieldSpriteGraphics == 0x150000 ?
+				local charBaseOffset = bit.band(
+					bit.bnot(0xc00000),
+					-- these are only for sprite < 87?
+					bit.bor(
+						game.characterSpriteOffsetLo[sprite],
+						bit.lshift(game.characterSpriteOffsetHiAndSize[sprite].hi, 16)
+					))
+
+				local charBasePtr = rom + charBaseOffset
+
+				-- TODO sometimes this is characterFrameTileOffsets, sometimes I bet it is what's next ...
+				local frameTileOffset = game.characterFrameTileOffsets + frame * spriteTileCount
+				for spriteTileIndex=0,spriteTileCount-1 do
+					local x, y
+					if sprite < 87 then
+						x = spriteTileIndex % 2
+						y = (spriteTileIndex - x) / 2
+					elseif sprite < 116 then
+						x = (spriteTileIndex+1) % 2
+						y = (spriteTileIndex+1 - x) / 2
+					else
+						x = spriteTileIndex % 2
+						y = (spriteTileIndex - x) / 2
+					end
+
+					local tile = charBasePtr + frameTileOffset[spriteTileIndex]
+					readTile(tileImg, 0, 0, tile, bpp)
+					-- and then to our master sheet
+					local tiledstx = dstx + x * 8
+					local tiledsty = dsty + y * 8
+					if tiledstx > tilesImg.width then
+						print('!!! WARNING !!! tiledstx='..tiledstx..' > tilesImg.y='..tilesImg.width)
+					end
+					if tiledsty > tilesImg.height then
+						print('!!! WARNING !!! tiledsty='..tiledsty..' > tilesImg.y='..tilesImg.height)
+					end
+					tilesImg:pasteInto{
+						image = tileImg:rgba(),
+						x = tiledstx,
+						y = tiledsty,
+					}
+				end
+				dstx = dstx + 16
+			end
+			dstx = dstx + 8
 		end
 
+		tilesImg:save'all-field-tiles.png'
+	end
+
+	-- use this for later making vehicle-sheet
+	local tilesImg
+	do
+		-- 0x183000 - 0x185000 has 256 8x8 tiles = 64 16x16 tiles
+		local ptr = game.rom + 0x183000
+		local tilesWide = 16
+		local tilesHigh = 16
+
+		tilesImg = Image(tileWidth*tilesWide, tileHeight*tilesHigh, 1, uint8_t):clear()
+
 		--everything8215 vehicleGraphics says mapSpritePalettes[7] and [11]
-		info.tilesImg.palette = table.append(
+		tilesImg.palette = table.append(
 			makePalette(game, game.characterPalettes + 7, 4, 16),
 			makePalette(game, game.characterPalettes + 11, 4, 16)
 		)
 
-		local tileImgs = table()
 		local tileIndex = 0
 		for ty=0,tilesHigh-1 do
 			for tx=0,tilesWide-1 do
 				local tileImg = Image(8, 8, 1, uint8_t):clear()
 				local palor = tileIndex < 32 and 0x10 or 0
 				readTile(tileImg, 0, 0, ptr, bpp, false, false, palor)
-				info.tilesImg:pasteInto{image=tileImg, x=tx*tileWidth, y=ty*tileHeight}
+				tilesImg:pasteInto{image=tileImg, x=tx*tileWidth, y=ty*tileHeight}
 				ptr = ptr + 32
 				tileIndex = tileIndex + 1
-				tileImgs:insert(tileImg)
 			end
 		end
 
-		info.tilesImg:save(info.fn)
+		tilesImg:save'vehicle-tiles.png'
 	end
 
 	-- now rearrange them and put them into a 256x256 sprite-sheet (this is ff6t3d-specific)

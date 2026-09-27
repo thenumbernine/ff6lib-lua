@@ -2566,9 +2566,9 @@ Game = struct{
 		-- 0x00d0f2 - ? = pointer to map character graphics (2 bytes each)
 		{name = 'characterSpriteOffsetLo', type = arrayType(uint16_t, numCharacterSprites)},					-- 0x00d0f2 - 0x00d23c
 
+		-- 0x00d23c - ? = bank pointer & # bytes to copy for map char gfx (2 bytes each)
 		{name = 'characterSpriteOffsetHiAndSize', type = arrayType(CharHiAndSize, numCharacterSprites)},		-- 0x00d23c - 0x00d386
 
-		-- 0x00d23c - ? = bank pointer & # bytes to copy for map char gfx (2 bytes each)
 		-- 0x00dfa0 - 0x00e0a0 = 'DTE table' -rgplegion
 		{name = 'unknown_00d386', type = arrayType(uint8_t, -(0x00d386 - 0x00e0a0))},							-- 0x00d386 - 0x00e0a0
 		{name = 'initNPCFlags', type = arrayType(uint8_t, 0x80)}, 												-- 0x00e0a0 - 0x00e120 = initial NPC flags
