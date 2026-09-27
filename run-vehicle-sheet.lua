@@ -29,6 +29,497 @@ local function run(game)
 	local tileHeight = require 'ff6.graphics'.tileHeight
 	local bpp = 4
 
+	-- from everything8215/ff6/src/gfx/map_sprite_pal.inc:
+	local paletteNames = {
+		[0] = 'EDGAR_SABIN_CELES',
+		[1] = 'LOCKE',
+		[2] = 'TERRA',
+		[3] = 'STRAGO_RELM_GAU_GOGO',
+		[4] = 'CYAN_SHADOW_SETZER',
+		[5] = 'MOG_UMARO',
+		[6] = 'RAINBOW',
+		[7] = 'VEHICLE',
+		[8] = 'ESPER_TERRA',
+		[9] = 'EDGAR_SABIN_CELES_ALT',
+		[10] = 'MACHINERY_1',
+		[11] = 'RAFT',
+		[12] = 'MACHINERY_2',
+		[13] = 'GUARDIAN',
+		[14] = 'SEALED_GATE',
+		[15] = 'VECTOR_CRANE',
+		[16] = 'STATUE_SMOKE',
+		[17] = 'TREASURE_CHEST',
+		[18] = 'CHADARNOOK',
+		[19] = 'ROCK',
+		[20] = 'FALCON',
+		[21] = 'ODIN',
+		[22] = 'KEFKAS_TOWER_PARALLAX_1',
+		[23] = 'KEFKAS_TOWER_PARALLAX_2',
+		[24] = 'KEFKAS_TOWER_PARALLAX_3',
+		[25] = 'DADALUMA',
+		[26] = 'GREEN_MAGICITE_SMOKE',
+		[27] = 'UNUSED_27',
+		[28] = 'UNUSED_28',
+		[29] = 'AIRSHIP_PARALLAX',
+		[30] = 'UNUSED_30',
+		[31] = 'UNUSED_31',
+	}
+	local paletteIndexes = table.map(paletteNames, function(name,index) return index, name end):setmetatable(nil)
+	paletteIndexes.EDGAR = paletteIndexes.EDGAR_SABIN_CELES
+	paletteIndexes.SABIN = paletteIndexes.EDGAR_SABIN_CELES
+	paletteIndexes.CELES = paletteIndexes.EDGAR_SABIN_CELES
+	paletteIndexes.IMP = paletteIndexes.EDGAR_SABIN_CELES
+	paletteIndexes.LEO = paletteIndexes.EDGAR_SABIN_CELES
+	paletteIndexes.GHOST = paletteIndexes.EDGAR_SABIN_CELES
+	paletteIndexes.GREEN_SOLDIER = paletteIndexes.EDGAR_SABIN_CELES
+	paletteIndexes.MERCHANT = paletteIndexes.LOCKE
+	paletteIndexes.BROWN_SOLDIER = paletteIndexes.LOCKE
+	paletteIndexes.STRAGO = paletteIndexes.STRAGO_RELM_GAU_GOGO
+	paletteIndexes.RELM = paletteIndexes.STRAGO_RELM_GAU_GOGO
+	paletteIndexes.GAU = paletteIndexes.STRAGO_RELM_GAU_GOGO
+	paletteIndexes.GOGO = paletteIndexes.STRAGO_RELM_GAU_GOGO
+	paletteIndexes.BANON = paletteIndexes.STRAGO_RELM_GAU_GOGO
+	paletteIndexes.KEFKA = paletteIndexes.STRAGO_RELM_GAU_GOGO
+	paletteIndexes.GESTAHL = paletteIndexes.STRAGO_RELM_GAU_GOGO
+	paletteIndexes.CYAN = paletteIndexes.CYAN_SHADOW_SETZER
+	paletteIndexes.SHADOW = paletteIndexes.CYAN_SHADOW_SETZER
+	paletteIndexes.SETZER = paletteIndexes.CYAN_SHADOW_SETZER
+	paletteIndexes.MOG = paletteIndexes.MOG_UMARO
+	paletteIndexes.UMARO = paletteIndexes.MOG_UMARO
+
+
+	-- from everything8215/ff6/src/gfx/map_sprite_gfx.inc:
+	local spriteNames = {
+		[0] = 'TERRA',
+		[1] = 'LOCKE',
+		[2] = 'CYAN',
+		[3] = 'SHADOW',
+		[4] = 'EDGAR',
+		[5] = 'SABIN',
+		[6] = 'CELES',
+		[7] = 'STRAGO',
+		[8] = 'RELM',
+		[9] = 'SETZER',
+		[10] = 'MOG',
+		[11] = 'GAU',
+		[12] = 'GOGO',
+		[13] = 'UMARO',
+		[14] = 'SOLDIER',
+		[15] = 'IMP',
+		[16] = 'LEO',
+		[17] = 'BANON',
+		[18] = 'ESPER_TERRA',
+		[19] = 'MERCHANT',
+		[20] = 'GHOST',
+		[21] = 'KEFKA',
+		[22] = 'GESTAHL',
+		[23] = 'OLD_MAN',
+		[24] = 'MAN',
+		[25] = 'DOG',
+		[26] = 'CELES_DRESS',
+		[27] = 'RICH_MAN',
+		[28] = 'DRACO',
+		[29] = 'ARVIS',
+		[30] = 'PILOT',
+		[31] = 'ULTROS',
+		[32] = 'SPIFFY_GAU',
+		[33] = 'HOOKER',
+		[34] = 'CHANCELLOR',
+		[35] = 'CLYDE',
+		[36] = 'OLD_WOMAN',
+		[37] = 'WOMAN',
+		[38] = 'BOY',
+		[39] = 'GIRL',
+		[40] = 'BIRD',
+		[41] = 'RACHEL',
+		[42] = 'KATARIN',
+		[43] = 'IMPRESARIO',
+		[44] = 'ESPER_ELDER',
+		[45] = 'YURA',
+		[46] = 'SIEGFRIED',
+		[47] = 'CID',
+		[48] = 'MADUIN',
+		[49] = 'BANDIT',
+		[50] = 'VARGAS',
+		[51] = 'MONSTER',
+		[52] = 'NARSHE_GUARD',
+		[53] = 'TRAIN_CONDUCTOR',
+		[54] = 'SHOPKEEPER',
+		[55] = 'FAERIE',
+		[56] = 'WOLF',
+		[57] = 'DRAGON',
+		[58] = 'FISH',
+		[59] = 'FIGARO_GUARD',
+		[60] = 'DARILL',
+		[61] = 'CHUPON',
+		[62] = 'EMPEROR_SERVANT',
+		[63] = 'RAMUH',
+		[64] = 'FIGARO_GUARD_RIDING',
+		[65] = 'CELES_CHAINS',
+		[66] = 'GAU_KUNG_FU',
+		[67] = 'GAU_BANDANA',
+		[68] = 'KING_DOMA',
+		[69] = 'NUMBER_128',
+		[70] = 'MAGI_WARRIOR_1',
+		[71] = 'SKULL_STATUE',
+		[72] = 'IFRIT',
+		[73] = 'PHANTOM',
+		[74] = 'SHIVA',
+		[75] = 'UNICORN',
+		[76] = 'BISMARK',
+		[77] = 'CARBUNKL',
+		[78] = 'SHOAT',
+		[79] = 'OWZER_1',
+		[80] = 'OWZER_2',
+		[81] = 'BLACKJACK',
+		[82] = 'FIGARO_GUARD_DEAD',
+		[83] = 'NUMBER_024',
+		[84] = 'TREASURE_CHEST',
+		[85] = 'MAGI_WARRIOR_2',
+		[86] = 'ATMA',
+		[87] = 'SMALL_STATUE',
+		[88] = 'FLOWERS',
+		[89] = 'ENVELOPE',
+		[90] = 'PLANT',
+		[91] = 'MAGICITE',
+		[92] = 'BOOK',
+		[93] = 'BABY',
+		[94] = 'QUESTION_MARK',
+		[95] = 'EXCLAMATION_POINT',
+		[96] = 'SLAVE_CROWN',
+		[97] = 'WEIGHT',
+		[98] = 'BIRD_BANDANA',
+		[99] = 'EYES',
+		[100] = 'BANDANA',
+		[101] = 'NOTHING',
+		[102] = 'FLYING_BIRD_1',
+		[103] = 'FLYING_BIRD_2',
+		[104] = 'BIG_SPARKLE',
+		[105] = 'MULTI_SPARKLES',
+		[106] = 'SMALL_SPARKLE',
+		[107] = 'COIN',
+		[108] = 'RAT',
+		[109] = 'TURTLE',
+		[110] = 'SMALL_BIRD_UP',
+		[111] = 'SAVE_POINT',
+		[112] = 'FLAME',
+		[113] = 'EXPLOSION',
+		[114] = 'TENTACLE_1',
+		[115] = 'TENTACLE_2',
+		[116] = 'BIG_SWITCH',
+		[117] = 'FLOOR_SWITCH',
+		[118] = 'ROCK',
+		[119] = 'CRANE_HOOK_3',
+		[120] = 'ELEVATOR',
+		[121] = 'FLYING_TERRA_1',
+		[122] = 'FLYING_TERRA_2',
+		[123] = 'ENDING_TERRA_3',
+		[124] = 'DIVING_HELMET',
+		[125] = 'GUARDIAN_1',
+		[126] = 'GUARDIAN_2',
+		[127] = 'GUARDIAN_3',
+		[128] = 'CRANE_HOOK_2',
+		[129] = 'GUARDIAN_4',
+		[130] = 'GUARDIAN_5',
+		[131] = 'GUARDIAN_6',
+		[132] = 'CRANE_HOOK_1',
+		[133] = 'MAGITEK_MACHINE',
+		[134] = 'GATE_1',
+		[135] = 'GATE_2',
+		[136] = 'GATE_3',
+		[137] = 'AIR_FORCE',
+		[138] = 'LEO_SWORD',
+		[139] = 'MAGITEK_TRAIN_1',
+		[140] = 'MAGITEK_TRAIN_2',
+		[141] = 'MAGITEK_TRAIN_3',
+		[142] = 'MAGITEK_TRAIN_4',
+		[143] = 'CRANE_1',
+		[144] = 'CRANE_2',
+		[145] = 'CRANE_3',
+		[146] = 'CHADARNOOK_1',
+		[147] = 'CHADARNOOK_2',
+		[148] = 'CHADARNOOK_3',
+		[149] = 'FALCON_1',
+		[150] = 'FALCON_2',
+		[151] = 'FALCON_3',
+		[152] = 'FLYING_TERRA_3',
+		[153] = 'TRITOCH',
+		[154] = 'ODIN',
+		[155] = 'GODDESS_1',
+		[156] = 'DOOM_1',
+		[157] = 'POLTERGEIST_1',
+		[158] = 'GODDESS_2',
+		[159] = 'GODDESS_3',
+		[160] = 'DOOM_2',
+		[161] = 'DOOM_3',
+		[162] = 'ENDING_TERRA_1',
+		[163] = 'ENDING_TERRA_2',
+		[164] = 'SMALL_BIRD_LEFT',
+	}
+	local spriteIndexes = table.map(spriteNames, function(name,index) return index, name end):setmetatable(nil)
+
+	-- grep'ing everything8215/ff6 and getting all npc_gfx sprite + palette instances...
+	-- then remove NOTHING sprites and remove no explicit palette npcs
+	-- then sort and remove duplicates
+	local palettesForSprites = {}
+local function addSpritePal(spriteName, paletteIndex)
+	if not paletteIndex then return end
+	palettesForSprites[spriteName] = palettesForSprites[spriteName] or table()
+	palettesForSprites[spriteName]:removeObject(paletteIndex)
+	palettesForSprites[spriteName]:insert(paletteIndex)
+end
+	-- set all npc_gfx
+-- [[
+	for _,kv in ipairs{
+		{'AIR_FORCE', 'CYAN_SHADOW_SETZER'},
+		{'ARVIS', 'CYAN_SHADOW_SETZER'},
+		{'ATMA', 'STRAGO_RELM_GAU_GOGO'},
+		{'BABY', 'TERRA'},
+		{'BANDANA', 'EDGAR_SABIN_CELES'},
+		{'BANDIT', 'EDGAR_SABIN_CELES'},
+		{'BANDIT', 'LOCKE'},
+		{'BANDIT', 'STRAGO_RELM_GAU_GOGO'},
+		{'BANON', 'LOCKE'},
+		{'BANON', 'STRAGO_RELM_GAU_GOGO'},
+		{'BIG_SPARKLE', 'RAINBOW'},
+		{'BIG_SPARKLE', 'STRAGO_RELM_GAU_GOGO'},
+		{'BIG_SWITCH', 'RAINBOW'},
+		{'BIRD', 'CYAN_SHADOW_SETZER'},
+		{'BIRD_BANDANA', 'CYAN_SHADOW_SETZER'},
+		{'BISMARK', 'CYAN_SHADOW_SETZER'},
+		{'BLACKJACK', 'CYAN_SHADOW_SETZER'},
+		{'BOOK', 'EDGAR_SABIN_CELES'},
+		{'BOY', 'EDGAR_SABIN_CELES'},
+		{'BOY', 'LOCKE'},
+		{'BOY', 'STRAGO_RELM_GAU_GOGO'},
+		{'BOY', 'TERRA'},
+		{'BOY', 'VEHICLE'},
+		{'CARBUNKL', 'TERRA'},
+		{'CELES_CHAINS', 'EDGAR_SABIN_CELES'},
+		{'CELES_DRESS', 'EDGAR_SABIN_CELES'},
+		{'CELES_DRESS', 'VEHICLE'},
+		{'CHADARNOOK_1', 'RAINBOW'},
+		{'CHADARNOOK_2', 'RAINBOW'},
+		{'CHADARNOOK_3', 'RAINBOW'},
+		{'CHANCELLOR', 'TERRA'},
+		{'CHUPON', 'EDGAR_SABIN_CELES'},
+		{'CHUPON', 'MOG_UMARO'},
+		{'CID', 'STRAGO_RELM_GAU_GOGO'},
+		{'CLYDE', 'LOCKE'},
+		{'COIN', 'EDGAR_SABIN_CELES'},
+		{'COIN', 'RAINBOW'},
+		{'CRANE_1', 'RAINBOW'},
+		{'CRANE_2', 'RAINBOW'},
+		{'CRANE_3', 'RAINBOW'},
+		{'CRANE_HOOK_1', 'RAINBOW'},
+		{'CRANE_HOOK_2', 'RAINBOW'},
+		{'CRANE_HOOK_3', 'RAINBOW'},
+		{'CYAN', 'RAINBOW'},
+		{'CYAN', 'VEHICLE'},
+		{'DARILL', 'TERRA'},
+		{'DIVING_HELMET', 'STRAGO_RELM_GAU_GOGO'},
+		{'DOG', 'CYAN_SHADOW_SETZER'},
+		{'DOG', 'LOCKE'},
+		{'DOOM_1', 'VEHICLE'},
+		{'DOOM_2', 'VEHICLE'},
+		{'DOOM_3', 'VEHICLE'},
+		{'DRACO', 'CYAN_SHADOW_SETZER'},
+		{'DRAGON', 'CYAN_SHADOW_SETZER'},
+		{'DRAGON', 'EDGAR_SABIN_CELES'},
+		{'DRAGON', 'LOCKE'},
+		{'DRAGON', 'STRAGO_RELM_GAU_GOGO'},
+		{'DRAGON', 'TERRA'},
+		{'EDGAR', 'LOCKE'},
+		{'ELEVATOR', 'RAINBOW'},
+		{'ELEVATOR', 'VEHICLE'},
+		{'EMPEROR_SERVANT', 'CYAN_SHADOW_SETZER'},
+		{'EMPEROR_SERVANT', 'TERRA'},
+		{'EMPEROR_SERVANT', 'VEHICLE'},
+		{'ENDING_TERRA_1', 'TERRA'},
+		{'ENDING_TERRA_2', 'TERRA'},
+		{'ENDING_TERRA_3', 'TERRA'},
+		{'ENVELOPE', 'STRAGO_RELM_GAU_GOGO'},
+		{'ESPER_ELDER', 'CYAN_SHADOW_SETZER'},
+		{'ESPER_TERRA', 'RAINBOW'},
+		{'ESPER_TERRA', 'VEHICLE'},
+		{'EXCLAMATION_POINT', 'RAINBOW'},
+		{'EXPLOSION', 'RAINBOW'},
+		{'EXPLOSION', 'VEHICLE'},
+		{'EYES', 'EDGAR_SABIN_CELES'},
+		{'FAERIE', 'TERRA'},
+		{'FALCON_1', 'VEHICLE'},
+		{'FALCON_2', 'VEHICLE'},
+		{'FALCON_3', 'VEHICLE'},
+		{'FIGARO_GUARD', 'LOCKE'},
+		{'FIGARO_GUARD', 'TERRA'},
+		{'FIGARO_GUARD_DEAD', 'TERRA'},
+		{'FISH', 'CYAN_SHADOW_SETZER'},
+		{'FLAME', 'RAINBOW'},
+		{'FLOOR_SWITCH', 'CYAN_SHADOW_SETZER'},
+		{'FLOWERS', 'STRAGO_RELM_GAU_GOGO'},
+		{'FLYING_BIRD_1', 'CYAN_SHADOW_SETZER'},
+		{'FLYING_BIRD_2', 'CYAN_SHADOW_SETZER'},
+		{'FLYING_TERRA_1', 'RAINBOW'},
+		{'FLYING_TERRA_3', 'RAINBOW'},
+		{'GATE_1', 'VEHICLE'},
+		{'GATE_2', 'VEHICLE'},
+		{'GATE_3', 'VEHICLE'},
+		{'GAU_BANDANA', 'STRAGO_RELM_GAU_GOGO'},
+		{'GAU_KUNG_FU', 'STRAGO_RELM_GAU_GOGO'},
+		{'GESTAHL', 'STRAGO_RELM_GAU_GOGO'},
+		{'GHOST', 'EDGAR_SABIN_CELES'},
+		{'GHOST', 'RAINBOW'},
+		{'GIRL', 'EDGAR_SABIN_CELES'},
+		{'GIRL', 'LOCKE'},
+		{'GODDESS_1', 'VEHICLE'},
+		{'GODDESS_2', 'VEHICLE'},
+		{'GODDESS_3', 'VEHICLE'},
+		{'GOGO', 'MOG_UMARO'},
+		{'GUARDIAN_1', 'RAINBOW'},
+		{'GUARDIAN_1', 'VEHICLE'},
+		{'GUARDIAN_2', 'RAINBOW'},
+		{'GUARDIAN_2', 'VEHICLE'},
+		{'GUARDIAN_3', 'RAINBOW'},
+		{'GUARDIAN_3', 'VEHICLE'},
+		{'GUARDIAN_4', 'RAINBOW'},
+		{'GUARDIAN_4', 'VEHICLE'},
+		{'GUARDIAN_5', 'RAINBOW'},
+		{'GUARDIAN_5', 'VEHICLE'},
+		{'GUARDIAN_6', 'RAINBOW'},
+		{'GUARDIAN_6', 'VEHICLE'},
+		{'HOOKER', 'EDGAR_SABIN_CELES'},
+		{'HOOKER', 'TERRA'},
+		{'IFRIT', 'STRAGO_RELM_GAU_GOGO'},
+		{'IMP', 'EDGAR_SABIN_CELES'},
+		{'IMPRESARIO', 'CYAN_SHADOW_SETZER'},
+		{'KATARIN', 'CYAN_SHADOW_SETZER'},
+		{'KEFKA', 'STRAGO_RELM_GAU_GOGO'},
+		{'KING_DOMA', 'TERRA'},
+		{'LEO', 'EDGAR_SABIN_CELES'},
+		{'LEO_SWORD', 'CYAN_SHADOW_SETZER'},
+		{'MADUIN', 'CYAN_SHADOW_SETZER'},
+		{'MADUIN', 'TERRA'},
+		{'MAGICITE', 'TERRA'},
+		{'MAGITEK_MACHINE', 'VEHICLE'},
+		{'MAGITEK_TRAIN_1', 'RAINBOW'},
+		{'MAGITEK_TRAIN_1', 'VEHICLE'},
+		{'MAGITEK_TRAIN_2', 'RAINBOW'},
+		{'MAGITEK_TRAIN_2', 'VEHICLE'},
+		{'MAGITEK_TRAIN_3', 'RAINBOW'},
+		{'MAGITEK_TRAIN_3', 'VEHICLE'},
+		{'MAGITEK_TRAIN_4', 'RAINBOW'},
+		{'MAGITEK_TRAIN_4', 'VEHICLE'},
+		{'MAGI_WARRIOR_1', 'CYAN_SHADOW_SETZER'},
+		{'MAGI_WARRIOR_2', 'CYAN_SHADOW_SETZER'},
+		{'MAN', 'EDGAR_SABIN_CELES'},
+		{'MAN', 'LOCKE'},
+		{'MAN', 'STRAGO_RELM_GAU_GOGO'},
+		{'MERCHANT', 'EDGAR_SABIN_CELES'},
+		{'MERCHANT', 'LOCKE'},
+		{'MERCHANT', 'TERRA'},
+		{'MONSTER', 'CYAN_SHADOW_SETZER'},
+		{'MONSTER', 'TERRA'},
+		{'MULTI_SPARKLES', 'RAINBOW'},
+		{'NARSHE_GUARD', 'EDGAR_SABIN_CELES'},
+		{'NARSHE_GUARD', 'LOCKE'},
+		{'NUMBER_024', 'MOG_UMARO'},
+		{'NUMBER_128', 'CYAN_SHADOW_SETZER'},
+		{'ODIN', 'RAINBOW'},
+		{'OLD_MAN', 'CYAN_SHADOW_SETZER'},
+		{'OLD_MAN', 'EDGAR_SABIN_CELES'},
+		{'OLD_MAN', 'LOCKE'},
+		{'OLD_MAN', 'STRAGO_RELM_GAU_GOGO'},
+		{'OLD_WOMAN', 'CYAN_SHADOW_SETZER'},
+		{'OLD_WOMAN', 'EDGAR_SABIN_CELES'},
+		{'OLD_WOMAN', 'STRAGO_RELM_GAU_GOGO'},
+		{'OWZER_1', 'STRAGO_RELM_GAU_GOGO'},
+		{'OWZER_2', 'STRAGO_RELM_GAU_GOGO'},
+		{'PHANTOM', 'CYAN_SHADOW_SETZER'},
+		{'PILOT', 'LOCKE'},
+		{'PILOT', 'STRAGO_RELM_GAU_GOGO'},
+		{'PLANT', 'EDGAR_SABIN_CELES'},
+		{'POLTERGEIST_1', 'VEHICLE'},
+		{'QUESTION_MARK', 'RAINBOW'},
+		{'RACHEL', 'EDGAR_SABIN_CELES'},
+		{'RAMUH', 'CYAN_SHADOW_SETZER'},
+		{'RAT', 'STRAGO_RELM_GAU_GOGO'},
+		{'RICH_MAN', 'CYAN_SHADOW_SETZER'},
+		{'RICH_MAN', 'EDGAR_SABIN_CELES'},
+		{'RICH_MAN', 'LOCKE'},
+		{'RICH_MAN', 'RAINBOW'},
+		{'RICH_MAN', 'TERRA'},
+		{'ROCK', 'RAINBOW'},
+		{'SABIN', 'RAINBOW'},
+		{'SAVE_POINT', 'MOG_UMARO'},
+		{'SAVE_POINT', 'RAINBOW'},
+		{'SHIVA', 'EDGAR_SABIN_CELES'},
+		{'SHOAT', 'TERRA'},
+		{'SHOPKEEPER', 'LOCKE'},
+		{'SIEGFRIED', 'CYAN_SHADOW_SETZER'},
+		{'SKULL_STATUE', 'CYAN_SHADOW_SETZER'},
+		{'SLAVE_CROWN', 'CYAN_SHADOW_SETZER'},
+		{'SMALL_BIRD_LEFT', 'CYAN_SHADOW_SETZER'},
+		{'SMALL_BIRD_UP', 'CYAN_SHADOW_SETZER'},
+		{'SMALL_SPARKLE', 'MOG_UMARO'},
+		{'SMALL_SPARKLE', 'RAINBOW'},
+		{'SMALL_STATUE', 'STRAGO_RELM_GAU_GOGO'},
+		{'SOLDIER', 'CYAN_SHADOW_SETZER'},
+		{'SOLDIER', 'EDGAR_SABIN_CELES'},
+		{'SOLDIER', 'LOCKE'},
+		{'SOLDIER', 'RAINBOW'},
+		{'SOLDIER', 'TERRA'},
+		{'SOLDIER', 'VEHICLE'},
+		{'SPIFFY_GAU', 'STRAGO_RELM_GAU_GOGO'},
+		{'TENTACLE_1', 'STRAGO_RELM_GAU_GOGO'},
+		{'TENTACLE_2', 'STRAGO_RELM_GAU_GOGO'},
+		{'TRAIN_CONDUCTOR', 'CYAN_SHADOW_SETZER'},
+		{'TRAIN_CONDUCTOR', 'EDGAR_SABIN_CELES'},
+		{'TREASURE_CHEST', 'RAINBOW'},
+		{'TREASURE_CHEST', 'VEHICLE'},
+		{'TRITOCH', 'TERRA'},
+		{'TURTLE', 'VEHICLE'},
+		{'ULTROS', 'MOG_UMARO'},
+		{'ULTROS', 'TERRA'},
+		{'UMARO', 'MOG_UMARO'},
+		{'UNICORN', 'STRAGO_RELM_GAU_GOGO'},
+		{'VARGAS', 'CYAN_SHADOW_SETZER'},
+		{'VARGAS', 'VEHICLE'},
+		{'WEIGHT', 'CYAN_SHADOW_SETZER'},
+		{'WOLF', 'CYAN_SHADOW_SETZER'},
+		{'WOLF', 'TERRA'},
+		{'WOMAN', 'EDGAR_SABIN_CELES'},
+		{'WOMAN', 'LOCKE'},
+		{'WOMAN', 'STRAGO_RELM_GAU_GOGO'},
+		{'WOMAN', 'TERRA'},
+		{'WOMAN', 'VEHICLE'},
+		{'YURA', 'CYAN_SHADOW_SETZER'},
+	} do
+		local spriteName, paletteName = table.unpack(kv)
+		addSpritePal(spriteName, paletteIndexes[paletteName])
+	end
+--]]
+	-- if any palette indexes have matching names with sprite names then set those
+	-- do this last to override defaults
+	for name,index in pairs(paletteIndexes) do
+		addSpritePal(name, index)
+	end
+
+-- filling in some that are missing or had multiple options...
+addSpritePal('SOLDIER', 1)
+addSpritePal('DOG', 4)
+addSpritePal('CELES_DRESS', 0)
+addSpritePal('PILOT', 1)
+addSpritePal('ULTROS', 5)
+addSpritePal('WOMAN', 1)
+addSpritePal('BOY', 3)
+addSpritePal('VARGAS', 4)
+addSpritePal('MONSTER', 4)
+addSpritePal('TRAIN_CONDUCTOR', 4)
+addSpritePal('WOLF', 4)
+addSpritePal('EMPEROR_SERVANT', 2)
+addSpritePal('FIGARO_GUARD_RIDING', 2)
+addSpritePal('BIG_SPARKLE', 6)
+addSpritePal('COIN', 0)
 	do
 		--4bpp means 32 bytes per 8x8 tile ...
 		--  0x150000 - 0x185000 has 6784 8x8 tiles = 1696 16x16 tiles
@@ -39,12 +530,22 @@ local function run(game)
 		local tilesImg = Image(tileWidth*tilesWide, tileHeight*tilesHigh, 4, uint8_t):clear()
 		local tileImg = Image(tileWidth, tileHeight, 1, uint8_t)
 
+		print'spritePalettes = {'
+		for sprite=0,game.numCharacterSprites-1 do
+			local palIndexes = palettesForSprites[spriteNames[sprite]]
+			local palIndex = palIndexes and palIndexes:last() or 0
+			print('\t['..sprite..'] = '..palIndex..',\t-- '..spriteNames[sprite]..' = '..tostring(paletteNames[palIndex]))
+		end
+		print'}'
+
 		local dstx = 0
 		local dsty = 0
 		for sprite=0,game.numCharacterSprites-1 do
-			local palIndex = game.characterPaletteIndexes[sprite]
-			-- palette 6 for morphed terra is wrong... it's also used for tutor house middle room and is wrong there too
-			palIndex = bit.band(palIndex, 7)
+			local palIndexes = palettesForSprites[spriteNames[sprite]]
+			local palIndex = palIndexes and palIndexes:last()
+-- see all?
+--print('sprite', spriteNames[sprite], 'using palettes', palIndexes and palIndexes:concat', ')
+			palIndex = bit.band(palIndex or 0, 0x1f)
 			local palette = makePalette(game, game.characterPalettes + palIndex, 4, 16)
 			tileImg.palette = palette
 

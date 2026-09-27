@@ -2565,6 +2565,8 @@ Game = struct{
 
 		-- battle character palette assignment (1 byte each)
 		-- or actually last bit probably means something else since it's not indexable
+		-- hmm TODO I don't think this is sized at numCharacterSprites == 165... that's map sprites, this is battle...
+		-- it looks like there's only 26...
 		{name = 'characterPaletteIndexes', type = arrayType(uint8_t, numCharacterSprites)},						-- 0x02ce2b - 0x02ced0
 
 		{name = 'unknown_02ced0', type = arrayType(uint8_t, -(0x02ced0 - 0x02d01a))},							-- 0x02ced0 - 0x02d01a
