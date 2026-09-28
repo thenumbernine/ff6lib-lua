@@ -54,7 +54,7 @@ local function run(game)
 		[5] = 'mog_umaro',
 		[6] = 'rainbow',
 		[7] = 'vehicle',
-		[8] = 'esper_terra',
+		[8] = 'morphed_terra',
 		[9] = 'edgar_sabin_celes_alt',
 		[10] = 'machinery_1',
 		[11] = 'raft',
@@ -104,6 +104,7 @@ local function run(game)
 
 
 	-- from everything8215/ff6/src/gfx/map_sprite_gfx.inc:
+	-- I renamed some to match the names I already had in ff6t3d...
 	local spriteNames = {
 		[0] = 'terra',
 		[1] = 'locke',
@@ -123,33 +124,33 @@ local function run(game)
 		[15] = 'imp',
 		[16] = 'leo',
 		[17] = 'banon',
-		[18] = 'esper_terra',
+		[18] = 'morphed_terra',	-- was esper_terra
 		[19] = 'merchant',
 		[20] = 'ghost',
 		[21] = 'kefka',
 		[22] = 'gestahl',
-		[23] = 'old_man',
+		[23] = 'elder',	-- was old_man
 		[24] = 'man',
 		[25] = 'dog',
-		[26] = 'celes_dress',
-		[27] = 'rich_man',
+		[26] = 'celes_in_dress',	-- was celes_dress
+		[27] = 'scholar',	-- was rich_man
 		[28] = 'draco',
 		[29] = 'arvis',
-		[30] = 'pilot',
+		[30] = 'returner',	-- was pilot
 		[31] = 'ultros',
-		[32] = 'spiffy_gau',
+		[32] = 'gau_dressed_up', -- was spiffy_gau
 		[33] = 'hooker',
-		[34] = 'chancellor',
+		[34] = 'figaro_chancellor',	-- was chancellor
 		[35] = 'clyde',
-		[36] = 'old_woman',
+		[36] = 'matron',	-- was old_woman
 		[37] = 'woman',
 		[38] = 'boy',
 		[39] = 'girl',
 		[40] = 'bird',
 		[41] = 'rachel',
 		[42] = 'katarin',
-		[43] = 'impresario',
-		[44] = 'esper_elder',
+		[43] = 'opera_impresario',	-- was impresario
+		[44] = 'elder_esper',	-- was esper_elder
 		[45] = 'yura',
 		[46] = 'siegfried',
 		[47] = 'cid',
@@ -311,12 +312,12 @@ end
 		{'boy', 'vehicle'},
 		{'carbunkl', 'terra'},
 		{'celes_chains', 'edgar_sabin_celes'},
-		{'celes_dress', 'edgar_sabin_celes'},
-		{'celes_dress', 'vehicle'},
+		{'celes_in_dress', 'edgar_sabin_celes'},
+		{'celes_in_dress', 'vehicle'},
 		{'chadarnook_1', 'rainbow'},
 		{'chadarnook_2', 'rainbow'},
 		{'chadarnook_3', 'rainbow'},
-		{'chancellor', 'terra'},
+		{'figaro_chancellor', 'terra'},
 		{'chupon', 'edgar_sabin_celes'},
 		{'chupon', 'mog_umaro'},
 		{'cid', 'strago_relm_gau_gogo'},
@@ -354,9 +355,9 @@ end
 		{'ending_terra_2', 'terra'},
 		{'ending_terra_3', 'terra'},
 		{'envelope', 'strago_relm_gau_gogo'},
-		{'esper_elder', 'cyan_shadow_setzer'},
-		{'esper_terra', 'rainbow'},
-		{'esper_terra', 'vehicle'},
+		{'elder_esper', 'cyan_shadow_setzer'},
+		{'morphed_terra', 'rainbow'},
+		{'morphed_terra', 'vehicle'},
 		{'exclamation_point', 'rainbow'},
 		{'explosion', 'rainbow'},
 		{'explosion', 'vehicle'},
@@ -406,7 +407,7 @@ end
 		{'hooker', 'terra'},
 		{'ifrit', 'strago_relm_gau_gogo'},
 		{'imp', 'edgar_sabin_celes'},
-		{'impresario', 'cyan_shadow_setzer'},
+		{'opera_impresario', 'cyan_shadow_setzer'},
 		{'katarin', 'cyan_shadow_setzer'},
 		{'kefka', 'strago_relm_gau_gogo'},
 		{'king_doma', 'terra'},
@@ -440,29 +441,29 @@ end
 		{'number_024', 'mog_umaro'},
 		{'number_128', 'cyan_shadow_setzer'},
 		{'odin', 'rainbow'},
-		{'old_man', 'cyan_shadow_setzer'},
-		{'old_man', 'edgar_sabin_celes'},
-		{'old_man', 'locke'},
-		{'old_man', 'strago_relm_gau_gogo'},
-		{'old_woman', 'cyan_shadow_setzer'},
-		{'old_woman', 'edgar_sabin_celes'},
-		{'old_woman', 'strago_relm_gau_gogo'},
+		{'elder', 'cyan_shadow_setzer'},
+		{'elder', 'edgar_sabin_celes'},
+		{'elder', 'locke'},
+		{'elder', 'strago_relm_gau_gogo'},
+		{'matron', 'cyan_shadow_setzer'},
+		{'matron', 'edgar_sabin_celes'},
+		{'matron', 'strago_relm_gau_gogo'},
 		{'owzer_1', 'strago_relm_gau_gogo'},
 		{'owzer_2', 'strago_relm_gau_gogo'},
 		{'phantom', 'cyan_shadow_setzer'},
-		{'pilot', 'locke'},
-		{'pilot', 'strago_relm_gau_gogo'},
+		{'returner', 'locke'},
+		{'returner', 'strago_relm_gau_gogo'},
 		{'plant', 'edgar_sabin_celes'},
 		{'poltergeist_1', 'vehicle'},
 		{'question_mark', 'rainbow'},
 		{'rachel', 'edgar_sabin_celes'},
 		{'ramuh', 'cyan_shadow_setzer'},
 		{'rat', 'strago_relm_gau_gogo'},
-		{'rich_man', 'cyan_shadow_setzer'},
-		{'rich_man', 'edgar_sabin_celes'},
-		{'rich_man', 'locke'},
-		{'rich_man', 'rainbow'},
-		{'rich_man', 'terra'},
+		{'scholar', 'cyan_shadow_setzer'},
+		{'scholar', 'edgar_sabin_celes'},
+		{'scholar', 'locke'},
+		{'scholar', 'rainbow'},
+		{'scholar', 'terra'},
 		{'rock', 'rainbow'},
 		{'sabin', 'rainbow'},
 		{'save_point', 'mog_umaro'},
@@ -484,7 +485,7 @@ end
 		{'soldier', 'rainbow'},
 		{'soldier', 'terra'},
 		{'soldier', 'vehicle'},
-		{'spiffy_gau', 'strago_relm_gau_gogo'},
+		{'gau_dressed_up', 'strago_relm_gau_gogo'},
 		{'tentacle_1', 'strago_relm_gau_gogo'},
 		{'tentacle_2', 'strago_relm_gau_gogo'},
 		{'train_conductor', 'cyan_shadow_setzer'},
@@ -522,8 +523,8 @@ end
 	-- filling in some that are missing or had multiple options...
 	addSpritePal('soldier', 1)
 	addSpritePal('dog', 4)
-	addSpritePal('celes_dress', 0)
-	addSpritePal('pilot', 1)
+	addSpritePal('celes_in_dress', 0)
+	addSpritePal('returner', 1)
 	addSpritePal('ultros', 5)
 	addSpritePal('woman', 1)
 	addSpritePal('boy', 3)
@@ -549,64 +550,64 @@ end
 
 	-- sprite frames ...
 	local frameNames = {
-		[0x00] = 'walking_down_1',
-		[0x01] = 'walking_down_2',
-		[0x02] = 'walking_down_3',
-		[0x03] = 'walking_up_1',
-		[0x04] = 'walking_up_2',
-		[0x05] = 'walking_up_3',
-		[0x06] = 'walking_left_1',
-		[0x07] = 'walking_left_2',
-		[0x08] = 'walking_left_3',
-		[0x09] = 'near_fatal',
-		[0x0a] = 'ready',
-		[0x0b] = 'hit',
-		[0x0c] = 'attacking_1',
-		[0x0d] = 'attacking_2',
-		[0x0e] = 'attacking_3',
-		[0x0f] = 'jumping',
-		[0x10] = 'casting_1',
-		[0x11] = 'casting_2',
-		[0x12] = 'dead_vert',
-		[0x13] = 'eyes_closed_down',
-		[0x14] = 'winking_down',
-		[0x15] = 'eyes_closed_left',
-		[0x16] = 'arms_up_down',
-		[0x17] = 'arms_up_up',
-		[0x18] = 'angry',
-		[0x19] = 'waving_1_down',
-		[0x1a] = 'waving_2_down',
-		[0x1b] = 'waving_1_up',
-		[0x1c] = 'waving_2_up',
-		[0x1d] = 'laughing_1',
-		[0x1e] = 'laughing_2',
-		[0x1f] = 'surprised',
-		[0x20] = 'head_down_down',
-		[0x21] = 'head_down_up',
-		[0x22] = 'head_down_left',
-		[0x23] = 'head_turned',
-		[0x24] = 'wagging_finger_1',
-		[0x25] = 'wagging_finger_2',
-		[0x26] = 'special',
-		[0x27] = 'tent',
-		[0x28] = 'dead_horz',
-		[0x29] = 'npc_special_1',
-		[0x2a] = 'npc_waving_1',
-		[0x2b] = 'npc_waving_2',
-		[0x2c] = 'npc_head_down_down',
-		[0x2d] = 'npc_special_2',
-		[0x2e] = 'riding_left_1',
-		[0x2f] = 'riding_left_2',
-		[0x30] = 'ramuh_staff_raised',
-		[0x31] = 'ramuh_eyes_closed',
-		[0x32] = 'special_anim_1',
-		[0x33] = 'special_anim_2',
-		[0x34] = 'special_anim_3',
-		[0x35] = 'special_anim_4',
-		[0x36] = 'opera_singer_mouth_open',
-		[0x37] = 'opera_singer_mouth_closed',
-		[0x38] = 'opera_singer_unused',
-		[0x39] = 'map_sprite_frame_57',
+		[0] = 'walkd1', --'walking_down_1',
+		'standd',		--'walking_down_2',
+		'walkd2',		--'walking_down_3',
+		'walku1',		--'walking_up_1',
+		'standu',		--'walking_up_2',
+		'walku2',		--'walking_up_3',
+		'walkl1',		--'walking_left_1',
+		'standl',		--'walking_left_2',
+		'walkl2',		--'walking_left_3',
+		'wound',		--'near_fatal',
+		'ready',
+		'pain',			--'hit',
+		'stand',		--'attacking_1',
+		'swing',		--'attacking_2',
+		'handsupl1',	--'attacking_3',
+		'handsupl2',	--'jumping',
+		'cast1',		--'casting_1',
+		'cast2',		--'casting_2',
+		'dead',			--'dead_vert',
+		'eyesclosed',	--'eyes_closed_down',
+		'winkd',		--'winking_down',
+		'eyesclosedl',	--'eyes_closed_left',
+		'handsupd',		--'arms_up_down',
+		'handsupu',		--'arms_up_up',
+		'growl',		--'angry',
+		'waved1',		--'waving_1_down',
+		'waved2',		--'waving_2_down',
+		'waveu1',		--'waving_1_up',
+		'waveu2',		--'waving_2_up',
+		'laugh1',		--'laughing_1',
+		'laugh2',		--'laughing_2',
+		'startled',		--'surprised',
+		'sadd',			--'head_down_down',
+		'sadu',			--'head_down_up',
+		'sadl',			--'head_down_left',
+		'peeved',		--'head_turned',
+		'finger1',		--'wagging_finger_1',
+		'finger2',		--'wagging_finger_2',
+		'special',
+		'tent',
+		'dead2',		--'dead_horz',
+		'npc_special_1',
+		'npc_waving_1',
+		'npc_waving_2',
+		'npc_head_down_down',
+		'npc_special_2',
+		'riding_left_1',
+		'riding_left_2',
+		'ramuh_staff_raised',
+		'ramuh_eyes_closed',
+		'special_anim_1',
+		'special_anim_2',
+		'special_anim_3',
+		'special_anim_4',
+		'opera_singer_mouth_open',
+		'opera_singer_mouth_closed',
+		'opera_singer_unused',
+		'map_sprite_frame_57',	-- 57
 	}
 	local frameIndexes = table.map(frameNames, function(name,index) return index, name end):setmetatable(nil)
 
@@ -619,9 +620,9 @@ end
 	for i=0,game.numCharacterSprites-1 do
 		spriteFrames[i] = {}
 	end
-	-- terra-imp have only up to wagging_finger_2, then tent, then two riding
+	-- terra-imp have only up to finger2, then tent, then two riding
 	for sprite=spriteIndexes.terra,spriteIndexes.kefka do	-- terra - imp
-		for frame=0,frameIndexes.wagging_finger_2 do
+		for frame=0,frameIndexes.finger2 do
 			spriteFrames[sprite][frame] = true
 		end
 		spriteFrames[sprite][frameIndexes.tent] = true
@@ -640,7 +641,7 @@ end
 			spriteFrames[sprite][frame] = true
 		end
 		-- gestahl and old man have this:
-		if sprite <= spriteIndexes.old_man then
+		if sprite <= spriteIndexes.elder then
 			spriteFrames[sprite][frameIndexes.npc_special_1] = true
 		end
 		if sprite <= spriteIndexes.man then
@@ -649,16 +650,16 @@ end
 			spriteFrames[sprite][frameIndexes.npc_head_down_down] = true
 		end
 	end
-	spriteFrames[spriteIndexes.dog][frameIndexes.attacking_3] = true
+	spriteFrames[spriteIndexes.dog][frameIndexes.handsupl1] = true
 	spriteFrames[spriteIndexes.dog][frameIndexes.npc_head_down_down] = true
-	for sprite=spriteIndexes.celes_dress,spriteIndexes.draco do
+	for sprite=spriteIndexes.celes_in_dress,spriteIndexes.draco do
 		spriteFrames[sprite][frameIndexes.opera_singer_mouth_open] = true
 		spriteFrames[sprite][frameIndexes.opera_singer_mouth_closed] = true
 		spriteFrames[sprite][frameIndexes.opera_singer_unused] = true
 	end
-	for sprite=spriteIndexes.celes_dress,spriteIndexes.maduin do
-		if sprite ~= spriteIndexes.spiffy_gau
-		and sprite ~= spriteIndexes.esper_elder
+	for sprite=spriteIndexes.celes_in_dress,spriteIndexes.maduin do
+		if sprite ~= spriteIndexes.gau_dressed_up
+		and sprite ~= spriteIndexes.elder_esper
 		and sprite ~= spriteIndexes.cid
 		then
 			spriteFrames[sprite][frameIndexes.npc_special_2] = true
@@ -673,7 +674,7 @@ end
 	spriteFrames[spriteIndexes.ramuh][frameIndexes.ramuh_staff_raised] = true
 	spriteFrames[spriteIndexes.ramuh][frameIndexes.ramuh_eyes_closed] = true
 	-- or it's just a coincicdence that this matches figaro_guard_dead
-	--spriteFrames[spriteIndexes.figaro_guard_riding][frameIndexes.arms_up_up] = true
+	--spriteFrames[spriteIndexes.figaro_guard_riding][frameIndexes.handsupu] = true
 
 	-- animated don't use 0, but do use special thru special + #frames-1 enabled
 	-- find these by searching everything8215/ff6/src/event/npc_prop.asm
@@ -880,11 +881,11 @@ end
 			if reset then
 				self:flushCharSheet()
 			end
-			for framePlus1,frameImg in ipairs(frameImgs) do
+			for i,frameImg in ipairs(frameImgs) do
 				self:writeFrame{
 					sprite = args.sprite,
 					frameImg = frameImg,
-					frame = frameNums[framePlus1],
+					frame = frameNames[frameNums[i]],
 				}
 			end
 		end
