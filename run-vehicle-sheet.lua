@@ -1035,6 +1035,8 @@ end
 				if special == true then
 					spriteTileCount = 4
 					maxFrames = 1
+					frameTilesWide = 2
+					frameTilesHigh = 2
 				elseif special == '32x32' then
 					spriteTileCount = 16
 					maxFrames = 1
@@ -1043,6 +1045,8 @@ end
 				elseif special == '2 frames' then
 					spriteTileCount = 4
 					maxFrames = 2
+					frameTilesWide = 2
+					frameTilesHigh = 2
 				elseif special ~= nil then
 					error'here'
 				end
