@@ -782,7 +782,7 @@ end
 			self.img = Image(tileWidth*self.tilesWide, tileHeight*self.tilesHigh, 4, uint8_t):clear()
 			self.dst = vec2i()
 		end
-		function tilesImgWriter:writeFrames(args)
+		function tilesImgWriter:writeSprite(args)
 			local allFramesWidths = args.frameImgs:mapi(function(img) return img.width end):sum()
 			local maxFrameHeight = math.max(args.frameImgs:mapi(function(img) return img.height end):unpack())
 			if self.dst.x + allFramesWidths >= self.img.width then
@@ -841,23 +841,22 @@ end
 
 		local sheetImgWriter = {}
 		function sheetImgWriter:init()
+			self.anims = table()
 			self.outDir = path'npc_sprites'
 			self.outDir:mkdir()
 			self.img = Image(256, 256, 1, uint8_t)
 			self.sheetIndex = 0
 			self.dst = vec2i()
-			self.legend = table()
 		end
 		function sheetImgWriter:flushCharSheet()
 			local basename = 'sheet'..self.sheetIndex
-			self.outDir(basename..'.lua'):write(tolua(self.legend))
 			self.img:save(self.outDir(basename..'.png'))
 			self.img:clear()
 			self.sheetIndex = self.sheetIndex + 1
 			self.dst = vec2i()
-			self.legend = table()
+			self.anims:insert'_new_sheet_\n'
 		end
-		function sheetImgWriter:writeFrames(args)
+		function sheetImgWriter:writeSprite(args)
 			-- filter out garbage/unused frames
 			local frameImgs = table(args.frameImgs)
 			local frameNums = range(0,#frameImgs-1)
@@ -881,13 +880,37 @@ end
 			if reset then
 				self:flushCharSheet()
 			end
+
+			--[[ proper
+			self.anims:insert'do\n'
+			self.anims:insert'\tlocal anim = {\n'
+			self.anims:insert('\t\tname = '..tolua(spriteNames[args.sprite])..',\n')
+			self.anims:insert'\t\tframes = {\n'
+			--]]
+			-- [[ concise
+			self.anims:insert(spriteNames[args.sprite])
+			--]]
+
 			for i,frameImg in ipairs(frameImgs) do
 				self:writeFrame{
 					sprite = args.sprite,
+					frame = frameNums[i],
 					frameImg = frameImg,
-					frame = frameNames[frameNums[i]],
 				}
 			end
+
+			--[[ proper
+			self.anims:insert'\t\t},\n'
+			self.anims:insert'\t\tseqs = table.union({}, charSeqs),\n'
+			self.anims:insert'\t}\n'
+			self.anims:insert'\tanim.frame0 = anim.frames!.standd\n'
+			self.anims:insert'\tanim.seq0 = anim.seqs!.stand\n'
+			self.anims:insert'\ttable.insert(anims, anim)\n'
+			self.anims:insert'end\n'
+			--]]
+			-- [[ concise
+			self.anims:insert'\n'
+			--]]
 		end
 		function sheetImgWriter:dstinc(dst, img)
 			dst = dst:clone()
@@ -911,14 +934,36 @@ end
 				x = self.dst.x,
 				y = self.dst.y,
 			}
-			self.legend:insert{
-				sprite = spriteNames[args.sprite],
-				frame = args.frame,	-- name or number? name is more flexible, number fits with game more and names dont always line up esp with special gfx
-				x = self.dst.x,
-				y = self.dst.y,
-				w = frameImg.width,
-				h = frameImg.height,
-			}
+			local frameName = frameNames[args.frame]
+			if args.sprite >= spriteIndexes.ramuh then
+				-- starting with ramuh ... the 1st frame is no longer stepping-down but is standing looking down...
+				if frameName == 'special_anim_1' then
+					frameName = 'stand1'
+				elseif frameName == 'special_anim_2' then
+					frameName = 'stand2'
+				elseif frameName == 'special_anim_3' then
+					frameName = 'stand3'
+				elseif frameName == 'special_anim_4' then
+					frameName = 'stand4'
+				elseif frameName == 'walkd1' then
+					frameName = 'stand1'
+				else
+					frameName = 'stand2'
+				end
+			end
+			--[[ proper
+			self.anims:insert('\t\t\t'..frameName..' = {\t-- '..args.frame..'\n')
+			self.anims:insert("\t\t\t\tspriteIndex = "..(self.dst.x / 8)
+				.." | ("..(self.dst.y / 8).." << 5)"
+				.." | (("..(self.sheetIndex+1).." + sheetBlobIndexForName!['Characters #1']) << 10),\n")
+			self.anims:insert('\t\t\t\tspriteWidth = '..(frameImg.width / 8)..',\n')
+			self.anims:insert('\t\t\t\tspriteHeight = '..(frameImg.height / 8)..',\n')
+			self.anims:insert'\t\t\t},\n'
+			--]]
+			-- [[ concise
+			self.anims:insert(' '..frameName)
+			--]]
+
 			local reset
 			self.dst, reset = self:dstinc(self.dst, frameImg)
 			if reset then
@@ -927,6 +972,7 @@ end
 		end
 		function sheetImgWriter:done()
 			self:flushCharSheet()
+			self.outDir('anims.lua'):write(self.anims:concat())
 		end
 
 		local writers = table{tilesImgWriter, sheetImgWriter}
@@ -1028,7 +1074,7 @@ print(
 					readTile(frameImg, 8*x, 8*y, tile, bpp)
 				end
 			end
-			writeCall'writeFrames'{
+			writeCall'writeSprite'{
 				sprite = sprite,
 				frameImgs = frameImgs,
 			}
