@@ -1528,14 +1528,6 @@ local numBlitzes = 8
 
 local numLores = 24
 
--- animation frames. stand, walk, etc
--- 41 frames for characters 0 through 21
--- 9 frames for characters 22 through 31
--- 1 frames for characters 63 through ...
--- then 87 and on its a different frame table ...
--- there's gotta be frame data somewhere ...
-local numCharacterSpriteFrames = 41
-
 -- number of sprited playable characters
 local numCharacterSprites = 165
 
@@ -2553,8 +2545,13 @@ Game = struct{
 		{name = 'unknown_00989d', type = arrayType(uint8_t, -(0x00989d - 0x00ce3a))},							-- 0x00989d - 0x00ce3a
 		-- 0x00c27f-0x00c28f = something to do with battle background? -rpglegion
 
-		{name = 'characterFrameTileOffsets', type = arrayType(uint16_t, numCharacterSpriteFrames * 6)},			-- 0x00ce3a - 0x00d026 = offset of map character sprite parts, interleaved row-major, 2x3
-		{name = 'characterExtraFrameTileOffsets', type = arrayType(uint16_t, 17 * 6)},							-- 0x00d026 - 0x00d0f2 = uint16_t[17][6] = extra frames, everything8215/ff6/notes/ff3u.asm lists these
+		-- animation frames. stand, walk, etc
+		-- 41 frames for characters 0 through 21
+		-- 9 frames for characters 22 through 31
+		-- 1 frames for characters 63 through ...
+		-- then 87 and on its a different frame table ...
+		-- there's gotta be frame data somewhere ...
+		{name = 'characterFrameTileOffsets', type = arrayType(uint16_t, 58 * 6)},								-- 0x00ce3a - 0x00d0f2 = offset of map character sprite parts, interleaved row-major, 2x3.  41 are used for main characters.  found in everything8215/ff6/notes/ff3u.asm
 		{name = 'characterSpriteOffsetLo', type = arrayType(uint16_t, numCharacterSprites)},					-- 0x00d0f2 - 0x00d23c = pointer to map character graphics (2 bytes each)
 		{name = 'characterSpriteOffsetHiAndSize', type = arrayType(CharHiAndSize, numCharacterSprites)},		-- 0x00d23c - 0x00d386 = = bank pointer & # bytes to copy for map char gfx (2 bytes each)
 
@@ -3016,7 +3013,6 @@ game.numItems = numItems
 game.numRareItems = numRareItems
 game.numLevels = numLevels
 game.numCharacters = numCharacters
-game.numCharacterSpriteFrames = numCharacterSpriteFrames
 game.numCharacterSprites = numCharacterSprites
 game.numCharacterPalettes = numCharacterPalettes
 game.numMogDances = numMogDances

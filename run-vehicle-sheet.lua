@@ -21,6 +21,18 @@ local uint8_t = ffi.typeof'uint8_t'
 local function run(game)
 	local rom = game.rom
 
+	-- points into fieldSpriteGraphics == 0x150000-0x183000
+	local function getTileOffsetForSprite(sprite)
+		if sprite < 0 or sprite >= game.numCharacterSprites then return end
+		return bit.band(
+			bit.bnot(0xc00000),
+			-- these are only for sprite < 87?
+			bit.bor(
+				game.characterSpriteOffsetLo[sprite],
+				bit.lshift(game.characterSpriteOffsetHiAndSize[sprite].hi, 16)
+			))
+	end
+
 	local Image = require 'image'
 	local makePalette = require 'ff6.graphics'.makePalette
 	local readTile = require 'ff6.graphics'.readTile
@@ -504,22 +516,29 @@ end
 		addSpritePal(name, index)
 	end
 
--- filling in some that are missing or had multiple options...
-addSpritePal('SOLDIER', 1)
-addSpritePal('DOG', 4)
-addSpritePal('CELES_DRESS', 0)
-addSpritePal('PILOT', 1)
-addSpritePal('ULTROS', 5)
-addSpritePal('WOMAN', 1)
-addSpritePal('BOY', 3)
-addSpritePal('VARGAS', 4)
-addSpritePal('MONSTER', 4)
-addSpritePal('TRAIN_CONDUCTOR', 4)
-addSpritePal('WOLF', 4)
-addSpritePal('EMPEROR_SERVANT', 2)
-addSpritePal('FIGARO_GUARD_RIDING', 2)
-addSpritePal('BIG_SPARKLE', 6)
-addSpritePal('COIN', 0)
+	-- filling in some that are missing or had multiple options...
+	addSpritePal('SOLDIER', 1)
+	addSpritePal('DOG', 4)
+	addSpritePal('CELES_DRESS', 0)
+	addSpritePal('PILOT', 1)
+	addSpritePal('ULTROS', 5)
+	addSpritePal('WOMAN', 1)
+	addSpritePal('BOY', 3)
+	addSpritePal('VARGAS', 4)
+	addSpritePal('MONSTER', 4)
+	addSpritePal('TRAIN_CONDUCTOR', 4)
+	addSpritePal('WOLF', 4)
+	addSpritePal('EMPEROR_SERVANT', 2)
+	addSpritePal('FIGARO_GUARD_RIDING', 2)
+	addSpritePal('BIG_SPARKLE', 6)
+	addSpritePal('COIN', 0)
+	addSpritePal('FLYING_TERRA_1', 2)
+	addSpritePal('FLYING_TERRA_2', 2)
+	addSpritePal('ENDING_TERRA_3', 2)
+	addSpritePal('FLYING_TERRA_3', 2)
+	addSpritePal('ENDING_TERRA_1', 2)
+	addSpritePal('ENDING_TERRA_2', 2)
+
 	do
 		--4bpp means 32 bytes per 8x8 tile ...
 		--  0x150000 - 0x185000 has 6784 8x8 tiles = 1696 16x16 tiles
@@ -555,6 +574,13 @@ addSpritePal('COIN', 0)
 				or sprite < 63 and 9
 				or 1
 
+			-- these two sprites have 11 & 10 tiles respectively
+			-- 6 tiles are needed for a 16x24 animation-frame
+			-- so they look like they want to have 2 frames...
+			-- ... but idk where the tile layout data is...
+			--if sprite == 63 or sprite == 64 then maxFrames = 2 end
+
+			-- how many tiles per frame
 			local spriteTileCount =
 				sprite < 87 and 6
 				or sprite < 116 and 5
@@ -565,20 +591,21 @@ addSpritePal('COIN', 0)
 				dsty = dsty + 24
 			end
 
+			local charBaseOffset = getTileOffsetForSprite(sprite)
+
+-- tiles are 8x8x4bpp = 32 bytes = 0x20 bytes ...
+-- for a 16x16 that is 0x80 bytes
+local tileDataSize = (getTileOffsetForSprite(sprite+1) or 0x183000) - charBaseOffset
+print(
+	'sprite', sprite, spriteNames[sprite],
+	'tile ofs', ('%x'):format(charBaseOffset),
+	'size', ('%x'):format(tileDataSize),
+	'='..(tileDataSize/0x20)..' unique 8x8x4bpp tiles'
+)
+
 			for frame=0,maxFrames-1 do
 				-- blit to our 8x8 with palette set up
 				tileImg:clear()
-
-				-- points into fieldSpriteGraphics == 0x150000 ?
-				local charBaseOffset = bit.band(
-					bit.bnot(0xc00000),
-					-- these are only for sprite < 87?
-					bit.bor(
-						game.characterSpriteOffsetLo[sprite],
-						bit.lshift(game.characterSpriteOffsetHiAndSize[sprite].hi, 16)
-					))
-
-				local charBasePtr = rom + charBaseOffset
 
 				-- TODO sometimes this is characterFrameTileOffsets, sometimes I bet it is what's next ...
 				local frameTileOffset = game.characterFrameTileOffsets + frame * spriteTileCount
@@ -595,7 +622,7 @@ addSpritePal('COIN', 0)
 						y = (spriteTileIndex - x) / 2
 					end
 
-					local tile = charBasePtr + frameTileOffset[spriteTileIndex]
+					local tile = rom + charBaseOffset + frameTileOffset[spriteTileIndex]
 					readTile(tileImg, 0, 0, tile, bpp)
 					-- and then to our master sheet
 					local tiledstx = dstx + x * 8
