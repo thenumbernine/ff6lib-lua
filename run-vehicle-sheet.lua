@@ -14,7 +14,9 @@ and it's gonna use `characterFrameTileOffset`
 local ffi = require 'ffi'
 local path = require 'ext.path'
 local table = require 'ext.table'
+local range = require 'ext.range'
 local assert = require 'ext.assert'
+local tolua = require 'ext.tolua'
 local vec2i = require 'vec-ffi.vec2i'
 
 local uint8_t = ffi.typeof'uint8_t'
@@ -838,23 +840,34 @@ end
 
 		local sheetImgWriter = {}
 		function sheetImgWriter:init()
-			self.dst = vec2i()
-			self.sheetIndex = 0
-			self.img = Image(256, 256, 1, uint8_t)
 			self.outDir = path'npc_sprites'
 			self.outDir:mkdir()
+			self.img = Image(256, 256, 1, uint8_t)
+			self.sheetIndex = 0
+			self.dst = vec2i()
+			self.legend = table()
 		end
 		function sheetImgWriter:flushCharSheet()
-			self.img:save(self.outDir('sheet'..self.sheetIndex..'.png'))
+			local basename = 'sheet'..self.sheetIndex
+			self.outDir(basename..'.lua'):write(tolua(self.legend))
+			self.img:save(self.outDir(basename..'.png'))
 			self.img:clear()
 			self.sheetIndex = self.sheetIndex + 1
-			self.dst.x, self.dst.y = 0, 0
+			self.dst = vec2i()
+			self.legend = table()
 		end
 		function sheetImgWriter:writeFrames(args)
 			-- filter out garbage/unused frames
-			local frameImgs = table(args.frameImgs):filteri(function(img,framePlus1)
-				return spriteFrames[args.sprite][framePlus1-1]
-			end)
+			local frameImgs = table(args.frameImgs)
+			local frameNums = range(0,#frameImgs-1)
+			assert.eq(#frameImgs, #frameNums)
+			for framePlus1=#frameImgs,1,-1 do
+				if not spriteFrames[args.sprite][framePlus1-1] then
+					frameImgs:remove(framePlus1)
+					frameNums:remove(framePlus1)
+				end
+			end
+			assert.eq(#frameImgs, #frameNums)
 			-- simulate frame inc across all frames
 			-- see if we are still in this sheet
 			-- if not then advance early
@@ -869,7 +882,9 @@ end
 			end
 			for framePlus1,frameImg in ipairs(frameImgs) do
 				self:writeFrame{
+					sprite = args.sprite,
 					frameImg = frameImg,
+					frame = frameNums[framePlus1],
 				}
 			end
 		end
@@ -888,14 +903,23 @@ end
 			return dst, reset
 		end
 		function sheetImgWriter:writeFrame(args)
-			self.img.palette = args.frameImg.palette
+			local frameImg = args.frameImg
+			self.img.palette = frameImg.palette
 			self.img:pasteInto{
-				image = args.frameImg,
+				image = frameImg,
 				x = self.dst.x,
 				y = self.dst.y,
 			}
+			self.legend:insert{
+				sprite = spriteNames[args.sprite],
+				frame = args.frame,	-- name or number? name is more flexible, number fits with game more and names dont always line up esp with special gfx
+				x = self.dst.x,
+				y = self.dst.y,
+				w = frameImg.width,
+				h = frameImg.height,
+			}
 			local reset
-			self.dst, reset = self:dstinc(self.dst, args.frameImg)
+			self.dst, reset = self:dstinc(self.dst, frameImg)
 			if reset then
 				self:flushCharSheet()
 			end
