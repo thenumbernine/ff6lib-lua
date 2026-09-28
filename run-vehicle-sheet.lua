@@ -760,16 +760,6 @@ end
 		--4bpp means 32 bytes per 8x8 tile ...
 		--  0x150000 - 0x185000 has 6784 8x8 tiles = 1696 16x16 tiles
 		local ptr = game.fieldSpriteGraphics
-		--[[
-		local tilesWide = 41*2+1
-		local tilesHigh = 108
-		--]]
-		-- [[
-		local tilesWide = 58*2+1
-		local tilesHigh = 165*3+1
-		--]]
-
-		local tilesImg = Image(tileWidth*tilesWide, tileHeight*tilesHigh, 4, uint8_t):clear()
 
 		print'spritePalettes = {'
 		for sprite=0,game.numCharacterSprites-1 do
@@ -779,8 +769,134 @@ end
 		end
 		print'}'
 
-		local dstx = 0
-		local dsty = 0
+
+		-- collect into a tilesImgWriter-list and into a multiple-sheet list
+		local tilesImgWriter = {}
+		function tilesImgWriter:init()
+			--[[
+			self.tilesWide = 41*2+1
+			self.tilesHigh = 108
+			--]]
+			-- [[
+			self.tilesWide = 58*2+1
+			self.tilesHigh = 165*3+1
+			--]]
+			self.tilesImg = Image(tileWidth*self.tilesWide, tileHeight*self.tilesHigh, 4, uint8_t):clear()
+			self.dstx = 0
+			self.dsty = 0
+		end
+		function tilesImgWriter:beginSprite(args)
+			if self.dstx + 16*args.maxFrames >= self.tilesImg.width then
+				self.dstx = 0
+				self.dsty = self.dsty + args.frameTilesHigh * 8
+			end
+		end
+		function tilesImgWriter:writeFrame(args)
+			local tilesImg = self.tilesImg
+
+			-- frame to our tilesImgWriter sheet...
+			if self.dstx > tilesImg.width then
+				print('!!! WARNING !!! dstx='..self.dstx..' > tilesImg.y='..tilesImg.width)
+			end
+			if self.dsty > tilesImg.height then
+				print('!!! WARNING !!! dsty='..self.dsty..' > tilesImg.y='..tilesImg.height)
+			end
+			tilesImg:pasteInto{
+				image = args.frameImg:rgba(),
+				x = self.dstx,
+				y = self.dsty,
+			}
+
+			if not spriteFrames[args.sprite][args.frame] then
+				for j=0,8*args.frameTilesHigh-1 do
+					for i=0,8*args.frameTilesHigh-1 do
+						local ofs = 4 * (self.dstx+i + tilesImg.width * (self.dsty+j))
+						if tilesImg.buffer[3 + ofs] < 127 then
+							tilesImg.buffer[0 + ofs] = 0
+							tilesImg.buffer[1 + ofs] = 255
+							tilesImg.buffer[2 + ofs] = 255
+							tilesImg.buffer[3 + ofs] = 255
+						end
+					end
+				end
+			end
+
+			self.dstx = self.dstx + args.frameTilesWide*8
+		end
+
+		function tilesImgWriter:endSprite()
+			self.dstx = self.dstx + 8
+		end
+		function tilesImgWriter:done()
+			self.tilesImg:save'all-field-tiles.png'
+		end
+
+
+		local sheetImgWriter = {}
+		function sheetImgWriter:init()
+			self.chx, self.chy = 0, 0
+			self.sheetIndex = 0
+			self.charSheet = Image(256, 256, 1, uint8_t)
+			self.outDir = path'npc_sprites'
+			self.outDir:mkdir()
+		end
+		function sheetImgWriter:flushCharSheet()
+			local charSheet = self.charSheet
+			charSheet:save(self.outDir('sheet'..self.sheetIndex..'.png'))
+			charSheet:clear()
+			self.sheetIndex = self.sheetIndex + 1
+			self.chx, self.chy = 0, 0
+		end
+		function sheetImgWriter:writeFrame(args)
+			if not spriteFrames[args.sprite][args.frame] then return end
+
+			--[[ the 9-frame sprites can overflow into the next sheet
+			-- so instead flush sheet early
+			if sprite >= 22 and sprite < 63
+			and frameIndex == 0
+			and chy + 2 * im.height >= charSheet.height
+			and chx + 9 * 16 >= charSheet.width
+			then
+				flushCharSheet()
+			end
+			--]]
+
+			--[[ offset into our palette
+			im = im + bit.lshift(palIndex, 4)
+			--]]
+			--[[ hack to fit 4 chars into one sheet
+			if frameIndex == 38 	-- only exists for Terra I think
+			--or frameIndex == 39 	-- tent
+			then return end
+			--]]
+			self.charSheet.palette = args.frameImg.palette
+			self.charSheet:pasteInto{
+				image = args.frameImg,
+				x = self.chx,
+				y = self.chy,
+			}
+			self.chx = self.chx + args.frameImg.width
+			if self.chx + args.frameImg.width > self.charSheet.width then
+				self.chx = 0
+				self.chy = self.chy + args.frameImg.height
+				if self.chy + args.frameImg.height > self.charSheet.height then
+					self:flushCharSheet()
+				end
+			end
+		end
+
+		local writers = table{tilesImgWriter, sheetImgWriter}
+		local function writeCall(fk)
+			return function(...)
+				for _,wr in ipairs(writers) do
+					local f = wr[fk]
+					if f then f(wr, ...) end
+				end
+			end
+		end
+
+		writeCall'init'()
+
 		for sprite=0,game.numCharacterSprites-1 do
 			local palIndexes = palettesForSprites[spriteNames[sprite]]
 			local palIndex = palIndexes and palIndexes:last()
@@ -841,10 +957,11 @@ end
 			local frameImg = Image(frameTilesWide*tileWidth, frameTilesHigh*tileHeight, 1, uint8_t)
 			frameImg.palette = palette
 
-			if dstx + 16*maxFrames >= tilesImg.width then
-				dstx = 0
-				dsty = dsty + frameTilesHigh * 8
-			end
+			writeCall'beginSprite'{
+				maxFrames = maxFrames,
+				frameTilesWide = frameTilesWide,
+				frameTilesHigh = frameTilesHigh,
+			}
 
 			local charBaseAddr = getTileOffsetForSprite(sprite)
 
@@ -871,40 +988,23 @@ print(
 					readTile(frameImg, 8*x, 8*y, tile, bpp)
 				end
 
-				-- frame to our master sheet...
-				if dstx > tilesImg.width then
-					print('!!! WARNING !!! dstx='..dstx..' > tilesImg.y='..tilesImg.width)
-				end
-				if dsty > tilesImg.height then
-					print('!!! WARNING !!! dsty='..dsty..' > tilesImg.y='..tilesImg.height)
-				end
-				tilesImg:pasteInto{
-					image = frameImg:rgba(),
-					x = dstx,
-					y = dsty,
+				writeCall'writeFrame'{
+					sprite = sprite,
+					frame = frame,
+					frameImg = frameImg,
+					frameTilesWide = frameTilesWide,
+					frameTilesHigh = frameTilesHigh,
 				}
-
-				if not spriteFrames[sprite][frame] then
-					for j=0,8*frameTilesHigh-1 do
-						for i=0,8*frameTilesHigh-1 do
-							local ofs = 4 * (dstx+i + tilesImg.width * (dsty+j))
-							if tilesImg.buffer[3 + ofs] < 127 then
-								tilesImg.buffer[0 + ofs] = 0
-								tilesImg.buffer[1 + ofs] = 255
-								tilesImg.buffer[2 + ofs] = 255
-								tilesImg.buffer[3 + ofs] = 255
-							end
-						end
-					end
-				end
-
-				dstx = dstx + frameTilesWide*8
 			end
-			dstx = dstx + 8
+			writeCall'endSprite'()
 		end
 
-		tilesImg:save'all-field-tiles.png'
+		writeCall'done'()
 	end
+
+
+-----------------------------------------------------------------------
+
 
 	-- use this for later making vehicle-sheet
 	local tilesImg
