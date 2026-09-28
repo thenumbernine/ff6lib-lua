@@ -1017,13 +1017,6 @@ end
 			local frameTilesWide = 2
 			local frameTilesHigh = 3
 
-			-- get the x y to place the tile at
-			local function getTileXY(tileIndex)
-				local x = tileIndex % frameTilesWide
-				local y = (tileIndex - x) / frameTilesWide
-				return x, y
-			end
-
 			-- get the offset from charBaseAddr to the 8x8x4bpp tile data
 			local function getFrameTileOffset(frame, tileIndex)
 				-- TODO sometimes this is characterFrameTileOffsets, sometimes I bet it is what's next ...
@@ -1082,7 +1075,8 @@ print(
 
 				-- blit to our 8x8 with palette set up
 				for spriteTileIndex=0,spriteTileCount-1 do
-					local x, y = getTileXY(spriteTileIndex)
+					local x = spriteTileIndex % frameTilesWide
+					local y = (spriteTileIndex - x) / frameTilesWide
 
 					local tile = rom + charBaseAddr + getFrameTileOffset(frame, spriteTileIndex)
 
