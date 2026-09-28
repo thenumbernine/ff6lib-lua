@@ -961,7 +961,15 @@ end
 			self.anims:insert'\t\t\t},\n'
 			--]]
 			-- [[ concise
-			self.anims:insert(' '..frameName)
+			if frameImg.width == 16 and frameImg.height == 24 then
+				self.anims:insert(' '..frameName)
+			elseif frameImg.width == 16 and frameImg.height == 16 then
+				self.anims:insert(' +'..frameName)
+			elseif frameImg.width == 32 and frameImg.height == 32 then
+				self.anims:insert(' *'..frameName)
+			else
+				error("idk how to classify this frame size")
+			end
 			--]]
 
 			local reset
