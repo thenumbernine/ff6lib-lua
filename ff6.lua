@@ -3240,6 +3240,7 @@ end
 
 -- [[ I guess this is somewhat standardized...
 -- this will give 8 cols wide of x 6 high of sprites for animation sheets
+-- TODO redo this around run-vehicle-sheet
 local readCharSprite = require 'ff6.charsprite'
 function game.getCharSpriteSheetImage(charIndex)
 	local Image = require 'image'
