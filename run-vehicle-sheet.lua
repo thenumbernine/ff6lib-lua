@@ -770,7 +770,6 @@ end
 		--]]
 
 		local tilesImg = Image(tileWidth*tilesWide, tileHeight*tilesHigh, 4, uint8_t):clear()
-		local tileImg = Image(tileWidth, tileHeight, 1, uint8_t)
 
 		print'spritePalettes = {'
 		for sprite=0,game.numCharacterSprites-1 do
@@ -789,7 +788,6 @@ end
 --print('sprite', spriteNames[sprite], 'using palettes', palIndexes and palIndexes:concat', ')
 			palIndex = bit.band(palIndex or 0, 0x1f)
 			local palette = makePalette(game, game.characterPalettes + palIndex, 4, 16)
-			tileImg.palette = palette
 
 			-- output all frames but assume all are 2x3
 			-- reveals a few extra singing frames that I didn't output before
@@ -840,6 +838,9 @@ end
 				end
 			end
 
+			local frameImg = Image(frameTilesWide*tileWidth, frameTilesHigh*tileHeight, 1, uint8_t)
+			frameImg.palette = palette
+
 			if dstx + 16*maxFrames >= tilesImg.width then
 				dstx = 0
 				dsty = dsty + frameTilesHigh * 8
@@ -858,44 +859,45 @@ print(
 )
 
 			for frame=0,maxFrames-1 do
-				-- blit to our 8x8 with palette set up
-				tileImg:clear()
+				frameImg:clear()
 
+				-- blit to our 8x8 with palette set up
 				for spriteTileIndex=0,spriteTileCount-1 do
 					local x, y = getTileXY(spriteTileIndex)
 
 					local tile = rom + charBaseAddr + getFrameTileOffset(frame, spriteTileIndex)
-					readTile(tileImg, 0, 0, tile, bpp)
-					-- and then to our master sheet
-					local tiledstx = dstx + x * 8
-					local tiledsty = dsty + y * 8
-					if tiledstx > tilesImg.width then
-						print('!!! WARNING !!! tiledstx='..tiledstx..' > tilesImg.y='..tilesImg.width)
-					end
-					if tiledsty > tilesImg.height then
-						print('!!! WARNING !!! tiledsty='..tiledsty..' > tilesImg.y='..tilesImg.height)
-					end
 
-					tilesImg:pasteInto{
-						image = tileImg:rgba(),
-						x = tiledstx,
-						y = tiledsty,
-					}
+					-- tile to our frame...
+					readTile(frameImg, 8*x, 8*y, tile, bpp)
+				end
 
-					if not spriteFrames[sprite][frame] then
-						for j=0,7 do
-							for i=0,7 do
-								local ofs = 4 * (tiledstx+i + tilesImg.width * (tiledsty+j))
-								if tilesImg.buffer[3 + ofs] < 127 then
-									tilesImg.buffer[0 + ofs] = 0
-									tilesImg.buffer[1 + ofs] = 255
-									tilesImg.buffer[2 + ofs] = 255
-									tilesImg.buffer[3 + ofs] = 255
-								end
+				-- frame to our master sheet...
+				if dstx > tilesImg.width then
+					print('!!! WARNING !!! dstx='..dstx..' > tilesImg.y='..tilesImg.width)
+				end
+				if dsty > tilesImg.height then
+					print('!!! WARNING !!! dsty='..dsty..' > tilesImg.y='..tilesImg.height)
+				end
+				tilesImg:pasteInto{
+					image = frameImg:rgba(),
+					x = dstx,
+					y = dsty,
+				}
+
+				if not spriteFrames[sprite][frame] then
+					for j=0,8*frameTilesHigh-1 do
+						for i=0,8*frameTilesHigh-1 do
+							local ofs = 4 * (dstx+i + tilesImg.width * (dsty+j))
+							if tilesImg.buffer[3 + ofs] < 127 then
+								tilesImg.buffer[0 + ofs] = 0
+								tilesImg.buffer[1 + ofs] = 255
+								tilesImg.buffer[2 + ofs] = 255
+								tilesImg.buffer[3 + ofs] = 255
 							end
 						end
 					end
 				end
+
 				dstx = dstx + frameTilesWide*8
 			end
 			dstx = dstx + 8
