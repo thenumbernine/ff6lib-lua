@@ -568,6 +568,12 @@ end
 			local palette = makePalette(game, game.characterPalettes + palIndex, 4, 16)
 			tileImg.palette = palette
 
+			local function getTileXY(spriteTileIndex)
+				local x = spriteTileIndex % 2
+				local y = (spriteTileIndex - x) / 2
+				return x, y
+			end
+
 			-- TODO 120 elevator is messed up...
 			local maxFrames =
 				sprite < 22 and 41
@@ -585,6 +591,14 @@ end
 				sprite < 87 and 6
 				or sprite < 116 and 5
 				or 4
+			if sprite >= 87 and sprite < 116 then
+				getTileXY = function(spriteTileIndex)
+					local x = (spriteTileIndex+1) % 2
+					local y = (spriteTileIndex+1 - x) / 2
+					return x, y
+				end
+			end
+
 
 			if dstx + 16*maxFrames >= tilesImg.width then
 				dstx = 0
@@ -610,17 +624,7 @@ print(
 				-- TODO sometimes this is characterFrameTileOffsets, sometimes I bet it is what's next ...
 				local frameTileOffset = game.characterFrameTileOffsets + frame * spriteTileCount
 				for spriteTileIndex=0,spriteTileCount-1 do
-					local x, y
-					if sprite < 87 then
-						x = spriteTileIndex % 2
-						y = (spriteTileIndex - x) / 2
-					elseif sprite < 116 then
-						x = (spriteTileIndex+1) % 2
-						y = (spriteTileIndex+1 - x) / 2
-					else
-						x = spriteTileIndex % 2
-						y = (spriteTileIndex - x) / 2
-					end
+					local x, y = getTileXY(spriteTileIndex)
 
 					local tile = rom + charBaseOffset + frameTileOffset[spriteTileIndex]
 					readTile(tileImg, 0, 0, tile, bpp)
