@@ -847,6 +847,7 @@ end
 			self.img = Image(256, 256, 1, uint8_t)
 			self.sheetIndex = 0
 			self.dst = vec2i()
+			self.rowmaxheight = 0
 		end
 		function sheetImgWriter:flushCharSheet()
 			local basename = 'sheet'..self.sheetIndex
@@ -855,6 +856,7 @@ end
 			self.sheetIndex = self.sheetIndex + 1
 			self.dst = vec2i()
 			self.anims:insert'_new_sheet_\n'
+			self.rowmaxheight = 0
 		end
 		function sheetImgWriter:writeSprite(args)
 			-- filter out garbage/unused frames
@@ -913,18 +915,20 @@ end
 			--]]
 		end
 		function sheetImgWriter:dstinc(dst, img)
+			local rowmaxheight = self.rowmaxheight
 			dst = dst:clone()
 			local reset
 			dst.x = dst.x + img.width
+			rowmaxheight = math.max(rowmaxheight, img.height)
 			if dst.x + img.width > self.img.width then
 				dst.x = 0
-				dst.y = dst.y + img.height
-				if dst.y + img.height > self.img.height then
+				dst.y = dst.y + rowmaxheight
+				if dst.y + 24 > self.img.height then
 					dst.y = 0
 					reset = true
 				end
 			end
-			return dst, reset
+			return dst, reset, rowmaxheight
 		end
 		function sheetImgWriter:writeFrame(args)
 			local frameImg = args.frameImg
@@ -973,7 +977,7 @@ end
 			--]]
 
 			local reset
-			self.dst, reset = self:dstinc(self.dst, frameImg)
+			self.dst, reset, self.rowmaxheight = self:dstinc(self.dst, frameImg)
 			if reset then
 				self:flushCharSheet()
 			end
