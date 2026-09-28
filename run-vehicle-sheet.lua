@@ -15,6 +15,7 @@ local ffi = require 'ffi'
 local path = require 'ext.path'
 local table = require 'ext.table'
 local assert = require 'ext.assert'
+local vec2i = require 'vec-ffi.vec2i'
 
 local uint8_t = ffi.typeof'uint8_t'
 
@@ -773,116 +774,134 @@ end
 		-- collect into a tilesImgWriter-list and into a multiple-sheet list
 		local tilesImgWriter = {}
 		function tilesImgWriter:init()
-			--[[
-			self.tilesWide = 41*2+1
-			self.tilesHigh = 108
-			--]]
-			-- [[
 			self.tilesWide = 58*2+1
-			self.tilesHigh = 165*3+1
-			--]]
-			self.tilesImg = Image(tileWidth*self.tilesWide, tileHeight*self.tilesHigh, 4, uint8_t):clear()
-			self.dstx = 0
-			self.dsty = 0
+			self.tilesHigh = 356
+			self.img = Image(tileWidth*self.tilesWide, tileHeight*self.tilesHigh, 4, uint8_t):clear()
+			self.dst = vec2i()
 		end
-		function tilesImgWriter:beginSprite(args)
-			if self.dstx + 16*args.maxFrames >= self.tilesImg.width then
-				self.dstx = 0
-				self.dsty = self.dsty + args.frameTilesHigh * 8
+		function tilesImgWriter:writeFrames(args)
+			local allFramesWidths = args.frameImgs:mapi(function(img) return img.width end):sum()
+			local maxFrameHeight = math.max(args.frameImgs:mapi(function(img) return img.height end):unpack())
+			if self.dst.x + allFramesWidths >= self.img.width then
+				self.dst.x = 0
+				self.dst.y = self.dst.y + maxFrameHeight
 			end
+			for framePlus1,frameImg in ipairs(args.frameImgs) do
+				self:writeFrame{
+					sprite = args.sprite,
+					frame = framePlus1-1,
+					frameImg = frameImg,
+				}
+			end
+			self.dst.x = self.dst.x + 8
 		end
 		function tilesImgWriter:writeFrame(args)
-			local tilesImg = self.tilesImg
+			local img = self.img
 
 			-- frame to our tilesImgWriter sheet...
-			if self.dstx > tilesImg.width then
-				print('!!! WARNING !!! dstx='..self.dstx..' > tilesImg.y='..tilesImg.width)
+			if self.dst.x > img.width then
+				print('!!! WARNING !!! dst.x='..self.dst.x..' > img.y='..img.width)
 			end
-			if self.dsty > tilesImg.height then
-				print('!!! WARNING !!! dsty='..self.dsty..' > tilesImg.y='..tilesImg.height)
+			if self.dst.y > img.height then
+				print('!!! WARNING !!! dst.y='..self.dst.y..' > img.y='..img.height)
 			end
-			tilesImg:pasteInto{
+			img:pasteInto{
 				image = args.frameImg:rgba(),
-				x = self.dstx,
-				y = self.dsty,
+				x = self.dst.x,
+				y = self.dst.y,
 			}
 
 			if not spriteFrames[args.sprite][args.frame] then
-				for j=0,8*args.frameTilesHigh-1 do
-					for i=0,8*args.frameTilesHigh-1 do
-						local ofs = 4 * (self.dstx+i + tilesImg.width * (self.dsty+j))
-						if tilesImg.buffer[3 + ofs] < 127 then
-							tilesImg.buffer[0 + ofs] = 0
-							tilesImg.buffer[1 + ofs] = 255
-							tilesImg.buffer[2 + ofs] = 255
-							tilesImg.buffer[3 + ofs] = 255
+				for j=0,args.frameImg.height-1 do
+					for i=0,args.frameImg.width-1 do
+						local ofs = 4 * (self.dst.x+i + img.width * (self.dst.y+j))
+						if img.buffer[3 + ofs] < 127 then
+							img.buffer[0 + ofs] = 0
+							img.buffer[1 + ofs] = 255
+							img.buffer[2 + ofs] = 255
+							img.buffer[3 + ofs] = 255
 						end
 					end
 				end
 			end
 
-			self.dstx = self.dstx + args.frameTilesWide*8
+			self.dst.x = self.dst.x + args.frameImg.width
 		end
 
 		function tilesImgWriter:endSprite()
-			self.dstx = self.dstx + 8
+			self.dst.x = self.dst.x + 8
 		end
 		function tilesImgWriter:done()
-			self.tilesImg:save'all-field-tiles.png'
+			self.img:save'all-field-tiles.png'
 		end
 
 
 		local sheetImgWriter = {}
 		function sheetImgWriter:init()
-			self.chx, self.chy = 0, 0
+			self.dst = vec2i()
 			self.sheetIndex = 0
-			self.charSheet = Image(256, 256, 1, uint8_t)
+			self.img = Image(256, 256, 1, uint8_t)
 			self.outDir = path'npc_sprites'
 			self.outDir:mkdir()
 		end
 		function sheetImgWriter:flushCharSheet()
-			local charSheet = self.charSheet
-			charSheet:save(self.outDir('sheet'..self.sheetIndex..'.png'))
-			charSheet:clear()
+			self.img:save(self.outDir('sheet'..self.sheetIndex..'.png'))
+			self.img:clear()
 			self.sheetIndex = self.sheetIndex + 1
-			self.chx, self.chy = 0, 0
+			self.dst.x, self.dst.y = 0, 0
 		end
-		function sheetImgWriter:writeFrame(args)
-			if not spriteFrames[args.sprite][args.frame] then return end
-
-			--[[ the 9-frame sprites can overflow into the next sheet
-			-- so instead flush sheet early
-			if sprite >= 22 and sprite < 63
-			and frameIndex == 0
-			and chy + 2 * im.height >= charSheet.height
-			and chx + 9 * 16 >= charSheet.width
-			then
-				flushCharSheet()
+		function sheetImgWriter:writeFrames(args)
+			-- filter out garbage/unused frames
+			local frameImgs = table(args.frameImgs):filteri(function(img,framePlus1)
+				return spriteFrames[args.sprite][framePlus1-1]
+			end)
+			-- simulate frame inc across all frames
+			-- see if we are still in this sheet
+			-- if not then advance early
+			local newdst = self.dst:clone()
+			local reset
+			for _,frameImg in ipairs(frameImgs) do
+				newdst, reset = self:dstinc(newdst, frameImg)
+				if reset then break end
 			end
-			--]]
-
-			--[[ offset into our palette
-			im = im + bit.lshift(palIndex, 4)
-			--]]
-			--[[ hack to fit 4 chars into one sheet
-			if frameIndex == 38 	-- only exists for Terra I think
-			--or frameIndex == 39 	-- tent
-			then return end
-			--]]
-			self.charSheet.palette = args.frameImg.palette
-			self.charSheet:pasteInto{
-				image = args.frameImg,
-				x = self.chx,
-				y = self.chy,
-			}
-			self.chx = self.chx + args.frameImg.width
-			if self.chx + args.frameImg.width > self.charSheet.width then
-				self.chx = 0
-				self.chy = self.chy + args.frameImg.height
-				if self.chy + args.frameImg.height > self.charSheet.height then
-					self:flushCharSheet()
+			if reset then
+				self:flushCharSheet()
+			end
+			for framePlus1,frameImg in ipairs(frameImgs) do
+				self:writeFrame{
+					frameImg = frameImg,
+				}
+			end
+		end
+		function sheetImgWriter:dstinc(dst, img)
+			dst = dst:clone()
+			local reset
+			dst.x = dst.x + img.width
+			if dst.x + img.width > self.img.width then
+				dst.x = 0
+				dst.y = dst.y + img.height
+				if dst.y + img.height > self.img.height then
+					dst.y = 0
+					reset = true
 				end
 			end
+			return dst, reset
+		end
+		function sheetImgWriter:writeFrame(args)
+			self.img.palette = args.frameImg.palette
+			self.img:pasteInto{
+				image = args.frameImg,
+				x = self.dst.x,
+				y = self.dst.y,
+			}
+			local reset
+			self.dst, reset = self:dstinc(self.dst, args.frameImg)
+			if reset then
+				self:flushCharSheet()
+			end
+		end
+		function sheetImgWriter:done()
+			self:flushCharSheet()
 		end
 
 		local writers = table{tilesImgWriter, sheetImgWriter}
@@ -954,14 +973,7 @@ end
 				end
 			end
 
-			local frameImg = Image(frameTilesWide*tileWidth, frameTilesHigh*tileHeight, 1, uint8_t)
-			frameImg.palette = palette
-
-			writeCall'beginSprite'{
-				maxFrames = maxFrames,
-				frameTilesWide = frameTilesWide,
-				frameTilesHigh = frameTilesHigh,
-			}
+			local frameImgs = table()
 
 			local charBaseAddr = getTileOffsetForSprite(sprite)
 
@@ -976,7 +988,10 @@ print(
 )
 
 			for frame=0,maxFrames-1 do
-				frameImg:clear()
+				local frameImg = Image(frameTilesWide*tileWidth, frameTilesHigh*tileHeight, 1, uint8_t):clear()
+				frameImgs:insert(frameImg)
+
+				frameImg.palette = palette
 
 				-- blit to our 8x8 with palette set up
 				for spriteTileIndex=0,spriteTileCount-1 do
@@ -987,16 +1002,11 @@ print(
 					-- tile to our frame...
 					readTile(frameImg, 8*x, 8*y, tile, bpp)
 				end
-
-				writeCall'writeFrame'{
-					sprite = sprite,
-					frame = frame,
-					frameImg = frameImg,
-					frameTilesWide = frameTilesWide,
-					frameTilesHigh = frameTilesHigh,
-				}
 			end
-			writeCall'endSprite'()
+			writeCall'writeFrames'{
+				sprite = sprite,
+				frameImgs = frameImgs,
+			}
 		end
 
 		writeCall'done'()
