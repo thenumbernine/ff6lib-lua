@@ -1419,8 +1419,8 @@ return function(game)
 		cmd = 0xeb,
 		argtypes = {uint8_t, uint16_t},
 		argnames = {'var', 'value'},
-		-- 0 = equal, 1 = var is greater, 2 = var is less
-		desc = 'eventVars[<?=var?>] = eventVarCmp(eventVars[<?=var?>], <?=value?>)',
+		-- write charSwitch flags + 0 when equal, 1 when var is greater, 2 when var is less
+		desc = 'eventVarCmp(eventVars[<?=var?>], <?=value?>)',
 	}
 
 	EventCmds.PlaySongVol = EventCmd:subclass{
