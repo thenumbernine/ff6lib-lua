@@ -1723,13 +1723,13 @@ cl.classname = k
 	}
 
 	for cmd=0xe1,0xe6 do
-		ObjectCmds['ChangeFlag'..('0x%02x'):format(cmd)] = ObjectCmd:subclass{
+		ObjectCmds['ToggleFlag'..('0x%02x'):format(cmd)] = ObjectCmd:subclass{
 			cmd = cmd,
 			argtypes = {uint8_t},
 			argnames = {'flagIndex'},
 			-- not making sense of the json. what's the cmd for?
 			-- I think similar to EventCmds 0xd0-0xdd ?
-			desc = 'eventFlagToggle(<?=flagIndex?>)',
+			desc = 'mapFlagToggle(<?=flagIndex?>)',
 		}
 	end
 
