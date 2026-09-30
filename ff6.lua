@@ -2448,7 +2448,7 @@ local SaveSlot = struct{
 		{name='curCharObjDataPtr', type=uint16_t},							-- 0x9a6 - 0x9a8
 		{name='savedTimerData', type=arrayType(uint8_t, 24)},				-- 0x9a8 - 0x9c0
 		{name='mapPos', type=XY8b},											-- 0x9c0 - 0x9c2 - current-map-position.  this is also save pos within non-overworld maps...
-		{name='eventVars', type=arrayType(uint8_t, 16)},					-- 0x9c2 - 0x9d2 , +0 = u16 narshe security / emperor's banquet, +2 = u16 narshe security, +c = u16 number of dragons left, +e = u16 cid's health
+		{name='eventVars', type=arrayType(uint16_t, 8)},					-- 0x9c2 - 0x9d2 , [0]= narshe security / emperor's banquet, [1]= narshe security, [6]= number of dragons left, [7]= cid's health
 		{name='parentFacingDir', type=uint8_t},								-- 0x9d2 - 0x9d3 ... this is the 3rd facing-direction variable ...
 		{name='charSavePos', type=arrayType(XY8b, 16)},						-- 0x9d3 - 0x9f3
 		{name='partyZLevels', type=arrayType(uint8_t, 4)},					-- 0x9f3 - 0x9f7
