@@ -1775,7 +1775,7 @@ cl.classname = k
 			--  except branch-backwards -1 i.e. "FC FF"
 			-- in that case, insert an end.
 			if self.offset == 0xff then
-				return 'while true do end'
+				return 'while true do yield() end'
 			end
 
 			local s = self.getGotoStr(self:getDestAddr())
