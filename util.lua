@@ -228,17 +228,31 @@ local gameToAscii = table{
 	if type(v) == 'number' then return string.char(v) end
 	return v
 end)
-local function gamestr(ptr, len)
+local function gamestr(p, len)
 	assert(len, "did you want to use gamezstr?")
-	local s = table()
+	local c = table()
 	for i=0,len-1 do
-		local ch = ptr[i]
-		ch = bit.band(ch, 0x7f)
-		local ascii = gameToAscii[ch+1]
-		assert(ascii, "failed to find ascii for game char "..ptr[i])
-		s:insert(ascii)
+		if p[0] >= 0x80 then
+			c:insert(gameToAscii[bit.band(p[0], 0x7f)+1])
+
+		 -- guessing for these
+		elseif p[0] == 0 then			 -- end of message
+				c:insert'[END]'
+		elseif p[0] == 1 then
+			c:insert'\n'
+		elseif p[0] == 2 then
+			p=p+1
+			c:insert('[SLEEP '..p[0]..']')
+		elseif p[0] == 5 then
+			c:insert'[PAUSE]'
+		elseif p[0] == 7 then
+			c:insert'[KEYPRESS]'
+		else
+			c:insert('['..p[0]..']')
+		end
+		p=p+1
 	end
-	return s:concat()
+	return c:concat()
 end
 
 local function gamestrtype(args)

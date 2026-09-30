@@ -141,56 +141,44 @@ local function compstr(p, size)
 			-- only 96 are accessible ...
 			-- and I get the feeling the last row does not match...
 			c:insert(convertCompressedChar[p[0]-32+1])
+		elseif p[0] == 0 then			 -- end of message
+			c:insert'[END]'
+		elseif p[0] == 1 then	-- line feed mid-message
+			c:insert'\n'
+		elseif p[0] < 16 then	-- 2-15 = char name
+			c:insert'['
+--			c:insert(('%02d-'):format(p[0]))
+			c:insert(tostring(gameC.characterNames[p[0]-2]))
+			c:insert']'
+		elseif p[0] == 16 then
+			c:insert'[PAUSE]'	-- how long / until what?
+		elseif p[0] == 17 then
+			p=p+1
+			c:insert('[SLEEP '..p[0]..']')	-- what units?
+		elseif p[0] == 18 then
+			c:insert'[KEYPRESS]'
+		elseif p[0] == 19 then	-- clear and new message
+			c:insert'[CLEAR]'
+		elseif p[0] == 20 then
+			-- read 1 more char ... horizontal tab?
+			p=p+1
+			c:insert('[TAB '..p[0]..']')
+		elseif p[0] == 21 then
+			c:insert'[PROMPT]'
+		elseif p[0] == 22 then
+			p=p+1
+			c:insert('[KEYPRESS '..p[0]..']')
+		elseif p[0] == 25 then
+			c:insert'[GP]'	-- register goes somewhere I bet ...
+		elseif p[0] == 26 then
+			c:insert'[ITEM]'
+		elseif p[0] == 27 then
+			c:insert'[SPELL]'
 		else
---[[
-			if p[0] == 22 and p[1] == 24 and p[2] == 18 then -- pause
-				if compstr_displayChars then
-					c:insert'[p]\n'
-				else
-					c:insert'\n'
-				end
-				p = p + 2
+			if compstr_displayChars then
+				c:insert(('[%d]'):format(p[0]))
 			else
---]]
-			if p[0] == 0 then			 -- end of message
-				c:insert'[END]'
-			elseif p[0] == 1 then	-- line feed mid-message
 				c:insert'\n'
-			elseif p[0] < 16 then	-- 2-15 = char name
-				c:insert'['
---					c:insert(('%02d-'):format(p[0]))
-				c:insert(tostring(gameC.characterNames[p[0]-2]))
-				c:insert']'
-			elseif p[0] == 16 then
-				c:insert'[PAUSE]'	-- how long / until what?
-			elseif p[0] == 17 then
-				p=p+1
-				c:insert('[SLEEP '..p[0]..']')	-- what units?
-			elseif p[0] == 18 then
-				c:insert'[KEYPRESS]'
-			elseif p[0] == 19 then	-- clear and new message
-				c:insert'[CLEAR]'
-			elseif p[0] == 20 then
-				-- read 1 more char ... horizontal tab?
-				p=p+1
-				c:insert('[TAB '..p[0]..']')
-			elseif p[0] == 21 then
-				c:insert'[PROMPT]'
-			elseif p[0] == 22 then
-				p=p+1
-				c:insert('[KEYPRESS '..p[0]..']')
-			elseif p[0] == 25 then
-				c:insert'[GP]'	-- register goes somewhere I bet ...
-			elseif p[0] == 26 then
-				c:insert'[ITEM]'
-			elseif p[0] == 27 then
-				c:insert'[SPELL]'
-			else
-				if compstr_displayChars then
-					c:insert(('[%d]'):format(p[0]))
-				else
-					c:insert'\n'
-				end
 			end
 		end
 		p = p + 1

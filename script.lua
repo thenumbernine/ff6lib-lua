@@ -927,7 +927,7 @@ return function(game)
 		__tostring = function(self)
 			return 'openSelectPartyMenu('
 				..self.numParties..', '
-				..eventIndex
+				..self.eventIndex
 				..(self.reset and ', true' or '')
 				..')'
 		end,
