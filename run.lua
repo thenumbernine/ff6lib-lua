@@ -453,7 +453,7 @@ print((tolua({
 -- [[
 require 'run-vehicle-sheet'(game)
 --]]
---[[ this has turned into run-vehicle-sheet, which now outputs the characters, npcs, and vehicles
+--[===[ this has turned into run-vehicle-sheet, which now outputs the characters, npcs, and vehicles
 local readCharSprite = require 'ff6.charsprite'
 local totalPixels = 0
 -- [=[
@@ -552,7 +552,7 @@ if chx > 0 or chy > 0 then
 end
 --]=]
 print('wrote total pixels', totalPixels)
---]]
+--]===]
 
 -- [[ while we're here , why not write out the char palettes
 makePaletteSets(
