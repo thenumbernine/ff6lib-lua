@@ -2441,7 +2441,7 @@ local SaveSlot = struct{
 		{name='charSavePos', type=arrayType(XY8b, 16)},						-- 0x9d3 - 0x9f3
 		{name='partyZLevels', type=arrayType(uint8_t, 4)},					-- 0x9f3 - 0x9f7
 
-		{name='unknown_9f7', type=arrayType(uint8_t, -(0x9f7 - 0x9fe))},	-- 0x9f7 - 0x9fe
+		{name='unknown_9f7', type=arrayType(uint8_t, -(0x9f7 - 0x9fe))},	-- 0x9f7 - 0x9fe = 8 bytes
 
 		{name='checksum', type=uint16_t},									-- 0x9fe - 0xa00	-- byte sum of everything in this except the checksum
 	},

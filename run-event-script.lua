@@ -1764,11 +1764,11 @@ print(('!!! replacing if-goto with while-loop %06x -> %06x'):format(cmd.addr, de
 
 								local if_ = If()
 								local cond = cmd:getCond()
-								local rest = cond:match'^not (.*)$'
+								local rest = cond:match'^not %((.*)%)$'
 								if rest then
 									if_.cond = rest
 								else
-									if_.cond = 'not '..cmd:getCond()
+									if_.cond = 'not ('..cmd:getCond()..')'
 								end
 								if_.parent = cmd.parent
 								if_.addr = cmd.addr
