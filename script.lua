@@ -1464,7 +1464,7 @@ return function(game)
 				..self.song..', '
 				..self.speed
 				..(self.altStart and ', true' or '')
-				..'}'
+				..')'
 		end,
 	}
 
