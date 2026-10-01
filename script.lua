@@ -1349,6 +1349,13 @@ return function(game)
 		EventCmds[('Cond 0x%02x'):format(cmd)] = EventCmd:subclass(Cond, {cmd = cmd})
 	end
 
+	--[[
+	for EventCmds:
+	d0,d2,d4,d6,d8,da,dc = set
+	d1,d3,d5,d7,d9,db,dd = clear
+	bit 0 = set vs clear
+	bits 1-3 = bits 8-10 of the event flag index
+	--]]
 	for cmd=0xd0,0xdd do
 		EventCmds['SetFlag'..('0x%02x'):format(cmd)] = EventCmd:subclass{
 			cmd = cmd,
@@ -1356,15 +1363,15 @@ return function(game)
 			getargs = function(self, flagIndex)
 				-- 0 = set, 1 = clear
 				self.flagValue = 0 == bit.band(1, self.cmd)
+				-- move cmd bits 1:3 to event bits 8:10
 				self.flagIndex = bit.bor(
-					bit.lshift(bit.band(self.cmd, 0xe), 7),	-- move bits 1:3 to bits 8:10
+					bit.lshift(bit.band(self.cmd, 0xe), 7),
 					flagIndex
 				)
 			end,
 			__tostring = function(self)
 				return 'mapFlagSet('
-					..self.flagIndex
-					..', '
+					..self.flagIndex..', '
 					..tostring(self.flagValue)
 					..')'
 			end,
@@ -1721,14 +1728,35 @@ cl.classname = k
 		desc = 'sleep(<?=frames_x4?>/15)',	-- i.e. x4/60
 	}
 
+	--[[
+	e1,e2,e3 = set ... 123 maps to 012 which is the high-byte value of the flag-index?
+	e4,e5,e6 = clear
+	--]]
 	for cmd=0xe1,0xe6 do
-		ObjectCmds['ToggleFlag'..('0x%02x'):format(cmd)] = ObjectCmd:subclass{
+		ObjectCmds['SetFlag'..('0x%02x'):format(cmd)] = ObjectCmd:subclass{
 			cmd = cmd,
 			argtypes = {uint8_t},
-			argnames = {'flagIndex'},
-			-- not making sense of the json. what's the cmd for?
-			-- I think similar to EventCmds 0xd0-0xdd ?
-			desc = 'mapFlagToggle(<?=flagIndex?>)',
+			getargs = function(self, flagIndex)
+				if cmd <= 0xe3 then
+					self.flagValue = true
+					self.flagIndex = bit.bor(
+						flagIndex,
+						bit.lshift(cmd-0xe1, 8)
+					)
+				else
+					self.flagValue = false
+					self.flagIndex = bit.bor(
+						flagIndex,
+						bit.lshift(cmd-0xe4, 8)
+					)
+				end
+			end,
+			__tostring = function(self)
+				return 'mapFlagSet('
+					..self.flagIndex..', '
+					..tostring(self.flagValue)
+					..')'
+			end,
 		}
 	end
 
