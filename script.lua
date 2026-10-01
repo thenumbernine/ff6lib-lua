@@ -1437,7 +1437,7 @@ return function(game)
 		__tostring = function(self)
 			return 'playSong('
 				..self.song..', '
-				..self.volume..', '
+				..self.volume
 				..(self.altStart and ', true' or '')
 				..')'
 		end,
