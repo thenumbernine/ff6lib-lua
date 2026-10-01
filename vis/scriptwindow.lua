@@ -321,8 +321,8 @@ function EventScriptWindow:showIndexUI()
 							ig.igText('if dir=='..cmd.dir..' then goto')
 							ig.igSameLine()
 							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
-						elseif game.EventCmds.CallForDialogResult:isa(cmd) then
-							ig.igText'callForDialogResult'
+						elseif game.EventCmds.GotoForDialogResult:isa(cmd) then
+							ig.igText'gotoForDialogResult'
 							for _,option in ipairs(cmd.options) do
 								ig.igSameLine()
 								self:popupButtonForAddr(scriptBaseAddr + option.addrOfs)

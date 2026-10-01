@@ -99,7 +99,7 @@ local function runEventScript(game, cmdline)
 		-- call (right?)
 		-- TODO TODO TODO this is a GOTO not a CALL!
 		elseif game.EventCmds.CallSwitchNPCFlags:isa(cmdobj)
-		or game.EventCmds.CallForDialogResult:isa(cmdobj)
+		or game.EventCmds.GotoForDialogResult:isa(cmdobj)
 		then
 			for _,option in ipairs(cmdobj.options) do
 				addrsIsFunc[scriptBaseAddr + option.addrOfs] = true
@@ -587,7 +587,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 				cl.toCode = EventCmds_ObjectScript_toCode
 			elseif game.EventCmds.CallSwitchNPCFlags:isa(cl) then
 				cl.toCode = EventCmds_CallSwitchNPCFlags_toCode
-			elseif game.EventCmds.CallForDialogResult:isa(cl) then
+			elseif game.EventCmds.GotoForDialogResult:isa(cl) then
 				cl.toCode = EventCmds_CallForDialogResult_toCode
 			elseif game.EventCmds.StartTimer:isa(cl) then
 				cl.toCode = EventCmds_StartTimer_toCode
@@ -1424,7 +1424,7 @@ end
 						checkBlock(cmdobj.stmts)
 					end
 					if game.EventCmds.CallSwitchNPCFlags:isa(cmdobj)
-					or game.EventCmds.CallForDialogResult:isa(cmdobj)
+					or game.EventCmds.GotoForDialogResult:isa(cmdobj)
 					then
 						for optionIndex,option in ipairs(cmdobj.options) do
 							if option.stmts then
