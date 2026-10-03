@@ -1355,6 +1355,7 @@ return function(game)
 	d1,d3,d5,d7,d9,db,dd = clear
 	bit 0 = set vs clear
 	bits 1-3 = bits 8-10 of the event flag index
+	(no delay)
 	--]]
 	for cmd=0xd0,0xdd do
 		EventCmds['SetFlag'..('0x%02x'):format(cmd)] = EventCmd:subclass{
@@ -1533,9 +1534,10 @@ return function(game)
 		desc = 'waitForSPC(3)',
 	}
 
+	-- 1-frame delay
 	EventCmds.WaitForSound = EventCmd:subclass{
 		cmd = 0xfb,
-		desc = 'waitForSound()',
+		desc = 'nop()',
 	}
 
 	local Return = Cmd:subclass{
