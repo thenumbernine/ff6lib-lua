@@ -728,7 +728,7 @@ return function(game)
 
 	EventCmds.RestorePreviousParty = EventCmd:subclass{
 		cmd = 0x7b,
-		desc = 'restorePreviousParty()',
+		desc = 'restoreDefaultParty()',
 	}
 
 	EventCmds.EnableCollisionEvent = EventCmd:subclass{
@@ -775,7 +775,7 @@ return function(game)
 
 	EventCmds.ResetPreviousParty = EventCmd:subclass{
 		cmd = 0x82,
-		desc = 'resetPreviousParty()',
+		desc = 'resetDefaultParty()',
 	}
 
 	EventCmds.GiveGP = EventCmd:subclass{
