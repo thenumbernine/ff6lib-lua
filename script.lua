@@ -2692,8 +2692,8 @@ cl.classname = k
 		MonsterCmds.BattleEvent = MonsterCmd:subclass{
 			cmd = 0xf7,
 			argtypes = {uint8_t},
-			argnames = {'x'},
-			desc = 'doBattleEvent(<?=x?>)',	-- runs game.battleEventScriptOfs
+			argnames = {'index'},
+			desc = 'doBattleEvent(<?=index?>)',	-- runs game.battleEventScriptOfs
 		}
 
 		MonsterCmds.BattleVar = MonsterCmd:subclass{

@@ -346,6 +346,11 @@ function EventScriptWindow:showIndexUI()
 								self:popupButtonForAddr(scriptBaseAddr + option.addrOfs)
 							end
 
+						elseif game.MonsterCmds.BattleEvent:isa(cmd) then
+							ig.igText'doBattleEvent'
+							ig.igSameLine()
+							self:popupButtonForAddr(0x100000 + game.battleEventScriptOfs[cmd.index])
+
 						else
 						-- default:
 							ig.igText(string.trim(tostring(cmd):gsub('\n', '\\n')))
