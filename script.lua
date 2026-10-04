@@ -13,6 +13,7 @@ then should i call this events.lua for event-scripts?
 local ffi = require 'ffi'
 local assert = require 'ext.assert'
 local table = require 'ext.table'
+local range = require 'ext.range'
 local number = require 'ext.number'
 local string = require 'ext.string'
 local class = require 'ext.class'
@@ -67,6 +68,9 @@ return function(game)
 	-- 0x109800 - 0x10d000
 	local battleEventScriptAddr = ffi.offsetof(Game, 'battleEventScriptOfs')
 	local battleEventScriptAddrEnd = battleEventScriptAddr + ffi.sizeof(game.battleEventScriptOfs) + ffi.sizeof(game.battleEventScripts)
+
+	local monsterScriptAddr = ffi.offsetof(Game, 'monsterScripts')	-- 0x0f8700
+	local monsterScriptAddrEnd = monsterScriptAddr + ffi.sizeof(game.monsterScripts)
 
 --DEBUG:print('event script ranges:')
 --DEBUG:print(game.addrLabel(scriptBaseAddr)..'-'..game.addrLabel(scriptBaseAddrEnd))
@@ -146,7 +150,8 @@ return function(game)
 	local WorldCmds = {}
 	local ObjectCmds = {}
 	local VehicleCmds = {}
-	local BattleEventCmds = {}	-- only used by game.battleEventScript[]
+	local BattleEventCmds = {}	-- used by game.battleEventScript[]
+	local MonsterCmds = {}		-- used by game.monsterScriptOfs & game.monsterScripts
 
 
 	-- event-commands:
@@ -2510,8 +2515,457 @@ cl.classname = k
 	end
 
 
+	-- monster script:
 
-	-- still to do, monster-script maybe?
+
+	do
+		local function getItemName(i)
+			return tostring(game.itemNames[i])
+		end
+		local function getSpellName(i)
+			if i == 0xfe then return 'nothing' end
+			return tostring(game.getSpellName(i))
+		end
+		local function getActionName(i)
+			if i < countof(game.menuNames) then
+				return tostring(game.menuNames[i])
+			end
+			return 'action???'..i
+		end
+		local function getTarget(i)
+			if i < 16 then
+				-- absolute character-based target
+				-- notice, 14 == Banon ... is that always where he is?
+				return 'characters[1+'..i..']'	-- 1+ cuz it's a 1-based table...
+			end
+			if i >= 48 and i < 54 then
+				return 'enemyFormationSlot['..(i-48)..']'	-- 0-5 for battle formation index
+			end
+			if i >= 72 and i < 76 then
+				return 'characterFormationSlot['..(i-72)..']'
+			end
+			return ({
+				[54] = 'self',
+				[55] = '"all other enemies"',
+				[56] = '"all enemies"',
+				[57] = '"random other enemy"',
+				[58] = '"random enemy"',
+				[59] = '"all dead characters"',
+				[60] = '"random dead character"',
+				[61] = '"all dead enemies"',
+				[62] = '"random dead enemy"',
+				[63] = '"all characters with reflect"',
+				[64] = '"random character with reflect"',
+				[65] = '"all enemies with reflect"',
+				[66] = '"random enemy with reflect"',
+				[67] = '"all characters"',
+				[68] = '"random character"',
+				[69] = '"attacker"',
+				[70] = '"all targets"',
+				[71] = '"nothing"',
+				[77] = '"targeting target"',	-- hmm... that's a weird one
+			})[i] or i
+		end
+		-- honestly I should just keep the args and translate them in the glue layer...
+		-- btw who uses this?
+		local function getTargetMask(i)
+			if i == 0 then return 'self' end
+			if i == 0xff then return '"all enemies"' end
+			return range(0,5)
+			:filteri(function(j)
+				return 0 ~= bit.band(i, bit.lshift(1, j))
+			end)
+			:mapi(function(j)
+				return 'enemyFormationSlot['..j..']'
+			end):concat', '
+		end
+
+
+		game.MonsterCmds = MonsterCmds
+		local MonsterCmd = Cmd:subclass()
+		game.MonsterCmd = MonsterCmd
+
+		for cmd=0,0xef do
+			MonsterCmds['Attack '..('0x%02x'):format(cmd)] = MonsterCmd:subclass{
+				cmd = cmd,
+				__tostring = function(self)
+					return	'doAttack('..self.cmd..')\t-- '..getSpellName(cmd)
+				end,
+			}
+		end
+
+		MonsterCmds.PickAttack = MonsterCmd:subclass{
+			cmd = 0xf0,
+			argtypes = {uint8_t, uint8_t, uint8_t},
+			__tostring = function(self)
+				return 'pickAttack('..self.args:concat', '..')\t-- options: '
+					..self.args:mapi(getSpellName):concat', '
+			end,
+		}
+
+		MonsterCmds.SetTargets = MonsterCmd:subclass{
+			cmd = 0xf1,
+			argtypes = {uint8_t},
+			argnames = {'target'},
+			__tostring = function(self)
+				return 'setTargets('..getTarget(self.target)..')'
+			end,
+		}
+
+		MonsterCmds.ChangeBattle = MonsterCmd:subclass{
+			cmd = 0xf2,
+			argtypes = {uint8_t, uint16_t},
+			getargs = function(self, x1, x23)
+				self.exitEffect = bit.band(0x7f, x1)
+				self.scrollBG = 0 ~= bit.band(0x80, x1)
+				self.battleIndex = bit.band(0x7fff, x23)
+				self.restoreMonsters = 0 ~= bit.band(0x8000, x23)
+			end,
+			__tostring = function(self)
+				return 'changeBattle{exitEffect='..self.exitEffect
+					..', scrollBG='..tostring(self.scrollBG)
+					..', battleIndex='..self.battleIndex
+					..', restoreMonsters='..tostring(self.restoreMonsters)
+					..'}'
+			end,
+		}
+
+		MonsterCmds.Dialog = MonsterCmd:subclass{
+			cmd = 0xf3,
+			argtypes = {uint16_t},
+			argnames = {'dialogIndex'},
+			__tostring = function(self)
+				-- i is from 0 to 140
+				return 'dialog('..tolua(tostring(game.monsterDialog[self.dialogIndex]))..')'
+			end,
+		}
+
+		MonsterCmds.IDKCmd = MonsterCmd:subclass{
+			cmd = 0xf4,
+			argtypes = {uint8_t, uint8_t, uint8_t},
+			desc = 'cmd(<?=args:concat", "?>)',
+		}
+
+		MonsterCmds.SetVisible = MonsterCmd:subclass{
+			cmd = 0xf5,
+			argtypes = {uint8_t, uint8_t, uint8_t},
+			getargs = function(self, anim, opIndex, enemyIndex)
+				self.anim = anim
+				self.opIndex = opIndex
+				self.enemyIndex = enemyIndex
+			end,
+			__tostring = function(self)
+				return (({
+					[0] = 'setVis{visible=true, restoreHP=true',
+					-- does "disable targeting" mean also "don't consider for win-condition?"
+					[1] = 'setVis{visible=false, allowTargeting=false',
+					[2] = 'setVis{visible=true',
+					[3] = 'setVis{visible=false, allowTargeting=true',
+					[4] = 'setVis{visible=false, dontEndBattle=true',
+					[5] = 'setVis{visible=false, debugMode=true',	-- not used
+				})[self.opIndex] or error'here')
+					..', anim='..self.anim
+					..', targets={'..getTargetMask(self.enemyIndex)..'}'
+					..'}'
+			end,
+		}
+
+		MonsterCmds.UseThrowItem = MonsterCmd:subclass{
+			cmd = 0xf6,
+			argtypes = {uint8_t, uint8_t, uint8_t},
+			getargs = function(self, useVsThrow, item12, item3)
+				self.useVsThrow = useVsThrow
+				self.item12 = item12
+				self.item3 = item3
+			end,
+			__tostring = function(self)
+				if self.useVsThrow == 0 then
+					return ('useItem(%q, %q)'):format(self.item12, self.item3)
+				elseif self.useVsThrow == 1 then
+					return ('throwItem(%q, %q)'):format(self.item12, self.item3)
+				else
+					error'here'
+				end
+			end,
+		}
+
+		MonsterCmds.BattleEvent = MonsterCmd:subclass{
+			cmd = 0xf7,
+			argtypes = {uint8_t},
+			argnames = {'x'},
+			desc = 'doBattleEvent(<?=x?>)',	-- runs game.battleEventScriptOfs
+		}
+
+		MonsterCmds.BattleVar = MonsterCmd:subclass{
+			cmd = 0xf8,
+			argtypes = {uint8_t, uint8_t},
+			getargs = function(self, var, opval)
+				self.var = var
+				self.op = bit.band(3, bit.rshift(opval, 6))
+				self.value = bit.band(0x3f, opval)
+			end,
+			__tostring = function(self)
+				if self.op == 0 then
+					return 'battleVarSet('..self.var..', '..self.value..')'
+				elseif self.op == 1 then
+					error'here'
+				elseif self.op == 2 then
+					return 'battleVarInc('..self.var..', '..self.value..')'
+				elseif self.op == 3 then
+					return 'battleVarDec('..self.var..', '..self.value..')'
+				end
+			end,
+		}
+
+		MonsterCmds.BattleFlag = MonsterCmd:subclass{
+			cmd = 0xf9,
+			argtypes = {uint8_t, uint8_t, uint8_t},
+			getargs = function(self, p1, p2, p3)
+				self.flagIndex = bit.bor(
+					bit.lshift(p2, 3),
+					bit.band(7, p3)
+				)
+				local rest = bit.rshift(p3, 3)
+				assert.eq(rest, 0)	-- why even only use 3 lower bits? weird.
+				self.value = p1
+			end,
+			__tostring = function(self)
+				if self.value == 0 then
+					return 'battleFlagSet('..self.flagIndex..', not battleFlagGet('..self.flagIndex..'))'
+				elseif self.value == 1 then
+					return 'battleFlagSet('..self.flagIndex..', true)'
+				elseif self.value == 2 then
+					return 'battleFlagSet('..self.flagIndex..', false)'
+				else
+					error'here'
+				end
+			end,
+		}
+
+		MonsterCmds.PlaySound = MonsterCmd:subclass{
+			cmd = 0xfa,
+			argtypes = {uint8_t, uint8_t, uint8_t},
+			__tostring = function(self)
+				local x1, x2, x3 = table.unpack(self.args)
+				if x1 == 0x09 then
+					return 'playSound('..x2..', '..x3..')'
+				else
+					-- is fa09 special?
+					return 'anim('..x1..', '..x2..', '..x3..')'
+				end
+			end,
+		}
+
+		MonsterCmds.Cmd_FB = MonsterCmd:subclass{
+			cmd = 0xfb,
+			argtypes = {uint8_t, uint8_t},
+			__tostring = function(self)
+				local p1, p2 = table.unpack(self.args)
+				if p1 == 0 then
+					assert.eq(p2, 0)
+					return 'resetMonsterTimer(self)'
+				elseif p1 == 1 then
+					return 'makeInvisible('..p2..')'
+				elseif p1 == 2 then
+					assert.eq(p2, 0)
+					return 'endBattle()'
+				elseif p1 == 3 then
+					assert.eq(p2, 0)
+					return 'addGauToParty()'
+				elseif p1 == 4 then
+					assert.eq(p2, 0)
+					return 'resetBattleTimer()'
+				elseif p1 == 5 then
+					return 'removeInvisible('..p2..')'
+				elseif p1 == 6 then
+					return 'makeTargetable('..p2..')'
+				elseif p1 == 7 then
+					return 'makeUntargetable('..p2..')'
+				elseif p1 == 8 then
+					return 'setATBToMax('..p2..')'
+				elseif p1 == 9 then
+					assert.eq(p2, 0)
+					return 'sendGauToVeldt()'
+				elseif p1 == 11 then
+					return 'setStatus(self, '..p2..')'	-- on who?
+				elseif p1 == 12 then		-- not used?
+					return 'removeStatus(self, '..p2..')'
+				elseif p1 == 13 then
+					assert.eq(p2, 0)
+					return 'hideMonster(self)'
+				else
+					error'here'
+				end
+			end,
+		}
+
+		MonsterCmds.Cmd_FC = MonsterCmd:subclass{
+			cmd = 0xfc,
+			argtypes = {uint8_t, uint8_t, uint8_t},
+			__tostring = function(self)
+				local p1, p2, p3 = table.unpack(self.args)
+				local condIndex = p1
+				if condIndex == 1 then
+					-- p2 means command-2 which means menu-item-2 which is magic
+					local action1 = ('%q'):format(getActionName(p2))
+					local action2 = ('%q'):format(getActionName(p3))
+					local actions = action1 == action2 and action1 or action1..', '..action2
+					-- p3 == 2 is targeting <-> this monster?
+					-- or p2 == 2, ip3 == 2 <-> action == magic, spell #2 == bolt?
+					return 'if wasTargetedWithAction('..actions..')'
+				elseif condIndex == 2 then
+					return 'if wasTargetedWithSpell('..(
+						p2 == p3
+						and tostring(p2)
+						or (p2..', '..p3)
+					)..')'
+				elseif condIndex == 3 then
+					local item1 = ('%q'):format(getItemName(p2))
+					local item2 = ('%q'):format(getItemName(p3))
+					local items = item1 == item2 and item1 or item1..', '..item2
+					return 'if wasTargetedWithItem('..items..')'
+				elseif condIndex == 4 then
+					assert.eq(p3, 0)
+					return 'if wasHitByElement('..p2..')'
+				elseif condIndex == 5 then
+					assert.eq(p2, 0)
+					assert.eq(p3, 0)
+					return 'if wasTargeted()'	-- what's this mean? if any action targeted this monster?
+				elseif condIndex == 6 then
+					-- is it always < ?
+					return 'if '..getTarget(p2)..'.hp < '..(p3 * 128)
+				elseif condIndex == 7 then
+					-- is it always < ?
+					return 'if '..getTarget(p2)..'.mp < '..p3
+				elseif condIndex == 8 then
+					return 'if 0 ~= targetStatus('..getTarget(p2)..') & (1 << '..('0x02%x'):format(p3)..')'
+				elseif condIndex == 9 then
+					return 'if 0 == targetStatus('..getTarget(p2)..') & (1 << '..('0x%02x'):format(p3)..')'
+				elseif condIndex == 11 then
+					assert.eq(p3, 0)
+					return 'if monsterTimer(self) > '..(p2 * 2)	-- seconds?
+				elseif condIndex == 12 then
+					return 'if battleVarGet('..p2..') < '..p3
+				elseif condIndex == 13 then
+					return 'if battleVarGet('..p2..') > '..p3
+				elseif condIndex == 14 then
+					return 'if '..getTarget(p2)..'.level <'..p3
+				elseif condIndex == 15 then
+					local target
+					-- for all target conds or just this one?
+					if p2 == 68 then
+						return 'if randomTargetsLevelGt('..p3..')'
+					elseif p2 < 16 then
+						-- target 0-15 is character 0-15 is object 0-15
+						target = 'getObj('..p2..')'
+						return 'if '..target..'.level > '..p3
+					else
+						target = 'getTarget('..p2..')'
+						return 'if '..target..'.level > '..p3
+					end
+				elseif condIndex == 16 then
+					assert.eq(p2, 0)
+					assert.eq(p3, 0)
+					return 'if onlyOneTypeOfEnemyAlive()'
+				elseif condIndex == 17 then
+					assert.eq(p3, 0)
+					return 'if isAlive('..getTargetMask(p2)..')'
+				elseif condIndex == 18 then
+					assert.eq(p3, 0)
+					return 'if isDead('..getTargetMask(p2)..')'
+				elseif condIndex == 19 then
+					local func, cmp
+					if p2 == 0 then
+						func = 'numPartyAlive()'
+						cmp = '>='
+					elseif p2 == 1 then
+						func = 'numEnemiesAlive()'
+						cmp = '<='
+					else
+						func = '???'..p2
+						cmp = '???'
+					end
+					return 'if '..func..' '..cmp..' '..p3
+				elseif condIndex == 20 then
+					-- {p2, p3}:
+					-- {9, 1} = 0x61
+					-- {6, 1} = 0x49
+					local flagIndex = bit.bor(
+						bit.lshift(p2, 3),
+						bit.band(7, p3)
+					)
+					local rest = bit.rshift(p3, 3)
+					assert.eq(rest, 0)	-- why even only use 3 lower bits? weird.
+					return 'if battleFlagGet('..flagIndex..')'
+				elseif condIndex == 21 then
+					local flagIndex = bit.bor(
+						bit.lshift(p2, 3),
+						bit.band(7, p3)
+					)
+					local rest = bit.rshift(p3, 3)
+					assert.eq(rest, 0)	-- why even only use 3 lower bits? weird.
+					return 'if not battleFlagGet('..flagIndex..')'
+				elseif condIndex == 22 then
+					assert.eq(p3, 0)
+					return 'if battleTimer() < '..p2
+				elseif condIndex == 23 then
+					assert.eq(p3, 0)
+					return 'if targetIsValid('..p2..')'
+				elseif condIndex == 24 then
+					assert.eq(p2, 0)
+					assert.eq(p3, 0)
+					return 'if gauIsPresent()'
+				elseif condIndex == 25 then
+					assert.eq(p3, 0)
+					local monsterName = p2 == 0 and 'self'
+						or p2 == 0xff and '"all enemies"'
+						or tostring(p2-1)
+					return 'if battlePlaceAvailable('..monsterName..')'	-- what does 'this monster slot' or 'all monster slot' mean?
+				elseif condIndex == 26 then
+					return 'if wasHitWithElement('..p2..', '..p3..')'
+				elseif condIndex == 27 then
+					local p12 = bit.bor(p1, bit.lshift(p2, 8))
+					return 'if battleIndex['..p12..']'
+				else
+					error'here'
+				end
+			end,
+		}
+
+		MonsterCmds.PassTurn = MonsterCmd:subclass{
+			cmd = 0xfd,
+			desc = 'passTurn()',
+		}
+
+		MonsterCmds.EndIf = MonsterCmd:subclass{
+			cmd = 0xfe,
+			desc = 'end--if',
+		}
+
+		MonsterCmds.Return = MonsterCmd:subclass(Return, {
+			cmd = 0xff,
+		})
+
+		for _,k in ipairs(table.keys(MonsterCmds)) do
+			local cl = MonsterCmds[k]
+			if cl.cmd then	-- some abstract classes are in MonsterCmds but don't have a .cmd
+				assert.type(cl.cmd, 'number')
+cl.classname = k
+				MonsterCmds[cl.cmd] = cl
+			end
+		end
+		for i=0,255 do
+			if not MonsterCmds[i] then
+				MonsterCmds[i] = MonsterCmd:subclass{
+					cmd = i,
+					desc = '??? '..('0x%02x'):format(i),
+				}
+			end
+		end
+	end
+
+
+	-- still to do: battle-anim-script
 
 
 	-- useful function
@@ -2648,6 +3102,7 @@ print(('BEGIN '..game.addrLabel(startAddr))
 				(scriptBaseAddr <= addr and addr < scriptBaseAddrEnd)
 				or (scriptBaseAddr2 <= addr and addr < scriptBaseAddrEnd2)
 				or (battleEventScriptAddr <= addr and addr < battleEventScriptAddrEnd)
+				or (monsterScriptAddr <= addr and addr < monsterScriptAddrEnd)
 			) then
 print('!!! script oob !!! '..game.addrLabel(addr))
 				break
@@ -2660,6 +3115,7 @@ print('!!! script oob !!! '..game.addrLabel(addr))
 			local cmdset = trace.stateStack:last().cmdset
 --DEBUG:assert.type(cmdset, 'string')
 			local cl = game[cmdset][cmd]
+			if not cl then error("failed to find cmd "..('0x%02x'):format(cmd).." in cmdset "..cmdset) end
 			local cmdobj = cl()
 			cmdobj.trace = trace
 			cmdobj.addr = cmdaddr
@@ -2925,6 +3381,37 @@ print()
 			cmdset = 'BattleEventCmds',
 			reverseRefInfo = {builtin = 'battleEvent'..i},
 		}
+	end
+
+
+	-- monster-scripts too?
+	do
+		local monstersForAddr = {}
+		local scriptAddrs = {}
+		for i=0,game.numMonsters-1 do
+			local addr = monsterScriptAddr + game.monsterScriptOfs[i]
+			scriptAddrs[addr] = true
+			monstersForAddr[addr] = monstersForAddr[addr] or table()
+			monstersForAddr[addr]:insert(i)
+		end
+		scriptAddrs = table.keys(scriptAddrs):sort()
+
+		for i=1,#scriptAddrs do
+			local startAddr = scriptAddrs[i]
+			local nextAddr = scriptAddrs[i+1] or monsterScriptAddrEnd
+
+			-- one each
+			assert.eq(#monstersForAddr[startAddr], 1)
+			local monsterIndex = monstersForAddr[startAddr][1]
+			--local name = string.trim(tostring(game.monsterNames[monsterIndex]))
+			--if name ~= '' then name = ' '..name end
+			--print('\t['..monsterIndex..'] = {\t-- '..(' 0x%06x'):format(startAddr)..'-'..('0x%06x'):format(nextAddr)..name)
+			decompileFrom{
+				addr = startAddr,
+				cmdset = 'MonsterCmds',
+				reverseRefInfo = {builtin = 'monsters_'..monsterIndex},
+			}
+		end
 	end
 	--]]
 
