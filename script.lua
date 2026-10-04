@@ -2756,7 +2756,7 @@ cl.classname = k
 			end,
 		}
 
-		MonsterCmds.Cmd_FB = MonsterCmd:subclass{
+		MonsterCmds.Misc = MonsterCmd:subclass{
 			cmd = 0xfb,
 			argtypes = {uint8_t, uint8_t},
 			__tostring = function(self)
@@ -2799,7 +2799,9 @@ cl.classname = k
 			end,
 		}
 
-		MonsterCmds.Cmd_FC = MonsterCmd:subclass{
+		-- technically this can be thougth of as "if not X then goto the next end-if"
+		-- because successif if's are and'd together
+		MonsterCmds.If = MonsterCmd:subclass{
 			cmd = 0xfc,
 			argtypes = {uint8_t, uint8_t, uint8_t},
 			__tostring = function(self)
@@ -3077,7 +3079,7 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {
 						..' vs new cmdset '..trace.stateStack:last().cmdset
 					)
 				else
-					return
+					return otherTrace
 				end
 			end
 		end
@@ -3227,6 +3229,8 @@ print()
 		for _,newBranch in ipairs(newBranches) do
 			decompileFrom(newBranch)
 		end
+
+		return trace
 	end
 
 
@@ -3386,6 +3390,8 @@ print()
 
 	-- monster-scripts too?
 	do
+		game.monsterScripts = {}
+
 		local monstersForAddr = {}
 		local scriptAddrs = {}
 		for i=0,game.numMonsters-1 do
@@ -3397,19 +3403,36 @@ print()
 		scriptAddrs = table.keys(scriptAddrs):sort()
 
 		for i=1,#scriptAddrs do
-			local startAddr = scriptAddrs[i]
+			local actAddr = scriptAddrs[i]
 			local nextAddr = scriptAddrs[i+1] or monsterScriptAddrEnd
 
 			-- one each
-			assert.eq(#monstersForAddr[startAddr], 1)
-			local monsterIndex = monstersForAddr[startAddr][1]
+			assert.eq(#monstersForAddr[actAddr], 1)
+			local monsterIndex = monstersForAddr[actAddr][1]
 			--local name = string.trim(tostring(game.monsterNames[monsterIndex]))
 			--if name ~= '' then name = ' '..name end
-			--print('\t['..monsterIndex..'] = {\t-- '..(' 0x%06x'):format(startAddr)..'-'..('0x%06x'):format(nextAddr)..name)
-			decompileFrom{
-				addr = startAddr,
+			--print('\t['..monsterIndex..'] = {\t-- '..(' 0x%06x'):format(actAddr)..'-'..('0x%06x'):format(nextAddr)..name)
+			local trace = decompileFrom{
+				addr = actAddr,
 				cmdset = 'MonsterCmds',
-				reverseRefInfo = {builtin = 'monsters_'..monsterIndex},
+				reverseRefInfo = {builtin = 'monsters_'..monsterIndex..'_act'},
+			}
+			local reactAddr = trace.endAddr
+			if reactAddr == nextAddr then
+				-- most monsters with no react at least have their react ptr point to a 'return'
+				-- but some (monster 243 etc) don't even have this
+				reactAddr = nil
+			else
+				decompileFrom{
+					addr = reactAddr,
+					cmdset = 'MonsterCmds',
+					reverseRefInfo = {builtin = 'monsters_'..monsterIndex..'_react'},
+				}
+			end
+
+			game.monsterScripts[monsterIndex] = {
+				act = actAddr,
+				react = reactAddr,
 			}
 		end
 	end

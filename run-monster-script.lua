@@ -6,6 +6,9 @@ everything8215 ff6tool/ff6/ff3u-sfc.json /scriptEncoding/monster
 
 cmdline:
 	hideAddrs
+
+I ported most of these over to scripts.lua, for the sake of using in vis.lua, but I don't have the if-combining just yet
+
 --]]
 local ffi = require 'ffi'
 local path = require 'ext.path'

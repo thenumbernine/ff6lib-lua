@@ -1,3 +1,4 @@
+local ffi = require 'ffi'
 local table = require 'ext.table'
 local ig = require 'imgui'
 local readMonsterSprite = require 'ff6.monstersprite'
@@ -101,6 +102,10 @@ function MonsterWindow:showIndexUI()
 		ig.igSetCursorPosY(y + math.ceil(viewHeight * scale) + 4)
 		--]]
 	end
+
+	local scripts = game.monsterScripts[self.index]
+	app.scriptWindow:popupButtonForAddr(scripts.act, 'act')
+	app.scriptWindow:popupButtonForAddr(scripts.react, 'react')
 
 	if ig.igCollapsingHeader'fields' then
 		ig.igText(' attack name = "'..game.monsterAttackNames[self.index]..'"')
