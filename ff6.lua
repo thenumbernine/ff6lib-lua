@@ -1021,7 +1021,7 @@ local Formation2 = ff6struct{
 		{unknown_1_6 = 'uint8_t:1'},
 		{hasScript = 'uint8_t:1'},
 		-- 2:
-		{script = uint8_t},
+		{script = uint8_t},	-- index into game.battleScripts
 		-- 3:
 		{cantRun = 'uint8_t:1'},
 		{notOnVeldt = 'uint8_t:1'},
@@ -1089,12 +1089,13 @@ local BattleScript = struct{
 		-- 1:
 		{name='background', type=uint8_t},
 		-- 2:
-		{name='active1', type='uint8_t:1'},
-		{name='active2', type='uint8_t:1'},
-		{name='active3', type='uint8_t:1'},
-		{name='active4', type='uint8_t:1'},
-		{name='active5', type='uint8_t:1'},
-		{name='active6', type='uint8_t:1'},
+		-- unlike Formation, BattleScript doesn't necessarily have something here.  in fact, idk why this is flagged.
+		{name='valid1', type='uint8_t:1'},
+		{name='valid2', type='uint8_t:1'},
+		{name='valid3', type='uint8_t:1'},
+		{name='valid4', type='uint8_t:1'},
+		{name='valid5', type='uint8_t:1'},
+		{name='valid6', type='uint8_t:1'},
 		{name='unknown_2_6', type='uint8_t:1'},
 		{name='unknown_2_7', type='uint8_t:1'},
 		-- 3:
@@ -2753,7 +2754,7 @@ Game = struct{
 		{name = 'battleDialogOffsets', type = arrayType(uint16_t, numBattleDialog2s)},							-- 0x10d000 - 0x10d200
 		{name = 'battleDialogBase', type = arrayType(uint8_t, -(0x10d200 - 0x10fd00))},							-- 0x10d200 - 0x10fd00
 
-		{name = 'battleScript', type = arrayType(BattleScript, 32)},											-- 0x10fd00 - 0x110000
+		{name = 'battleScripts', type = arrayType(BattleScript, 32)},											-- 0x10fd00 - 0x110000
 		{name = 'unknown_10ff40', type = arrayType(uint8_t, -(0x110000 - 0x110141))},							-- 0x110000 - 0x110141
 
 		{name = 'battleAnimFrame16x16Tiles', type = arrayType(BattleAnim16x16Tile, 0x74cb)},					-- 0x110141 - 0x11ead7 ... 2 bytes each ... pointers from battleAnimFrame16x16TileOffsets offset by 0x110000 but point into here
