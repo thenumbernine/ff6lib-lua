@@ -2536,7 +2536,7 @@ cl.classname = k
 			if i < 16 then
 				-- absolute character-based target
 				-- notice, 14 == Banon ... is that always where he is?
-				return 'characters[1+'..i..']'	-- 1+ cuz it's a 1-based table...
+				return 'getObj('..i..')'	-- 1+ cuz it's a 1-based table...
 			end
 			if i >= 48 and i < 54 then
 				return 'enemyFormationSlot['..(i-48)..']'	-- 0-5 for battle formation index
