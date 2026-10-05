@@ -11,6 +11,7 @@ local ff6struct = require 'ff6.ff6struct'
 local reftype = require 'ff6.reftype'
 
 
+local int8_t = ffi.typeof'int8_t'
 local uint8_t = ffi.typeof'uint8_t'
 local uint16_t = ffi.typeof'uint16_t'
 local uint32_t = ffi.typeof'uint32_t'
@@ -351,6 +352,25 @@ end
 function StringList.__concat(a,b)
 	return tostring(a) .. tostring(b)
 end
+
+
+local XY8sb = ff6struct{
+	ctypeOnly = true,
+	fields = {
+		{x = int8_t},
+		{y = int8_t},
+	},
+}
+assert.eq(ffi.sizeof(XY8sb), 2)
+
+local XY8b = ff6struct{
+	ctypeOnly = true,
+	fields = {
+		{x = uint8_t},
+		{y = uint8_t},
+	},
+}
+assert.eq(ffi.sizeof(XY8b), 2)
 
 ---------------- GRAPHICS ----------------
 
@@ -999,9 +1019,9 @@ local Formation2 = ff6struct{
 		{unknown_1_4 = 'uint8_t:1'},
 		{unknown_1_5 = 'uint8_t:1'},
 		{unknown_1_6 = 'uint8_t:1'},
-		{hasEvent = 'uint8_t:1'},
+		{hasScript = 'uint8_t:1'},
 		-- 2:
-		{event = uint8_t},
+		{script = uint8_t},
 		-- 3:
 		{cantRun = 'uint8_t:1'},
 		{notOnVeldt = 'uint8_t:1'},
@@ -1024,6 +1044,66 @@ local Formation2 = ff6struct{
 	end,
 }
 assert.eq(ffi.sizeof(Formation2), 4)
+
+local BattleScriptChar = struct{
+	ctypeOnly = true,
+	tostringFields = true,
+	tostringOmitFalse = true,
+	tostringOmitNil = true,
+	tostringOmitEmpty = true,
+	packed = true,
+
+	fields = {
+		-- TODO union.
+		-- 0xff = none, otherwise 0x40 = enemy, 0x80 = hidden
+		{name='character', type='uint8_t:6'},
+		{name='enemy', type='uint8_t:1'},
+		{name='hidden', type='uint8_t:1'},
+
+		{name='graphics', type=uint8_t},	-- same as npcs?
+		{name='monster', type=uint8_t},		-- + 0x100 into the monster list to find what monster it is
+		{name='pos', type=XY8b},
+	},
+}
+assert.eq(ffi.sizeof(BattleScriptChar), 5)
+
+-- referenced by Formation2.script + .hasScript
+local BattleScript = struct{
+	ctypeOnly = true,
+	tostringFields = true,
+	tostringOmitFalse = true,
+	tostringOmitNil = true,
+	tostringOmitEmpty = true,
+	packed = true,
+
+	fields = {
+		-- 0:
+		{name='hideName', type='uint8_t:1'},
+		{name='unknown_0_1', type='uint8_t:1'},
+		{name='unknown_0_2', type='uint8_t:1'},
+		{name='unknown_0_3', type='uint8_t:1'},
+		{name='unknown_0_4', type='uint8_t:1'},
+		{name='unknown_0_5', type='uint8_t:1'},
+		{name='unknown_0_6', type='uint8_t:1'},
+		{name='hideParty', type='uint8_t:1'},
+		-- 1:
+		{name='background', type=uint8_t},
+		-- 2:
+		{name='active1', type='uint8_t:1'},
+		{name='active2', type='uint8_t:1'},
+		{name='active3', type='uint8_t:1'},
+		{name='active4', type='uint8_t:1'},
+		{name='active5', type='uint8_t:1'},
+		{name='active6', type='uint8_t:1'},
+		{name='unknown_2_6', type='uint8_t:1'},
+		{name='unknown_2_7', type='uint8_t:1'},
+		-- 3:
+		{name='song', type=uint8_t},
+		-- 4-23:
+		{name='chars', type=arrayType(BattleScriptChar, 4)},
+	},
+}
+assert.eq(ffi.sizeof(BattleScript), 24)
 
 local MonsterRandomBattleEntry = ff6struct{
 	ctypeOnly = true,
@@ -1599,24 +1679,6 @@ local numBattleDialog2s = 0x100
 local numBattleMessages = 0x100
 
 local numPositionedText = 5	-- might actually be lower
-
-local XY8sb = ff6struct{
-	ctypeOnly = true,
-	fields = {
-		{x = 'int8_t'},
-		{y = 'int8_t'},
-	},
-}
-assert.eq(ffi.sizeof(XY8sb), 2)
-
-local XY8b = ff6struct{
-	ctypeOnly = true,
-	fields = {
-		{x = uint8_t},
-		{y = uint8_t},
-	},
-}
-assert.eq(ffi.sizeof(XY8b), 2)
 
 local MapNameRef = reftype{
 	ctypeOnly = true,
@@ -2691,8 +2753,8 @@ Game = struct{
 		{name = 'battleDialogOffsets', type = arrayType(uint16_t, numBattleDialog2s)},							-- 0x10d000 - 0x10d200
 		{name = 'battleDialogBase', type = arrayType(uint8_t, -(0x10d200 - 0x10fd00))},							-- 0x10d200 - 0x10fd00
 
-		{name = 'battleAI', type = arrayType(uint8_t, -(0x10fd00 - 0x10ff40))},									-- 0x10fd00 - 0x10ff40
-		{name = 'unknown_10ff40', type = arrayType(uint8_t, -(0x10ff40 - 0x110141))},							-- 0x10ff40 - 0x110141
+		{name = 'battleScript', type = arrayType(BattleScript, 32)},											-- 0x10fd00 - 0x110000
+		{name = 'unknown_10ff40', type = arrayType(uint8_t, -(0x110000 - 0x110141))},							-- 0x110000 - 0x110141
 
 		{name = 'battleAnimFrame16x16Tiles', type = arrayType(BattleAnim16x16Tile, 0x74cb)},					-- 0x110141 - 0x11ead7 ... 2 bytes each ... pointers from battleAnimFrame16x16TileOffsets offset by 0x110000 but point into here
 		{name = 'padding_11ead7', type = uint8_t},																-- 0x11ead7 - 0x11ead8 -- 'ff'
@@ -3138,6 +3200,7 @@ game.Monster = Monster
 game.MonsterItem = MonsterItem
 game.Formation = Formation
 game.Formation2 = Formation2
+game.BattleScript = BattleScript
 game.MenuName = MenuName
 game.MenuNameRef = MenuNameRef
 game.MenuNameRef4 = MenuNameRef4
