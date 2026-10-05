@@ -726,7 +726,7 @@ return function(game)
 		end,
 	}
 
-	EventCmds.RestorePreviousParty = EventCmd:subclass{
+	EventCmds.RestoreDefaultParty = EventCmd:subclass{
 		cmd = 0x7b,
 		desc = 'restoreDefaultParty()',
 	}
@@ -773,7 +773,7 @@ return function(game)
 		desc = 'takeItem(<?=("%q"):format(tostring(game.itemNames[itemIndex]))?>)',
 	}
 
-	EventCmds.ResetPreviousParty = EventCmd:subclass{
+	EventCmds.ResetDefaultParty = EventCmd:subclass{
 		cmd = 0x82,
 		desc = 'resetDefaultParty()',
 	}
