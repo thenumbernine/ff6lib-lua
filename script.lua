@@ -69,8 +69,8 @@ return function(game)
 	local battleEventScriptAddr = ffi.offsetof(Game, 'battleEventScriptOfs')
 	local battleEventScriptAddrEnd = battleEventScriptAddr + ffi.sizeof(game.battleEventScriptOfs) + ffi.sizeof(game.battleEventScripts)
 
-	local monsterScriptAddr = ffi.offsetof(Game, 'monsterScripts')	-- 0x0f8700
-	local monsterScriptAddrEnd = monsterScriptAddr + ffi.sizeof(game.monsterScripts)
+	local monsterScriptAddr = ffi.offsetof(Game, 'monsterScriptData')	-- 0x0f8700
+	local monsterScriptAddrEnd = monsterScriptAddr + ffi.sizeof(game.monsterScriptData)
 
 --DEBUG:print('event script ranges:')
 --DEBUG:print(game.addrLabel(scriptBaseAddr)..'-'..game.addrLabel(scriptBaseAddrEnd))
@@ -151,7 +151,7 @@ return function(game)
 	local ObjectCmds = {}
 	local VehicleCmds = {}
 	local BattleEventCmds = {}	-- used by game.battleEventScript[]
-	local MonsterCmds = {}		-- used by game.monsterScriptOfs & game.monsterScripts
+	local MonsterCmds = {}		-- used by game.monsterScriptOfs & game.monsterScriptData
 
 
 	-- event-commands:

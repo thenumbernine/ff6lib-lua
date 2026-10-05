@@ -93,11 +93,11 @@ for i=0,game.numMonsters-1 do
 	local scriptNextOfs = range(0,game.numMonsters)
 		:mapi(function(j) return game.monsterScriptOfs[j] end)
 		:filteri(function(ofs) return ofs > scriptOfs end)
-		[1] or ffi.sizeof(game.monsterScripts)
+		[1] or ffi.sizeof(game.monsterScriptData)
 
-	local baseAddr = ffi.offsetof(Game, 'monsterScripts')	-- 0x0f8700
+	local baseAddr = ffi.offsetof(Game, 'monsterScriptData')	-- 0x0f8700
 	print('script = '..('0x%04x'):format(baseAddr + scriptOfs)..' - '..('0x%04x'):format(baseAddr + scriptNextOfs))
---	print('\t'..ffi.string(game.monsterScripts + scriptOfs, scriptNextOfs - scriptOfs):hex():gsub('..', ' %0'))
+--	print('\t'..ffi.string(game.monsterScriptData + scriptOfs, scriptNextOfs - scriptOfs):hex():gsub('..', ' %0'))
 	print()
 end
 
@@ -678,7 +678,7 @@ require 'ff6.run-maps'(rom, game, romsize)
 -- referenced by event-scripts:
 print(game.dialog)
 
--- referenced by game.monsterScripts[]'s command 0xf3
+-- referenced by game.monsterScriptData[]'s command 0xf3
 print(game.monsterDialog)
 
 -- referenced by battleEventScripts[]

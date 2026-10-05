@@ -24,7 +24,7 @@ local function outputMonsterScripts(game, cmdline)
 	local Game = game.Game
 	local countof = game.countof
 
-	local monsterScriptsAddr = ffi.offsetof(Game, 'monsterScripts')	-- 0x0f8700
+	local monsterScriptsAddr = ffi.offsetof(Game, 'monsterScriptData')	-- 0x0f8700
 
 	local monstersForAddr = {}
 	local scriptAddrs = {}
@@ -46,7 +46,7 @@ return {
 	for i=1,#scriptAddrs do
 		local startAddr = scriptAddrs[i]
 		local nextAddr = scriptAddrs[i+1]
-			or (monsterScriptsAddr + ffi.sizeof(game.monsterScripts))
+			or (monsterScriptsAddr + ffi.sizeof(game.monsterScriptData))
 
 		assert.eq(#monstersForAddr[startAddr], 1)
 		local monsterIndex = monstersForAddr[startAddr][1]

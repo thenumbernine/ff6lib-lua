@@ -986,16 +986,16 @@ local Formation2 = ff6struct{
 	ctypeOnly = true,
 	fields = {
 		-- 0:
-		{intro = 'uint8_t:4'},
-		{normal = 'uint8_t:1'},
-		{back = 'uint8_t:1'},
-		{pincer = 'uint8_t:1'},
-		{side = 'uint8_t:1'},
+		{intro = 'uint8_t:4'},	-- how the monsters enter
+		{noNormal = 'uint8_t:1'},
+		{noBack = 'uint8_t:1'},
+		{noPincer = 'uint8_t:1'},
+		{noSide = 'uint8_t:1'},
 		-- 1:
 		{unknown_1_0 = 'uint8_t:1'},
-		{continuousMusic = 'uint8_t:1'},
-		{unknown_1_2 = 'uint8_t:1'},
-		{unknown_1_3 = 'uint8_t:1'},
+		{noFanFare = 'uint8_t:1'},
+		{noJokerDoom = 'uint8_t:1'},
+		{noLeap = 'uint8_t:1'},
 		{unknown_1_4 = 'uint8_t:1'},
 		{unknown_1_5 = 'uint8_t:1'},
 		{unknown_1_6 = 'uint8_t:1'},
@@ -1003,12 +1003,12 @@ local Formation2 = ff6struct{
 		-- 2:
 		{event = uint8_t},
 		-- 3:
-		{unknown_3_0 = 'uint8_t:1'},
-		{unknown_3_1 = 'uint8_t:1'},
-		{windows = 'uint8_t:1'},
+		{cantRun = 'uint8_t:1'},
+		{notOnVeldt = 'uint8_t:1'},
+		{noPreEmptiveAttack = 'uint8_t:1'},
 		{music = 'uint8_t:3'},
 		{unknown_3_6 = 'uint8_t:1'},
-		{continuousMusic2 = 'uint8_t:1'},
+		{continuousMusic = 'uint8_t:1'},
 	},
 	metatable = function(mt)
 		local oldFieldToString = mt.fieldToString
@@ -2657,7 +2657,7 @@ Game = struct{
 		{name = 'formations', type = arrayType(Formation, numFormations)},										-- 0x0f6200 - 0x0f83c0
 		{name = 'padding_0f83c0', type = arrayType(uint8_t, -(0x0f83c0 - 0x0f8400))},							-- 0x0f83c0 - 0x0f8400 - all 'ff' repeated.  probably 4 last empty formations + padding
 		{name = 'monsterScriptOfs', type = arrayType(uint16_t, numMonsters)},									-- 0x0f8400 - 0x0f8700
-		{name = 'monsterScripts', type = arrayType(uint8_t, -(0x0f8700 - 0x0fc050))},							-- 0x0f8700 - 0x0fc050
+		{name = 'monsterScriptData', type = arrayType(uint8_t, -(0x0f8700 - 0x0fc050))},							-- 0x0f8700 - 0x0fc050
 		{name = 'monsterNames', type = arrayType(MonsterName, numMonsters)},									-- 0x0fc050 - 0x0fcf50
 		{name = 'monsterNameThing', type = arrayType(uint8_t, numMonsters)},									-- 0x0fcf50 - 0x0fd0d0
 		{name = 'monsterAttackNames', type = arrayType(MonsterName, numMonsters)},								-- 0x0fd0d0 - 0x0fdfd0
