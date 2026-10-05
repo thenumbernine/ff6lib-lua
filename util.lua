@@ -212,6 +212,23 @@ local EquipFlags = bitflagtype{
 }
 assert.eq(ffi.sizeof(EquipFlags), 2)
 
+-- hmm where to put this or what to use...
+local charNames = {
+	'TERRA',
+	'LOCKE',
+	'CYAN',
+	'SHADOW',
+	'EDGAR',
+	'SABIN',
+	'CELES',
+	'STRAGO',
+	'RELM',
+	'SETZER',
+	'MOG',
+	'GAU',
+	'GOGO',
+	'UMARO',
+}
 
 -- TODO how about unicode?  no objections to fixed-size strings turning into varying-sized strings?
 -- welp this seems good but itemForName :sub(2) no longer works
@@ -242,7 +259,7 @@ local function gamestr(p, len)
 			c:insert'\n'
 		elseif p[0] == 2 then
 			p=p+1
-			c:insert('[SLEEP '..p[0]..']')
+			c:insert('['..charNames[1+p[0]]..']')
 		elseif p[0] == 5 then
 			c:insert'[PAUSE]'
 		elseif p[0] == 7 then
