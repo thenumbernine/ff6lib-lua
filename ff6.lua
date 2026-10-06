@@ -1019,9 +1019,9 @@ local Formation2 = ff6struct{
 		{unknown_1_4 = 'uint8_t:1'},
 		{unknown_1_5 = 'uint8_t:1'},
 		{unknown_1_6 = 'uint8_t:1'},
-		{hasScript = 'uint8_t:1'},
+		{hasBattleChars = 'uint8_t:1'},
 		-- 2:
-		{script = uint8_t},	-- index into game.battleScripts
+		{battleChars = uint8_t},	-- index into game.battleChars
 		-- 3:
 		{cantRun = 'uint8_t:1'},
 		{notOnVeldt = 'uint8_t:1'},
@@ -1067,8 +1067,8 @@ local BattleScriptChar = struct{
 }
 assert.eq(ffi.sizeof(BattleScriptChar), 5)
 
--- referenced by Formation2.script + .hasScript
-local BattleScript = struct{
+-- referenced by Formation2.battleChars + .hasBattleChars
+local BattleCharacters = struct{
 	ctypeOnly = true,
 	tostringFields = true,
 	tostringOmitFalse = true,
@@ -1089,7 +1089,7 @@ local BattleScript = struct{
 		-- 1:
 		{name='background', type=uint8_t},
 		-- 2:
-		-- unlike Formation, BattleScript doesn't necessarily have something here.  in fact, idk why this is flagged.
+		-- unlike Formation, BattleCharacters doesn't necessarily have something here.  in fact, idk why this is flagged.
 		{name='valid1', type='uint8_t:1'},
 		{name='valid2', type='uint8_t:1'},
 		{name='valid3', type='uint8_t:1'},
@@ -1104,7 +1104,7 @@ local BattleScript = struct{
 		{name='chars', type=arrayType(BattleScriptChar, 4)},
 	},
 }
-assert.eq(ffi.sizeof(BattleScript), 24)
+assert.eq(ffi.sizeof(BattleCharacters), 24)
 
 local MonsterRandomBattleEntry = ff6struct{
 	ctypeOnly = true,
@@ -2754,7 +2754,7 @@ Game = struct{
 		{name = 'battleDialogOffsets', type = arrayType(uint16_t, numBattleDialog2s)},							-- 0x10d000 - 0x10d200
 		{name = 'battleDialogBase', type = arrayType(uint8_t, -(0x10d200 - 0x10fd00))},							-- 0x10d200 - 0x10fd00
 
-		{name = 'battleScripts', type = arrayType(BattleScript, 32)},											-- 0x10fd00 - 0x110000
+		{name = 'battleChars', type = arrayType(BattleCharacters, 32)},											-- 0x10fd00 - 0x110000
 		{name = 'unknown_10ff40', type = arrayType(uint8_t, -(0x110000 - 0x110141))},							-- 0x110000 - 0x110141
 
 		{name = 'battleAnimFrame16x16Tiles', type = arrayType(BattleAnim16x16Tile, 0x74cb)},					-- 0x110141 - 0x11ead7 ... 2 bytes each ... pointers from battleAnimFrame16x16TileOffsets offset by 0x110000 but point into here
@@ -3201,7 +3201,7 @@ game.Monster = Monster
 game.MonsterItem = MonsterItem
 game.Formation = Formation
 game.Formation2 = Formation2
-game.BattleScript = BattleScript
+game.BattleCharacters = BattleCharacters
 game.MenuName = MenuName
 game.MenuNameRef = MenuNameRef
 game.MenuNameRef4 = MenuNameRef4
