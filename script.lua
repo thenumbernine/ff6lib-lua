@@ -2788,7 +2788,7 @@ cl.classname = k
 					return 'setATBToMax('..p2..')'
 				elseif p1 == 9 then
 					assert.eq(p2, 0)
-					return 'sendGauToVeldt()'
+					return 'endBattleAfterGauReturnsFromVeldt()'
 				elseif p1 == 11 then
 					return 'setStatus(self, '..p2..')'	-- on who?
 				elseif p1 == 12 then		-- not used?
