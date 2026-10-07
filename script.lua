@@ -2771,7 +2771,7 @@ cl.classname = k
 					return 'makeInvisible('..p2..')'
 				elseif p1 == 2 then
 					assert.eq(p2, 0)
-					return 'return endBattle()'
+					return 'endBattle()'
 				elseif p1 == 3 then
 					assert.eq(p2, 0)
 					return 'addGauToParty()'
@@ -2788,7 +2788,7 @@ cl.classname = k
 					return 'setATBToMax('..p2..')'
 				elseif p1 == 9 then
 					assert.eq(p2, 0)
-					return 'return endBattleAfterGauReturnsFromVeldt()'
+					return 'endBattleAfterGauReturnsFromVeldt()'
 				elseif p1 == 11 then
 					return 'setStatus(self, '..p2..')'	-- on who?
 				elseif p1 == 12 then		-- not used?
@@ -2944,7 +2944,7 @@ cl.classname = k
 
 		MonsterCmds.EndIf = MonsterCmd:subclass{
 			cmd = 0xfe,
-			desc = 'end--if',
+			desc = 'return end--if',
 		}
 
 		MonsterCmds.Return = MonsterCmd:subclass(Return, {
