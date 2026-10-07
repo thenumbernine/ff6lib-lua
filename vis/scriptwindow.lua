@@ -351,6 +351,45 @@ function EventScriptWindow:showIndexUI()
 							ig.igSameLine()
 							self:popupButtonForAddr(0x100000 + game.battleEventScriptOfs[cmd.index])
 
+						-- event dialog and monster dialog use different text,
+						-- but in both cases I want to grep out character name tokens for links to the character window
+						elseif game.EventCmds.Dialog:isa(cmd)
+						or game.MonsterCmds.Dialog:isa(cmd)
+						then
+							local first = true
+							local text = string.trim(tostring(cmd):gsub('\n', '\\n'))
+							local strStart = 1	-- last str start loc
+							local i = 1	-- search loc
+							while true do
+								local j1,j2,who = text:find('%[(%w+)%]', i)
+
+								if not j1 then break end
+								i = j2+1
+
+								local charIndexForName = {}
+
+								-- TODO monster uses ff6.util gamestr which uses hard-coded names, so TODO don't do that.
+								-- while dialog uses compressed str that uses dynamic names
+								-- fix for both would be not using the character names and using some other token like "[CHAR 1]" etc
+								local charIndex
+								for i=0,game.countof(game.characterNames)-1 do
+									local n = tostring(game.characterNames[i])
+									if n ~= '' and n == who then
+										charIndex = i
+										break
+									end
+								end
+								if charIndex then
+									if first then first=false else ig.igSameLine() end
+									ig.igText(text:sub(strStart,j1-1))
+									if first then first=false else ig.igSameLine() end
+									app.charWindow:popupButton(charIndex)
+									strStart = j2+1
+								end
+							end
+							if first then first=false else ig.igSameLine() end
+							ig.igText(text:sub(strStart))
+
 						else
 						-- default:
 							ig.igText(string.trim(tostring(cmd):gsub('\n', '\\n')))
