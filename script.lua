@@ -1624,6 +1624,9 @@ cl.classname = k
 			self.descstr = 'objMove(objIndex, '..self.dir..', '..self.dist..')'
 		end,
 	}
+	-- 1000:0000b thru 1001:1111b
+	--    y:yyxx
+	-- x = dir, y = dist-1
 	for cmd=0x80,0x9f do
 		ObjectCmds['Move '..cmd] = ObjectCmds.Move:subclass{cmd=cmd}
 	end
@@ -1935,7 +1938,7 @@ cl.classname = k
 		}
 	end
 
-	-- also in ObjectCmds
+	-- same as ObjectCmds
 	WorldCmds.Move = WorldCmd:subclass{
 		desc = 'objMove(objIndex, <?=bit.band(cmd, 3)?>, <?=bit.band(bit.rshift(cmd, 2), 7)?>)',
 	}
@@ -3546,76 +3549,6 @@ print()
 		cmdForAddr[cmdobj.addr] = cmdobj
 	end
 
-	--[[ also insert Branch reverse-references...
-	... and in doing so I see a few bugs in the vanilla script:
-
-
-here the `goto _0a20a9` is midway through the sleep(4/15) command
-the goto will instead execute an `objAction(objIndex, 4)` command
-
-0a20a4	EV 01 8c				objScript{objIndex=1, block=true, cb=|objIndex|do
-0a20a6	OB c2						objSetSpeed(objIndex, 2)
-0a20a7	OB 83						objMove(objIndex, 3, 1)
-0a20a8	OB e0 04					sleep(4/15)
-0a20aa	OB 0f						objAction(objIndex, 15, false)
-0a20ab	OB e0 01					sleep(1/15)
-0a20ad	OB cf						objSetDir(objIndex, 3)
-0a20ae	OB e0 02					sleep(2/15)
-0a20b0	OB 22						objAction(objIndex, 34, false)
-0a20b1	OB ff						return
-								end}
-0a20b2	EV 4b f7 cb				dialog("\nYou almost ate it trying to pick up that silly trinket! [SLEEP 12][KEYPRESS][END]", {hideBG=true,bottomOfScreen=true})
-0a20b5	EV c0 27 01 c3 20 00	if not mapFlagGet(295) then goto _0a20c3 end
-0a20bb	EV 09 83				objScript{objIndex=9, block=true, cb=|objIndex|do
-0a20bd	OB fc 14					goto _0a20a9
-0a20bf	OB ff						return
-								end}
-0a20c0	EV 4b f8 cb				dialog("\n[SETZER]: What a woman!\nYour life is hanging by a bandana! [SLEEP 10][KEYPRESS][END]", {hideBG=true,bottomOfScreen=true})
-
-fix: jump to the sleep?
-	or the action? or maybe they did want action 4?
-	i'll just jump to the `objAction(objIndex, 15)`
-	so fix: rom[0x0a20be] = 0x15
-
-and it becomes ...
-
-
-0a20a8	lambda						local _0a20a8=|objIndex|do
-0a20a8	OB e0 04						sleep(4/15)
-0a20aa	OB 0f							objAction(objIndex, 15, false)
-0a20ab	OB e0 01						sleep(1/15)
-0a20ad	OB cf							objSetDir(objIndex, 3)
-0a20ae	OB e0 02						sleep(2/15)
-0a20b0	OB 22							objAction(objIndex, 34, false)
-0a20b1	OB ff							return
-									end
-0a20a4	EV 01 8c					objScript{objIndex=1, block=true, cb=|objIndex|do
-0a20a6	OB c2							objSetSpeed(objIndex, 2)
-0a20a7	OB 83							objMove(objIndex, 3, 1)
-										return _0a20a8(objIndex)
-									end}
-0a20b2	EV 4b f7 cb					dialog("\nYou almost ate it trying to pick up that silly trinket! [SLEEP 12][KEYPRESS][END]", {hideBG=true,bottomOfScreen=true})
-0a20b5	EV c0 27 01 c3 20 00		if not mapFlagGet(295) then goto _0a20c3 end
-0a20bb	EV 09 83					objScript{objIndex=9, block=true, cb=|objIndex|do
-0a20bd	OB fc 15						goto _0a20a8
-0a20bf	OB ff							return
-									end}
-0a20c0	EV 4b f8 cb					dialog("\n[SETZER]: What a woman!\nYour life is hanging by a bandana! [SLEEP 10][KEYPRESS][END]", {hideBG=true,bottomOfScreen=true})
-
-
-next one,
-
-0a48b5	EV 1e 03	objScript{objIndex=30, cb=|objIndex|do
-0a48b7	OB fc 08		goto _0a48af
-0a48b9	OB ff			return
-					end}
-
-the goto goes outside an objscript
-let's patch it to go to the start of the objscript
-
-	rom[0x0a48b7] = 7
-
-	--]]
 	for _,cmdobj in ipairs(game.eventScriptCmds) do
 		if game.ObjectCmds.Branch:isa(cmdobj) then
 			local destAddr = cmdobj:getDestAddr()
