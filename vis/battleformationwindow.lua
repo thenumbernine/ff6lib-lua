@@ -1,6 +1,7 @@
 local table = require 'ext.table'
 local ig = require 'imgui'
 local readMonsterSprite = require 'ff6.monstersprite'
+local makePalette = require 'ff6.graphics'.makePalette
 local ArrayWindow = require 'ff6.vis.arraywindow'
 
 
@@ -61,6 +62,19 @@ function BattleFormationWindow:showIndexUI()
 				end
 			end
 		end
+		if self.charTexs then
+			for k,info in pairs(self.charTexs) do
+				-- is it y-flipped?
+				ig.igSetCursorPosX(math.ceil(x + 2 * info.pos.x * scale))
+				ig.igSetCursorPosY(math.ceil(y + 2 * info.pos.y * scale))
+				drawSize.x = math.ceil(scale * info.tex.width)
+				drawSize.y = math.ceil(scale * info.tex.height)
+				ig.igImage(info.tex.id, drawSize)
+				if ig.igIsItemClicked(0) then
+					app.charWindow:open(info.charIndex)
+				end
+			end
+		end
 		ig.igSetCursorPosX(x)
 		ig.igSetCursorPosY(y + math.ceil(viewHeight * scale) + 4)
 	end
@@ -92,7 +106,8 @@ function BattleFormationWindow:showIndexUI()
 
 				-- pointer into another table I think?
 				if self:editField(info, 'pos', game.XY4b) then
-					formation['pos'..i] = info.pos
+					formation['pos'..i].x = info.pos.y
+					formation['pos'..i].y = info.pos.x
 				end
 
 				-- this is in a whole other struct , so i'm not making it editable yet
@@ -101,9 +116,24 @@ function BattleFormationWindow:showIndexUI()
 			ig.igPopID()
 			ig.igPopID()
 		end
+
+		ig.igSeparator()
+		ig.igText'formationEx:'
 		local formation2 = game.formation2s[self.index]
 		for fieldname, ctype, field in formation2:fielditer() do
 			self:editField(formation2, fieldname, ctype, field)
+		end
+
+		if formation2.hasBattleChars ~= 0
+		and formation2.battleChars >= 0
+		and formation2.battleChars < game.countof(game.battleChars)
+		then
+			ig.igSeparator()
+			ig.igText'battleChars:'
+			local battleChars = game.battleChars + formation2.battleChars
+			for fieldname, ctype, field in battleChars:fielditer() do
+				self:editField(battleChars, fieldname, ctype, field)
+			end
 		end
 	end
 
@@ -181,6 +211,39 @@ function BattleFormationWindow:setIndex(...)
 					readMonsterSprite(game, info.monster)
 				),
 			}
+		end
+	end
+
+	-- get character texs
+	if self.charTexs then
+		for _,k in ipairs(table.keys(self.charTexs)) do
+			self.charTexs[k].tex:delete()
+		end
+	end
+	self.charTexs = {}
+
+	local formation2 = game.formation2s[self.index]
+	if formation2.hasBattleChars ~= 0
+	and formation2.battleChars >= 0
+	and formation2.battleChars < game.countof(game.battleChars)
+	then
+		local battleChars = game.battleChars + formation2.battleChars
+		for i=0,3 do
+			local ch = battleChars.chars + i
+			-- TODO union and just check 0xff
+			if ch.character == 0x3f and ch.enemy == 1 and ch.hidden == 1 then
+			elseif ch.graphics ~= 0xff then
+				local img = game.getCharSpriteSheetImage(ch.graphics)
+				img = img:copy{x=0, y=0, width=16, height=24}
+				-- TODO what to use for the palette? .graphic? .character?
+				img.palette = makePalette(game, game.characterPalettes[ch.graphics], 4, 16)
+				self.charTexs[i] = {
+					-- xy flipped
+					pos = {x=tonumber(ch.pos.x), y=tonumber(ch.pos.y)},
+					tex = self:makeTex(img),
+					charIndex = ch.character,
+				}
+			end
 		end
 	end
 end

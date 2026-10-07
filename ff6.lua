@@ -1045,7 +1045,7 @@ local Formation2 = ff6struct{
 }
 assert.eq(ffi.sizeof(Formation2), 4)
 
-local BattleScriptChar = struct{
+local BattleCharacter = struct{
 	ctypeOnly = true,
 	tostringFields = true,
 	tostringOmitFalse = true,
@@ -1065,9 +1065,9 @@ local BattleScriptChar = struct{
 		{name='pos', type=XY8b},
 	},
 }
-assert.eq(ffi.sizeof(BattleScriptChar), 5)
+assert.eq(ffi.sizeof(BattleCharacter), 5)
 
--- referenced by Formation2.battleChars + .hasBattleChars
+-- referenced by Formation2.hasBattleChars && .battleChars
 local BattleCharacters = struct{
 	ctypeOnly = true,
 	tostringFields = true,
@@ -1101,7 +1101,7 @@ local BattleCharacters = struct{
 		-- 3:
 		{name='song', type=uint8_t},
 		-- 4-23:
-		{name='chars', type=arrayType(BattleScriptChar, 4)},
+		{name='chars', type=arrayType(BattleCharacter, 4)},
 	},
 }
 assert.eq(ffi.sizeof(BattleCharacters), 24)
