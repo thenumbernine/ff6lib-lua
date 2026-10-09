@@ -755,7 +755,6 @@ for i=0,countof(game.npcs) do
 	print(
 		'npcs[0x'..i:hex()..']'
 		..' addr=$'..('%06x'):format(addr)
-		..(scriptAddr and ' script=$'..('%06x'):format(scriptAddr) or '')
 		..' '..npc[0]
 	)
 end

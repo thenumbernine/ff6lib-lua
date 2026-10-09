@@ -2090,7 +2090,8 @@ local NPC = struct{
 					addField'isSlave'	-- 2.1
 				end
 			else
-				s:insert(('script=%06x'):format(self.script))	--  0.0-2.1
+				s:insert(('script=%06x'):format(self.script + ffi.offsetof(Game, 'eventScript')))	--  0.0-2.1
+				sep = ', '
 			end
 
 			addField'palette' -- 2.2-2.4
