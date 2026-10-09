@@ -1926,6 +1926,11 @@ assert.eq(ffi.sizeof(Treasure), 5)
 --[[
 NPC types: normal, special, animated
 separate structures or separate anonymous unions? thanks to bitfield alignment there would be lots of matching identical names, welp, the compiler can pick and it won't matter.
+looking at everything8215/ff6/src/event/npc_prop.asm ...
+
+"Special" just means "use vram"
+... but how to determine vram versus scriptAddr?
+
 
 struct NPCNormal {
 	// not-special-specific:
@@ -1980,8 +1985,8 @@ struct NPCAnimated {
 	uint8_t spritePriority:2;		-- 7.4-7.5
 
 	// animated-specific
-	uint8_t animationSpeed:2;		-- 7.6-7.7
-	uint8_t animationType:2;		-- 8.0-8.1
+	uint8_t animSpeed:2;		-- 7.6-7.7
+	uint8_t animType:2;		-- 8.0-8.1
 	uint8_t unused_8_2:1;			-- 8.2
 
 	// shared in common
@@ -2021,7 +2026,7 @@ struct NPCSpecialGraphics {
 	uint8_t isSpecial:2;			-- 7.6-7.7 ... or is this isNotSpecial ?
 
 	// can't tell if this is shared in common with special and animated but not normal .. or if it is just animation specific
-	uint8_t animationType:2;		-- 8.0-8.1
+	uint8_t animType:2;		-- 8.0-8.1
 
 	// special-specific:
 	uint8_t is32x32:1;				-- 8.2
@@ -2051,13 +2056,78 @@ local NPC = struct{
 			-- this seems to be the biggest correlator ...
 			if self.showRider_or_specialGraphics ~= 0
 			-- and i guess this too?
-			and self.vehicle_or_speed == 0
+			and self.vehicle_or_animSpeed == 0
 			then
 				return
 			end
 
 			-- ... or does that determine vehicle vs event opcodes?
 			return self.script + ffi.offsetof(Game, 'eventScript')
+		end
+
+		mt.__tostring = function(self)
+			local s = table()
+			s:insert'{'
+			local sep = ''
+			local function addField(field, name)
+				name = name or field
+				s:insert(sep)
+				s:insert(name)
+				s:insert'='
+				s:insert(tostring(self[field]))
+				sep = ', '
+			end
+			local vehicle = self.vehicle_or_animSpeed
+			local specialNPC = self.showRider_or_specialGraphics
+			local specialAndNotVehicle = specialNPC ~= 0 and vehicle == 0
+			if specialAndNotVehicle then
+				addField'vramAddr' -- 0.0-0.6
+				addField'hflip'	-- 0.7
+				if self.isSlave ~= 0 then
+					addField'masterNPC' -- 1.0-1.4
+					addField'masterOffset' -- 1.5-1.7
+					addField'masterOffsetAxis' -- 2.0
+					addField'isSlave'	-- 2.1
+				end
+			else
+				s:insert(('script=%06x'):format(self.script))	--  0.0-2.1
+			end
+
+			addField'palette' -- 2.2-2.4
+			addField'scrollingLayer' -- 2.5
+			addField'flag' -- 2.6-3.7
+			addField'x' -- 4.0-4.6
+
+			if specialAndNotVehicle then
+				addField('showRider_or_specialGraphics', 'specialGraphics')	-- 4.7
+			else
+				if vehicle ~= 0 then
+					addField('showRider_or_specialGraphics', 'showRider')	-- 4.7
+				end
+			end
+			addField'y' -- 5.0-5.5
+			addField'speed' -- 5.6-5.7
+			addField'graphics' -- 6.0-6.7
+			addField'movement' -- 7.0-7.3
+			addField'spritePriority' -- 7.4-7.5
+			if self.animation ~= 0 then
+				addField('vehicle_or_animSpeed', 'animSpeed') -- 7.6-7.7
+				addField('dir_or_animType', 'animType') -- 8.0-8.1
+			else
+				if not specialAndNotVehicle then
+					addField('vehicle_or_animSpeed', 'vehicle') -- 7.6-7.7
+				end
+				addField('dir_or_animType', 'dir') -- 8.0-8.1
+			end
+			if specialAndNotVehicle then
+				addField('specialGFXSize_or_talkDoesntTurn', 'is32x32') -- 8.2
+			else
+				addField('specialGFXSize_or_talkDoesntTurn', 'talkDoesntTurn') -- 8.2
+			end
+			addField'layerPriority' -- 8.3-8.4
+			addField'animation' -- 8.5-8.7
+			s:insert'}'
+			return s:concat()
 		end
 	end,
 
@@ -2096,7 +2166,7 @@ local NPC = struct{
 					},
 				}},
 
-				-- invalid when vehicle value != 0 && specialGraphics == 0
+				-- valid when vehicle == 0 || specialGraphics != 0
 				{type=struct{
 					anonymous = true,
 					packed = true,
@@ -2124,6 +2194,7 @@ local NPC = struct{
 
 		{name='x', type='uint8_t:7'},								-- 4.0-4.6
 
+-- is "specialGraphic" the same as animation==2 i.e. special?
 		-- "specialGraphics" if vehicle == 0 and specialGraphics != 0 then ...
 		-- wait, isn't that a circular condition?
 		-- otherwise "showRider"
@@ -2135,17 +2206,17 @@ local NPC = struct{
 		{name='movement', type='uint8_t:4'},						-- 7.0-7.3 = 0=none, 1=script, 2=user, 3=random
 		{name='spritePriority', type='uint8_t:2'},					-- 7.4-7.5 = 0=normal 1=high 2=low 3=low
 
-		-- "speed" when animation != 0
+		-- "animSpeed" when animation != 0
 		-- "vehicle" when animation == 0
-		{name='vehicle_or_speed', type='uint8_t:2'},				-- 7.6-7.7 = 0=none 1=chocobo 2=magitek 3=raft
+		{name='vehicle_or_animSpeed', type='uint8_t:2'},				-- 7.6-7.7 = 0=none 1=chocobo 2=magitek 3=raft
 
-		-- "direction" when animation == 0
-		-- "type" otherwise
-		{name='direction_or_type', type='uint8_t:2'},				-- 8.0-8.1 direction = {up, right, down, left}, type = {one frame, flip horz, two frames, four frames}
+		-- "dir" when animation == 0
+		-- "animType" otherwise
+		{name='dir_or_animType', type='uint8_t:2'},				-- 8.0-8.1 direction = {up, right, down, left}, type = {one frame, flip horz, two frames, four frames}
 
-		-- "size" when vehicle == 0 && specialGraphics != 0
+		-- "specialGFXSize" when vehicle == 0 && specialGraphics != 0
 		-- otherwise "talkDoesntTurn"
-		{name='size_or_talkDoesntTurn', type='uint8_t:1'},			-- 8.2.  size: 0=16x16, 1=32x32
+		{name='specialGFXSize_or_talkDoesntTurn', type='uint8_t:1'},			-- 8.2.  size: 0=16x16, 1=32x32
 
 		{name='layerPriority', type='uint8_t:2'},					-- 8.3-8.4 0=default 1=top sprite only 2=foreground 3=background
 
