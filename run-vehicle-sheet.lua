@@ -1342,9 +1342,12 @@ print(
 				ymax = math.max(ymax, tile.y + 8)
 			end
 
-			-- I guess this means blackjackTileData starts at 64?
+			-- I guess this means blackjackTileData starts at 0x40?
+			-- and there were 0xc0 of them
 			local tileData = ('\0'):rep(64 * 32) .. blackjackTileData
 			local tileDataPtr = ffi.cast('uint8_t*', tileData)
+
+			-- falcon starts at 0xa0?
 
 			local img = Image(xmax - xmin, ymax - ymin, 1, 'uint8_t'):clear()
 			img.palette = makePalette(game, palData, 4, 16)
@@ -1378,8 +1381,8 @@ print(
 		for i=0x56,0x59 do end	-- smoking airship
 		for i=0x5a,0x5e do end
 		for i=0x5f,0x61 do end	-- bird
-		for i=0x62,0x65 do end	-- falcon on ground
-		for i=0x66,0x66 do end	-- falcon lifting off
+		for i=0x62,0x65 do saveFrame(i, 'falcon', game.darylAirshipPalette) end	-- falcon on ground
+		for i=0x66,0x66 do saveFrame(i, 'falcon', game.darylAirshipPalette) end	-- falcon lifting off
 		for i=0x67,0x6b do end
 	end
 end
