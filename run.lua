@@ -691,8 +691,8 @@ print(game.battleMessages)
 print(game.positionedText)
 
 
-print('setzer airship palette = '..game.setzerAirshipPalette)
-print('daryl airship palette = '..game.darylAirshipPalette)
+print('blackjack palette = '..game.blackjackPalette)
+print('daryl airship palette = '..game.falconPalette)
 print('menuWindowPalettes = '..game.menuWindowPalettes)
 
 --print('characterMenuImages = '..game.characterMenuImages)

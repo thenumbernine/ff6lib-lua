@@ -1,12 +1,11 @@
 #!/usr/bin/env luajit
 --[[
+this has turned into a replacement for charsprites.lua
+so TODO get rid of charsprites.lua
+
 oh yeah, 0x150000 - 0x185000 is where the tile data for character sprites goes
 but the end of it is vehicles
 so this is now the vehicle-extraction script
-
-this has some overlap with charsprites.lua
-it's probably gonna also output all npc sprites
-so TODO get rid of charsprites.lua
 
 and it's gonna use `characterFrameTileOffset`
 ... and the next struct that I haven't charted yet
@@ -1287,10 +1286,10 @@ print(
 			assert.eq(tile, dataptr + #tileData)
 		end
 		local decompress = game.decompress
-		local blackjackTileData = decompress(game.airship1Compressed, ffi.sizeof(game.airship1Compressed))
-		save('tiles_blackjack.png', blackjackTileData, game.setzerAirshipPalette)
-		local data = decompress(game.airship2Compressed, ffi.sizeof(game.airship2Compressed))
-		save('tiles_falcon.png', data, game.darylAirshipPalette)
+		local blackjackTiles = decompress(game.airship1Compressed, ffi.sizeof(game.airship1Compressed))
+		--save('tiles_blackjack.png', blackjackTiles, game.blackjackPalette)
+		local falconTiles = decompress(game.airship2Compressed, ffi.sizeof(game.airship2Compressed))
+		--save('tiles_falcon.png', falconTiles, game.falconPalette)
 		-- what palette do world-map chocobos use?
 		local data = decompress(game.worldChocobo1Compressed, ffi.sizeof(game.worldChocobo1Compressed))
 		save('tiles_chocobo1.png', data, game.characterPalettes + 0) --game.WoBPalettes) -- or is it +1 +2 etc?
@@ -1313,7 +1312,7 @@ print(
 		print('#magitekTrainCompressed', #data)
 		--]]
 
-		local function saveFrame(i, name, palData)
+		local function saveFrame(i, filename, tileData, palData)
 			local ofs = game.worldAnimSpriteOfs[i]
 			local p = ffi.cast('uint8_t*', game.worldAnimSpriteData + ofs)
 			local numTiles = p[0] p=p+1
@@ -1342,9 +1341,6 @@ print(
 				ymax = math.max(ymax, tile.y + 8)
 			end
 
-			-- I guess this means blackjackTileData starts at 0x40?
-			-- and there were 0xc0 of them
-			local tileData = ('\0'):rep(64 * 32) .. blackjackTileData
 			local tileDataPtr = ffi.cast('uint8_t*', tileData)
 
 			-- falcon starts at 0xa0?
@@ -1363,26 +1359,59 @@ print(
 					0 -- tile.palor
 				)
 			end
-			img:save(worldspritedir/(name..i..'.png'))
+			img:save(worldspritedir/filename)
 		end
 
-		for i=1,0x12 do saveFrame(i, 'blackjack', game.setzerAirshipPalette) end -- airship
+		-- I guess this means blackjackTiles starts at 0x40?
+		-- and there were 0xc0 of them
+		local blackjackTilesPadded = ('\0'):rep(64 * 32) .. blackjackTiles
+_G.blackjackTilesPadded = blackjackTilesPadded	-- don't gc
+		local falconTilesPadded = ('\0'):rep(64 * 32) .. falconTiles
+_G.falconTilesPadded = falconTilesPadded		-- don't gc
+
+		-- airship (back view)
+		local airshipFrameNames = table{
+			'idle1',
+			'idle2',
+			'l1',
+			'l2',
+			'r1',
+			'r2',
+			'u1',
+			'u2',
+			'ul1',
+			'ul2',
+			'ur1',
+			'ur2',
+			'd1',
+			'd2',
+			'dl1',
+			'dl2',
+			'dr1',
+			'dr2',
+		}
+		assert.len(airshipFrameNames, 0x12)
+		for i=1,0x12 do
+			saveFrame(i, 'blackjack_'..airshipFrameNames[i]..'.png', blackjackTilesPadded, game.blackjackPalette)
+			saveFrame(i, 'falcon_'..airshipFrameNames[i]..'.png', falconTilesPadded, game.falconPalette)
+		end
+
 		for i=0x13,0x25 do end	-- chocobo
 		for i=0x26,0x2d do end	-- character
 		for i=0x2e,0x32 do end
 		for i=0x33,0x36 do end
 		for i=0x37,0x3e do end	-- ship
 		for i=0x3f,0x44 do end	-- arrows
-		for i=0x45,0x48	do saveFrame(i, 'blackjack', game.setzerAirshipPalette) end	-- blackjack on grond
+		for i=0x45,0x48	do saveFrame(i, 'blackjack_liftoff'..(i-0x44)..'.png', blackjackTilesPadded, game.blackjackPalette) end	-- blackjack on grond
 		for i=0x49,0x4c do end	-- dismount chocobo
-		for i=0x4d,0x4d do saveFrame(i, 'blackjack', game.setzerAirshipPalette) end	-- blackjack lift off
+		saveFrame(0x4d, 'blackjack_ground.png', blackjackTilesPadded, game.blackjackPalette)	-- blackjack lift off
 		for i=0x4e,0x53 do end	-- esper terra
 		for i=0x54,0x55 do end
 		for i=0x56,0x59 do end	-- smoking airship
 		for i=0x5a,0x5e do end
 		for i=0x5f,0x61 do end	-- bird
-		for i=0x62,0x65 do saveFrame(i, 'falcon', game.darylAirshipPalette) end	-- falcon on ground
-		for i=0x66,0x66 do saveFrame(i, 'falcon', game.darylAirshipPalette) end	-- falcon lifting off
+		for i=0x62,0x65 do saveFrame(i, 'falcon_liftoff'..(i-0x61)..'.png', falconTilesPadded, game.falconPalette) end	-- falcon on ground
+		saveFrame(0x66, 'falcon_ground.png', falconTilesPadded, game.falconPalette)	-- falcon lifting off
 		for i=0x67,0x6b do end
 	end
 end

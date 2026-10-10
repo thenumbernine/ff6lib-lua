@@ -201,8 +201,8 @@ makePaletteSets(
 	(
 		ffi.sizeof(game.WoBPalettes)
 		+ ffi.sizeof(game.WoRPalettes)
-		+ ffi.sizeof(game.setzerAirshipPalette)
-		+ ffi.sizeof(game.darylAirshipPalette)
+		+ ffi.sizeof(game.blackjackPalette)
+		+ ffi.sizeof(game.falconPalette)
 	) / ffi.sizeof(game.RGBA5551),
 	function(index) return bit.band(0xf, index) == 0 end
 )

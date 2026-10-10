@@ -2853,8 +2853,8 @@ Game = struct{
 		{name = 'battleAnimGraphicsSets2bpp', type = arrayType(BattleAnim8x8Tile, 0x20 * 0xb0)},				-- 0x12c000 - 0x12ec00	-- should be 2bpp battle animation 16x16-tile-info referenced by .graphicSet
 		{name = 'WoBPalettes', type = Palette16_8},																-- 0x12ec00 - 0x12ed00
 		{name = 'WoRPalettes', type = Palette16_8},																-- 0x12ed00 - 0x12ee00
-		{name = 'setzerAirshipPalette', type = Palette16_8},													-- 0x12ee00 - 0x12ef00
-		{name = 'darylAirshipPalette', type = Palette16_8},														-- 0x12ef00 - 0x12f000
+		{name = 'blackjackPalette', type = Palette16_8},														-- 0x12ee00 - 0x12ef00
+		{name = 'falconPalette', type = Palette16_8},															-- 0x12ef00 - 0x12f000
 
 		{name = 'unknown_12f000', type = arrayType(uint8_t, -(0x12f000 - 0x130000))},							-- 0x12f000 - 0x130000
 
@@ -3117,8 +3117,8 @@ assertOffset('monsterPalettes', 0x127820)
 assertOffset('itemNames', 0x12b300)
 assertOffset('WoBPalettes', 0x12ec00)
 assertOffset('WoRPalettes', 0x12ed00)
-assertOffset('setzerAirshipPalette', 0x12ee00)
-assertOffset('darylAirshipPalette', 0x12ef00)
+assertOffset('blackjackPalette', 0x12ee00)
+assertOffset('falconPalette', 0x12ef00)
 assertOffset('items', 0x185000)
 assertOffset('espers', 0x186e00)
 assertOffset('spellDescBase', 0x18c9a0)
