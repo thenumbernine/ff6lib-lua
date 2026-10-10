@@ -1313,7 +1313,7 @@ print(
 		print('#magitekTrainCompressed', #data)
 		--]]
 
-		local function saveFrame(i)
+		local function saveFrame(i, name, palData)
 			local ofs = game.worldAnimSpriteOfs[i]
 			local p = ffi.cast('uint8_t*', game.worldAnimSpriteData + ofs)
 			local numTiles = p[0] p=p+1
@@ -1347,7 +1347,7 @@ print(
 			local tileDataPtr = ffi.cast('uint8_t*', tileData)
 
 			local img = Image(xmax - xmin, ymax - ymin, 1, 'uint8_t'):clear()
-			img.palette = makePalette(game, game.setzerAirshipPalette, 4, 16)
+			img.palette = makePalette(game, palData, 4, 16)
 			for _,tile in ipairs(tiles) do
 				readTile(
 					img,
@@ -1360,19 +1360,19 @@ print(
 					0 -- tile.palor
 				)
 			end
-			img:save(worldspritedir/('frame'..i..'.png'))
+			img:save(worldspritedir/(name..i..'.png'))
 		end
 
-		for i=1,0x12 do saveFrame(i) end -- airship
+		for i=1,0x12 do saveFrame(i, 'blackjack', game.setzerAirshipPalette) end -- airship
 		for i=0x13,0x25 do end	-- chocobo
 		for i=0x26,0x2d do end	-- character
 		for i=0x2e,0x32 do end
 		for i=0x33,0x36 do end
 		for i=0x37,0x3e do end	-- ship
 		for i=0x3f,0x44 do end	-- arrows
-		for i=0x45,0x48	do saveFrame(i) end	-- blackjack on grond
+		for i=0x45,0x48	do saveFrame(i, 'blackjack', game.setzerAirshipPalette) end	-- blackjack on grond
 		for i=0x49,0x4c do end	-- dismount chocobo
-		for i=0x4d,0x4d do saveFrame(i) end	-- blackjack lift off
+		for i=0x4d,0x4d do saveFrame(i, 'blackjack', game.setzerAirshipPalette) end	-- blackjack lift off
 		for i=0x4e,0x53 do end	-- esper terra
 		for i=0x54,0x55 do end
 		for i=0x56,0x59 do end	-- smoking airship
