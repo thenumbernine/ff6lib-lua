@@ -4,8 +4,9 @@ oh yeah, 0x150000 - 0x185000 is where the tile data for character sprites goes
 but the end of it is vehicles
 so this is now the vehicle-extraction script
 
-this has some overlap with charsprites
+this has some overlap with charsprites.lua
 it's probably gonna also output all npc sprites
+so TODO get rid of charsprites.lua
 
 and it's gonna use `characterFrameTileOffset`
 ... and the next struct that I haven't charted yet
@@ -1057,6 +1058,7 @@ end
 
 			local charBaseAddr = getTileOffsetForSprite(sprite)
 
+--[[
 -- tiles are 8x8x4bpp = 32 bytes = 0x20 bytes ...
 -- for a 16x16 that is 0x80 bytes
 local tileDataSize = (getTileOffsetForSprite(sprite+1) or 0x183000) - charBaseAddr
@@ -1066,6 +1068,7 @@ print(
 	--'size', ('%x'):format(tileDataSize),
 	(tileDataSize/0x20)..' tiles'
 )
+--]]
 
 			for frame=0,maxFrames-1 do
 				local frameImg = Image(frameTilesWide*tileWidth, frameTilesHigh*tileHeight, 1, uint8_t):clear()
@@ -1131,128 +1134,180 @@ print(
 	-- now rearrange them and put them into a 256x256 sprite-sheet (this is ff6t3d-specific)
 	-- is it just me or does it look like the tiles were meant to be laid out in rows of 16 to make a 128x128 sheet?
 	-- i'll just go with that ....
-	local tile16x16Imgs = table()
-	for j=0,7 do
-		for i=0,7 do
-			tile16x16Imgs:insert(tilesImg:copy{x=i*16, y=j*16, width=16, height=16})
+	do
+		local tile16x16Imgs = table()
+		for j=0,7 do
+			for i=0,7 do
+				tile16x16Imgs:insert(tilesImg:copy{x=i*16, y=j*16, width=16, height=16})
+			end
 		end
+		assert.len(tile16x16Imgs, 64)
+
+		local sheetImg = Image(256,256,1,uint8_t):clear()
+		sheetImg.palette = tilesImg.palette
+
+		local i = 1
+		local function pasteNext(args)
+			args.image = tile16x16Imgs[i]
+			i = i + 1
+			sheetImg:pasteInto(args)
+		end
+		-- raft up/down
+		pasteNext{x=6*16, y=0*16}
+		pasteNext{x=6*16, y=1*16}
+		pasteNext{x=7*16, y=0*16}
+		pasteNext{x=7*16, y=1*16}
+		-- raft left/right
+		pasteNext{x=6*16, y=2*16}
+		pasteNext{x=6*16, y=3*16}
+		pasteNext{x=7*16, y=2*16}
+		pasteNext{x=7*16, y=3*16}
+
+		pasteNext{x=80, y=96}	-- chocobo head
+		pasteNext{x=0, y=96}	-- headless chocobo tail facing down
+		pasteNext{x=0, y=112}	--
+		pasteNext{x=16, y=96}	-- headless chocobo tail facing down #2
+		pasteNext{x=16, y=112}	--
+		pasteNext{x=80, y=112}	-- chocobo tail
+		pasteNext{x=32, y=96}	-- headless chocobo tail facing up
+		pasteNext{x=32, y=112}	--
+		pasteNext{x=48, y=96}	-- headless chocobo tail facing up #2
+		pasteNext{x=48, y=112}	--
+		-- chocobo standing left
+		pasteNext{x=0, y=128}
+		pasteNext{x=0, y=144}
+		pasteNext{x=16, y=128}
+		pasteNext{x=16, y=144}
+		-- chocobo run left #1
+		pasteNext{x=32, y=128}
+		pasteNext{x=32, y=144}
+		pasteNext{x=48, y=128}
+		pasteNext{x=48, y=144}
+		-- chocobo run left #2
+		pasteNext{x=64, y=128}
+		pasteNext{x=64, y=144}
+		pasteNext{x=80, y=128}
+		pasteNext{x=80, y=144}
+
+		pasteNext{x=64, y=96}	-- chocobo wark
+		pasteNext{x=64, y=112}	-- chocobo eyes closed
+
+		-- magitek stand d
+		local magitek = i
+		pasteNext{x=0, y=0}
+		pasteNext{x=0, y=16}
+		-- and then the last two, hflipped
+		sheetImg:pasteInto{image=tile16x16Imgs[magitek+0]:mirror(), x=16, y=0}
+		sheetImg:pasteInto{image=tile16x16Imgs[magitek+1]:mirror(), x=16, y=16}
+
+		-- magitek walk d
+		pasteNext{x=32, y=0}
+		pasteNext{x=32, y=16}
+		-- and then walk d #2 hflipped
+		sheetImg:pasteInto{image=tile16x16Imgs[magitek+4]:mirror(), x=48, y=0}
+		sheetImg:pasteInto{image=tile16x16Imgs[magitek+5]:mirror(), x=48, y=16}
+
+		-- magitek walk d #2
+		pasteNext{x=64, y=0}
+		pasteNext{x=64, y=16}
+		-- and then walk d #1 hflipped
+		sheetImg:pasteInto{image=tile16x16Imgs[magitek+2]:mirror(), x=80, y=0}
+		sheetImg:pasteInto{image=tile16x16Imgs[magitek+3]:mirror(), x=80, y=16}
+
+		-- magitek stand u
+		pasteNext{x=0, y=32}
+		pasteNext{x=0, y=48}
+		-- and then the last two, hflipped
+		sheetImg:pasteInto{image=tile16x16Imgs[magitek+6]:mirror(), x=16, y=32}
+		sheetImg:pasteInto{image=tile16x16Imgs[magitek+7]:mirror(), x=16, y=48}
+
+		-- magitek walk u
+		pasteNext{x=32, y=32}
+		pasteNext{x=32, y=48}
+		-- and then walk u #2 hflipped
+		sheetImg:pasteInto{image=tile16x16Imgs[magitek+10]:mirror(), x=48, y=32}
+		sheetImg:pasteInto{image=tile16x16Imgs[magitek+11]:mirror(), x=48, y=48}
+
+		-- magitek walk u #2
+		pasteNext{x=64, y=32}
+		pasteNext{x=64, y=48}
+		-- and then walk u #1 hflipped
+		sheetImg:pasteInto{image=tile16x16Imgs[magitek+8]:mirror(), x=80, y=32}
+		sheetImg:pasteInto{image=tile16x16Imgs[magitek+9]:mirror(), x=80, y=48}
+
+		-- stand l
+		pasteNext{x=0, y=64}
+		pasteNext{x=16, y=64}
+		pasteNext{x=0, y=80}
+		pasteNext{x=16, y=80}
+		-- walk l #1
+		pasteNext{x=32, y=64}
+		pasteNext{x=48, y=64}
+		pasteNext{x=32, y=80}
+		pasteNext{x=48, y=80}
+		-- walk l #2
+		pasteNext{x=64, y=64}
+		pasteNext{x=80, y=64}
+		pasteNext{x=64, y=80}
+		pasteNext{x=80, y=80}
+		-- walk l #3
+		pasteNext{x=96, y=64}
+		pasteNext{x=112, y=64}
+		pasteNext{x=96, y=80}
+		pasteNext{x=112, y=80}
+
+		sheetImg:save'vehicle-sheet.png'
 	end
-	assert.len(tile16x16Imgs, 64)
 
-	local sheetImg = Image(256,256,1,uint8_t):clear()
-	sheetImg.palette = tilesImg.palette
+	-- now write out all the world sprites
+	do
+		local worldspritedir = path'worldgfx'
+		worldspritedir:mkdir(true)
+		-- each is 6144 = 32 bytes per 8x84bpp tile x 192 tiles
+		local function save(filename, tileData, palData)
+			local tilesWide = 16
+			local tilesHigh = #tileData / 32 / tilesWide
+			local bpp = 4
+			local img = Image(tilesWide * 8, tilesHigh * 8, 1, 'uint8_t'):clear()
+			img.palette = makePalette(game, palData, 4, 16)
+			local dataptr = ffi.cast('uint8_t*', tileData)
+			local tile = dataptr + 0
+			for y=0,tilesHigh-1 do
+				for x=0,tilesWide-1 do
+					local i = x + tilesWide * y
+					readTile(img, x*8, y*8, tile, bpp)
+					tile = tile + 32
+				end
+			end
+			img:save(worldspritedir/filename)
+			assert.eq(tile, dataptr + #tileData)
+		end
+		local decompress = game.decompress
+		local data = decompress(game.airship1Compressed, ffi.sizeof(game.airship1Compressed))
+		save('airship1Compressed.png', data, game.setzerAirshipPalette)
+		local data = decompress(game.airship2Compressed, ffi.sizeof(game.airship2Compressed))
+		save('airship2Compressed.png', data, game.darylAirshipPalette)
+		-- what palette do world-map chocobos use?
+		local data = decompress(game.worldChocobo1Compressed, ffi.sizeof(game.worldChocobo1Compressed))
+		save('worldChocobo1Compressed.png', data, game.characterPalettes + 0) --game.WoBPalettes) -- or is it +1 +2 etc?
+		local data = decompress(game.worldChocobo2Compressed, ffi.sizeof(game.worldChocobo2Compressed))
+		save('worldChocobo2Compressed.png', data, game.characterPalettes + 0) --game.WoRPalettes)
 
-	local i = 1
-	local function pasteNext(args)
-		args.image = tile16x16Imgs[i]
-		i = i + 1
-		sheetImg:pasteInto(args)
+		local data = decompress(game.worldAnimSpritesCompressed, ffi.sizeof(game.worldAnimSpritesCompressed))
+		save('worldAnimSpritesCompressed.png', data, game.WoBPalettes)
+		local data = decompress(game.worldMiscSpritesCompressed, ffi.sizeof(game.worldMiscSpritesCompressed))
+		save('worldMiscSpritesCompressed.png', data, game.WoRPalettes)
+		local data = decompress(game.worldBackdropCompressed, ffi.sizeof(game.worldBackdropCompressed))
+		save('worldBackdropCompressed.png', data, game.WoBPalettes)
+		local data = decompress(game.WoBMinimapCompressed, ffi.sizeof(game.WoBMinimapCompressed))
+		save('WoBMinimapCompressed.png', data, game.WoBPalettes)
+		local data = decompress(game.WoRMinimapCompressed, ffi.sizeof(game.WoRMinimapCompressed))
+		save('WoRMinimapCompressed.png', data, game.WoRPalettes)
+		--[[ 16327 bytes...
+		local data = decompress(game.magitekTrainCompressed, ffi.sizeof(game.magitekTrainCompressed))
+		print('#magitekTrainCompressed', #data)
+		--]]
 	end
-	-- raft up/down
-	pasteNext{x=6*16, y=0*16}
-	pasteNext{x=6*16, y=1*16}
-	pasteNext{x=7*16, y=0*16}
-	pasteNext{x=7*16, y=1*16}
-	-- raft left/right
-	pasteNext{x=6*16, y=2*16}
-	pasteNext{x=6*16, y=3*16}
-	pasteNext{x=7*16, y=2*16}
-	pasteNext{x=7*16, y=3*16}
-
-	pasteNext{x=80, y=96}	-- chocobo head
-	pasteNext{x=0, y=96}	-- headless chocobo tail facing down
-	pasteNext{x=0, y=112}	--
-	pasteNext{x=16, y=96}	-- headless chocobo tail facing down #2
-	pasteNext{x=16, y=112}	--
-	pasteNext{x=80, y=112}	-- chocobo tail
-	pasteNext{x=32, y=96}	-- headless chocobo tail facing up
-	pasteNext{x=32, y=112}	--
-	pasteNext{x=48, y=96}	-- headless chocobo tail facing up #2
-	pasteNext{x=48, y=112}	--
-	-- chocobo standing left
-	pasteNext{x=0, y=128}
-	pasteNext{x=0, y=144}
-	pasteNext{x=16, y=128}
-	pasteNext{x=16, y=144}
-	-- chocobo run left #1
-	pasteNext{x=32, y=128}
-	pasteNext{x=32, y=144}
-	pasteNext{x=48, y=128}
-	pasteNext{x=48, y=144}
-	-- chocobo run left #2
-	pasteNext{x=64, y=128}
-	pasteNext{x=64, y=144}
-	pasteNext{x=80, y=128}
-	pasteNext{x=80, y=144}
-
-	pasteNext{x=64, y=96}	-- chocobo wark
-	pasteNext{x=64, y=112}	-- chocobo eyes closed
-
-	-- magitek stand d
-	local magitek = i
-	pasteNext{x=0, y=0}
-	pasteNext{x=0, y=16}
-	-- and then the last two, hflipped
-	sheetImg:pasteInto{image=tile16x16Imgs[magitek+0]:mirror(), x=16, y=0}
-	sheetImg:pasteInto{image=tile16x16Imgs[magitek+1]:mirror(), x=16, y=16}
-
-	-- magitek walk d
-	pasteNext{x=32, y=0}
-	pasteNext{x=32, y=16}
-	-- and then walk d #2 hflipped
-	sheetImg:pasteInto{image=tile16x16Imgs[magitek+4]:mirror(), x=48, y=0}
-	sheetImg:pasteInto{image=tile16x16Imgs[magitek+5]:mirror(), x=48, y=16}
-
-	-- magitek walk d #2
-	pasteNext{x=64, y=0}
-	pasteNext{x=64, y=16}
-	-- and then walk d #1 hflipped
-	sheetImg:pasteInto{image=tile16x16Imgs[magitek+2]:mirror(), x=80, y=0}
-	sheetImg:pasteInto{image=tile16x16Imgs[magitek+3]:mirror(), x=80, y=16}
-
-	-- magitek stand u
-	pasteNext{x=0, y=32}
-	pasteNext{x=0, y=48}
-	-- and then the last two, hflipped
-	sheetImg:pasteInto{image=tile16x16Imgs[magitek+6]:mirror(), x=16, y=32}
-	sheetImg:pasteInto{image=tile16x16Imgs[magitek+7]:mirror(), x=16, y=48}
-
-	-- magitek walk u
-	pasteNext{x=32, y=32}
-	pasteNext{x=32, y=48}
-	-- and then walk u #2 hflipped
-	sheetImg:pasteInto{image=tile16x16Imgs[magitek+10]:mirror(), x=48, y=32}
-	sheetImg:pasteInto{image=tile16x16Imgs[magitek+11]:mirror(), x=48, y=48}
-
-	-- magitek walk u #2
-	pasteNext{x=64, y=32}
-	pasteNext{x=64, y=48}
-	-- and then walk u #1 hflipped
-	sheetImg:pasteInto{image=tile16x16Imgs[magitek+8]:mirror(), x=80, y=32}
-	sheetImg:pasteInto{image=tile16x16Imgs[magitek+9]:mirror(), x=80, y=48}
-
-	-- stand l
-	pasteNext{x=0, y=64}
-	pasteNext{x=16, y=64}
-	pasteNext{x=0, y=80}
-	pasteNext{x=16, y=80}
-	-- walk l #1
-	pasteNext{x=32, y=64}
-	pasteNext{x=48, y=64}
-	pasteNext{x=32, y=80}
-	pasteNext{x=48, y=80}
-	-- walk l #2
-	pasteNext{x=64, y=64}
-	pasteNext{x=80, y=64}
-	pasteNext{x=64, y=80}
-	pasteNext{x=80, y=80}
-	-- walk l #3
-	pasteNext{x=96, y=64}
-	pasteNext{x=112, y=64}
-	pasteNext{x=96, y=80}
-	pasteNext{x=112, y=80}
-
-	sheetImg:save'vehicle-sheet.png'
 end
 
 --print('...', select('#', ...), ...)

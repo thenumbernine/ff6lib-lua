@@ -2925,7 +2925,7 @@ Game = struct{
 		{name = 'mpIncPerLevelUp', type = arrayType(uint8_t, numLevels)},										-- 0x26f502 - 0x26f564
 		{name = 'stragoInitialLores', type = arrayType(uint8_t, 3)},											-- 0x26f564 - 0x26f567 ... hmm TODO?
 		{name = 'spellNames_0to53', type = arrayType(Str7, 54)}, 												-- 0x26f567 - 0x26f6e1
-		{name = 'esperNames', type = arrayType(Str8, 27)},                             					-- 0x26f6e1 - 0x26f7b9
+		{name = 'esperNames', type = arrayType(Str8, 27)},                             							-- 0x26f6e1 - 0x26f7b9
 		{name = 'spellNames_81to255', type = arrayType(Str10, 175)},											-- 0x26f7b9 - 0x26fe8f
 		{name = 'esperAttackNames', type = arrayType(Str10, numEspers)},										-- 0x26fe8f - 0x26ff9d
 		{name = 'mogDanceNames', type = arrayType(MogDanceName, numMogDances)},									-- 0x26ff9d - 0x26fffd
@@ -2934,8 +2934,8 @@ Game = struct{
 		{name = 'battleBgPalettes', type = arrayType(RGBA5551, 0xa80)},											-- 0x270150 - 0x271650 ... everything's says 56 or 96? max index is 0x34 = 52
 		{name = 'battleBgGfxAddrs', type = arrayType(uint24_t, 0xa8)},											-- 0x271650 - 0x271848 = 75 used, the rest are 0's, most points into battleBgGfxCompressed
 		{name = 'battleBgLayoutOffsets', type = arrayType(uint16_t, 0x70)},										-- 0x271848 - 0x271928 = +0x270000 .  49 are valid. invalid contain 0x1928.  points into battleBgLayoutCompressed
-		{name = 'battleBgLayoutCompressed', type = arrayType(uint8_t, -(0x271928-0x27a9e7))},					-- 0x271928 - 0x27a9e7 = 32x32x4bpp
-		{name = 'battleBgGfxCompressed', type = arrayType(uint8_t, -(0x27a9e7-0x296300))},						-- 0x27a9e7 - 0x296300 = 4bpp
+		{name = 'battleBgLayoutCompressed', type = arrayType(uint8_t, -(0x271928 - 0x27a9e7))},					-- 0x271928 - 0x27a9e7 = 32x32x4bpp
+		{name = 'battleBgGfxCompressed', type = arrayType(uint8_t, -(0x27a9e7 - 0x296300))},					-- 0x27a9e7 - 0x296300 = 4bpp
 		{name = 'theEndGraphics1', type = arrayType(uint8_t, -(0x296300 - 0x297000))},							-- 0x296300 - 0x297000 = 4bpp
 		{name = 'monsterSpriteData', type = arrayType(uint8_t, -(0x297000 - 0x2d0000))},						-- 0x297000 - 0x2d0000 = monster graphics
 		{name = 'menuImages', type = arrayType(uint8_t, -(0x2d0000 - 0x2d0e00))},								-- 0x2d0000 - 0x2d0e00 = menu images 0x200 = bg pattern, 0x180 = borders, so 0x380 total ... x8 per menu scheme
@@ -3004,7 +3004,13 @@ Game = struct{
 
 		{name = 'vehicleEventAddrs', type = arrayType(uint24_t, 7)},											-- 0x2eb269 - 0x2eb27e
 
-		{name = 'unknown_2e9f14', type = arrayType(uint8_t, -(0x2eb27e - 0x2ec702))},							-- 0x2eb27e - 0x2ec702
+		{name = 'unknown_2eb27e', type = arrayType(uint8_t, -(0x2eb27e - 0x2eb290))},							-- 0x2eb27e - 0x2eb290
+
+		-- TODO lz compressed 4bpp
+		{name = 'worldBackdropTiles', type = arrayType(uint8_t, -(0x2eb290 - 0x2ec295))},						-- 0x2eb290 - 0x2ec295
+
+		-- TODO scr
+		{name = 'worldBackdropCompressed', type = arrayType(uint8_t, -(0x2ec295 - 0x2ec702))},					-- 0x2ec295 - 0x2ec702
 
 		-- TODO lz compressed 4bpp
 		{name = 'airship1Compressed', type = arrayType(uint8_t, -(0x2ec702 - 0x2ed434))},						-- 0x2ec702 - 0x2ed434
@@ -3016,7 +3022,7 @@ Game = struct{
 		{name = 'magitekTrainCompressed', type = arrayType(uint8_t, -(0x2f3250 - 0x2f4846))},					-- 0x2f3250 - 0x2f4846
 
 		-- TODO
-		{name = 'magitekTrainPal', type = arrayType(Palette16, 16)},											-- 0x2f4846 - 0x2f4a46
+		{name = 'magitekTrainPalette', type = arrayType(Palette16, 16)},											-- 0x2f4846 - 0x2f4a46
 
 		{name = 'WoRGfxDataCompressed', type = arrayType(uint8_t, -(0x2f4a46 - 0x2f6a56))},						-- 0x2f4a46 - 0x2f6a56
 		{name = 'WoRLayoutCompressed', type = arrayType(uint8_t, -(0x2f6a56 - 0x2f9d17))},						-- 0x2f6a56 - 0x2f9d17
@@ -3027,8 +3033,8 @@ Game = struct{
 		{name = 'worldChocobo1Compressed', type = arrayType(uint8_t, -(0x2fc624 - 0x2fce77))},					-- 0x2fc624 - 0x2fce77
 
 		-- TODO
-		{name = 'vectorApproachPal', type = Palette16},															-- 0x2fce77 - 0x2fce97
-		{name = 'worldMorphedTerraPal', type = Palette16},														-- 0x2fce97 - 0x2fceb7
+		{name = 'vectorApproachPalette', type = Palette16},															-- 0x2fce77 - 0x2fce97
+		{name = 'worldMorphedTerraPalette', type = Palette16},														-- 0x2fce97 - 0x2fceb7
 
 		-- TODO lz compressed 4bpp
 		{name = 'worldAnimSpritesCompressed', type = arrayType(uint8_t, -(0x2fceb7 - 0x2fcfb9))},				-- 0x2fceb7 - 0x2fcfb9
@@ -3039,7 +3045,7 @@ Game = struct{
 		{name = 'airship2Compressed', type = arrayType(uint8_t, -(0x2fed26 - 0x2ffac8))},						-- 0x2fed26 - 0x2ffac8
 
 		-- TODO
-		{name = 'endingAirshipPal', type = Palette16_8},														-- 0x2ffac8 - 0x2ffbc8
+		{name = 'endingAirshipPalette', type = Palette16_8},														-- 0x2ffac8 - 0x2ffbc8
 
 		{name = 'all_ff', type = arrayType(uint8_t, -(0x2ffbc8 - 0x2ffef1))},									-- 0x2ffbc8 - 0x2ffef1
 
