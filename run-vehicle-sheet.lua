@@ -1261,6 +1261,10 @@ print(
 
 	-- now write out all the world sprites
 	do
+		-- airship animation data
+		-- 5816
+		-- game.worldAnimSpriteData
+
 		local worldspritedir = path'worldgfx'
 		worldspritedir:mkdir(true)
 		-- each is 6144 = 32 bytes per 8x84bpp tile x 192 tiles
@@ -1283,30 +1287,100 @@ print(
 			assert.eq(tile, dataptr + #tileData)
 		end
 		local decompress = game.decompress
-		local data = decompress(game.airship1Compressed, ffi.sizeof(game.airship1Compressed))
-		save('airship1Compressed.png', data, game.setzerAirshipPalette)
+		local blackjackTileData = decompress(game.airship1Compressed, ffi.sizeof(game.airship1Compressed))
+		save('tiles_blackjack.png', blackjackTileData, game.setzerAirshipPalette)
 		local data = decompress(game.airship2Compressed, ffi.sizeof(game.airship2Compressed))
-		save('airship2Compressed.png', data, game.darylAirshipPalette)
+		save('tiles_falcon.png', data, game.darylAirshipPalette)
 		-- what palette do world-map chocobos use?
 		local data = decompress(game.worldChocobo1Compressed, ffi.sizeof(game.worldChocobo1Compressed))
-		save('worldChocobo1Compressed.png', data, game.characterPalettes + 0) --game.WoBPalettes) -- or is it +1 +2 etc?
+		save('tiles_chocobo1.png', data, game.characterPalettes + 0) --game.WoBPalettes) -- or is it +1 +2 etc?
 		local data = decompress(game.worldChocobo2Compressed, ffi.sizeof(game.worldChocobo2Compressed))
-		save('worldChocobo2Compressed.png', data, game.characterPalettes + 0) --game.WoRPalettes)
+		save('tiles_chocobo2.png', data, game.characterPalettes + 0) --game.WoRPalettes)
 
 		local data = decompress(game.worldAnimSpritesCompressed, ffi.sizeof(game.worldAnimSpritesCompressed))
-		save('worldAnimSpritesCompressed.png', data, game.WoBPalettes)
+		save('tiles_worldAnimSprites.png', data, game.WoBPalettes)
 		local data = decompress(game.worldMiscSpritesCompressed, ffi.sizeof(game.worldMiscSpritesCompressed))
-		save('worldMiscSpritesCompressed.png', data, game.WoRPalettes)
+		save('tiles_worldMiscSprites.png', data, game.WoRPalettes)
 		local data = decompress(game.worldBackdropCompressed, ffi.sizeof(game.worldBackdropCompressed))
-		save('worldBackdropCompressed.png', data, game.WoBPalettes)
+		save('tiles_worldBackdrop.png', data, game.WoBPalettes)
 		local data = decompress(game.WoBMinimapCompressed, ffi.sizeof(game.WoBMinimapCompressed))
-		save('WoBMinimapCompressed.png', data, game.WoBPalettes)
+		save('tiles_WoBMinimap.png', data, game.WoBPalettes)
 		local data = decompress(game.WoRMinimapCompressed, ffi.sizeof(game.WoRMinimapCompressed))
-		save('WoRMinimapCompressed.png', data, game.WoRPalettes)
+		save('tiles_WoRMinimap.png', data, game.WoRPalettes)
+
 		--[[ 16327 bytes...
 		local data = decompress(game.magitekTrainCompressed, ffi.sizeof(game.magitekTrainCompressed))
 		print('#magitekTrainCompressed', #data)
 		--]]
+
+		local function saveFrame(i)
+			local ofs = game.worldAnimSpriteOfs[i]
+			local p = ffi.cast('uint8_t*', game.worldAnimSpriteData + ofs)
+			local numTiles = p[0] p=p+1
+			local tiles = table()
+			for i=0,numTiles-1 do
+				-- xy are signed about 0,0 origin
+				local x = ffi.cast('int8_t*', p)[0] p=p+1
+				local y = ffi.cast('int8_t*', p)[0] p=p+1
+				local tileIndex = p[0] p=p+1
+				local flags = p[0] p=p+1
+				print('tile', x, y, tileIndex, flags)
+				if 0 ~= bit.band(1, flags) then tileIndex = tileIndex + 0x100 end
+				local palor = 0--bit.band(0x70, bit.lshift(flags, 3))
+				local hflip = 0 ~= bit.band(0x40, flags)
+				local vflip = 0 ~= bit.band(0x80, flags)
+				local zIndex = 0 ~= bit.band(0x20, flags)
+				tiles:insert{x=x, y=y, tileIndex=tileIndex, palor=palor, hflip=hflip, vflip=vflip, zIndex=zIndex}
+			end
+
+			local xmin, xmax = math.huge, -math.huge
+			local ymin, ymax = math.huge, -math.huge
+			for _,tile in ipairs(tiles) do
+				xmin = math.min(xmin, tile.x)
+				ymin = math.min(ymin, tile.y)
+				xmax = math.max(xmax, tile.x + 8)
+				ymax = math.max(ymax, tile.y + 8)
+			end
+
+			-- I guess this means blackjackTileData starts at 64?
+			local tileData = ('\0'):rep(64 * 32) .. blackjackTileData
+			local tileDataPtr = ffi.cast('uint8_t*', tileData)
+
+			local img = Image(xmax - xmin, ymax - ymin, 1, 'uint8_t'):clear()
+			img.palette = makePalette(game, game.setzerAirshipPalette, 4, 16)
+			for _,tile in ipairs(tiles) do
+				readTile(
+					img,
+					tile.x - xmin,
+					tile.y - ymin,
+					tileDataPtr + bit.lshift(tile.tileIndex, 5),
+					4,
+					tile.hflip,
+					tile.vflip,
+					0 -- tile.palor
+				)
+			end
+			img:save(worldspritedir/('frame'..i..'.png'))
+		end
+
+		for i=1,0x12 do saveFrame(i) end -- airship
+		for i=0x13,0x25 do end	-- chocobo
+		for i=0x26,0x2d do end	-- character
+		for i=0x2e,0x32 do end
+		for i=0x33,0x36 do end
+		for i=0x37,0x3e do end	-- ship
+		for i=0x3f,0x44 do end	-- arrows
+		for i=0x45,0x48	do saveFrame(i) end	-- blackjack on grond
+		for i=0x49,0x4c do end	-- dismount chocobo
+		for i=0x4d,0x4d do saveFrame(i) end	-- blackjack lift off
+		for i=0x4e,0x53 do end	-- esper terra
+		for i=0x54,0x55 do end
+		for i=0x56,0x59 do end	-- smoking airship
+		for i=0x5a,0x5e do end
+		for i=0x5f,0x61 do end	-- bird
+		for i=0x62,0x65 do end	-- falcon on ground
+		for i=0x66,0x66 do end	-- falcon lifting off
+		for i=0x67,0x6b do end
 	end
 end
 
