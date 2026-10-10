@@ -3004,20 +3004,42 @@ Game = struct{
 
 		{name = 'vehicleEventAddrs', type = arrayType(uint24_t, 7)},											-- 0x2eb269 - 0x2eb27e
 
-		{name = 'unknown_2e9f14', type = arrayType(uint8_t, -(0x2eb27e - 0x2ed434))},							-- 0x2eb27e - 0x2ed434 = looks like more world tile props.
+		{name = 'unknown_2e9f14', type = arrayType(uint8_t, -(0x2eb27e - 0x2ec702))},							-- 0x2eb27e - 0x2ec702
+
+		-- TODO lz compressed 4bpp
+		{name = 'airship1Compressed', type = arrayType(uint8_t, -(0x2ec702 - 0x2ed434))},						-- 0x2ec702 - 0x2ed434
 
 		{name = 'WoBLayoutCompressed', type = arrayType(uint8_t, -(0x2ed434 - 0x2f114f))},						-- 0x2ed434 - 0x2f114f     World of Balance Map Data (compressed)
 		{name = 'WoBGfxDataCompressed', type = arrayType(uint8_t, -(0x2f114f - 0x2f3250))},						-- 0x2f114f - 0x2f3250     World of Balance Tile Graphics (compressed)
 
-		{name = 'unknown_2f3250', type = arrayType(uint8_t, -(0x2f3250 - 0x2f4a46))},							-- 0x2f3250 - 0x2f4a46 ... around 0x1800 bytes of *something* ...
+		-- TODO lz compressed .cgx
+		{name = 'magitekTrainCompressed', type = arrayType(uint8_t, -(0x2f3250 - 0x2f4846))},					-- 0x2f3250 - 0x2f4846
+
+		-- TODO
+		{name = 'magitekTrainPal', type = arrayType(Palette16, 16)},											-- 0x2f4846 - 0x2f4a46
 
 		{name = 'WoRGfxDataCompressed', type = arrayType(uint8_t, -(0x2f4a46 - 0x2f6a56))},						-- 0x2f4a46 - 0x2f6a56
 		{name = 'WoRLayoutCompressed', type = arrayType(uint8_t, -(0x2f6a56 - 0x2f9d17))},						-- 0x2f6a56 - 0x2f9d17
 		{name = 'SerpentTrenchLayoutCompressed', type = arrayType(uint8_t, -(0x2f9d17 - 0x2fb631))},			-- 0x2f9d17 - 0x2fb631
 		{name = 'SerpentTrenchGfxDataCompressed', type = arrayType(uint8_t, -(0x2fb631 - 0x2fc624))},			-- 0x2fb631 - 0x2fc624
 
-		-- still something else at the end
-		-- 0x2fce77 - 0x2fce97 = vector approach palette
+		-- TODO lz compressed 4bpp
+		{name = 'worldChocobo1Compressed', type = arrayType(uint8_t, -(0x2fc624 - 0x2fce77))},					-- 0x2fc624 - 0x2fce77
+
+		-- TODO
+		{name = 'vectorApproachPal', type = Palette16},															-- 0x2fce77 - 0x2fce97
+		{name = 'worldMorphedTerraPal', type = Palette16},														-- 0x2fce97 - 0x2fceb7
+
+		-- TODO lz compressed 4bpp
+		{name = 'worldAnimSpritesCompressed', type = arrayType(uint8_t, -(0x2fceb7 - 0x2fcfb9))},				-- 0x2fceb7 - 0x2fcfb9
+		{name = 'worldMiscSpritesCompressed', type = arrayType(uint8_t, -(0x2fcfb9 - 0x2fdc4c))},				-- 0x2fcfb9 - 0x2fdc4c
+		{name = 'worldChocobo2Compressed', type = arrayType(uint8_t, -(0x2fdc4c - 0x2fe49b))},					-- 0x2fdc4c - 0x2fe49b
+		{name = 'WoBMinimapCompressed', type = arrayType(uint8_t, -(0x2fe49b - 0x2fe8b3))},						-- 0x2fe49b - 0x2fe8b3
+		{name = 'WoRMinimapCompressed', type = arrayType(uint8_t, -(0x2fe8b3 - 0x2fed26))},						-- 0x2fe8b3 - 0x2fed26
+		{name = 'airship2Compressed', type = arrayType(uint8_t, -(0x2fed26 - 0x2ffac8))},						-- 0x2fed26 - 0x2ffac8
+
+		-- TODO
+		{name = 'endingAirshipPal', type = Palette16_8},														-- 0x2ffac8 - 0x2ffbc8
 
 		-- - 0x300000
 	},
