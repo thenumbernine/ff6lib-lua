@@ -3041,9 +3041,13 @@ Game = struct{
 		-- TODO
 		{name = 'endingAirshipPal', type = Palette16_8},														-- 0x2ffac8 - 0x2ffbc8
 
-		-- - 0x300000
+		{name = 'all_ff', type = arrayType(uint8_t, -(0x2ffbc8 - 0x2ffef1))},									-- 0x2ffbc8 - 0x2ffef1
+
+		{name = 'somethingAtTheEnd', type = arrayType(uint8_t, -(0x2ffef1 - 0x300000))},						-- 0x2ffef1 - 0x300000
 	},
 }
+assert.eq(ffi.sizeof(Game), 0x300000)
+
 local function assertOffset(name, addr)
 	assert.eq(ffi.offsetof(Game, name), addr, name)
 end
