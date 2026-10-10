@@ -3252,7 +3252,7 @@ print()
 					startCmdSet = 'EventCmds'
 				end
 
-				-- blackjack book starts as 'inVehicle':
+				-- BlackjackManual starts as 'inVehicle':
 				-- needed especially for scripts that branch into this address
 				local inVehicle
 				if startAddr == 0x0aa6c0 then
@@ -3369,7 +3369,7 @@ print()
 	end
 	for addr,name in pairs{
 		[0x0a007f] = "enter kefka's tower",
-		[0x0aa6c0] = "blackjack book",
+		[0x0aa6c0] = "BlackjackManual",
 	} do
 		decompileFrom{
 			addr = addr,
