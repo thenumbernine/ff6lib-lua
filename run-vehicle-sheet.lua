@@ -23,6 +23,17 @@ local int8_t_p = ffi.typeof'int8_t*'
 local uint8_t = ffi.typeof'uint8_t'
 local uint8_t_p = ffi.typeof'uint8_t*'
 
+--[[ for display
+local saveRaftIndexOffset = 16
+local saveBlackjackIndexOffset = 32
+local saveFalconIndexOffset = 48
+--]]
+-- [[ for exporting
+local saveRaftIndexOffset = 0
+local saveBlackjackIndexOffset = 0
+local saveFalconIndexOffset = 0
+--]]
+
 local function run(game)
 	local rom = game.rom
 
@@ -1124,7 +1135,7 @@ print(
 		for ty=0,tilesHigh-1 do
 			for tx=0,tilesWide-1 do
 				local tileImg = Image(8, 8, 1, uint8_t):clear()
-				local palor = tileIndex < 32 and 16 or 0	-- shift raft palette to use +16
+				local palor = tileIndex < 32 and saveRaftIndexOffset or 0	-- shift raft palette to use +16
 				readTile(tileImg, 0, 0, ptr, bpp, false, false, palor)
 				tilesImg:pasteInto{image=tileImg, x=tx*tileWidth, y=ty*tileHeight}
 				ptr = ptr + 32
@@ -1379,37 +1390,18 @@ print(
 		local falconTilesPadded = ('\0'):rep(64 * 32) .. falconTiles
 
 		-- airship (back view)
-		local airshipFrameNames = table{
-			'idle1',
-			'idle2',
-			'l1',
-			'l2',
-			'r1',
-			'r2',
-			'u1',
-			'u2',
-			'ul1',
-			'ul2',
-			'ur1',
-			'ur2',
-			'd1',
-			'd2',
-			'dl1',
-			'dl2',
-			'dr1',
-			'dr2',
-		}
+		local airshipFrameNames = table{'idle1', 'idle2', 'l1', 'l2', 'r1', 'r2', 'u1', 'u2', 'ul1', 'ul2', 'ur1', 'ur2', 'd1', 'd2', 'dl1', 'dl2', 'dr1', 'dr2'}
 		assert.len(airshipFrameNames, 0x12)
 		for i=1,0x12 do
 			--frame:save(worldspritedir/('blackjack_'..airshipFrameNames[i]..'.png'))
 			sheetImg:pasteInto{
-				image = getFrame(i, blackjackTilesPadded) + 32,
+				image = getFrame(i, blackjackTilesPadded) + saveBlackjackIndexOffset,
 				x = 96 + math.floor((i-1)%6)*24,
 				y = math.floor((i-1)/6)*32,
 			}
 			--frame:save(worldspritedir/('falcon_'..airshipFrameNames[i]..'.png'))
 			sheetImg:pasteInto{
-				image = getFrame(i, falconTilesPadded) + 48,
+				image = getFrame(i, falconTilesPadded) + saveFalconIndexOffset,
 				x = 96 + math.floor((i-1+18)%6)*24,
 				y = math.floor((i-1+18)/6)*32,
 			}
@@ -1430,10 +1422,10 @@ print(
 			:save(worldspritedir/'falcon_ground.png')
 --]]
 -- [[
-		sheetImg:pasteInto{image = getFrame(0x4d, blackjackTilesPadded) + 32, x = 0, y = 192}
-		sheetImg:pasteInto{image = getFrame(0x47, blackjackTilesPadded) + 32, x = 40, y = 192}
-		sheetImg:pasteInto{image = getFrame(0x66, falconTilesPadded) + 48, x = 0, y = 216}
-		sheetImg:pasteInto{image = getFrame(0x64, falconTilesPadded) + 48, x = 40, y = 216}
+		sheetImg:pasteInto{image = getFrame(0x4d, blackjackTilesPadded) + saveBlackjackIndexOffset, x = 0, y = 192}
+		sheetImg:pasteInto{image = getFrame(0x47, blackjackTilesPadded) + saveBlackjackIndexOffset, x = 40, y = 192}
+		sheetImg:pasteInto{image = getFrame(0x66, falconTilesPadded) + saveFalconIndexOffset, x = 0, y = 216}
+		sheetImg:pasteInto{image = getFrame(0x64, falconTilesPadded) + saveFalconIndexOffset, x = 40, y = 216}
 --]]
 
 
