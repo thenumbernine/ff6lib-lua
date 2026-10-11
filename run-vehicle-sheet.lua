@@ -19,10 +19,15 @@ local assert = require 'ext.assert'
 local tolua = require 'ext.tolua'
 local vec2i = require 'vec-ffi.vec2i'
 
+local int8_t_p = ffi.typeof'int8_t*'
 local uint8_t = ffi.typeof'uint8_t'
+local uint8_t_p = ffi.typeof'uint8_t*'
 
 local function run(game)
 	local rom = game.rom
+
+	local worldspritedir = path'worldgfx'
+	worldspritedir:mkdir(true)
 
 	-- points into fieldSpriteGraphics == 0x150000-0x183000
 	local function getTileOffsetForSprite(sprite)
@@ -1127,12 +1132,20 @@ print(
 			end
 		end
 
-		tilesImg:save'vehicle-tiles.png'
+		--tilesImg:save'vehicle-tiles.png'
 	end
 
 	-- now rearrange them and put them into a 256x256 sprite-sheet (this is ff6t3d-specific)
 	-- is it just me or does it look like the tiles were meant to be laid out in rows of 16 to make a 128x128 sheet?
 	-- i'll just go with that ....
+	local sheetImg = Image(256, 256, 1, uint8_t):clear()
+
+	sheetImg.palette = table():append(
+		tilesImg.palette,	-- char 7 & char 11 pals
+		makePalette(game, game.blackjackPalette, 4, 16),
+		makePalette(game, game.falconPalette, 4, 16)
+	)
+	assert.len(sheetImg.palette, 64)
 	do
 		local tile16x16Imgs = table()
 		for j=0,7 do
@@ -1142,9 +1155,6 @@ print(
 		end
 		assert.len(tile16x16Imgs, 64)
 
-		local sheetImg = Image(256,256,1,uint8_t):clear()
-		sheetImg.palette = tilesImg.palette
-
 		local i = 1
 		local function pasteNext(args)
 			args.image = tile16x16Imgs[i]
@@ -1152,44 +1162,44 @@ print(
 			sheetImg:pasteInto(args)
 		end
 		-- raft up/down
-		pasteNext{x=6*16, y=0*16}
-		pasteNext{x=6*16, y=1*16}
-		pasteNext{x=7*16, y=0*16}
-		pasteNext{x=7*16, y=1*16}
+		pasteNext{x=0*16+32, y=0*16+96}
+		pasteNext{x=0*16+32, y=1*16+96}
+		pasteNext{x=1*16+32, y=0*16+96}
+		pasteNext{x=1*16+32, y=1*16+96}
 		-- raft left/right
-		pasteNext{x=6*16, y=2*16}
-		pasteNext{x=6*16, y=3*16}
-		pasteNext{x=7*16, y=2*16}
-		pasteNext{x=7*16, y=3*16}
+		pasteNext{x=2*16+32, y=0*16+96}
+		pasteNext{x=2*16+32, y=1*16+96}
+		pasteNext{x=3*16+32, y=0*16+96}
+		pasteNext{x=3*16+32, y=1*16+96}
 
-		pasteNext{x=80, y=96}	-- chocobo head
-		pasteNext{x=0, y=96}	-- headless chocobo tail facing down
-		pasteNext{x=0, y=112}	--
-		pasteNext{x=16, y=96}	-- headless chocobo tail facing down #2
-		pasteNext{x=16, y=112}	--
-		pasteNext{x=80, y=112}	-- chocobo tail
-		pasteNext{x=32, y=96}	-- headless chocobo tail facing up
-		pasteNext{x=32, y=112}	--
-		pasteNext{x=48, y=96}	-- headless chocobo tail facing up #2
-		pasteNext{x=48, y=112}	--
+		pasteNext{x=80, y=96+32}	-- chocobo head
+		pasteNext{x=0, y=96+32}	-- headless chocobo tail facing down
+		pasteNext{x=0, y=112+32}	--
+		pasteNext{x=16, y=96+32}	-- headless chocobo tail facing down #2
+		pasteNext{x=16, y=112+32}	--
+		pasteNext{x=80, y=112+32}	-- chocobo tail
+		pasteNext{x=32, y=96+32}	-- headless chocobo tail facing up
+		pasteNext{x=32, y=112+32}	--
+		pasteNext{x=48, y=96+32}	-- headless chocobo tail facing up #2
+		pasteNext{x=48, y=112+32}	--
 		-- chocobo standing left
-		pasteNext{x=0, y=128}
-		pasteNext{x=0, y=144}
-		pasteNext{x=16, y=128}
-		pasteNext{x=16, y=144}
+		pasteNext{x=0, y=128+32}
+		pasteNext{x=0, y=144+32}
+		pasteNext{x=16, y=128+32}
+		pasteNext{x=16, y=144+32}
 		-- chocobo run left #1
-		pasteNext{x=32, y=128}
-		pasteNext{x=32, y=144}
-		pasteNext{x=48, y=128}
-		pasteNext{x=48, y=144}
+		pasteNext{x=32, y=128+32}
+		pasteNext{x=32, y=144+32}
+		pasteNext{x=48, y=128+32}
+		pasteNext{x=48, y=144+32}
 		-- chocobo run left #2
-		pasteNext{x=64, y=128}
-		pasteNext{x=64, y=144}
-		pasteNext{x=80, y=128}
-		pasteNext{x=80, y=144}
+		pasteNext{x=64, y=128+32}
+		pasteNext{x=64, y=144+32}
+		pasteNext{x=80, y=128+32}
+		pasteNext{x=80, y=144+32}
 
-		pasteNext{x=64, y=96}	-- chocobo wark
-		pasteNext{x=64, y=112}	-- chocobo eyes closed
+		pasteNext{x=64, y=96+32}	-- chocobo wark
+		pasteNext{x=64, y=112+32}	-- chocobo eyes closed
 
 		-- magitek stand d
 		local magitek = i
@@ -1235,27 +1245,25 @@ print(
 		sheetImg:pasteInto{image=tile16x16Imgs[magitek+9]:mirror(), x=80, y=48}
 
 		-- stand l
-		pasteNext{x=0, y=64}
-		pasteNext{x=16, y=64}
-		pasteNext{x=0, y=80}
-		pasteNext{x=16, y=80}
+		pasteNext{x=0, y=64+32}
+		pasteNext{x=16, y=64+32}
+		pasteNext{x=0, y=80+32}
+		pasteNext{x=16, y=80+32}
 		-- walk l #1
-		pasteNext{x=32, y=64}
-		pasteNext{x=48, y=64}
-		pasteNext{x=32, y=80}
-		pasteNext{x=48, y=80}
+		pasteNext{x=32-32, y=64}
+		pasteNext{x=48-32, y=64}
+		pasteNext{x=32-32, y=80}
+		pasteNext{x=48-32, y=80}
 		-- walk l #2
-		pasteNext{x=64, y=64}
-		pasteNext{x=80, y=64}
-		pasteNext{x=64, y=80}
-		pasteNext{x=80, y=80}
+		pasteNext{x=64-32, y=64}
+		pasteNext{x=80-32, y=64}
+		pasteNext{x=64-32, y=80}
+		pasteNext{x=80-32, y=80}
 		-- walk l #3
-		pasteNext{x=96, y=64}
-		pasteNext{x=112, y=64}
-		pasteNext{x=96, y=80}
-		pasteNext{x=112, y=80}
-
-		sheetImg:save'vehicle-sheet.png'
+		pasteNext{x=96-32, y=64}
+		pasteNext{x=112-32, y=64}
+		pasteNext{x=96-32, y=80}
+		pasteNext{x=112-32, y=80}
 	end
 
 	-- now write out all the world sprites
@@ -1264,16 +1272,14 @@ print(
 		-- 5816
 		-- game.worldAnimSpriteData
 
-		local worldspritedir = path'worldgfx'
-		worldspritedir:mkdir(true)
 		-- each is 6144 = 32 bytes per 8x84bpp tile x 192 tiles
 		local function save(filename, tileData, palData)
 			local tilesWide = 16
 			local tilesHigh = #tileData / 32 / tilesWide
 			local bpp = 4
-			local img = Image(tilesWide * 8, tilesHigh * 8, 1, 'uint8_t'):clear()
+			local img = Image(tilesWide * 8, tilesHigh * 8, 1, uint8_t):clear()
 			img.palette = makePalette(game, palData, 4, 16)
-			local dataptr = ffi.cast('uint8_t*', tileData)
+			local dataptr = ffi.cast(uint8_t_p, tileData)
 			local tile = dataptr + 0
 			for y=0,tilesHigh-1 do
 				for x=0,tilesWide-1 do
@@ -1292,14 +1298,14 @@ print(
 		--save('tiles_falcon.png', falconTiles, game.falconPalette)
 		-- what palette do world-map chocobos use?
 		local data = decompress(game.worldChocobo1Compressed, ffi.sizeof(game.worldChocobo1Compressed))
-		save('tiles_chocobo1.png', data, game.characterPalettes + 0) --game.WoBPalettes) -- or is it +1 +2 etc?
+		save('tiles_chocobo1.png', data, game.characterPalettes + 7)
 		local data = decompress(game.worldChocobo2Compressed, ffi.sizeof(game.worldChocobo2Compressed))
-		save('tiles_chocobo2.png', data, game.characterPalettes + 0) --game.WoRPalettes)
+		save('tiles_chocobo2.png', data, game.characterPalettes + 7)
 
 		local data = decompress(game.worldAnimSpritesCompressed, ffi.sizeof(game.worldAnimSpritesCompressed))
 		save('tiles_worldAnimSprites.png', data, game.WoBPalettes)
 		local data = decompress(game.worldMiscSpritesCompressed, ffi.sizeof(game.worldMiscSpritesCompressed))
-		save('tiles_worldMiscSprites.png', data, game.WoRPalettes)
+		save('tiles_worldMiscSprites.png', data, game.WoBPalettes)
 		local data = decompress(game.worldBackdropCompressed, ffi.sizeof(game.worldBackdropCompressed))
 		save('tiles_worldBackdrop.png', data, game.WoBPalettes)
 		local data = decompress(game.WoBMinimapCompressed, ffi.sizeof(game.WoBMinimapCompressed))
@@ -1312,18 +1318,18 @@ print(
 		print('#magitekTrainCompressed', #data)
 		--]]
 
-		local function saveFrame(i, filename, tileData, palData)
+		local function getFrame(i, tileData)--, palData)
 			local ofs = game.worldAnimSpriteOfs[i]
-			local p = ffi.cast('uint8_t*', game.worldAnimSpriteData + ofs)
+			local p = ffi.cast(uint8_t_p, game.worldAnimSpriteData + ofs)
 			local numTiles = p[0] p=p+1
 			local tiles = table()
 			for i=0,numTiles-1 do
 				-- xy are signed about 0,0 origin
-				local x = ffi.cast('int8_t*', p)[0] p=p+1
-				local y = ffi.cast('int8_t*', p)[0] p=p+1
+				local x = ffi.cast(int8_t_p, p)[0] p=p+1
+				local y = ffi.cast(int8_t_p, p)[0] p=p+1
 				local tileIndex = p[0] p=p+1
 				local flags = p[0] p=p+1
-				print('tile', x, y, tileIndex, flags)
+--print('tile', x, y, tileIndex, flags)
 				if 0 ~= bit.band(1, flags) then tileIndex = tileIndex + 0x100 end
 				local palor = 0--bit.band(0x70, bit.lshift(flags, 3))
 				local hflip = 0 ~= bit.band(0x40, flags)
@@ -1341,12 +1347,12 @@ print(
 				ymax = math.max(ymax, tile.y + 8)
 			end
 
-			local tileDataPtr = ffi.cast('uint8_t*', tileData)
+			local tileDataPtr = ffi.cast(uint8_t_p, tileData)
 
 			-- falcon starts at 0xa0?
 
-			local img = Image(xmax - xmin, ymax - ymin, 1, 'uint8_t'):clear()
-			img.palette = makePalette(game, palData, 4, 16)
+			local img = Image(xmax - xmin, ymax - ymin, 1, uint8_t):clear()
+			--img.palette = makePalette(game, palData, 4, 16)
 			for _,tile in ipairs(tiles) do
 				readTile(
 					img,
@@ -1359,15 +1365,18 @@ print(
 					0 -- tile.palor
 				)
 			end
-			img:save(worldspritedir/filename)
+			return img
+		end
+
+		local function setPal(img, palData)
+			img.palette = makePalette(game, palData, 4, 16)
+			return img
 		end
 
 		-- I guess this means blackjackTiles starts at 0x40?
 		-- and there were 0xc0 of them
 		local blackjackTilesPadded = ('\0'):rep(64 * 32) .. blackjackTiles
-_G.blackjackTilesPadded = blackjackTilesPadded	-- don't gc
 		local falconTilesPadded = ('\0'):rep(64 * 32) .. falconTiles
-_G.falconTilesPadded = falconTilesPadded		-- don't gc
 
 		-- airship (back view)
 		local airshipFrameNames = table{
@@ -1392,9 +1401,41 @@ _G.falconTilesPadded = falconTilesPadded		-- don't gc
 		}
 		assert.len(airshipFrameNames, 0x12)
 		for i=1,0x12 do
-			saveFrame(i, 'blackjack_'..airshipFrameNames[i]..'.png', blackjackTilesPadded, game.blackjackPalette)
-			saveFrame(i, 'falcon_'..airshipFrameNames[i]..'.png', falconTilesPadded, game.falconPalette)
+			--frame:save(worldspritedir/('blackjack_'..airshipFrameNames[i]..'.png'))
+			sheetImg:pasteInto{
+				image = getFrame(i, blackjackTilesPadded) + 32,
+				x = 96 + math.floor((i-1)%6)*24,
+				y = math.floor((i-1)/6)*32,
+			}
+			--frame:save(worldspritedir/('falcon_'..airshipFrameNames[i]..'.png'))
+			sheetImg:pasteInto{
+				image = getFrame(i, falconTilesPadded) + 48,
+				x = 96 + math.floor((i-1+18)%6)*24,
+				y = math.floor((i-1+18)/6)*32,
+			}
 		end
+--[[ I don't need all of these if 3d hw can do the same ... 'ground' and 'liftoff3' are enough
+		for i=0x45,0x48	do
+			setPal(getFrame(i, blackjackTilesPadded), game.blackjackPalette)
+				:save(worldspritedir/('blackjack_liftoff'..(i-0x44)..'.png'))
+		end	-- blackjack on grond
+		setPal(getFrame(0x4d, blackjackTilesPadded), game.blackjackPalette)	-- blackjack lift off
+			:save(worldspritedir/('blackjack_ground.png'))
+
+		for i=0x62,0x65 do
+			setPal(getFrame(i, falconTilesPadded), game.falconPalette)
+				:save(worldspritedir/('falcon_liftoff'..(i-0x61)..'.png'))
+		end	-- falcon on ground
+		setPal(getFrame(0x66, falconTilesPadded), game.falconPalette)	-- falcon lifting off
+			:save(worldspritedir/'falcon_ground.png')
+--]]
+-- [[
+		sheetImg:pasteInto{image = getFrame(0x4d, blackjackTilesPadded) + 32, x = 0, y = 192}
+		sheetImg:pasteInto{image = getFrame(0x47, blackjackTilesPadded) + 32, x = 40, y = 192}
+		sheetImg:pasteInto{image = getFrame(0x66, falconTilesPadded) + 48, x = 0, y = 216}
+		sheetImg:pasteInto{image = getFrame(0x64, falconTilesPadded) + 48, x = 40, y = 216}
+--]]
+
 
 		for i=0x13,0x25 do end	-- chocobo
 		for i=0x26,0x2d do end	-- character
@@ -1402,18 +1443,16 @@ _G.falconTilesPadded = falconTilesPadded		-- don't gc
 		for i=0x33,0x36 do end
 		for i=0x37,0x3e do end	-- ship
 		for i=0x3f,0x44 do end	-- arrows
-		for i=0x45,0x48	do saveFrame(i, 'blackjack_liftoff'..(i-0x44)..'.png', blackjackTilesPadded, game.blackjackPalette) end	-- blackjack on grond
 		for i=0x49,0x4c do end	-- dismount chocobo
-		saveFrame(0x4d, 'blackjack_ground.png', blackjackTilesPadded, game.blackjackPalette)	-- blackjack lift off
 		for i=0x4e,0x53 do end	-- esper terra
 		for i=0x54,0x55 do end
 		for i=0x56,0x59 do end	-- smoking airship
 		for i=0x5a,0x5e do end
 		for i=0x5f,0x61 do end	-- bird
-		for i=0x62,0x65 do saveFrame(i, 'falcon_liftoff'..(i-0x61)..'.png', falconTilesPadded, game.falconPalette) end	-- falcon on ground
-		saveFrame(0x66, 'falcon_ground.png', falconTilesPadded, game.falconPalette)	-- falcon lifting off
 		for i=0x67,0x6b do end
 	end
+
+	sheetImg:save(worldspritedir/'vehicle-sheet.png')
 end
 
 --print('...', select('#', ...), ...)
