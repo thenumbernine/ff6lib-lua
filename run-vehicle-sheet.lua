@@ -1124,7 +1124,7 @@ print(
 		for ty=0,tilesHigh-1 do
 			for tx=0,tilesWide-1 do
 				local tileImg = Image(8, 8, 1, uint8_t):clear()
-				local palor = tileIndex < 32 and 0x10 or 0
+				local palor = tileIndex < 32 and 16 or 0	-- shift raft palette to use +16
 				readTile(tileImg, 0, 0, ptr, bpp, false, false, palor)
 				tilesImg:pasteInto{image=tileImg, x=tx*tileWidth, y=ty*tileHeight}
 				ptr = ptr + 32
