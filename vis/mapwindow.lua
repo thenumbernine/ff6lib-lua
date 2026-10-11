@@ -554,7 +554,7 @@ function MapWindow:refreshNPCTexs()
 		-- hmm TODO get single frame instead of whole sheet?
 		img = img:copy{x=0, y=0, width=16, height=24}
 		local palette = bit.band(n.palette, 7)
-		img.palette = makePalette(game, game.characterPalettes[palette], 4, 16)
+		img.palette = game.getCharPal(palette)
 		self.npcTexs[i] = self:makeTex(img)
 	end
 end

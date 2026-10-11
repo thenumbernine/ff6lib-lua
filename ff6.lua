@@ -2686,8 +2686,8 @@ Game = struct{
 		-- battle character palette assignment (1 byte each)
 		-- or actually last bit probably means something else since it's not indexable
 		-- hmm TODO I don't think this is sized at numCharacterSprites == 165... that's map sprites, this is battle...
-		-- it looks like there's only 26...
-		{name = 'characterPaletteIndexes', type = arrayType(uint8_t, numCharacterSprites)},						-- 0x02ce2b - 0x02ced0
+		-- it looks like there's only 24...
+		{name = 'characterPaletteIndexes', type = arrayType(uint8_t, numCharacterSprites)},						-- 0x02ce2b - 0x02ced0 ... should end at 0x02ce43
 
 		{name = 'unknown_02ced0', type = arrayType(uint8_t, -(0x02ced0 - 0x02d01a))},							-- 0x02ced0 - 0x02d01a
 
@@ -2909,7 +2909,7 @@ Game = struct{
 		{name = 'mapTileGraphics', type = arrayType(uint8_t, -(0x1fdb00 - 0x25f400))},							-- 0x1fdb00 - 0x25f400 = map tile graphics for layers 1&2, 4bpp
 		{name = 'unknown_25f400', type = arrayType(uint8_t, -(0x25f400 - 0x260000))},							-- 0x25f400 - 0x260000 -- there's one battle bg in here
 		{name = 'mapAnimGraphics', type = arrayType(uint8_t, -(0x260000 - 0x268000))},							-- 0x260000 - 0x268000 = 4bpp
-		{name = 'characterPalettes', type = arrayType(Palette16, numCharacterPalettes)},						-- 0x268000 - 0x268400	-- also town tile palettes?
+		{name = 'characterPalettes', type = arrayType(Palette16, numCharacterPalettes)},						-- 0x268000 - 0x268400
 		{name = 'mapNameOffsets', type = arrayType(uint16_t, numMapNames)},										-- 0x268400 - 0x268780
 		{name = 'mapTileGraphicsLayer3', type = arrayType(uint8_t, -(0x268780 - 0x26cd60))},					-- 0x268780 - 0x26cd60  map tile garphics for layer 3, 2bpp
 		{name = 'mapTileGraphicsLayer3Offsets', type = arrayType(uint24_t, 18)},								-- 0x26cd60 - 0x26cd96 = offset, +0x268780 .. there's 19, but only 18 point to valid compressed data ...
@@ -3386,6 +3386,19 @@ function game.getMenuCharImage(charIndex)
 	return im
 end
 
+game.characterPaletteCache = {}
+function game.getCharPal(i)
+	if i < 0 or i >= game.countof(gameC.characterPalettes) then return end
+
+	local entry = game.characterPaletteCache[i]
+	if not entry then
+		local makePalette = require 'ff6.graphics'.makePalette
+		entry = makePalette(game, game.characterPalettes + i, 4, 16)
+		game.characterPaletteCache[i] = entry
+	end
+	return entry
+end
+
 function game.getNumFramesForCharSpriteSheet(charIndex)
 	if charIndex < 0 or charIndex >= numCharacterSprites then return end
 	if charIndex < 22 then return 41 end
@@ -3396,7 +3409,7 @@ end
 
 -- [[ I guess this is somewhat standardized...
 -- this will give 8 cols wide of x 6 high of sprites for animation sheets
--- TODO redo this around run-vehicle-sheet
+-- TODO redo this around run-vehicle-sheet, or just use its for this
 local readCharSprite = require 'ff6.charsprite'
 function game.getCharSpriteSheetImage(charIndex)
 	local Image = require 'image'
@@ -3428,7 +3441,7 @@ function game.getCharSpriteSheetImage(charIndex)
 	palIndex = bit.band(palIndex, 0x1f)
 	-- TODO what's in the rest of the bits?
 
-	charSheet.palette = makePalette(game, game.characterPalettes + palIndex, 4, 16)
+	charSheet.palette = game.getCharPal(palIndex)
 	local chx, chy = 0, 0
 	readCharSprite(game, charIndex, function(charIndex, frameIndex, im, palIndex, numFrames)
 		-- palIndex is always game.characterPaletteIndexes[charIndex]

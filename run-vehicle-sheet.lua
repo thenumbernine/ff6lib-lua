@@ -1021,7 +1021,7 @@ end
 -- see all?
 --print('sprite', spriteNames[sprite], 'using palettes', palIndexes and palIndexes:concat', ')
 			palIndex = bit.band(palIndex or 0, 0x1f)
-			local palette = makePalette(game, game.characterPalettes + palIndex, 4, 16)
+			local palette = game.getCharPal(palIndex)
 
 			-- output all frames but assume all are 2x3
 			-- reveals a few extra singing frames that I didn't output before
@@ -1126,9 +1126,9 @@ print(
 		tilesImg = Image(tileWidth*tilesWide, tileHeight*tilesHigh, 1, uint8_t):clear()
 
 		--everything8215 vehicleGraphics says mapSpritePalettes[7] and [11]
-		tilesImg.palette = table.append(
-			makePalette(game, game.characterPalettes + 7, 4, 16),
-			makePalette(game, game.characterPalettes + 11, 4, 16)
+		tilesImg.palette = table():append(
+			game.getCharPal(7),
+			game.getCharPal(11)
 		)
 
 		local tileIndex = 0
@@ -1429,7 +1429,8 @@ print(
 --]]
 
 
-		for i=0x13,0x25 do end	-- chocobo
+		for i=0x13,0x25 do
+		end	-- chocobo
 		for i=0x26,0x2d do end	-- character
 		for i=0x2e,0x32 do end
 		for i=0x33,0x36 do end

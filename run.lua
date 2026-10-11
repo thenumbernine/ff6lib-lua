@@ -516,7 +516,7 @@ for charIndex=0,game.numCharacterSprites-1 do
 		--local frameName = tostring(frameIndex)
 		local frameName = ('%02d'):format(frameIndex)
 		local relname = spriteName..'_'..frameName..'.png'
-		im.palette = makePalette(game, game.characterPalettes + palIndex, 4, 16)
+		im.palette = game.getCharPal(palIndex)
 		im:save('characters/'..relname)
 		--]=]
 		--[=[ save to our char sheet

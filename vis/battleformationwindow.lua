@@ -236,7 +236,7 @@ function BattleFormationWindow:setIndex(...)
 				local img = game.getCharSpriteSheetImage(ch.graphics)
 				img = img:copy{x=0, y=0, width=16, height=24}
 				-- TODO what to use for the palette? .graphic? .character?
-				img.palette = makePalette(game, game.characterPalettes[ch.graphics], 4, 16)
+				img.palette = game.getCharPal(ch.graphics)
 				self.charTexs[i] = {
 					-- xy flipped
 					pos = {x=tonumber(ch.pos.x), y=tonumber(ch.pos.y)},
