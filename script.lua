@@ -450,18 +450,32 @@ return function(game)
 		desc = "flashScreenColor(<?=args[1]?>)",
 	}
 
-	EventCmds.SetFixedColorMathAdd = EventCmd:subclass{
-		cmd = 0x56,
+	EventCmds.SetFixedColorMathOp = EventCmd:subclass{
 		argtypes = {uint8_t},
-		argnames = {'arg'},
-		desc = 'setFixedColorMathAdd(<?=bit.band(7, arg)?>, <?=bit.band(3, bit.rshift(arg, 3))?>, <?=bit.band(3, bit.rshift(arg, 6))?>)',
+		getargs = function(self, arg)
+			self.intensity = bit.band(7, arg)
+			self.speed = bit.band(3, bit.rshift(arg, 3))
+			self.colorFlags = bit.band(3, bit.rshift(arg, 6))
+		end,
+		__tostring = function(self)
+			return 'setFixedColorMath'
+				..self.colorOp..'('
+				..self.intensity..', '
+				..self.speed..', '
+				..self.colorFlags..')'
+		end,
 	}
 
-	EventCmds.SetFixedColorMathSub = EventCmd:subclass{
+	EventCmds.SetFixedColorMathAdd = EventCmds.SetFixedColorMathOp:subclass{
+		cmd = 0x56,
+		argtypes = {uint8_t},
+		colorOp = 'Add',
+	}
+
+	EventCmds.SetFixedColorMathSub = EventCmds.SetFixedColorMathOp:subclass{
 		cmd = 0x57,
 		argtypes = {uint8_t},
-		argnames = {'arg'},
-		desc = 'setFixedColorMathSub(<?=bit.band(0x7, arg)?>, <?=bit.band(0x3, bit.rshift(arg, 3))?>, <?=bit.band(0x3, bit.rshift(arg, 6))?>)',
+		colorOp = 'Sub',
 	}
 
 	EventCmds.ShakeScreen = EventCmd:subclass{
