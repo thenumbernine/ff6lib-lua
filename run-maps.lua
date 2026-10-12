@@ -772,5 +772,9 @@ for i=0,0xff do
 end
 print()
 
+for i=0,game.countof(game.mapColorMathProps) do
+	print('mapColorMathProps['..i..'] = '..game.mapColorMathProps[i])
+end
+print()
 
 end

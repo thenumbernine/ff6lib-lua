@@ -456,11 +456,11 @@ local numMenuChars = 19
 local MapColorMathProps = ff6struct{
 	ctypeOnly = true,
 	fields = {
-		{colorMath = 'uint8_t:6'},	-- 0=layer1, 1=layer2, 2=layer3, 3=layer4, 4=sprites, 5=back area
+		{layer = 'uint8_t:6'},	-- 0=layer1, 1=layer2, 2=layer3, 3=layer4, 4=sprites, 5=back area
 		{half = 'uint8_t:1'},
 		{subtract = 'uint8_t:1'},
-		{mainScreen = uint8_t},	-- only uses 6 bits? same blending as .colorMath?
-		{subScreen = uint8_t},	-- only uses 6 bits?
+		{mainScreen = uint8_t},	-- only uses 5 bits? same as .colorMath
+		{subScreen = uint8_t},	-- only uses 5 bits?
 	},
 }
 assert.eq(ffi.sizeof(MapColorMathProps), 3)
@@ -2681,7 +2681,12 @@ Game = struct{
 		-- 0x00dfa0 - 0x00e0a0 = 'DTE table' -rgplegion
 		{name = 'unknown_00d386', type = arrayType(uint8_t, -(0x00d386 - 0x00e0a0))},							-- 0x00d386 - 0x00e0a0
 		{name = 'initNPCFlags', type = arrayType(uint8_t, 0x80)}, 												-- 0x00e0a0 - 0x00e120 = initial NPC flags
-		{name = 'unknown_00e120', type = arrayType(uint8_t, -(0x00e120 - 0x02ce2b))},							-- 0x00e120 - 0x02ce2b
+
+		{name = 'unknown_00e120', type = arrayType(uint8_t, -(0x00e120 - 0x00fe00))},							-- 0x00e120 - 0x00fe00
+
+		{name = 'mapColorMathProps', type = arrayType(MapColorMathProps, 19)},									-- 0x00fe00 - 0x00fe39
+
+		{name = 'unknown_00fe39', type = arrayType(uint8_t, -(0x00fe39 - 0x02ce2b))},							-- 0x00fe39 - 0x02ce2b
 
 		-- battle character palette assignment (1 byte each)
 		-- or actually last bit probably means something else since it's not indexable
