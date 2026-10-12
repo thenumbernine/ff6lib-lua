@@ -1273,6 +1273,7 @@ print(
 	end
 
 	-- now write out all the world sprites
+	local chocoImg = Image(256, 256, 1, uint8_t):clear()
 	do
 		-- airship animation data
 		-- 5816
@@ -1301,11 +1302,11 @@ print(
 		--save('tiles_blackjack.png', blackjackTiles, game.blackjackPalette)
 		local falconTiles = decompress(game.airship2Compressed, ffi.sizeof(game.airship2Compressed))
 		--save('tiles_falcon.png', falconTiles, game.falconPalette)
-		-- what palette do world-map chocobos use?
+		-- what palette do world-map chocobos use? 7 but as hi-pal 0x10, so tell them to use 6-8
 		local chocobo1Tiles = decompress(game.worldChocobo1Compressed, ffi.sizeof(game.worldChocobo1Compressed))
-		save('tiles_chocobo1.png', chocobo1Tiles, game.characterPalettes + 7)
+		--save('tiles_chocobo1.png', chocobo1Tiles, game.characterPalettes + 7)
 		local chocobo2Tiles = decompress(game.worldChocobo2Compressed, ffi.sizeof(game.worldChocobo2Compressed))
-		save('tiles_chocobo2.png', chocobo2Tiles, game.characterPalettes + 7)
+		--save('tiles_chocobo2.png', chocobo2Tiles, game.characterPalettes + 7)
 
 		local data = decompress(game.worldAnimSpritesCompressed, ffi.sizeof(game.worldAnimSpritesCompressed))
 		save('tiles_worldAnimSprites.png', data, game.WoBPalettes)
@@ -1360,12 +1361,12 @@ print(
 
 			local tileDataPtr = ffi.cast(uint8_t_p, tileData)
 
-			-- falcon starts at 0xa0?
-
-			-- 2 layers for 2 z indexes
 			local img = Image(xmax - xmin, ymax - ymin, 1, uint8_t):clear()
 			img.palette = palette
-			for _,tile in ipairs(tiles) do
+			-- chocobo has shadow under it.  but all are at the same zIndex
+			-- and if you draw in-order then the shadow takes precedence
+			for i=#tiles,1,-1 do
+				local tile = tiles[i]
 				local f = palette and drawTile or readTile
 				f(
 					img,
@@ -1380,8 +1381,6 @@ print(
 				)
 			end
 			return img
-			--return imgs[1] + imgs[2]
-			--return imgs[1]:pasteInto{image=imgs[2]}--, alpha=true}
 		end
 
 		-- getting save order from everything8215/ff6/src/world/world_anim.asm
@@ -1445,11 +1444,23 @@ print(
 			.. chocobo2Tiles	-- 0x40-0xco
 			.. ('\0'):rep(0x200 * 0x20)
 			--]]
-		-- uses hi-pal 0x10 & 0x20
-		for i=0x13,0x25 do
+		local x, y = 0, 0
+		local nextY = 0
+		for _,i in ipairs(table():append(
+			range(0x13, 0x25),	-- chocobo, uses hi-pal 0x10 & 0x20
+			range(0x49,0x4c)
+		)) do
 			local frame = getFrame(i, chocoboTilesPadded, game.characterPalettes + 6)
-			frame:save(worldspritedir/('chocobo'..i..'.png'))
-		end	-- chocobo
+			local frameWidthTileAligned = math.ceil(frame.width / 8) * 8
+			local frameHeightTileAligned = math.ceil(frame.height / 8) * 8
+			if x + frame.width >= chocoImg.width then
+				x = 0
+				y = nextY
+			end
+			chocoImg:pasteInto{image=frame, x=x, y=y}
+			x = x + frameWidthTileAligned
+			nextY = math.max(nextY, frameHeightTileAligned)
+		end
 		for i=0x26,0x2d do end	-- character
 		for i=0x2e,0x32 do end
 		for i=0x33,0x36 do end
@@ -1465,13 +1476,20 @@ print(
 	end
 
 	sheetImg.palette = table.rep(sheetImg.palette, 256 / #sheetImg.palette)
-
 	sheetImg:save(worldspritedir/'vehicle-sheet.png')
 	-- now save another copy for exporting that has all but the lower 4 bits zeroed
 	for i=0,sheetImg.width*sheetImg.height-1 do
 		sheetImg.buffer[i] = bit.band(0xf, sheetImg.buffer[i])
 	end
 	sheetImg:save(worldspritedir/'vehicle-sheet-export.png')
+
+	chocoImg.palette = table():append(
+		game.getCharPal(6),
+		game.getCharPal(7),
+		game.getCharPal(8)
+	)
+	chocoImg.palette = table.rep(chocoImg.palette, 256 / #chocoImg.palette)
+	chocoImg:save(worldspritedir/'chocobo.png')
 end
 
 --print('...', select('#', ...), ...)
