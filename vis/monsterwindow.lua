@@ -102,26 +102,25 @@ function MonsterWindow:showIndexUI()
 		ig.igSetCursorPosY(y + math.ceil(viewHeight * scale) + 4)
 		--]]
 	end
-
-	local scripts = game.monsterScripts[self.index]
-	app.scriptWindow:popupButtonForAddr(scripts.act, 'act')
-	app.scriptWindow:popupButtonForAddr(scripts.react, 'react')
-
-	if ig.igCollapsingHeader'fields' then
-		ig.igText(' attack name = "'..game.monsterAttackNames[self.index]..'"')
-		local monster = game.monsters[self.index]
-		for fieldname, ctype, field in monster:fielditer() do
-			if fieldname == 'metamorphSet' then
-				self:editMetamorphRef(monster, 'metamorphSet')
-			else
-				self:editField(monster, fieldname, ctype, field)
-			end
-		end
-	end
-
 	-- pick the palette out of the MonsterSprite info and let the user edit it here ...
 	-- (I think everything else in MonsterSprite is specific to the tile layout etc)
 	if self.index >= 0 and self.index < game.countof(game.monsterSprites) then
+		local scripts = game.monsterScripts[self.index]
+		app.scriptWindow:popupButtonForAddr(scripts.act, 'act')
+		app.scriptWindow:popupButtonForAddr(scripts.react, 'react')
+
+		if ig.igCollapsingHeader'fields' then
+			ig.igText(' attack name = "'..game.monsterAttackNames[self.index]..'"')
+			local monster = game.monsters[self.index]
+			for fieldname, ctype, field in monster:fielditer() do
+				if fieldname == 'metamorphSet' then
+					self:editMetamorphRef(monster, 'metamorphSet')
+				else
+					self:editField(monster, fieldname, ctype, field)
+				end
+			end
+		end
+
 		local monsterSprite = game.monsterSprites[self.index]
 		self.__tmp = monsterSprite:getPaletteIndex()
 		if ig.luatableInputInt('palette', self, '__tmp') then
@@ -131,43 +130,43 @@ function MonsterWindow:showIndexUI()
 			-- if we changed the palette then regen the sprite ...
 			self:refreshTex()
 		end
+
+		ig.igText'attacks:'
+		ig.igPushID_Str'monsterSpells'
+		local monsterSpells = game.monsterSpells[self.index]
+		for i=0,monsterSpells.dim-1 do
+			self:editField(monsterSpells.s, i, monsterSpells.ctype)
+		end
+		ig.igPopID()
+
+		ig.igText'items:'
+		ig.igPushID_Str'monsterItems'
+		local monsterItem = game.monsterItems[self.index]
+		for fieldname, ctype, field in monsterItem:fielditer() do
+			self:editField(monsterItem, fieldname, ctype, field)
+		end
+		ig.igPopID()
+
+		local monsterSketches = game.monsterSketches[self.index]
+		ig.igText'sketches:'
+		ig.igPushID_Str'monsterSketches'
+		for i=0,monsterSketches.dim-1 do
+			self:editField(monsterSketches.s, i, monsterSketches.ctype)
+		end
+		ig.igPopID()
+
+		if self.index < game.countof(game.monsterRages)then
+			ig.igText'rages:'
+			ig.igPushID_Str'monsterRages'
+			local monsterRages = game.monsterRages[self.index]
+			for i=0,monsterRages.dim-1 do
+				self:editField(monsterRages.s, i, monsterRages.ctype)
+			end
+			ig.igPopID()
+		end
 	end
 
 	ig.igSeparator()
-
-	ig.igText'attacks:'
-	ig.igPushID_Str'monsterSpells'
-	local monsterSpells = game.monsterSpells[self.index]
-	for i=0,monsterSpells.dim-1 do
-		self:editField(monsterSpells.s, i, monsterSpells.ctype)
-	end
-	ig.igPopID()
-
-	ig.igText'items:'
-	ig.igPushID_Str'monsterItems'
-	local monsterItem = game.monsterItems[self.index]
-	for fieldname, ctype, field in monsterItem:fielditer() do
-		self:editField(monsterItem, fieldname, ctype, field)
-	end
-	ig.igPopID()
-
-	local monsterSketches = game.monsterSketches[self.index]
-	ig.igText'sketches:'
-	ig.igPushID_Str'monsterSketches'
-	for i=0,monsterSketches.dim-1 do
-		self:editField(monsterSketches.s, i, monsterSketches.ctype)
-	end
-	ig.igPopID()
-
-	if self.index < game.countof(game.monsterRages)then
-		ig.igText'rages:'
-		ig.igPushID_Str'monsterRages'
-		local monsterRages = game.monsterRages[self.index]
-		for i=0,monsterRages.dim-1 do
-			self:editField(monsterRages.s, i, monsterRages.ctype)
-		end
-		ig.igPopID()
-	end
 
 	-- reverse-references:
 
