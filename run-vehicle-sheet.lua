@@ -23,16 +23,10 @@ local int8_t_p = ffi.typeof'int8_t*'
 local uint8_t = ffi.typeof'uint8_t'
 local uint8_t_p = ffi.typeof'uint8_t*'
 
---[[ for display
-local saveRaftIndexOffset = 16
-local saveBlackjackIndexOffset = 32
-local saveFalconIndexOffset = 48
---]]
--- [[ for exporting
-local saveRaftIndexOffset = 0
-local saveBlackjackIndexOffset = 0
-local saveFalconIndexOffset = 0
---]]
+-- 0-15 is character-palette-7 for magitek and chocobo
+local saveRaftIndexOffset = 16		-- 16-31 is character palette 11
+local saveBlackjackIndexOffset = 32	-- 32-47 is blackjack palette
+local saveFalconIndexOffset = 48	-- 48-63 is falcon palette
 
 local function run(game)
 	local rom = game.rom
@@ -55,6 +49,7 @@ local function run(game)
 	local Image = require 'image'
 	local makePalette = require 'ff6.graphics'.makePalette
 	local readTile = require 'ff6.graphics'.readTile
+	local drawTile = require 'ff6.graphics'.drawTile
 	-- 8x8 right?
 	local tileWidth = require 'ff6.graphics'.tileWidth
 	local tileHeight = require 'ff6.graphics'.tileHeight
@@ -719,7 +714,7 @@ end
 	end
 
 	-- ok now the only way to find if a sprite is 16x24, 16x16, or 32x32 is to look at all the NPCs that use it
-	-- these are everything8215/ff6/src/event/npc_prop.asm flagged as 'special_npc_prop' 
+	-- these are everything8215/ff6/src/event/npc_prop.asm flagged as 'special_npc_prop'
 	-- kind of like how to tell what palettes it works with
 	-- true means 16x16
 	-- 32x32 means 32x32
@@ -1153,8 +1148,8 @@ print(
 
 	sheetImg.palette = table():append(
 		tilesImg.palette,	-- char 7 & char 11 pals
-		makePalette(game, game.blackjackPalette, 4, 16),
-		makePalette(game, game.falconPalette, 4, 16)
+		makePalette(game, game.blackjackPalette, bpp, 16),
+		makePalette(game, game.falconPalette, bpp, 16)
 	)
 	assert.len(sheetImg.palette, 64)
 	do
@@ -1287,9 +1282,8 @@ print(
 		local function save(filename, tileData, palData)
 			local tilesWide = 16
 			local tilesHigh = #tileData / 32 / tilesWide
-			local bpp = 4
 			local img = Image(tilesWide * 8, tilesHigh * 8, 1, uint8_t):clear()
-			img.palette = makePalette(game, palData, 4, 16)
+			img.palette = makePalette(game, palData, bpp, 16)
 			local dataptr = ffi.cast(uint8_t_p, tileData)
 			local tile = dataptr + 0
 			for y=0,tilesHigh-1 do
@@ -1308,10 +1302,10 @@ print(
 		local falconTiles = decompress(game.airship2Compressed, ffi.sizeof(game.airship2Compressed))
 		--save('tiles_falcon.png', falconTiles, game.falconPalette)
 		-- what palette do world-map chocobos use?
-		local data = decompress(game.worldChocobo1Compressed, ffi.sizeof(game.worldChocobo1Compressed))
-		save('tiles_chocobo1.png', data, game.characterPalettes + 7)
-		local data = decompress(game.worldChocobo2Compressed, ffi.sizeof(game.worldChocobo2Compressed))
-		save('tiles_chocobo2.png', data, game.characterPalettes + 7)
+		local chocobo1Tiles = decompress(game.worldChocobo1Compressed, ffi.sizeof(game.worldChocobo1Compressed))
+		save('tiles_chocobo1.png', chocobo1Tiles, game.characterPalettes + 7)
+		local chocobo2Tiles = decompress(game.worldChocobo2Compressed, ffi.sizeof(game.worldChocobo2Compressed))
+		save('tiles_chocobo2.png', chocobo2Tiles, game.characterPalettes + 7)
 
 		local data = decompress(game.worldAnimSpritesCompressed, ffi.sizeof(game.worldAnimSpritesCompressed))
 		save('tiles_worldAnimSprites.png', data, game.WoBPalettes)
@@ -1329,7 +1323,13 @@ print(
 		print('#magitekTrainCompressed', #data)
 		--]]
 
-		local function getFrame(i, tileData)--, palData)
+		local function setPal(img, palData)
+			img.palette = makePalette(game, palData, bpp, 16)
+			return img
+		end
+
+		local function getFrame(i, tileData, palData)
+			local palette = palData and makePalette(game, palData, bpp, 256)
 			local ofs = game.worldAnimSpriteOfs[i]
 			local p = ffi.cast(uint8_t_p, game.worldAnimSpriteData + ofs)
 			local numTiles = p[0] p=p+1
@@ -1342,10 +1342,10 @@ print(
 				local flags = p[0] p=p+1
 --print('tile', x, y, tileIndex, flags)
 				if 0 ~= bit.band(1, flags) then tileIndex = tileIndex + 0x100 end
-				local palor = 0--bit.band(0x70, bit.lshift(flags, 3))
+				local palor = bit.band(0x70, bit.lshift(flags, 3))
 				local hflip = 0 ~= bit.band(0x40, flags)
 				local vflip = 0 ~= bit.band(0x80, flags)
-				local zIndex = 0 ~= bit.band(0x20, flags)
+				local zIndex = bit.band(3, bit.rshift(flags, 5))
 				tiles:insert{x=x, y=y, tileIndex=tileIndex, palor=palor, hflip=hflip, vflip=vflip, zIndex=zIndex}
 			end
 
@@ -1362,27 +1362,29 @@ print(
 
 			-- falcon starts at 0xa0?
 
+			-- 2 layers for 2 z indexes
 			local img = Image(xmax - xmin, ymax - ymin, 1, uint8_t):clear()
-			--img.palette = makePalette(game, palData, 4, 16)
+			img.palette = palette
 			for _,tile in ipairs(tiles) do
-				readTile(
+				local f = palette and drawTile or readTile
+				f(
 					img,
 					tile.x - xmin,
 					tile.y - ymin,
 					tileDataPtr + bit.lshift(tile.tileIndex, 5),
-					4,
+					bpp,
 					tile.hflip,
 					tile.vflip,
-					0 -- tile.palor
+					tile.palor,
+					palette
 				)
 			end
 			return img
+			--return imgs[1] + imgs[2]
+			--return imgs[1]:pasteInto{image=imgs[2]}--, alpha=true}
 		end
 
-		local function setPal(img, palData)
-			img.palette = makePalette(game, palData, 4, 16)
-			return img
-		end
+		-- getting save order from everything8215/ff6/src/world/world_anim.asm
 
 		-- I guess this means blackjackTiles starts at 0x40?
 		-- and there were 0xc0 of them
@@ -1395,41 +1397,58 @@ print(
 		for i=1,0x12 do
 			--frame:save(worldspritedir/('blackjack_'..airshipFrameNames[i]..'.png'))
 			sheetImg:pasteInto{
-				image = getFrame(i, blackjackTilesPadded) + saveBlackjackIndexOffset,
+				image = getFrame(i, blackjackTilesPadded, game.blackjackPalette) + saveBlackjackIndexOffset,
 				x = 96 + math.floor((i-1)%6)*24,
 				y = math.floor((i-1)/6)*32,
 			}
 			--frame:save(worldspritedir/('falcon_'..airshipFrameNames[i]..'.png'))
 			sheetImg:pasteInto{
-				image = getFrame(i, falconTilesPadded) + saveFalconIndexOffset,
+				image = getFrame(i, falconTilesPadded, game.falconPalette) + saveFalconIndexOffset,
 				x = 96 + math.floor((i-1+18)%6)*24,
 				y = math.floor((i-1+18)/6)*32,
 			}
 		end
 --[[ I don't need all of these if 3d hw can do the same ... 'ground' and 'liftoff3' are enough
 		for i=0x45,0x48	do
-			setPal(getFrame(i, blackjackTilesPadded), game.blackjackPalette)
+			getFrame(i, blackjackTilesPadded, game.blackjackPalette)
 				:save(worldspritedir/('blackjack_liftoff'..(i-0x44)..'.png'))
 		end	-- blackjack on grond
-		setPal(getFrame(0x4d, blackjackTilesPadded), game.blackjackPalette)	-- blackjack lift off
+		getFrame(0x4d, blackjackTilesPadded, game.blackjackPalette)	-- blackjack lift off
 			:save(worldspritedir/('blackjack_ground.png'))
 
 		for i=0x62,0x65 do
-			setPal(getFrame(i, falconTilesPadded), game.falconPalette)
+			getFrame(i, falconTilesPadded, game.falconPalette)
 				:save(worldspritedir/('falcon_liftoff'..(i-0x61)..'.png'))
 		end	-- falcon on ground
-		setPal(getFrame(0x66, falconTilesPadded), game.falconPalette)	-- falcon lifting off
+		getFrame(0x66, falconTilesPadded, game.falconPalette)	-- falcon lifting off
 			:save(worldspritedir/'falcon_ground.png')
 --]]
 -- [[
-		sheetImg:pasteInto{image = getFrame(0x4d, blackjackTilesPadded) + saveBlackjackIndexOffset, x = 0, y = 192}
-		sheetImg:pasteInto{image = getFrame(0x47, blackjackTilesPadded) + saveBlackjackIndexOffset, x = 40, y = 192}
-		sheetImg:pasteInto{image = getFrame(0x66, falconTilesPadded) + saveFalconIndexOffset, x = 0, y = 216}
-		sheetImg:pasteInto{image = getFrame(0x64, falconTilesPadded) + saveFalconIndexOffset, x = 40, y = 216}
+		-- TODO for the world-map airships we can't use the blackjack or falcon palettes, gotta add a new palette to the sheet view save file
+		-- these all ahve hi-pal 0x10
+		sheetImg:pasteInto{image = getFrame(0x4d, blackjackTilesPadded, game.blackjackPalette) - 0x10 + saveBlackjackIndexOffset, x = 0, y = 192}
+		sheetImg:pasteInto{image = getFrame(0x47, blackjackTilesPadded, game.blackjackPalette) - 0x10 + saveBlackjackIndexOffset, x = 40, y = 192}
+		sheetImg:pasteInto{image = getFrame(0x66, falconTilesPadded, game.falconPalette) - 0x10 + saveFalconIndexOffset, x = 0, y = 216}
+		sheetImg:pasteInto{image = getFrame(0x64, falconTilesPadded, game.falconPalette) - 0x10 + saveFalconIndexOffset, x = 40, y = 216}
 --]]
 
-
+		-- there's 0x200 tiles
+		-- chocobo1 & chocobo2 uses 0x40 thru 0xc0
+		-- their anim sprites use 0xa0-0xef
+		local tile = chocobo1Tiles:sub(0x80*0x20+1, (0x80+1)*0x20)
+		assert.len(tile, 32)
+		local chocoboTilesPadded =
+			-- [[
+			('\0'):rep(0x40 * 0x20)
+			.. chocobo1Tiles	-- 0x40-0xc0
+			.. ('\0'):rep(0x40 * 0x20)
+			.. chocobo2Tiles	-- 0x40-0xco
+			.. ('\0'):rep(0x200 * 0x20)
+			--]]
+		-- uses hi-pal 0x10 & 0x20
 		for i=0x13,0x25 do
+			local frame = getFrame(i, chocoboTilesPadded, game.characterPalettes + 6)
+			frame:save(worldspritedir/('chocobo'..i..'.png'))
 		end	-- chocobo
 		for i=0x26,0x2d do end	-- character
 		for i=0x2e,0x32 do end
@@ -1445,7 +1464,14 @@ print(
 		for i=0x67,0x6b do end
 	end
 
+	sheetImg.palette = table.rep(sheetImg.palette, 256 / #sheetImg.palette)
+
 	sheetImg:save(worldspritedir/'vehicle-sheet.png')
+	-- now save another copy for exporting that has all but the lower 4 bits zeroed
+	for i=0,sheetImg.width*sheetImg.height-1 do
+		sheetImg.buffer[i] = bit.band(0xf, sheetImg.buffer[i])
+	end
+	sheetImg:save(worldspritedir/'vehicle-sheet-export.png')
 end
 
 --print('...', select('#', ...), ...)
