@@ -540,8 +540,13 @@ return function(game)
 	EventCmds.TintColors = EventCmd:subclass{
 		cmd = 0x61,
 		argtypes = {uint8_t, uint8_t, uint8_t},
-		argnames = {'fixed', 'first', 'last'},
-		desc = 'tintColors{fixed=<?=fixed?>, first=<?=first?>, last=<?=last?>}',
+		argnames = {'colorFlags', 'first', 'last'},
+		__tostring = function(self)
+			return 'tintColors('
+				..self.colorFlags..', '
+				..self.first..', '
+				..self.last..')'
+		end,
 	}
 
 	EventCmds.PixelateScreen = EventCmd:subclass{
