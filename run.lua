@@ -172,7 +172,6 @@ end
 --]]
 
 
-local totalPixels = 0
 -- [[
 do
 	local monstersPath = path'monsters'
@@ -182,10 +181,7 @@ do
 		print('monsterSprites[0x'..i:hex()..'] = '..game.monsterSprites[i])
 		local im = readMonsterSprite(game, i)
 		im:save(monstersPath/('monster'..('%03d'):format(i)..' '..game.monsterNames[i]..'.png'))
-		totalPixels = totalPixels + im.width * im.height
 	end
-	print('wrote monster pixels', totalPixels)
-	print()
 end
 --]]
 
@@ -450,109 +446,7 @@ print((tolua({
 ))
 --]]
 
--- [[
 require 'run-vehicle-sheet'(game)
---]]
---[===[ this has turned into run-vehicle-sheet, which now outputs the characters, npcs, and vehicles
-local readCharSprite = require 'ff6.charsprite'
-local totalPixels = 0
--- [=[
-path'characters':mkdir()
-local chx, chy = 0, 0
-local sheetIndex = 0
-local charSheet = Image(256, 256, 1, 'uint8_t')
-local function flushCharSheet()
-	charSheet.palette = makePalette(game, game.characterPalettes, 4, 256)
-	charSheet:save('characters/sheet'..sheetIndex..'.png')
-	charSheet:clear()
-	sheetIndex = sheetIndex + 1
-	chx, chy = 0, 0
-end
-local function pushSpriteFrame(charIndex, frameIndex, im, palIndex)
-	-- the 9-frame sprites can overflow into the next sheet
-	-- so instead flush sheet early
-	if charIndex >= 22 and charIndex < 63
-	and frameIndex == 0
-	and chy + 2 * im.height >= charSheet.height
-	and chx + 9 * 16 >= charSheet.width
-	then
-		flushCharSheet()
-	end
-
-	--[[ offset into our palette
-	im = im + bit.lshift(palIndex, 4)
-	--]]
-	-- [==[ hack to fit 4 chars into one sheet
-	if frameIndex == 38 	-- only exists for Terra I think
-	--or frameIndex == 39 	-- tent
-	then return end
-	--]==]
-	charSheet:pasteInto{
-		x = chx,
-		y = chy,
-		image = im,
-	}
-	chx = chx + im.width
-	if chx + im.width > charSheet.width then
-		chx = 0
-		chy = chy + im.height
-		if chy + im.height > charSheet.height then
-			flushCharSheet()
-		end
-	end
-end
---]=]
-for charIndex=0,game.numCharacterSprites-1 do
-	--local spriteName = spriteNames[charIndex+1] or 'char'..charIndex
-	local spriteName = 'char'..('%03d'):format(charIndex)
-	--[=[ save to char sheet
-	local charSheet = Image(256, 256, 1, 'uint8_t')
-		:clear()
-	local chx, chy = 0, 0
-	--]=]
-	readCharSprite(game, charIndex, function(charIndex, frameIndex, im, palIndex)
-		--[=[ save each frame individually...
-		--local frameName = frameNames[frameIndex+1] or tostring(frameIndex)
-		--local frameName = tostring(frameIndex)
-		local frameName = ('%02d'):format(frameIndex)
-		local relname = spriteName..'_'..frameName..'.png'
-		im.palette = game.getCharPal(palIndex)
-		im:save('characters/'..relname)
-		--]=]
-		--[=[ save to our char sheet
-		charSheet:pasteInto{
-			x = chx,
-			y = chy,
-			image = im,
-		}
-		chx = chx + im.width
-		if chx + im.width > charSheet.width then
-			chx = 0
-			chy = chy + im.height
-		end
-		--]=]
-		-- [=[ compact sheets
-		pushSpriteFrame(charIndex, frameIndex, im, palIndex)
-		--]=]
-		totalPixels = totalPixels + im.width * im.height
-	end)
-	--[=[ save to our char sheet
-	charSheet:save('characters/sheet'..spriteName..'.png')
-	--]=]
-	--[=[ extra sheet condition to not wrap or something idk
-	-- it is specific to the char # so meh gotta guess here
-	if chy + 3*8*4 > charSheet.height then
-		flushCharSheet()
-	end
-	--]=]
-end
--- [=[
-if chx > 0 or chy > 0 then
-	flushCharSheet()
-end
---]=]
-print('wrote total pixels', totalPixels)
---]===]
 
 -- [[ while we're here , why not write out the char palettes
 makePaletteSets(

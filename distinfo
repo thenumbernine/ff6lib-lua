@@ -8,7 +8,6 @@ luaArgs = "vis.lua"	-- default execution will be the visualizer
 
 files = {
 	"README.md",
-	"charsprite.lua",
 	"decompress.lua",
 	"distinfo",
 	"ff6.lua",

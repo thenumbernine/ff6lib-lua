@@ -771,6 +771,10 @@ return function(game)
 	end
 
 	function game.getSpriteFrameImage(spriteIndex, frameIndex)
+		if not frameIndex then
+			frameIndex = table.keys(spriteFrames[spriteIndex]):sort()[1]
+		end
+
 		-- unique per sprite
 
 		local maxFrames = game.getSpriteFrameCount(spriteIndex)

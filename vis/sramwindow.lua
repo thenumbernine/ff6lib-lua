@@ -534,12 +534,11 @@ function SRAMWindow:setIndex(...)
 	--self.charTexs[1+save][1+charIndex]
 	self.charTexs = range(0,15):mapi(function(charIndex)
 		local ch = save.characters.s[charIndex]
-		local img = game.getCharSpriteSheetImage(ch.sprite)
-		img = img:copy{x=0, y=0, width=16, height=24}
+		local img = game.getSpriteFrameImage(ch.sprite)
 		--local palette = bit.band(ch.character, 7)	-- character? sprite? palette? where to go for palette of sprite?
 		--local palette = game.characterPaletteIndexes[charIndex]
-		local palette = game.characterPaletteIndexes[ch.sprite]
-		img.palette = game.getCharPal(palette)
+		--local palette = game.characterPaletteIndexes[ch.sprite]
+		--img.palette = game.getCharPal(palette)
 		return self:makeTex(img)
 	end)
 

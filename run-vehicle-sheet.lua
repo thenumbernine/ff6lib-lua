@@ -1,8 +1,5 @@
 #!/usr/bin/env luajit
 --[[
-this has turned into a replacement for charsprites.lua
-so TODO get rid of charsprites.lua
-
 oh yeah, 0x150000 - 0x185000 is where the tile data for character sprites goes
 but the end of it is vehicles
 so this is now the vehicle-extraction script

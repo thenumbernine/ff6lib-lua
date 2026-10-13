@@ -2409,7 +2409,7 @@ local CharacterSave = struct{
 	tostringOmitEmpty = true,
 	fields = {
 		{name='character', type=uint8_t},	-- CharacterNameRef?
-		{name='sprite', type=uint8_t},		-- spriteIndex used with getCharSpriteSheetImage
+		{name='sprite', type=uint8_t},		-- spriteIndex used with getSpriteFrameImage
 		{name='name', type=CharacterName},
 		{name='level', type=uint8_t},
 		{name='hp', type=uint16_t},
@@ -3404,73 +3404,7 @@ function game.getCharPal(i)
 	return entry
 end
 
-function game.getNumFramesForCharSpriteSheet(charIndex)
-	if charIndex < 0 or charIndex >= numCharacterSprites then return end
-	if charIndex < 22 then return 41 end
-	if charIndex < 63 then return 9 end
-	return 1
-	-- TODO past 87 something is different
-end
-
 require 'ff6.sprites'(game)
-
--- [[ I guess this is somewhat standardized...
--- this will give 8 cols wide of x 6 high of sprites for animation sheets
--- TODO redo this around run-vehicle-sheet, or just use its for this
-local readCharSprite = require 'ff6.charsprite'
-function game.getCharSpriteSheetImage(charIndex)
-	local Image = require 'image'
-	local makePalette = require 'ff6.graphics'.makePalette
-
-	local numFrames = game.getNumFramesForCharSpriteSheet(charIndex)
-	local w, h
-	-- [[
-	if numFrames == 41 then
-		w = 16 * 8	-- 8 sprite cols, 16 pixels each
-		h = 24 * 6	-- 6 sprite rows, 24 pixels each
-	elseif numFrames == 9 then
-		w = 16 * 3
-		h = 24 * 3
-	elseif numFrames == 1 then
-		w = 16
-		h = 24
-	else
-		print'???'
-	end
-	-- ]]
-	local charSheet = Image(w, h, 1, uint8_t)
-	local palIndex = game.characterPaletteIndexes[charIndex]
-
-	-- 3 bits are used for the sprite sheet exporter ....
-	--palIndex = bit.band(palIndex, 7)
-	-- there's 32 char palettes so 5 bits needed for the whole range
-	-- ... hmm maybe there's not so many characterPaletteIndexes?
-	palIndex = bit.band(palIndex, 0x1f)
-	-- TODO what's in the rest of the bits?
-
-	charSheet.palette = game.getCharPal(palIndex)
-	local chx, chy = 0, 0
-	readCharSprite(game, charIndex, function(charIndex, frameIndex, im, palIndex, numFrames)
-		-- palIndex is always game.characterPaletteIndexes[charIndex]
-		-- [[
-		if chy + im.height > charSheet.height then
-			error("!!!OOB!!! make the sprite sheet bigger")
-		end
-		--]]
-		charSheet:pasteInto{
-			x = chx,
-			y = chy,
-			image = im,
-		}
-		chx = chx + im.width
-		if chx + im.width > charSheet.width then
-			chx = 0
-			chy = chy + im.height
-		end
-	end)
-	return charSheet
-end
-
 
 --]]
 

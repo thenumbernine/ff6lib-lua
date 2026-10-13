@@ -72,7 +72,7 @@ function SpriteWindow:refreshTex()
 		self.spriteTex = nil
 	end
 	if self.index < 0 or self.index >= self:getCount() then return end
-	self.spriteTex = self:makeTex(game.getCharSpriteSheetImage(self.index))
+	self.spriteTex = self:makeTex(game.getSpriteFrameImage(self.index))
 end
 
 return SpriteWindow

@@ -550,9 +550,7 @@ function MapWindow:refreshNPCTexs()
 	if not mapInfo then return end
 
 	for i,n in ipairs(mapInfo.npcs) do
-		local img = game.getCharSpriteSheetImage(n.graphics)
-		-- hmm TODO get single frame instead of whole sheet?
-		img = img:copy{x=0, y=0, width=16, height=24}
+		local img = game.getSpriteFrameImage(n.graphics)
 		local palette = bit.band(n.palette, 7)
 		img.palette = game.getCharPal(palette)
 		self.npcTexs[i] = self:makeTex(img)

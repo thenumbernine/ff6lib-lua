@@ -233,10 +233,7 @@ function BattleFormationWindow:setIndex(...)
 			-- TODO union and just check 0xff
 			if ch.character == 0x3f and ch.enemy == 1 and ch.hidden == 1 then
 			elseif ch.graphics ~= 0xff then
-				local img = game.getCharSpriteSheetImage(ch.graphics)
-				img = img:copy{x=0, y=0, width=16, height=24}
-				-- TODO what to use for the palette? .graphic? .character?
-				img.palette = game.getCharPal(ch.graphics)
+				local img = game.getSpriteFrameImage(ch.graphics)
 				self.charTexs[i] = {
 					-- xy flipped
 					pos = {x=tonumber(ch.pos.x), y=tonumber(ch.pos.y)},
