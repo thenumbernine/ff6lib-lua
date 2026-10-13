@@ -30,6 +30,7 @@ files = {
 	"run-vehicle-sheet.lua",
 	"run.lua",
 	"script.lua",
+	"sprites.lua",
 	"sound.lua",
 	"sram.lua",
 	"util.lua",

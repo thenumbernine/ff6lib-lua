@@ -4,7 +4,6 @@ local ig = require 'imgui'
 local ArrayWindow = require 'ff6.vis.arraywindow'
 
 local vis_util = require 'ff6.vis.util'
-local mapTilePropsFlagForName = vis_util.mapTilePropsFlagForName
 local mapTilePropsNames = vis_util.mapTilePropsNames
 local worldTilePropsNames = vis_util.worldTilePropsNames
 local numTilePropsBits = vis_util.numTilePropsBits

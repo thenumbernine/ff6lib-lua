@@ -456,11 +456,11 @@ local numMenuChars = 19
 local MapColorMathProps = ff6struct{
 	ctypeOnly = true,
 	fields = {
-		{layer = 'uint8_t:6'},	-- 0=layer1, 1=layer2, 2=layer3, 3=layer4, 4=sprites, 5=back area
+		{cm = 'uint8_t:6'},	-- 0=layer1, 1=layer2, 2=layer3, 3=layer4, 4=sprites, 5=back area
 		{half = 'uint8_t:1'},
 		{subtract = 'uint8_t:1'},
-		{mainScreen = uint8_t},	-- only uses 5 bits? same as .colorMath
-		{subScreen = uint8_t},	-- only uses 5 bits?
+		{main = uint8_t},	-- only uses 5 bits? same as .cm
+		{sub = uint8_t},	-- only uses 5 bits?
 	},
 }
 assert.eq(ffi.sizeof(MapColorMathProps), 3)
@@ -3411,6 +3411,8 @@ function game.getNumFramesForCharSpriteSheet(charIndex)
 	return 1
 	-- TODO past 87 something is different
 end
+
+require 'ff6.sprites'(game)
 
 -- [[ I guess this is somewhat standardized...
 -- this will give 8 cols wide of x 6 high of sprites for animation sheets
