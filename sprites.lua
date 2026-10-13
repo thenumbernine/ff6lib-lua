@@ -2,9 +2,15 @@
 for npc / character sprites
 --]]
 local table = require 'ext.table'
+local Image = require 'image'
 
 -- add sprite stuff to 'game'
 return function(game)
+	local rom = game.rom
+
+	local tileWidth = require 'ff6.graphics'.tileWidth
+	local tileHeight = require 'ff6.graphics'.tileHeight
+	local readTile = require 'ff6.graphics'.readTile
 
 	-- from everything8215/ff6/src/gfx/map_sprite_pal.inc:
 	game.spritePaletteNames = {
@@ -68,7 +74,7 @@ return function(game)
 
 	-- from everything8215/ff6/src/gfx/map_sprite_gfx.inc:
 	-- I renamed some to match the names I already had in ff6t3d...
-	game.spriteNames = {
+	local spriteNames = {
 		[0] = 'terra',
 		[1] = 'locke',
 		[2] = 'cyan',
@@ -235,7 +241,9 @@ return function(game)
 		[163] = 'ending_terra_2',
 		[164] = 'small_bird_left',
 	}
-	game.spriteIndexes = table.map(game.spriteNames, function(name,index) return index, name end):setmetatable(nil)
+	game.spriteNames = spriteNames
+	local spriteIndexes = table.map(spriteNames, function(name,index) return index, name end):setmetatable(nil)
+	game.spriteIndexes = spriteIndexes
 
 	-- grep'ing everything8215/ff6 and getting all npc_gfx sprite + palette instances...
 	-- then remove "nothing" sprites and remove no explicit palette npcs
@@ -571,7 +579,278 @@ return function(game)
 		'opera_singer_unused',
 		'map_sprite_frame_57',	-- 57
 	}
+	local spriteFrameIndexes = table.map(game.spriteFrameNames, function(name,index) return index, name end):setmetatable(nil)
+	game.spriteFrameIndexes = spriteFrameIndexes
 
-	game.spriteFrameIndexes = table.map(game.spriteFrameNames, function(name,index) return index, name end):setmetatable(nil)
 
+	--[[
+	alright now to track what sprites use what frames
+	since it doesn't look too obvious...
+	--]]
+	local spriteFrames = {}
+	game.spriteFrames = spriteFrames
+	for i=0,game.numCharacterSprites-1 do
+		spriteFrames[i] = {}
+	end
+	-- terra-imp have only up to finger2, then tent, then two riding
+	for sprite=spriteIndexes.terra,spriteIndexes.kefka do	-- terra - imp
+		for frame=0,spriteFrameIndexes.finger2 do
+			spriteFrames[sprite][frame] = true
+		end
+		spriteFrames[sprite][spriteFrameIndexes.tent] = true
+		-- these also have dead_horz but it's a copy of dead...
+		-- leo-kefka same but no riding
+		if sprite <= spriteIndexes.imp then
+			spriteFrames[sprite][spriteFrameIndexes.riding_left_1] = true
+			spriteFrames[sprite][spriteFrameIndexes.riding_left_2] = true
+		end
+	end
+	-- terra alone has special
+	spriteFrames[spriteIndexes.terra][spriteFrameIndexes.special] = true
+	-- these only have 9 walking frames, then some extras
+	for sprite=spriteIndexes.gestahl,spriteIndexes.emperor_servant do
+		for frame=0,8 do
+			spriteFrames[sprite][frame] = true
+		end
+		-- gestahl and old man have this:
+		if sprite <= spriteIndexes.elder then
+			spriteFrames[sprite][spriteFrameIndexes.npc_special_1] = true
+		end
+		if sprite <= spriteIndexes.man then
+			spriteFrames[sprite][spriteFrameIndexes.npc_waving_1] = true
+			spriteFrames[sprite][spriteFrameIndexes.npc_waving_2] = true
+			spriteFrames[sprite][spriteFrameIndexes.npc_head_down_down] = true
+		end
+	end
+	spriteFrames[spriteIndexes.dog][spriteFrameIndexes.handsupl1] = true
+	spriteFrames[spriteIndexes.dog][spriteFrameIndexes.npc_head_down_down] = true
+	for sprite=spriteIndexes.celes_in_dress,spriteIndexes.draco do
+		spriteFrames[sprite][spriteFrameIndexes.opera_singer_mouth_open] = true
+		spriteFrames[sprite][spriteFrameIndexes.opera_singer_mouth_closed] = true
+		spriteFrames[sprite][spriteFrameIndexes.opera_singer_unused] = true
+	end
+	for sprite=spriteIndexes.celes_in_dress,spriteIndexes.maduin do
+		if sprite ~= spriteIndexes.gau_dressed_up
+		and sprite ~= spriteIndexes.elder_esper
+		and sprite ~= spriteIndexes.cid
+		then
+			spriteFrames[sprite][spriteFrameIndexes.npc_special_2] = true
+		end
+	end
+	spriteFrames[spriteIndexes.figaro_guard][spriteFrameIndexes.riding_left_1] = true
+	spriteFrames[spriteIndexes.figaro_guard][spriteFrameIndexes.riding_left_2] = true
+	-- the rest are single-frame
+	for sprite=spriteIndexes.ramuh,spriteIndexes.atma do
+		spriteFrames[sprite][0] = true
+	end
+	spriteFrames[spriteIndexes.ramuh][spriteFrameIndexes.ramuh_staff_raised] = true
+	spriteFrames[spriteIndexes.ramuh][spriteFrameIndexes.ramuh_eyes_closed] = true
+	-- or it's just a coincicdence that this matches figaro_guard_dead
+	--spriteFrames[spriteIndexes.figaro_guard_riding][spriteFrameIndexes.handsupu] = true
+
+	-- animated don't use 0, but do use special thru special + #frames-1 enabled
+	-- find these by searching everything8215/ff6/src/event/npc_prop.asm
+	--  and looking for all npcs flagged with npc_anim, then note the npc_gfx, and note the animation count and the frame name
+	game.animationFrameCount = {
+		flying_bird_1 = 2,
+		flying_bird_2 = 2,
+		big_sparkle = 2,
+		multi_sparkles = 2,
+		small_sparkle = 2,
+		coin = 2,
+		rat = 2,
+		turtle = 2,
+		small_bird_up = 2,
+		save_point = 4,
+		flame = 4,
+		explosion = 4,
+		tentacle_1 = 4,
+		tentacle_2 = 4,
+	}
+	for sprite=spriteIndexes.small_statue,spriteIndexes.tentacle_2 do
+		local frameCount = game.animationFrameCount[spriteNames[sprite]] or 1
+		for i=0,frameCount-1 do
+			spriteFrames[sprite][spriteFrameIndexes.special_anim_1+i] = true
+		end
+	end
+
+	-- ok now the only way to find if a sprite is 16x24, 16x16, or 32x32 is to look at all the NPCs that use it
+	-- these are everything8215/ff6/src/event/npc_prop.asm flagged as 'special_npc_prop'
+	-- kind of like how to tell what palettes it works with
+	-- true means 16x16
+	-- 32x32 means 32x32
+	-- and '2 frames' is me noticing they are set to a npc_anim, but i'm lazy about getting into that just yet
+	game.spriteSpecial = {
+		air_force = true,
+		falcon_1 = '32x32',
+		falcon_2 = true,
+		falcon_3 = true,
+		flying_terra_1 = '2 frames',
+		flying_terra_2 = '2 frames',	-- not in the list, hmm
+		flying_terra_3 = '2 frames',
+		ending_terra_1 = '2 frames',
+		ending_terra_2 = '2 frames',
+		ending_terra_3 = true,
+		tritoch = '32x32',
+		leo_sword = true,
+		diving_helmet = true,
+		chadarnook_3 = '32x32',
+		chadarnook_1 = true,
+		chadarnook_2 = true,
+		small_bird_left = '2 frames',
+		gate_1 = '32x32',
+		gate_2 = true,
+		gate_3 = true,
+		crane_hook_2 = true,
+		crane_hook_1 = true,
+		crane_hook_3 = true,
+		magitek_train_1 = true,
+		magitek_train_3 = true,
+		magitek_train_2 = true,
+		magitek_train_4 = true,
+		crane_1 = true,
+		crane_2 = true,
+		crane_3 = true,
+		guardian_1 = true,
+		guardian_2 = true,
+		guardian_3 = true,
+		guardian_4 = true,
+		guardian_5 = true,
+		guardian_6 = true,
+		floor_switch = true,
+		big_switch = true,
+		rock = true,
+		magitek_machine = '32x32',
+		elevator = '32x32',
+		poltergeist_1 = '32x32',
+		doom_1 = '32x32',
+		doom_2 = true,
+		doom_3 = true,
+		goddess_1 = '32x32',
+		goddess_2 = true,
+		goddess_3 = true,
+		odin = '32x32',
+	}
+
+	-- points into fieldSpriteGraphics == 0x150000-0x183000
+	local function getTileOffsetForSprite(sprite)
+		if sprite < 0 or sprite >= game.numCharacterSprites then return end
+		return bit.band(
+			bit.bnot(0xc00000),
+			-- these are only for sprite < 87?
+			bit.bor(
+				game.characterSpriteOffsetLo[sprite],
+				bit.lshift(game.characterSpriteOffsetHiAndSize[sprite].hi, 16)
+			))
+	end
+
+	function game.getSpriteFrameCount(spriteIndex)
+		local maxFrames = game.countof(game.characterFrameTileOffsets) / 6
+		local special = game.spriteSpecial[spriteNames[spriteIndex]]
+		if special then
+			if special == true then
+				maxFrames = 1
+			elseif special == '32x32' then
+				maxFrames = 1
+			elseif special == '2 frames' then
+				maxFrames = 2
+			end
+		end
+		return maxFrames
+	end
+
+	for spriteIndex=0,game.numCharacterSprites-1 do
+		local maxFrames = game.getSpriteFrameCount(spriteIndex)
+		local special = game.spriteSpecial[spriteNames[spriteIndex]]
+		if special then
+			-- enable our frames
+			for i=0,maxFrames-1 do
+				spriteFrames[spriteIndex][i] = true
+			end
+		end
+	end
+
+	function game.getSpriteFrameImage(spriteIndex, frameIndex)
+		-- unique per sprite
+
+		local maxFrames = game.getSpriteFrameCount(spriteIndex)
+
+		local palIndexes = game.palettesForSprites[spriteNames[spriteIndex]]
+		local palIndex = palIndexes and palIndexes:last()
+-- see all?
+--print('sprite', spriteNames[spriteIndex], 'using palettes', palIndexes and palIndexes:concat', ')
+		palIndex = bit.band(palIndex or 0, 0x1f)
+		local palette = game.getCharPal(palIndex)
+
+		-- output all frames but assume all are 2x3
+		-- TODO who determines this? and who determines where the offset info is?
+		-- ... turns out the NPC data does. great.
+		local spriteTileCount = 6
+		-- max tile placement, used for bounds in the sheet
+		local frameTilesWide = 2
+		local frameTilesHigh = 3
+
+		-- get the offset from charBaseAddr to the 8x8x4bpp tile data
+		local function getFrameTileOffset(frameIndex, tileIndex)
+			-- TODO sometimes this is characterFrameTileOffsets, sometimes I bet it is what's next ...
+			return game.characterFrameTileOffsets[tileIndex + frameIndex * spriteTileCount]
+		end
+
+		local special = game.spriteSpecial[spriteNames[spriteIndex]]
+		if special then
+			if special == true then
+				spriteTileCount = 4
+				frameTilesWide = 2
+				frameTilesHigh = 2
+			elseif special == '32x32' then
+				spriteTileCount = 16
+				frameTilesWide = 4
+				frameTilesHigh = 4
+			elseif special == '2 frames' then
+				spriteTileCount = 4
+				frameTilesWide = 2
+				frameTilesHigh = 2
+			elseif special ~= nil then
+				error'here'
+			end
+
+			-- change our frame tile offset getter to linear?
+			getFrameTileOffset = function(frameIndex, tileIndex)
+				return 0x20 * (tileIndex + spriteTileCount * frameIndex)
+			end
+		end
+
+		local charBaseAddr = getTileOffsetForSprite(spriteIndex)
+
+--[[
+-- tiles are 8x8x4bpp = 32 bytes = 0x20 bytes ...
+-- for a 16x16 that is 0x80 bytes
+local tileDataSize = (getTileOffsetForSprite(spriteIndex+1) or 0x183000) - charBaseAddr
+print(
+	'sprite', spriteIndex, spriteNames[spriteIndex],
+	--'tile ofs', ('%x'):format(charBaseAddr),
+	--'size', ('%x'):format(tileDataSize),
+	(tileDataSize/0x20)..' tiles'
+)
+--]]
+
+		-- unique per frame
+		local bpp = 4
+
+		local frameImg = Image(frameTilesWide*tileWidth, frameTilesHigh*tileHeight, 1, uint8_t):clear()
+		frameImg.palette = palette
+
+		-- blit to our 8x8 with palette set up
+		for spriteTileIndex=0,spriteTileCount-1 do
+			local x = spriteTileIndex % frameTilesWide
+			local y = (spriteTileIndex - x) / frameTilesWide
+
+			local tile = rom + charBaseAddr + getFrameTileOffset(frameIndex, spriteTileIndex)
+
+			-- tile to our frame...
+			readTile(frameImg, 8*x, 8*y, tile, bpp)
+		end
+
+		return frameImg
+	end
 end
