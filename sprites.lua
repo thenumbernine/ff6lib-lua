@@ -1,8 +1,11 @@
 --[[
 for npc / character sprites
 --]]
+local ffi = require 'ffi'
 local table = require 'ext.table'
 local Image = require 'image'
+
+local uint8_t = ffi.typeof'uint8_t'
 
 -- add sprite stuff to 'game'
 return function(game)
@@ -773,6 +776,7 @@ return function(game)
 	function game.getSpriteFrameImage(spriteIndex, frameIndex)
 		if not frameIndex then
 			frameIndex = table.keys(spriteFrames[spriteIndex]):sort()[1]
+print('for sprite', spriteIndex, 'getting frame', frameIndex)
 		end
 
 		-- unique per sprite
