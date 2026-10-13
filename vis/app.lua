@@ -1126,7 +1126,18 @@ end
 								if numFrames > 0 then
 									local tex = texs[math.floor(6 * timer.getTime()) % numFrames + 1]
 									self.rgbaTexObj.texs[1] = tex
-									settable(self.rgbaTexObj.uniforms.bbox, x,y-1,1,1.5)
+									local w = tex.width / 16
+									local h = tex.height / 16
+									local drawx = x
+									local drawy = y
+									if tex.height == 24 then
+										drawx = x
+										drawy = y + .5 - h
+									elseif tex.height == 32 or tex.height == 16 then
+										drawx = x + .25
+										drawy = y - .5
+									end
+									settable(self.rgbaTexObj.uniforms.bbox, drawx, drawy, w, h)
 									self.rgbaTexObj:draw()
 								end
 							end

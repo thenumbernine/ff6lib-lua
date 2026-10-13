@@ -557,6 +557,9 @@ function MapWindow:refreshNPCTexs()
 		for frameIndex=0,maxFrames-1 do
 			if game.spriteFrames[n.graphics][frameIndex] then
 				local img = game.getSpriteFrameImage(n.graphics, frameIndex)
+				if n.hflip ~= 0 then
+					img = img:mirror()
+				end
 				local palette = bit.band(n.palette, 7)
 				img.palette = game.getCharPal(palette)
 				self.npcTexs[i]:insert((self:makeTex(img)))
