@@ -683,7 +683,7 @@ return function(game)
 	-- true means 16x16
 	-- 32x32 means 32x32
 	-- and '2 frames' is me noticing they are set to a npc_anim, but i'm lazy about getting into that just yet
-	game.spriteSpecial = {
+	local spriteSpecial = {
 		air_force = true,
 		falcon_1 = '32x32',
 		falcon_2 = true,
@@ -734,6 +734,7 @@ return function(game)
 		goddess_3 = true,
 		odin = '32x32',
 	}
+	game.spriteSpecial = spriteSpecial
 
 	-- points into fieldSpriteGraphics == 0x150000-0x183000
 	local function getTileOffsetForSprite(sprite)
@@ -749,7 +750,7 @@ return function(game)
 
 	function game.getSpriteFrameCount(spriteIndex)
 		local maxFrames = game.countof(game.characterFrameTileOffsets) / 6
-		local special = game.spriteSpecial[spriteNames[spriteIndex]]
+		local special = spriteSpecial[spriteNames[spriteIndex]]
 		if special then
 			if special == true then
 				maxFrames = 1
@@ -764,7 +765,7 @@ return function(game)
 
 	for spriteIndex=0,game.numCharacterSprites-1 do
 		local maxFrames = game.getSpriteFrameCount(spriteIndex)
-		local special = game.spriteSpecial[spriteNames[spriteIndex]]
+		local special = spriteSpecial[spriteNames[spriteIndex]]
 		if special then
 			-- enable our frames
 			for i=0,maxFrames-1 do
@@ -804,7 +805,7 @@ print('for sprite', spriteIndex, 'getting frame', frameIndex)
 			return game.characterFrameTileOffsets[tileIndex + frameIndex * spriteTileCount]
 		end
 
-		local special = game.spriteSpecial[spriteNames[spriteIndex]]
+		local special = spriteSpecial[spriteNames[spriteIndex]]
 		if special then
 			if special == true then
 				spriteTileCount = 4
