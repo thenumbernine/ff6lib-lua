@@ -540,20 +540,28 @@ function MapWindow:refreshNPCTexs()
 	-- load sprite sheet per npc that uses it
 	-- TODO refresh this whenever any npc graphic or palette changes
 	-- double TODO is circumvent imgui and just render to a UI as-is, no palette baking required.
-	for i=#self.npcTexs,1,-1 do
-		self.npcTexs[i]:delete()
-		self.npcTexs[i] = nil
+	for _,texs in ipairs(self.npcTexs) do
+		for _,tex in ipairs(texs) do
+			tex:delete()
+		end
 	end
+	self.npcTexs = table()
 
 	local mapIndex = self.index
 	local mapInfo = game.getMap(mapIndex)
 	if not mapInfo then return end
 
 	for i,n in ipairs(mapInfo.npcs) do
-		local img = game.getSpriteFrameImage(n.graphics)
-		local palette = bit.band(n.palette, 7)
-		img.palette = game.getCharPal(palette)
-		self.npcTexs[i] = self:makeTex(img)
+		self.npcTexs[i] = table()
+		local maxFrames = game.getSpriteFrameCount(n.graphics)
+		for frameIndex=0,maxFrames-1 do
+			if game.spriteFrames[n.graphics][frameIndex] then
+				local img = game.getSpriteFrameImage(n.graphics, frameIndex)
+				local palette = bit.band(n.palette, 7)
+				img.palette = game.getCharPal(palette)
+				self.npcTexs[i]:insert((self:makeTex(img)))
+			end
+		end
 	end
 end
 

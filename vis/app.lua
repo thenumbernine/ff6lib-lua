@@ -1120,11 +1120,15 @@ end
 								showHL()
 							end
 
-							local tex = self.mapWindow.npcTexs[i]
-							if tex then
-								self.rgbaTexObj.texs[1] = tex
-								settable(self.rgbaTexObj.uniforms.bbox, x,y-1,1,1.5)
-								self.rgbaTexObj:draw()
+							local texs = self.mapWindow.npcTexs[i]
+							if texs then
+								local numFrames = #texs
+								if numFrames > 0 then
+									local tex = texs[math.floor(6 * timer.getTime()) % numFrames + 1]
+									self.rgbaTexObj.texs[1] = tex
+									settable(self.rgbaTexObj.uniforms.bbox, x,y-1,1,1.5)
+									self.rgbaTexObj:draw()
+								end
 							end
 						end
 					end
