@@ -560,7 +560,13 @@ function MapWindow:refreshNPCTexs()
 				if n.hflip ~= 0 then
 					img = img:mirror()
 				end
-				local palette = bit.band(n.palette, 7)
+				local palette = n.palette
+				--if n.showRider_or_specialGraphics ~= 0 then
+					-- what to use for special graphics palettes?
+					-- nothing for tritoch
+					-- something for the rest of them...
+					--palette = bit.bor(palette, 8)
+				--end
 				img.palette = game.getCharPal(palette)
 				self.npcTexs[i]:insert((self:makeTex(img)))
 			end
