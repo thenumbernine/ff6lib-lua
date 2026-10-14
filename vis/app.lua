@@ -717,16 +717,12 @@ function App:draw(animFrameIndex)
 		for j=0,1 do
 			local palAnim = game.mapPalAnim + (((map.paletteAnimation-1) << 1) + j)
 			-- copy between self.mapWindow.origMapPalData and .mapPalData
-			local d = math.floor((timer.getTime() - startTime) * 60 / palAnim.frameCounter)
+			local d = math.floor((timer.getTime() - startTime) * 60 / math.max(1,palAnim.frameCounter))
 			local numColors = bit.rshift(palAnim.numColors,1)+1
 			local firstColor = bit.rshift(palAnim.firstColor, 1)
 			for i=0,numColors-1 do
-				local dstp = self.mapWindow.mapPalData + 4 * (
-					((i + d) % numColors) + firstColor
-				)
-				local srcp = self.mapWindow.origMapPalData + 4 * (
-					i + firstColor
-				)
+				local dstp = self.mapWindow.mapPalData + bit.lshift(bit.band(((i + d) % numColors) + firstColor, 0xff), 2)
+				local srcp = self.mapWindow.origMapPalData + bit.lshift(bit.band((i + firstColor), 0xff), 2)
 				for ch=0,3 do
 					dstp[ch] = srcp[ch]
 				end

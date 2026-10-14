@@ -430,16 +430,16 @@ data = ffi.string(dest, #data)
 					-- [[
 					for y=0,tileHeight-1 do
 						local dstp = img.buffer + (xofs + img.width*(yofs+y))
-						local dstp = img.buffer + (xofs + img.width*(yofs+y))
 						local cy = vFlip and tileHeight-1-y or y
 						for x=0,tileWidth-1 do
 							local cx = hFlip and tileWidth-1-x or x
 							dstp[0] = readpixel(tileptr, cx, cy, bpp)
 							-- leave 0 as 0 for transparency's sake
 							-- offset the other colors by 8 ...
-							if dstp[0] > 0 then
-								dstp[0] = bit.bor(8, dstp[0])
-							end
+							-- why?
+							-- yes for animations like narshe lamps
+							-- no for others like tritoch ice, lete river, etc?
+							if dstp[0] > 0 then dstp[0] = bit.bor(8, dstp[0]) end
 							dstp = dstp + 1
 						end
 					end
