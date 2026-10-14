@@ -643,7 +643,7 @@ data = ffi.string(dest, #data)
 						-- so i'm betting this is an extra bitflag that goes along with them ... maybe zLevel?
 						gfxLayer3Ofs = 0x40
 						gfxLayer3Data = gfxLayer3BaseData
-						layer3palor = 0
+						layer3palor = 4
 					else
 						local ofs = animLayer3Props.frames.s[animFrameIndex]
 						gfxLayer3Data = gfxLayer3AnimData:sub(ofs+1, ofs+animLayer3Props.size)
