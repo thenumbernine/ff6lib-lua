@@ -332,23 +332,26 @@ function MapWindow:setIndex(newIndex, pushStack)
 		return
 	end
 
-	local palData = uint8_t_ar(128*4)
-	ffi.fill(palData, ffi.sizeof(palData))
-	for i=0,127 do
-		for j=0,3 do
-			palData[bit.bor(j,bit.lshift(i, 2))] = palette[i+1][j+1]
-		end
-	end
 	if self.mapPalTex then
 		self.mapPalTex:delete()
 	end
+
+	self.origMapPalData = uint8_t_ar(128*4)
+	ffi.fill(self.origMapPalData, ffi.sizeof(self.origMapPalData))
+	for i=0,127 do
+		for j=0,3 do
+			self.origMapPalData[bit.bor(j,bit.lshift(i, 2))] = palette[i+1][j+1]
+		end
+	end
+	self.mapPalData = uint8_t_ar(128*4)
+	ffi.copy(self.mapPalData, self.origMapPalData, ffi.sizeof(self.mapPalData))
 	self.mapPalTex = GLTex2D{
 		width = 16*8,
 		height = 1,
 		internalFormat = gl.GL_RGBA,
 		minFilter = gl.GL_NEAREST,
 		magFilter = gl.GL_NEAREST,
-		data = palData,
+		data = self.mapPalData,
 	}:unbind()
 
 	-- layer images already have 16x16 tiles baked into them...

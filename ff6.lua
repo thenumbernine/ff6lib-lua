@@ -1798,7 +1798,7 @@ local Map = struct{
 		{name='layer3HeightLog2Minus4', type='uint8_t:2'},		-- 0x18.6-7
 		{name='layer3WidthLog2Minus4', type='uint8_t:2'},		-- 0x18.4-5
 		{name='palette', type=uint8_t},							-- 0x19
-		{name='paletteAnimation', type=uint8_t},				-- 0x1a
+		{name='paletteAnimation', type=uint8_t},				-- 0x1a 	index inot game.mapPalAnim[map.paletteAnimation<<1]
 		{name='animatedLayers1And2', type='uint8_t:5'},			-- 0x1b.0-4
 		{name='animatedLayer3', type='uint8_t:3'},				-- 0x1b.5-7
 		{name='music', type=uint8_t},							-- 0x1c
@@ -1869,10 +1869,10 @@ local MapPalAnim = ff6struct{
 	ctypeOnly = true,
 	fields = {
 		{colorCounter = 'uint8_t:4'},
-		{type = 'uint8_t:4'},
+		{type = 'uint8_t:4'},	-- 0=none, 1=cycle, 2=rom, 3=pulse, 8=disabled
 		{frameCounter = uint8_t},
-		{firstColor = uint8_t},
-		{numColors = uint8_t},
+		{firstColor = uint8_t},	-- firstIndex<<1
+		{numColors = uint8_t},	-- (numIndexes-1)<<1
 		{romColorOffset = uint16_t},
 	},
 }
