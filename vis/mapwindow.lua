@@ -187,6 +187,24 @@ function MapWindow:showIndexUI()
 					self:editField(map[0], fieldname, ctype, field)
 				end
 			end
+
+			if map.colorMath >= 0 and map.colorMath < game.countof(game.mapColorMathProps) then
+				ig.igSeparator()
+				ig.igText'colorMath:'
+				local colorMath = game.mapColorMathProps + map.colorMath
+				for fieldname, ctype, field in colorMath:fielditer() do
+					self:editField(colorMath, fieldname, ctype, field)
+				end
+			end
+
+			if map.scroll >= 0 and map.scroll < game.countof(game.mapScrolls) then
+				ig.igSeparator()
+				ig.igText'scroll:'
+				local scroll = game.mapScrolls + map.scroll
+				for fieldname, ctype, field in scroll:fielditer() do
+					self:editField(scroll, fieldname, ctype, field)
+				end
+			end
 		end
 
 		if needTileSheetRebuild then

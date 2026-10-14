@@ -797,7 +797,6 @@ data = ffi.string(dest, #data)
 			layouts = layouts,
 			palette = palette,
 			tilePropsData = tilePropsData,
-			scroll = map.scroll ~= 0 and game.mapScrolls + map.scroll,	-- is 0 used?
 		}
 
 		mapInfo.zAndLayers = map.layer3Priority == 0

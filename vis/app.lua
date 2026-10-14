@@ -24,6 +24,7 @@ local ImGuiAppWithOrbit = require 'imgui.appwithorbit'
 local vis_util = require 'ff6.vis.util'
 local zAndLayersWithoutLayer3Priority = vis_util.zAndLayersWithoutLayer3Priority
 local zAndLayersWithLayer3Priority = vis_util.zAndLayersWithLayer3Priority
+local zAndLayersWithLayer3PriorityAndColorMath4 = vis_util.zAndLayersWithLayer3PriorityAndColorMath4
 local numTilePropsBits = vis_util.numTilePropsBits
 local settable = vis_util.settable
 
@@ -716,9 +717,24 @@ function App:draw(animFrameIndex)
 		and self.layerAnimTexs
 		then
 			-- also in maps.lua ...
-			local zAndLayers = map.layer3Priority == 0
-				and zAndLayersWithoutLayer3Priority
-				or zAndLayersWithLayer3Priority
+			local zAndLayers
+			if map.layer3Priority == 0 then
+				zAndLayers = zAndLayersWithoutLayer3Priority
+			else
+				zAndLayers = zAndLayersWithLayer3Priority
+
+				-- hack to look like colormath-4 using 1 buffer
+				if map.colorMath > 0 and map.colorMath < game.countof(game.mapColorMathProps) then
+					local colorMath = game.mapColorMathProps + map.colorMath
+					if (colorMath.cm == 2 and colorMath.main == 19 and colorMath.sub == 23)	-- colormath 4
+					or (colorMath.cm == 19 and colorMath.main == 19 and colorMath.sub == 4)	-- colormath 2
+					then
+						zAndLayers = zAndLayersWithLayer3PriorityAndColorMath4
+					end
+				end
+			end
+
+
 			for _,zAndLayer in ipairs(zAndLayers) do
 				local z, layer = table.unpack(zAndLayer)
 				local k = 'showAnimTex_'..z..'_'..layer
@@ -730,22 +746,24 @@ function App:draw(animFrameIndex)
 					local animTexs = self.layerAnimTexs[z][layer]
 					if animTexs and #animTexs > 0 then
 
-						local scroll = game.mapScrolls + map.scroll
-						local velx, vely = 0, 0
-						if scroll and layer > 1 then
+						local ofsx, ofsy = 0, 0
+						if layer > 1 and map.scroll > 0 then
+							local scroll = game.mapScrolls + map.scroll
+							local lvel, lmag
 							if layer == 2 then
-								velx = tonumber(scroll.layer2vel.x) * tonumber(scroll.layer2magn.x)
-								vely = tonumber(scroll.layer2vel.y) * tonumber(scroll.layer2magn.y)
+								lvel, lmag = scroll.layer2vel, scroll.layer2magn
 							elseif layer == 3 then
-								velx = tonumber(scroll.layer3vel.x) * tonumber(scroll.layer3magn.x)
-								vely = tonumber(scroll.layer3vel.y) * tonumber(scroll.layer3magn.y)
+								lvel, lmag = scroll.layer3vel, scroll.layer3magn
 							end
+							-- if magn is the parallax effect and 16 is at rest? then...
+							ofsx = tonumber(lvel.x) * t * 16 + (tonumber(lmag.x) - 16) * self.view.pos.x
+							ofsy = tonumber(lvel.y) * t * 16 + (tonumber(lmag.y) - 16) * self.view.pos.y
 						end
 
 						local tex = animTexs[animFrameIndex % #animTexs + 1]
 
-						self.layerDrawObj.uniforms.uvofs[1] = velx / tex.width * t / 16
-						self.layerDrawObj.uniforms.uvofs[2] = vely / tex.height * t / 16
+						self.layerDrawObj.uniforms.uvofs[1] = ofsx / tex.width
+						self.layerDrawObj.uniforms.uvofs[2] = ofsy / tex.height
 
 						drawTex(tex)
 

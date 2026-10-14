@@ -33,6 +33,14 @@ local zAndLayersWithLayer3Priority = {
 	{0,3},
 }
 
+local zAndLayersWithLayer3PriorityAndColorMath4 = {
+	{0,2},
+	{0,3},
+	{0,1},
+	{1,2},
+	{1,1},
+}
+
 
 local numTilePropsBits = 18
 
@@ -111,6 +119,7 @@ return {
 	settable = settable,
 	zAndLayersWithoutLayer3Priority = zAndLayersWithoutLayer3Priority,
 	zAndLayersWithLayer3Priority = zAndLayersWithLayer3Priority,
+	zAndLayersWithLayer3PriorityAndColorMath4 = zAndLayersWithLayer3PriorityAndColorMath4,
 	numTilePropsBits = numTilePropsBits,
 	worldTilePropsNames = worldTilePropsNames,
 	worldTilePropsFlagForName = worldTilePropsFlagForName,
