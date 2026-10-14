@@ -402,6 +402,7 @@ data = ffi.string(dest, #data)
 	end
 
 	function game.layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3Data, gfxLayer3Ofs, palor)	-- i'm writing palor manually cuz where does it come from?
+		palor = palor or 0
 		for yofs=0,1 do
 			for xofs=0,1 do
 				local hFlip = bit.band(0x40, tile16x16) ~= 0
