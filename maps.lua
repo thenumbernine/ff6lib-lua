@@ -401,7 +401,7 @@ data = ffi.string(dest, #data)
 		return tileptr, bpp
 	end
 
-	function game.layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3Data, gfxLayer3Ofs)
+	function game.layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3Data, gfxLayer3Ofs, palor)	-- i'm writing palor manually cuz where does it come from?
 		for yofs=0,1 do
 			for xofs=0,1 do
 				local hFlip = bit.band(0x40, tile16x16) ~= 0
@@ -439,7 +439,7 @@ data = ffi.string(dest, #data)
 							-- why?
 							-- yes for animations like narshe lamps
 							-- no for others like tritoch ice, lete river, etc?
-							if dstp[0] > 0 then dstp[0] = bit.bor(8, dstp[0]) end
+							if dstp[0] > 0 then dstp[0] = bit.bor(palor, dstp[0]) end
 							dstp = dstp + 1
 						end
 					end
@@ -634,8 +634,7 @@ data = ffi.string(dest, #data)
 					end
 					local layoutptr = ffi.cast(uint8_t_p, layoutData)
 
-					local gfxLayer3Ofs
-					local gfxLayer3Data
+					local gfxLayer3Ofs, gfxLayer3Data, layer3palor
 					if not animLayer3Props then
 						-- for non-animated, you skip the first 0x40
 						-- 0x40 at the beginning of all layer3 tiles
@@ -643,10 +642,12 @@ data = ffi.string(dest, #data)
 						-- so i'm betting this is an extra bitflag that goes along with them ... maybe zLevel?
 						gfxLayer3Ofs = 0x40
 						gfxLayer3Data = gfxLayer3BaseData
+						layer3palor = 0
 					else
 						local ofs = animLayer3Props.frames.s[animFrameIndex]
 						gfxLayer3Data = gfxLayer3AnimData:sub(ofs+1, ofs+animLayer3Props.size)
 						gfxLayer3Ofs = 0
+						layer3palor = 8
 					end
 
 					gfxDatas[5] = gfxAnimLayers1And2Data[1 + (animFrameIndex % 4)]
@@ -674,7 +675,8 @@ data = ffi.string(dest, #data)
 									x, y,
 									tile16x16,
 									gfxLayer3Data,
-									gfxLayer3Ofs
+									gfxLayer3Ofs,
+									layer3palor
 								)
 							else
 								game.layer1and2drawtile16x16(
