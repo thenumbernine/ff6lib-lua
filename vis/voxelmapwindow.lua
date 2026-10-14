@@ -739,8 +739,8 @@ function VoxelmapWindow:getTile16x16(x, y, layerIndex)	-- layerIndex is 1-based
 
 	local posx, posy = 0, 0
 	if layerPos[layerIndex]
-	-- if we have a position for the layer, but we're using parallax, then the position is going to be relative to the view
-	--and map.parallax == 0
+	-- if we have a position for the layer, but we're using scroll, then the position is going to be relative to the view
+	--and map.scroll == 0
 	then
 		posx, posy = layerPos[layerIndex]:unpack()
 	end

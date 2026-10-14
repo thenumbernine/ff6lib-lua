@@ -1682,7 +1682,7 @@ local MapColorMathProps = ff6struct{
 }
 assert.eq(ffi.sizeof(MapColorMathProps), 3)
 
-local MapParallax = struct{
+local MapScroll = struct{
 	ctypeOnly = true,
 	tostringFields = true,
 	tostringOmitFalse = true,
@@ -1696,7 +1696,7 @@ local MapParallax = struct{
 		{name='layer3magn', type=XY8b},		-- 6-7
 	},
 }
-assert.eq(ffi.sizeof(MapParallax), 8)
+assert.eq(ffi.sizeof(MapScroll), 8)
 
 local MapNameRef = reftype{
 	ctypeOnly = true,
@@ -1791,7 +1791,7 @@ local Map = struct{
 		{name='mapOverlayProperties', type=uint8_t},			-- 0x11
 		{name='layer2Pos', type=XY8sb},							-- 0x12
 		{name='layer3Pos', type=XY8sb},							-- 0x14
-		{name='parallax', type=uint8_t},						-- 0x16
+		{name='scroll', type=uint8_t},							-- 0x16			index into mapScrolls
 		{name='layer2HeightLog2Minus4', type='uint8_t:2'},		-- 0x17.2-3
 		{name='layer2WidthLog2Minus4', type='uint8_t:2'},		-- 0x17.0-1
 		{name='layer1HeightLog2Minus4', type='uint8_t:2'},		-- 0x17.4-5	layer1Height = 1 << (layer1HeightLog2Minus4 + 4)
@@ -2723,7 +2723,7 @@ Game = struct{
 		-- everything8215 says "length 21 max 32"
 		-- fwiw there's also an entry at 25 and 27, with ff's solid around them
 		-- and the ff's continue up until size 46 ... but who knows what the asm refrences
-		{name = 'mapParallaxes', type = arrayType(MapParallax, 21)},											-- 0x00fe40 - 0x00fee8
+		{name = 'mapScrolls', type = arrayType(MapScroll, 21)},													-- 0x00fe40 - 0x00fee8
 
 		{name = 'unknown_00fee8', type = arrayType(uint8_t, -(0x00fee8 - 0x02ce2b))},							-- 0x00fee8 - 0x02ce2b
 

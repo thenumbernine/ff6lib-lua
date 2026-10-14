@@ -730,15 +730,15 @@ function App:draw(animFrameIndex)
 					local animTexs = self.layerAnimTexs[z][layer]
 					if animTexs and #animTexs > 0 then
 
-						local parallax = game.mapParallaxes + map.parallax
+						local scroll = game.mapScrolls + map.scroll
 						local velx, vely = 0, 0
-						if parallax and layer > 1 then
+						if scroll and layer > 1 then
 							if layer == 2 then
-								velx = tonumber(parallax.layer2vel.x) * tonumber(parallax.layer2magn.x)
-								vely = tonumber(parallax.layer2vel.y) * tonumber(parallax.layer2magn.y)
+								velx = tonumber(scroll.layer2vel.x) * tonumber(scroll.layer2magn.x)
+								vely = tonumber(scroll.layer2vel.y) * tonumber(scroll.layer2magn.y)
 							elseif layer == 3 then
-								velx = tonumber(parallax.layer3vel.x) * tonumber(parallax.layer3magn.x)
-								vely = tonumber(parallax.layer3vel.y) * tonumber(parallax.layer3magn.y)
+								velx = tonumber(scroll.layer3vel.x) * tonumber(scroll.layer3magn.x)
+								vely = tonumber(scroll.layer3vel.y) * tonumber(scroll.layer3magn.y)
 							end
 						end
 

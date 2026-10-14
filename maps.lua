@@ -626,8 +626,9 @@ data = ffi.string(dest, #data)
 
 					local posx, posy = 0, 0
 					if self.layerPos[layer]
-					-- if we have a position for the layer, but we're using parallax, then the position is going to be relative to the view
-					--and map.parallax == 0
+					-- if we have a position for the layer, but we're using scroll, then the position is going to be relative to the view
+					--and map.scroll == 0
+					-- but bake in scroll later... in fact should I bake in layer-pos later or nah?
 					then
 						posx, posy = self.layerPos[layer]:unpack()
 					end
@@ -796,7 +797,7 @@ data = ffi.string(dest, #data)
 			layouts = layouts,
 			palette = palette,
 			tilePropsData = tilePropsData,
-			parallax = map.parallax ~= 0 and game.mapParallaxes + map.parallax,	-- is 0 used?
+			scroll = map.scroll ~= 0 and game.mapScrolls + map.scroll,	-- is 0 used?
 		}
 
 		mapInfo.zAndLayers = map.layer3Priority == 0
