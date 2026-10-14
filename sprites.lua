@@ -248,7 +248,7 @@ return function(game)
 	local spriteIndexes = table.map(spriteNames, function(name,index) return index, name end):setmetatable(nil)
 	game.spriteIndexes = spriteIndexes
 
-	-- grep'ing everything8215/ff6 and getting all npc_gfx sprite + palette instances...
+	-- grep'ing everything8215/ff6/src/event/npc_prop.asm and getting all npc_gfx sprite + palette instances...
 	-- then remove "nothing" sprites and remove no explicit palette npcs
 	-- then sort and remove duplicates
 	game.palettesForSprites = {}
@@ -495,6 +495,7 @@ return function(game)
 	end
 
 	-- filling in some that are missing or had multiple options...
+	-- these are usually set to rainbow .. how come I think that's a special value that means something else?
 	addSpritePal('soldier', 1)
 	addSpritePal('dog', 4)
 	addSpritePal('celes_in_dress', 0)
@@ -510,16 +511,50 @@ return function(game)
 	addSpritePal('figaro_guard_riding', 2)
 	addSpritePal('big_sparkle', 6)
 	addSpritePal('coin', 0)
-	addSpritePal('flying_terra_1', 2)
-	addSpritePal('flying_terra_2', 2)
-	addSpritePal('ending_terra_3', 2)
-	addSpritePal('flying_terra_3', 2)
+	addSpritePal('flying_terra_1', 8)
+	addSpritePal('flying_terra_2', 8)
+	addSpritePal('flying_terra_3', 8)
 	addSpritePal('ending_terra_1', 2)
 	addSpritePal('ending_terra_2', 2)
-	addSpritePal('elevator', spritePaletteIndexes.vehicle)
-	addSpritePal('falcon_1', spritePaletteIndexes.vehicle)
-	addSpritePal('falcon_2', spritePaletteIndexes.vehicle)
-	addSpritePal('falcon_3', spritePaletteIndexes.vehicle)
+	addSpritePal('ending_terra_3', 2)
+	addSpritePal('elevator', 10)				-- looks best with palette 10, 11, 12, 15
+	addSpritePal('falcon_1', 20)
+	addSpritePal('falcon_2', 20)
+	addSpritePal('falcon_3', 20)
+	addSpritePal('rock', 19)
+	addSpritePal('crane_hook_1', 12)	-- 10, 11, 12, 15
+	addSpritePal('crane_hook_2', 12)
+	addSpritePal('crane_hook_3', 12)
+	addSpritePal('big_switch', 12)
+	addSpritePal('guardian_1', 13)
+	addSpritePal('guardian_2', 13)
+	addSpritePal('guardian_3', 13)
+	addSpritePal('guardian_4', 13)
+	addSpritePal('guardian_5', 13)
+	addSpritePal('guardian_6', 13)
+	addSpritePal('magitek_machine', 10)
+	addSpritePal('gate_1', 16)
+	addSpritePal('gate_2', 16)
+	addSpritePal('gate_3', 16)
+	addSpritePal('magitek_train_1', 15)
+	addSpritePal('magitek_train_2', 15)
+	addSpritePal('magitek_train_3', 15)
+	addSpritePal('magitek_train_4', 15)
+	addSpritePal('crane_1', 15)
+	addSpritePal('crane_2', 15)
+	addSpritePal('crane_3', 15)
+	addSpritePal('chadarnook_1', 18)
+	addSpritePal('chadarnook_2', 18)
+	addSpritePal('chadarnook_3', 18)
+	addSpritePal('goddess_1', 16)
+	addSpritePal('goddess_2', 16)
+	addSpritePal('goddess_3', 16)
+	addSpritePal('doom_1', 16)
+	addSpritePal('doom_2', 16)
+	addSpritePal('doom_3', 16)
+	addSpritePal('poltergeist_1', 16)
+	addSpritePal('poltergeist_2', 16)
+	addSpritePal('poltergeist_3', 16)
 
 	-- sprite frames ... my legacy names vs everything8215/ff6's names
 	game.spriteFrameNames = {

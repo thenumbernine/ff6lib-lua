@@ -26,6 +26,14 @@ function SpriteWindow:showIndexUI()
 	local app = self.app
 	local game = app.game
 
+	ig.igText(game.spriteNames[self.index] or '?')
+
+	if ig.luatableInputInt('frameIndex', self, 'frameIndex') then
+		self:refreshTex()
+	end
+
+	ig.igText(game.spriteFrameNames[self.frameIndex] or '?')
+
 	local spriteTex = self.spriteTex
 	if spriteTex then
 		local y = ig.igGetCursorPosY()
@@ -37,10 +45,6 @@ function SpriteWindow:showIndexUI()
 		drawSize.y = math.ceil(scale * spriteTex.height)
 		ig.igImage(spriteTex.id, drawSize, uv0, uv1)
 		ig.igSetCursorPosY(y + math.ceil(spriteTex.height * scale) + 4)
-	end
-
-	if ig.luatableInputInt('frameIndex', self, 'frameIndex') then
-		self:refreshTex()
 	end
 
 	if ig.igCollapsingHeader'fields:' then
@@ -57,6 +61,8 @@ function SpriteWindow:showIndexUI()
 			game.characterPaletteIndexes[self.index % game.countof(game.characterPaletteIndexes)] = self.__tmp
 			self:refreshTex()
 		end
+
+		ig.igText(game.spritePaletteNames[game.characterPaletteIndexes[self.index % game.countof(game.characterPaletteIndexes)]] or '?')
 	end
 end
 

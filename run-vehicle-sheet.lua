@@ -71,6 +71,10 @@ local function run(game)
 			if self.dst.x + allFramesWidths >= self.img.width then
 				self.dst.x = 0
 				self.dst.y = self.dst.y + maxFrameHeight
+				-- hmmm ...
+				if maxFrameHeight == 16 or maxFrameHeight == 32 then
+					self.dst.y = self.dst.y + 8
+				end
 			end
 			for framePlus1,frameImg in ipairs(args.frameImgs) do
 				self:writeFrame{

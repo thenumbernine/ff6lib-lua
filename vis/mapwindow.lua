@@ -583,12 +583,13 @@ function MapWindow:refreshNPCTexs()
 					img = img:mirror()
 				end
 				local palette = n.palette
-				--if n.showRider_or_specialGraphics ~= 0 then
+				if n.showRider_or_specialGraphics ~= 0 then
 					-- what to use for special graphics palettes?
 					-- nothing for tritoch
 					-- something for the rest of them...
-					--palette = bit.bor(palette, 8)
-				--end
+					-- only when palette == 7?
+					palette = table.last(game.palettesForSprites[game.spriteNames[n.graphics]] or {0})
+				end
 				img.palette = game.getCharPal(palette)
 				self.npcTexs[i]:insert((self:makeTex(img)))
 			end

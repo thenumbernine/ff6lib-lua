@@ -1180,6 +1180,9 @@ end
 										drawx = x
 										drawy = y + .5 - h
 									elseif tex.height == 32 or tex.height == 16 then
+										-- TODO this is based on the statues and tritoch
+										-- but it doesn't look like it matches with buttons in magitek factory
+										-- when to use which
 										drawx = x + .25
 										drawy = y - .5
 									end
