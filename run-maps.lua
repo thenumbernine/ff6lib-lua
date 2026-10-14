@@ -777,4 +777,10 @@ for i=0,game.countof(game.mapColorMathProps) do
 end
 print()
 
+for i=0,game.countof(game.mapParallaxes) do
+	print('mapParallaxes['..i..'] = '..game.mapParallaxes[i])
+end
+print()
+
+
 end

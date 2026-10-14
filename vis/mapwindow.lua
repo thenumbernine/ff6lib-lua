@@ -342,6 +342,10 @@ function MapWindow:setIndex(newIndex, pushStack)
 			minFilter = gl.GL_NEAREST,
 			magFilter = gl.GL_NEAREST,
 			data = img.buffer,
+			wrap = {
+				s = gl.GL_REPEAT,
+				t = gl.GL_REPEAT,
+			},
 		}:unbind()
 		tex.image = img
 		return tex

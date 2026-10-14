@@ -796,6 +796,7 @@ data = ffi.string(dest, #data)
 			layouts = layouts,
 			palette = palette,
 			tilePropsData = tilePropsData,
+			parallax = map.parallax ~= 0 and game.mapParallaxes + map.parallax,	-- is 0 used?
 		}
 
 		mapInfo.zAndLayers = map.layer3Priority == 0

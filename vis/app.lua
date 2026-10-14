@@ -70,10 +70,11 @@ void main() {
 precision highp usampler2D;	// needed by #version 300 es
 uniform usampler2D tex;
 uniform sampler2D palTex;
+uniform vec2 uvofs;
 in vec2 tcv;
 out vec4 fragColor;
 void main() {
-	int index = int(texture(tex, tcv, 0.).r);
+	int index = int(texture(tex, tcv + uvofs, 0.).r);
 	fragColor = texelFetch(palTex, ivec2(index, 0), 0);
 
 	// GL_ALPHA_TEST isn't in GLES3:
@@ -96,6 +97,9 @@ void main() {
 		},
 		geometry = {
 			mode = gl.GL_TRIANGLE_STRIP,
+		},
+		uniforms = {
+			uvofs = {0,0},
 		},
 	}
 
@@ -671,6 +675,9 @@ end
 
 -- called by update and called by save ...
 function App:draw(animFrameIndex)
+	local game = self.game
+	local t = timer.getTime() - startTime
+
 	self.layerDrawObj.uniforms.mvProjMat = self.view.mvProjMat.ptr
 
 	local drawTex = function(tex)
@@ -722,7 +729,28 @@ function App:draw(animFrameIndex)
 				then
 					local animTexs = self.layerAnimTexs[z][layer]
 					if animTexs and #animTexs > 0 then
-						drawTex(animTexs[animFrameIndex % #animTexs + 1])
+
+						local parallax = game.mapParallaxes + map.parallax
+						local velx, vely = 0, 0
+						if parallax and layer > 1 then
+							if layer == 2 then
+								velx = tonumber(parallax.layer2vel.x) * tonumber(parallax.layer2magn.x)
+								vely = tonumber(parallax.layer2vel.y) * tonumber(parallax.layer2magn.y)
+							elseif layer == 3 then
+								velx = tonumber(parallax.layer3vel.x) * tonumber(parallax.layer3magn.x)
+								vely = tonumber(parallax.layer3vel.y) * tonumber(parallax.layer3magn.y)
+							end
+						end
+
+						local tex = animTexs[animFrameIndex % #animTexs + 1]
+
+						self.layerDrawObj.uniforms.uvofs[1] = velx / tex.width * t / 16
+						self.layerDrawObj.uniforms.uvofs[2] = vely / tex.height * t / 16
+
+						drawTex(tex)
+
+						self.layerDrawObj.uniforms.uvofs[1] = 0
+                        self.layerDrawObj.uniforms.uvofs[2] = 0
 					end
 				end
 			end

@@ -453,18 +453,6 @@ assert.eq(ffi.sizeof(Palette16_8), 2*16*8)
 
 local numMenuChars = 19
 
-local MapColorMathProps = ff6struct{
-	ctypeOnly = true,
-	fields = {
-		{cm = 'uint8_t:6'},	-- 0=layer1, 1=layer2, 2=layer3, 3=layer4, 4=sprites, 5=back area
-		{half = 'uint8_t:1'},
-		{subtract = 'uint8_t:1'},
-		{main = uint8_t},	-- only uses 5 bits? same as .cm
-		{sub = uint8_t},	-- only uses 5 bits?
-	},
-}
-assert.eq(ffi.sizeof(MapColorMathProps), 3)
-
 ---------------- AUDIO ----------------
 
 local numBRRSamples = 63
@@ -1681,6 +1669,35 @@ local numBattleMessages = 0x100
 
 local numPositionedText = 5	-- might actually be lower
 
+
+local MapColorMathProps = ff6struct{
+	ctypeOnly = true,
+	fields = {
+		{cm = 'uint8_t:6'},	-- 0=layer1, 1=layer2, 2=layer3, 3=layer4, 4=sprites, 5=back area
+		{half = 'uint8_t:1'},
+		{subtract = 'uint8_t:1'},
+		{main = uint8_t},	-- only uses 5 bits? same as .cm
+		{sub = uint8_t},	-- only uses 5 bits?
+	},
+}
+assert.eq(ffi.sizeof(MapColorMathProps), 3)
+
+local MapParallax = struct{
+	ctypeOnly = true,
+	tostringFields = true,
+	tostringOmitFalse = true,
+	tostringOmitNil = true,
+	tostringOmitEmpty = true,
+	packed = true,
+	fields = {
+		{name='layer2vel', type=XY8sb},		-- 0-1
+		{name='layer3vel', type=XY8sb},		-- 2-3
+		{name='layer2magn', type=XY8b},		-- 4-5
+		{name='layer3magn', type=XY8b},		-- 6-7
+	},
+}
+assert.eq(ffi.sizeof(MapParallax), 8)
+
 local MapNameRef = reftype{
 	ctypeOnly = true,
 	getter = function(i)
@@ -2701,8 +2718,14 @@ Game = struct{
 		{name = 'unknown_00e120', type = arrayType(uint8_t, -(0x00e120 - 0x00fe00))},							-- 0x00e120 - 0x00fe00
 
 		{name = 'mapColorMathProps', type = arrayType(MapColorMathProps, 19)},									-- 0x00fe00 - 0x00fe39
+		{name = 'padding_00fe39', type = arrayType(uint8_t, 7)},												-- 0x00fe39 - 0x00fe40 = ff's
 
-		{name = 'unknown_00fe39', type = arrayType(uint8_t, -(0x00fe39 - 0x02ce2b))},							-- 0x00fe39 - 0x02ce2b
+		-- everything8215 says "length 21 max 32"
+		-- fwiw there's also an entry at 25 and 27, with ff's solid around them
+		-- and the ff's continue up until size 46 ... but who knows what the asm refrences
+		{name = 'mapParallaxes', type = arrayType(MapParallax, 21)},											-- 0x00fe40 - 0x00fee8
+
+		{name = 'unknown_00fee8', type = arrayType(uint8_t, -(0x00fee8 - 0x02ce2b))},							-- 0x00fee8 - 0x02ce2b
 
 		-- battle character palette assignment (1 byte each)
 		-- or actually last bit probably means something else since it's not indexable
