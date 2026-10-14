@@ -2202,6 +2202,8 @@ local NPC = struct{
 						{name='masterOffset', type='uint8_t:3'},							-- 1.5-1.7
 						{name='masterOffsetAxis', type='uint16_t:1'},						-- 2.0 = 0=x, 1=y
 						{name='isSlave', type='uint16_t:1'},								-- 2.1
+						-- I have a feeling that, with specialGFX, there are more bits assigned to palette
+						-- or there's some reason special GFX's palettes all appear wrong
 						{name='palette_duplicate', type='uint16_t:3', no_iter=true},		-- 2.2-2.4
 						{name='scrollingLayer_duplicate', type='uint16_t:1', no_iter=true},	-- 2.5 = 0=layer1, 1=layer2
 						{name='flag_duplicate', type='uint16_t:10', no_iter=true},			-- 2.6-3.7
@@ -2731,9 +2733,9 @@ Game = struct{
 		-- or actually last bit probably means something else since it's not indexable
 		-- hmm TODO I don't think this is sized at numCharacterSprites == 165... that's map sprites, this is battle...
 		-- it looks like there's only 24...
-		{name = 'characterPaletteIndexes', type = arrayType(uint8_t, numCharacterSprites)},						-- 0x02ce2b - 0x02ced0 ... should end at 0x02ce43
+		{name = 'characterPaletteIndexes', type = arrayType(uint8_t, 24)},										-- 0x02ce2b - 0x02ce43
 
-		{name = 'unknown_02ced0', type = arrayType(uint8_t, -(0x02ced0 - 0x02d01a))},							-- 0x02ced0 - 0x02d01a
+		{name = 'unknown_02ce43', type = arrayType(uint8_t, -(0x02ce43 - 0x02d01a))},							-- 0x02ce43 - 0x02d01a
 
 		{name = 'formationSizeOffsets', type = arrayType(uint16_t, numFormationSizeOffsets)},					-- 0x02d01a - 0x02d034 = offset by +0x020000 into formationSize[]
 		{name = 'formationSizes', type = arrayType(FormationSize, 48)},											-- 0x02d034 - 0x02d0f4

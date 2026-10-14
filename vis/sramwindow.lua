@@ -536,8 +536,8 @@ function SRAMWindow:setIndex(...)
 		local ch = save.characters.s[charIndex]
 		local img = game.getSpriteFrameImage(ch.sprite)
 		--local palette = bit.band(ch.character, 7)	-- character? sprite? palette? where to go for palette of sprite?
-		--local palette = game.characterPaletteIndexes[charIndex]
-		--local palette = game.characterPaletteIndexes[ch.sprite]
+		--local palette = game.characterPaletteIndexes[charIndex % game.countof(game.characterPaletteIndexes)]
+		--local palette = game.characterPaletteIndexes[ch.sprite % game.countof(game.characterPaletteIndexes)]
 		--img.palette = game.getCharPal(palette)
 		return self:makeTex(img)
 	end)
