@@ -1690,10 +1690,8 @@ local MapScroll = struct{
 	tostringOmitEmpty = true,
 	packed = true,
 	fields = {
-		{name='layer2vel', type=XY8sb},		-- 0-1
-		{name='layer3vel', type=XY8sb},		-- 2-3
-		{name='layer2magn', type=XY8b},		-- 4-5
-		{name='layer3magn', type=XY8b},		-- 6-7
+		{name='layer23vels', type=arrayType(XY8sb, 2)},			-- 0-1, 2-3
+		{name='layer23parallax', type=arrayType(XY8b, 2)},		-- 4-5, 6-7
 	},
 }
 assert.eq(ffi.sizeof(MapScroll), 8)

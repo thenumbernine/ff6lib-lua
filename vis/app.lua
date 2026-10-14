@@ -747,17 +747,13 @@ function App:draw(animFrameIndex)
 					if animTexs and #animTexs > 0 then
 
 						local ofsx, ofsy = 0, 0
-						if layer > 1 and map.scroll > 0 then
+						if layer >= 2 and layer <= 3 and map.scroll > 0 then
 							local scroll = game.mapScrolls + map.scroll
-							local lvel, lmag
-							if layer == 2 then
-								lvel, lmag = scroll.layer2vel, scroll.layer2magn
-							elseif layer == 3 then
-								lvel, lmag = scroll.layer3vel, scroll.layer3magn
-							end
-							-- if magn is the parallax effect and 16 is at rest? then...
-							ofsx = tonumber(lvel.x) * t * 16 + (tonumber(lmag.x) - 16) * self.view.pos.x
-							ofsy = tonumber(lvel.y) * t * 16 + (tonumber(lmag.y) - 16) * self.view.pos.y
+							local layerMinus2 = layer-2
+							local layerVel = scroll.layer23vels[layerMinus2]
+							local layerParallax = scroll.layer23parallax[layerMinus2]
+							ofsx = tonumber(layerVel.x) * t * 16 + (tonumber(layerParallax.x) - 16) * self.view.pos.x
+							ofsy = tonumber(layerVel.y) * t * 16 + (tonumber(layerParallax.y) - 16) * self.view.pos.y
 						end
 
 						local tex = animTexs[animFrameIndex % #animTexs + 1]
