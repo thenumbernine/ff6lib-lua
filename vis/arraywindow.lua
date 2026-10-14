@@ -154,10 +154,12 @@ function ArrayWindow:popupButton(targetIndex, extraText)
 end
 
 -- ctype is probably a ffi ctype object, unless it's a bitfield, then no such object exists (right?) and it's just a string
-function ArrayWindow:editField(obj, fieldname, ctype, field)
+function ArrayWindow:editField(obj, fieldname, ctype, field, displayName)
 	local app = self.app
 	local game = app.game
 	local modified
+
+	displayName = tostring(displayName or fieldname)
 
 	if type(fieldname) == 'string' then
 		ig.igPushID_Str(fieldname)
@@ -170,7 +172,7 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 	local valueobj = obj[fieldname]
 
 	--[[ view only:
-	ig.igText(' '..fieldname..' = '..tostring(valueobj))
+	ig.igText(' '..displayName..' = '..tostring(valueobj))
 	--]]
 	-- [[ edit:
 	ctype = ctype or ffi.typeof(valueobj)
@@ -187,7 +189,7 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 		self.lastWasBitfield = true	-- this is a bad idea ...
 
 		self.__tmp = 0 ~= valueobj
-		if ig.luatableTooltipCheckbox(fieldname, self, '__tmp') then
+		if ig.luatableTooltipCheckbox(displayName, self, '__tmp') then
 			obj[fieldname] = self.__tmp and 1 or 0
 			modified = true
 		end
@@ -195,13 +197,13 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 	elseif ctypeobj == game.uint24_t then
 		self.lastWasBitfield = false
 		self.__tmp = valueobj:value()
-		if ig.luatableInputFloatAsText(fieldname, self, '__tmp') then
+		if ig.luatableInputFloatAsText(displayName, self, '__tmp') then
 			ctypeobj:setValue(self.__tmp)
 		end
 
 	-- sets-of-checkboxes
 	elseif op.safeindex(ctypeobj, 'isBitflags') then
-		ig.igText(fieldname)
+		ig.igText(displayName)
 		local first = true
 		for subfieldname in valueobj:fielditer() do
 			if not first then
@@ -239,7 +241,7 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 	or ctypeobj == game.ShopInfo
 	then
 		-- i think imgui has vector inputs... hmmm
-		ig.igText(fieldname)
+		ig.igText(displayName)
 
 		for subfieldname, subctype, subfield in valueobj:fielditer() do
 			-- TODO is there left tab padding margin whatever support in imgui?
@@ -273,7 +275,7 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 		-- [=[ editSpellRef contents:
 		self.lastWasBitfield = false
 		ig.igSetNextItemWidth(100)
-		modified = ig.luatableInputInt(tostring(fieldname), valueobj, 'i')
+		modified = ig.luatableInputInt(displayName, valueobj, 'i')
 		ig.igSameLine()
 		local targetIndex = valueobj.i
 		--[==[
@@ -305,7 +307,7 @@ function ArrayWindow:editField(obj, fieldname, ctype, field)
 	-- default:
 	else
 		self.lastWasBitfield = false
-		modified = ig.luatableInputFloatAsText(fieldname, obj, fieldname)
+		modified = ig.luatableInputFloatAsText(displayName, obj, fieldname)
 	end
 	--]]
 
