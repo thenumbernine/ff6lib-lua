@@ -2412,12 +2412,28 @@ local CharacterSave = struct{
 		{name='sprite', type=uint8_t},		-- spriteIndex used with getSpriteFrameImage
 		{name='name', type=CharacterName},
 		{name='level', type=uint8_t},
-		{name='hp', type=uint16_t},
-		{name='hpMax', type='uint16_t:14'},
-		{name='hpBoost', type='uint16_t:2'},	-- boost is: 0 = none, 1 = +25%, 2 = +50%, 3 = +12.5%
-		{name='mp', type=uint16_t},
-		{name='mpMax', type='uint16_t:14'},
-		{name='mpBoost', type='uint16_t:2'},
+-- [[ "NYI: packed bit fields" unless I nest them in an anonymous struct.  wonder why.
+		{
+			type = struct{
+				anonymous = true,
+				tostringFields = true,
+				tostringOmitFalse = true,
+				tostringOmitNil = true,
+				tostringOmitEmpty = true,
+				fields = {
+					{name='hp', type=uint16_t},
+					{name='hpMax', type='uint16_t:14'},
+					{name='hpBoost', type='uint16_t:2'},	-- boost is: 0 = none, 1 = +25%, 2 = +50%, 3 = +12.5%
+					{name='mp', type=uint16_t},
+					{name='mpMax', type='uint16_t:14'},
+					{name='mpBoost', type='uint16_t:2'},
+				},
+				metatable = function(mt)
+					mt.typeToString = fieldsToHex
+				end,
+			},
+		},
+--]]
 		{name='exp', type=uint24_t},
 		{name='effect1', type=Effect1},
 		{name='effect4', type=Effect4},			-- only float and interceptor (last two) are used

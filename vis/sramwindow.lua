@@ -208,14 +208,7 @@ function SRAMWindow:showIndexUI()
 
 		local character = save.characters.s + bit.band(15, self.characterIndex)
 		for fieldname, ctype, field in character:fielditer() do
--- TODO why now all the sudden this is giving me "NYI packed bit fields" when it wasn't a few months ago?
-if fieldname ~= 'hpMax'
-and fieldname ~= 'hpBoost'
-and fieldname ~= 'mpMax'
-and fieldname ~= 'mpBoost'
-then
 			self:editField(character, fieldname, ctype, field)
-end
 		end
 
 		-- 12 x 54 spells saved...
