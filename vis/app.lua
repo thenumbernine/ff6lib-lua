@@ -778,6 +778,7 @@ function App:draw(animFrameIndex)
 				if map.colorMath > 0 and map.colorMath < game.countof(game.mapColorMathProps) then
 					local colorMath = game.mapColorMathProps + map.colorMath
 					if (colorMath.cm == 19 and colorMath.main == 19 and colorMath.sub == 4)		-- colorMath 2
+					or (colorMath.cm == 2 and colorMath.main == 19 and colorMath.sub == 4)		-- colorMath 3 ... used by 278 (gogo's room), 315, 316 (phoenix cave upstairs)
 					or (colorMath.cm == 2 and colorMath.main == 19 and colorMath.sub == 23)		-- colorMath 4
 					or (colorMath.cm == 1 and colorMath.main == 19 and colorMath.sub == 23)		-- colorMath 8
 					or (colorMath.cm == 34 and colorMath.main == 23 and colorMath.sub == 19)	-- colorMath 15

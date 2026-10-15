@@ -353,6 +353,22 @@ data = ffi.string(dest, #data)
 		-- tiles 0x300-0x3ff aren't used by bg1 & bg2
 	end
 
+	--[[
+	tile16x16 = bits 0-7 for lookup into tilesetptr
+		... xofs is bit 8
+		... yofs is bit 9
+		... to find the tile8x8 lo byte
+	This is 10 bits.  Then add another 1<<10 == 0x400 to find the hi byte.
+	Combine lo and hi to make `tilesetTile`.
+	tilesetTile has:
+	- bits 0-9 = tile8x8 index
+	- bits 10-12 = hi-pal
+	- bit 13 = z-level
+	- bit 14 = hflip the 8x8
+	- bit 15 = vflip the 8x8
+
+	The tile8x8 goes on to be used as lookup in gfxDatas + gfxLayer3Data
+	--]]
 	function game.layer1and2drawtile16x16(img, x, y, tile16x16, tilesetData, zLevelFlags, gfxDatas, gfxLayer3Data, gfxLayer3Ofs)
 		if not tilesetData then return end
 		assert.len(tilesetData, 0x800)
@@ -388,6 +404,16 @@ data = ffi.string(dest, #data)
 		end
 	end
 
+	--[[
+	tile8x8 is uint8_t for picking what tile in our gfxLayer3Data
+	layer3 is 2bpp, so one 8x8 tile = 16 bytes
+	that means if all 256 8x8 tiles are in here then it needs to be 16*256 = 4096 bytes in size ...
+	... why are some of these 64 bytes offset?
+	... why is non-animated layer3 always 64 bytes offset?
+	... what's in those 64 bytes?
+
+	mind you there's no tileset3 data... which is where layers 1 and 2 get their hi-pal from
+	--]]
 	function game.layer3tile8x8toptr(tile8x8, gfxLayer3Data, gfxLayer3Ofs)
 		local bpp = 2
 		if not gfxLayer3Data then return end
@@ -401,26 +427,46 @@ data = ffi.string(dest, #data)
 		return tileptr, bpp
 	end
 
-	function game.layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3Data, gfxLayer3Ofs, palor)	-- i'm writing palor manually cuz where does it come from?
-		palor = palor or 0
+	--[[
+	tile16x16 is uint8_t and comes from (uint8_t*)mapInfo.layouts[3].data ... so it is byte data
+	- bits 0-5 = become bits 2-7 of tile8x8 index
+	- bit 6 = hflip
+	- bit 7 = vflip
+
+	the tile8x8 index range is 256 tiles, each tile is 16 bytes, so gfxLayer3Data should be 4096 bytes.
+	most the time it is 4160 = 64 + 4096 bytes with 64 byte offset ...
+	--]]
+	function game.layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3Data, gfxLayer3Ofs, layer3PalHiPtr)
 		for yofs=0,1 do
 			for xofs=0,1 do
 				local hFlip = bit.band(0x40, tile16x16) ~= 0
 				local vFlip = bit.band(0x80, tile16x16) ~= 0
-				-- wait because tile16x16 << 2 has to be 8 bits
-				-- that means tile16x16 can only be 6 bits
-				-- and it also means that zLevel, hFlip, vFlip, highPal all must be 0
-				-- nope, in fact, hFlip is bit 6, vFlip  is bit 7
-				-- zLevel might be the bit of the extra 0x40 bytes at the beginning ...
-				-- or in fact 0x40 bytes means 8 bits per unique tile, so idk what goes in there ...
+
+				-- get the tile16x16 index part without hflip/vflip
+				local tile16index = bit.band(tile16x16, 0x3f)
+
+				--[[
+				wait because tile16x16 << 2 has to be 8 bits
+				that means tile16x16 can only be 6 bits
+				and it also means that zLevel, hFlip, vFlip, highPal all must be 0
+				nope, in fact, hFlip is bit 6, vFlip  is bit 7
+				zLevel might be the bit of the extra 0x40 bytes at the beginning ...
+				or in fact 0x40 bytes means 8 bits per unique tile, so idk what goes in there ...
+
+				bit 0 = xofs
+				bit 1 = yofs
+				bits 2-7 = taken from tile16x16 bits 0-5
+				--]]
 				local tilesetTile = bit.bor(
-					bit.lshift(bit.band(0x3f, tile16x16), 2),
+					bit.lshift(tile16index, 2),
 					bit.lshift(yofs, 1),
 					xofs
 				)
-				tilesetTile = bit.band(tilesetTile, 0xff)
-				local tile8x8 = bit.band(tilesetTile, 0x3ff)
+
+				tilesetTile = bit.band(tilesetTile, 0xff)		-- ... but it's already only 8 bits ...
+				local tile8x8 = bit.band(tilesetTile, 0x3ff)	-- ... same ...
 				-- bpp is always 2 for layer3
+--print('gfxLayer3 lookup index', tile8x8, 'of size', #gfxLayer3Data) --welp there is data at the end ...
 				local tileptr, bpp = game.layer3tile8x8toptr(tile8x8, gfxLayer3Data, gfxLayer3Ofs)
 				if tileptr then
 					local xofs = x + bit.lshift(hFlip and (1-xofs) or xofs, 3)
@@ -440,7 +486,10 @@ data = ffi.string(dest, #data)
 							-- why?
 							-- yes for animations like narshe lamps
 							-- no for others like tritoch ice, lete river, etc?
-							if dstp[0] > 0 then dstp[0] = bit.bor(palor, dstp[0]) end
+							if layer3PalHiPtr and dstp[0] > 0 then
+								local palor = bit.band(0x1c, layer3PalHiPtr[tile16index])
+								dstp[0] = bit.bor(dstp[0], palor)
+							end
 							dstp = dstp + 1
 						end
 					end
@@ -568,6 +617,10 @@ data = ffi.string(dest, #data)
 			elseif map.colorMath == 5 and layer == 3 then
 				blend = 0
 
+			-- layer 3 add
+			elseif map.colorMath == 3 and layer == 3 then
+				blend = 0
+
 			-- layer 1 avg
 			elseif map.colorMath == 8 and layer == 1 then
 				blend = 1
@@ -636,13 +689,78 @@ data = ffi.string(dest, #data)
 					local layoutptr = ffi.cast(uint8_t_p, layoutData)
 
 --[[
-layer-3 maps to verify palette:
+layer-3 maps to verify palette (find via gfxLayer? layout3? animatedLayer3?):
+19, 20, 21, 32, 33, 39 = narshe outdoors
+23, 35 = tritoch on narshe cliff
+36, 37, 38, 40, 41, 43, 48, 50 = narshe caves/mines
 42 = tritoch in narshe cave
-113 = lete river (the water palette animation)
+47, 74, 75 = south figaro (water palette might be off?)
+68, 69, 70, 72, 73, 90 = south figaro caves
+91 = south figaro dock
+97, 99 = mt kolts (clouds)
+100, 103 = mt kolts (caves)
+104 = classroom (but no visible difference when disabling it)
+109, 110, 112 = returners hideout
+113 = lete river (the palette-animated water layer)
+114 = lete river caves
+130, 132, 133, 134, 135 = phantom forest (tree overlay)
+136, 156 = some mountain
+148, 156, 157, 158, 184 = mobliz (water)
+150, 154, 183 = mobliz cave (torches)
+155 = mountain cave (light rays)
+159 = baron falls at the veldt
+168 = river to serpent trench
+169 = nikeah
+174 = shadow's dream (phantom forest)
+175 = serpent trench cave
+176, 177, 178 = mt zozo mountain (clouds)
+179, 180 = mt zozo cave (lightrays)
+185 = dragon's neck wob (water)
+187 = nikeah dock water
+188, 189 = kohlingen
+190 = lete river
+195 = kohlingen interior (unused)
+212, 276 = gogo's lair (godrays)
+216 = ending scene of esper world (layer 3 is the left curtain)
+217 = esperville (water)
+218 = esperville cave (lightrays)
+219 = esperville indoors (torches)
+220 = some docks (water)
+221 = zozo (rain)
+253 = vector
+259 = airship over kefka tower ... ? (FIXME layer3 tiles are off)
+261 = kefka's tower outside ... FIXME layer scroll is off
+262, 263, 267, 268, 269, 271, 274 = magitek-factory-like (FIXME layer3 here and magitek facotry is pink blobs)
+275 = ???
+278 = gogo's room (glow)
+281, 282, 283 = umaro's cave (torches)
+284 = maranda (FIXME water)
+292, 296 = kefka's tower magitek rooms (FIXME layer3 tiles)
+298, 299, 300 = daryl's tomb (water)
+313, 314 = phoenix cave downstairs (mist)
+315, 316 = phoenix cave upstairs (water)
+320 = cyan's dream in cave (torches)
+323, 324 = albrook (what a mess ... layer3 priority and colormath=1, maybe it can be rearranged and saved?)
+332 = albrook docks (FIXME water palette in all these towns)
+333 = another magitek lookign place (FIXME)
+334 = kefka's tower exterior ... looks right this time
+335 = kefka's dragon room (layer 3 unused)
+336, 356, 357 = final kefka room (clouds) ... layer3 clouds lookk good but the rest needs work ...
+337 = 3 switch room - magitek factory errors FIXME
+343 = thamasa - unused
+351 = burning house - unused
+352 = magitek lab - FIXME
+353 = cave on veldt (torches)
+355 = kefka statues room (magitek factory errors FIXME)
+358 = floating continent save point (light ray)
+359-364 = fanatic's tower (clouds ... colormath?)
+371, 375 = esper cave (lightrays)
+373 = esper cave mountain
+...
 394 = floating continent (clouds under land and over background earth)
-90 = south figaro turtle cave
 
-wavy layers
+
+also ... wavy layers
 	layers 12
 317 = cyan's dream (layer 2)
 351 = thamasa house on fire (layers 1 and 2)
@@ -651,7 +769,7 @@ wavy layers
 70, 73, 90 = south figaro turtle cave
 91 = south figaro dock (south figaro problems)
 157, 158, 184 = mobliz
-159 = lete river at veldt
+159 = baron falls at veldt
 169 = nikeah (south figaro problems)
 175 = serpent trench cave
 185 = dragon's neck guy's house wob
@@ -665,8 +783,10 @@ wavy layers
 323, 324 = albrook (south figaro problems)
 332 = albrook dock (south figaro problems)
 --]]
+					-- first 0x40 bytes are the hi pal data
+					local layer3PalHiPtr = ffi.cast(uint8_t_p, gfxLayer3BaseData)
 
-					local gfxLayer3Ofs, gfxLayer3Data, layer3palor
+					local gfxLayer3Ofs, gfxLayer3Data
 					if not animLayer3Props then
 						-- for non-animated, you skip the first 0x40
 						-- 0x40 at the beginning of all layer3 tiles
@@ -674,12 +794,10 @@ wavy layers
 						-- so i'm betting this is an extra bitflag that goes along with them ... maybe zLevel?
 						gfxLayer3Ofs = 0x40
 						gfxLayer3Data = gfxLayer3BaseData
-						layer3palor = 4
 					else
 						local ofs = animLayer3Props.frames.s[animFrameIndex]
 						gfxLayer3Data = gfxLayer3AnimData:sub(ofs+1, ofs+animLayer3Props.size)
 						gfxLayer3Ofs = 0
-						layer3palor = 8
 					end
 
 					gfxDatas[5] = gfxAnimLayers1And2Data[1 + (animFrameIndex % 4)]
@@ -708,7 +826,7 @@ wavy layers
 									tile16x16,
 									gfxLayer3Data,
 									gfxLayer3Ofs,
-									layer3palor
+									layer3PalHiPtr
 								)
 							else
 								game.layer1and2drawtile16x16(
