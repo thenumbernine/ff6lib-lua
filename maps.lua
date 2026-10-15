@@ -635,6 +635,19 @@ data = ffi.string(dest, #data)
 					end
 					local layoutptr = ffi.cast(uint8_t_p, layoutData)
 
+--[[
+layer-3 maps to verify palette:
+42 = tritoch in narshe cave
+113 = lete river (the water palette animation)
+394 = floating continent (clouds under land and over background earth)
+90 = south figaro turtle cave
+
+wavy layers
+351 = thamasa house on fire
+90 = south figaro turtle cave
+cyan's dream
+--]]
+
 					local gfxLayer3Ofs, gfxLayer3Data, layer3palor
 					if not animLayer3Props then
 						-- for non-animated, you skip the first 0x40

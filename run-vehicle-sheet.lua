@@ -689,7 +689,6 @@ local function run(game)
 	chocoImg:save(worldspritedir/'chocobo.png')
 end
 
---print('...', select('#', ...), ...)
 if select('#', ...) > 0 then	-- luajit #... == 0 <-> this file was require'd
 	local game = require 'ff6'(( assert(path((...)):read()) ))
 	run(game)

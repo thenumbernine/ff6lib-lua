@@ -1786,7 +1786,7 @@ local Map = struct{
 				end,
 			},
 		},
-		{name='mapOverlayProperties', type=uint8_t},			-- 0x11
+		{name='mapOverlayProperties', type=uint8_t},			-- 0x11			index into mapOverlayPropsOfs ... layer 4?
 		{name='layer2Pos', type=XY8sb},							-- 0x12
 		{name='layer3Pos', type=XY8sb},							-- 0x14
 		{name='scroll', type=uint8_t},							-- 0x16			index into mapScrolls
@@ -2685,7 +2685,11 @@ Game = struct{
 	end,
 
 	fields = {
-		{name = 'name', type = 'unknown_000000', type = arrayType(uint8_t, -(0x000000 - 0x0051ba))},			-- 0x000000 - 0x0051ba
+		{name = 'unknown_000000', type = arrayType(uint8_t, -(0x000000 - 0x004567))},							-- 0x000000 - 0x004567
+
+		{name = 'waveTable', type = arrayType(int16_t, 8*12)},													-- 0x004567 - 0x004627	-- int16_t[12][8] ... first 8 tables-of-8 are layers 12, next 4 are layers 3
+
+		{name = 'unknown_004627', type = arrayType(uint8_t, -(0x004627 - 0x0051ba))},							-- 0x004627 - 0x0051ba
 
 		{name = 'characterMenuImageOffsets', type = arrayType(uint16_t, 16)},									-- 0x0051ba - 0x0051da
 		{name = 'characterMenuImageTileLayout', type = arrayType(uint8_t, 25)},									-- 0x0051da - 0x0051f3
@@ -2715,7 +2719,12 @@ Game = struct{
 		{name = 'unknown_00d386', type = arrayType(uint8_t, -(0x00d386 - 0x00e0a0))},							-- 0x00d386 - 0x00e0a0
 		{name = 'initNPCFlags', type = arrayType(uint8_t, 0x80)}, 												-- 0x00e0a0 - 0x00e120 = initial NPC flags
 
-		{name = 'unknown_00e120', type = arrayType(uint8_t, -(0x00e120 - 0x00fe00))},							-- 0x00e120 - 0x00fe00
+		{name = 'unknown_00e120', type = arrayType(uint8_t, -(0x00e120 - 0x00f4a0))},							-- 0x00e120 - 0x00f4a0
+
+		{name = 'mapOverlayPropsOfs', type = arrayType(uint16_t, 48)},											-- 0x00f4a0 - 0x00f500 offset into mapOverlayPropsCompressed
+		{name = 'mapOverlayPropsCompressed', type = arrayType(uint8_t, -(0x00f500 - 0x00fd00))},				-- 0x00f500 - 0x00fd00
+
+		{name = 'unknown_00fd00', type = arrayType(uint8_t, -(0x00fd00 - 0x00fe00))},							-- 0x00fd00 - 0x00fe00
 
 		{name = 'mapColorMathProps', type = arrayType(MapColorMathProps, 19)},									-- 0x00fe00 - 0x00fe39
 		{name = 'padding_00fe39', type = arrayType(uint8_t, 7)},												-- 0x00fe39 - 0x00fe40 = ff's
@@ -2728,9 +2737,6 @@ Game = struct{
 		{name = 'unknown_00fee8', type = arrayType(uint8_t, -(0x00fee8 - 0x02ce2b))},							-- 0x00fee8 - 0x02ce2b
 
 		-- battle character palette assignment (1 byte each)
-		-- or actually last bit probably means something else since it's not indexable
-		-- hmm TODO I don't think this is sized at numCharacterSprites == 165... that's map sprites, this is battle...
-		-- it looks like there's only 24...
 		{name = 'characterPaletteIndexes', type = arrayType(uint8_t, 24)},										-- 0x02ce2b - 0x02ce43
 
 		{name = 'unknown_02ce43', type = arrayType(uint8_t, -(0x02ce43 - 0x02d01a))},							-- 0x02ce43 - 0x02d01a

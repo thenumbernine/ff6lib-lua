@@ -41,8 +41,13 @@ local App = ImGuiAppWithOrbit()
 App.hasFocus = true
 App.title = 'FF6 Data Visualizer'
 
-App.waveAmpl = 4
-App.waveSpeed = 128
+--[[
+where is wave info stored in ROM?
+351, thamasa house on fire, ampl = 4, speed = 256, freq = 1
+90, turtle pond, ampl = ...
+--]]
+App.waveAmpl = 4	-- wait what units?
+App.waveSpeed = 256	-- wait what units?
 App.waveFreq = 1
 
 function App:initGL(...)

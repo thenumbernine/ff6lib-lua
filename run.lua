@@ -567,7 +567,7 @@ for i=0,countof(game.shops)-1 do
 end
 print()
 
-require 'ff6.run-maps'(rom, game, romsize)
+require 'ff6.run-maps'(game)
 
 -- referenced by event-scripts:
 print(game.dialog)
