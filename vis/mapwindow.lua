@@ -201,8 +201,21 @@ function MapWindow:showIndexUI()
 				ig.igSeparator()
 				ig.igText'scroll:'
 				local scroll = game.mapScrolls + map.scroll
+				--[[ TODO add array support to editfield
 				for fieldname, ctype, field in scroll:fielditer() do
 					self:editField(scroll, fieldname, ctype, field)
+				end
+				--]]
+				for layer=2,3 do
+					ig.igPushID_Str'layer'
+					ig.igPushID_Int(layer)
+					ig.igText('layer '..layer)
+
+					self:editField(scroll.layer23vels, layer-2, nil, nil, 'vel')
+					self:editField(scroll.layer23parallax, layer-2, nil, nil, 'parallax')
+
+					ig.igPopID()
+					ig.igPopID()
 				end
 			end
 		end
