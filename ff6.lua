@@ -12,6 +12,7 @@ local reftype = require 'ff6.reftype'
 
 
 local int8_t = ffi.typeof'int8_t'
+local int16_t = ffi.typeof'int16_t'
 local uint8_t = ffi.typeof'uint8_t'
 local uint16_t = ffi.typeof'uint16_t'
 local uint32_t = ffi.typeof'uint32_t'

@@ -43,12 +43,23 @@ App.title = 'FF6 Data Visualizer'
 
 --[[
 where is wave info stored in ROM?
-351, thamasa house on fire, ampl = 4, speed = 256, freq = 1
+351, thamasa house on fire, ampl = 4, len = 16, freq = 1
 90, turtle pond, ampl = ...
 --]]
-App.waveAmpl = 4	-- wait what units?
-App.waveSpeed = 256	-- wait what units?
-App.waveFreq = 1
+App.waveInfos = {
+	{	-- layers 12
+		prefix = '12',
+		ampl = 4,	-- pixels
+		len = 16,	-- pixels
+		freq = 1,	-- seconds
+	},
+	{	-- layer 3
+		prefix ='3',
+		ampl = 1,	-- pixels
+		len = 8,	-- pixels
+		freq = 1,	-- seconds
+	},
+}
 
 function App:initGL(...)
 	app = self
@@ -81,16 +92,19 @@ precision highp usampler2D;	// needed by #version 300 es
 uniform usampler2D tex;
 uniform sampler2D palTex;
 uniform vec2 uvofs;
-uniform vec4 waveTime;	// set x to negative to disable.  y = ampl, z = speed, w = freq
+uniform vec4 waveInfo;	// set x to negative to disable.  y = ampl, z = len, w = freq
 in vec2 tcv;
 out vec4 fragColor;
 void main() {
 	vec2 tc = tcv + uvofs;
-	if (waveTime.x > 0.) {
-		const float waveAmpl = waveTime.y;
-		const float waveSpeed = waveTime.z;
-		const float waveFreq = waveTime.w;
-		tc.y += waveAmpl * sin(waveSpeed * tc.y - waveFreq * waveTime.x);
+	if (waveInfo.x > 0.) {
+		const float t = waveInfo.x;
+		const float waveAmpl = waveInfo.y;
+		const float waveLen = waveInfo.z;
+		const float waveSpeed = ]]..(2 * math.pi)..[[ / waveLen;
+		const float waveFreq = waveInfo.w;
+		const float waveAngFreq = ]]..(2 * math.pi)..[[ * waveFreq;
+		tc.y += waveAmpl * sin(waveSpeed * tc.y - waveAngFreq * t);
 	}
 	int index = int(texture(tex, tc, 0.).r);
 	fragColor = texelFetch(palTex, ivec2(index, 0), 0);
@@ -118,7 +132,7 @@ void main() {
 		},
 		uniforms = {
 			uvofs = {0,0},
-			waveTime = {-1, 1, 1, 1},
+			waveInfo = {-1, 1, 1, 1},
 		},
 	}
 
@@ -804,17 +818,18 @@ function App:draw(animFrameIndex)
 						local tex = animTexs[animFrameIndex % #animTexs + 1]
 
 						if isWavy then
-							self.layerDrawObj.uniforms.waveTime[1] = t
-							self.layerDrawObj.uniforms.waveTime[2] = self.waveAmpl / tex.height
-							self.layerDrawObj.uniforms.waveTime[3] = self.waveSpeed
-							self.layerDrawObj.uniforms.waveTime[4] = self.waveFreq * 2 * math.pi
+							local waveInfo = layer == 3 and self.waveInfos[2] or self.waveInfos[1]
+							self.layerDrawObj.uniforms.waveInfo[1] = t
+							self.layerDrawObj.uniforms.waveInfo[2] = waveInfo.ampl / tex.height	-- ampl is in pixels, convert to texture size units
+							self.layerDrawObj.uniforms.waveInfo[3] = waveInfo.len / tex.height	-- len is in pixels, convert to texture size units
+							self.layerDrawObj.uniforms.waveInfo[4] = waveInfo.freq				-- freq is in seconds
 						end
 						self.layerDrawObj.uniforms.uvofs[1] = ofsx / tex.width
 						self.layerDrawObj.uniforms.uvofs[2] = ofsy / tex.height
 
 						drawTex(tex)
 
-						self.layerDrawObj.uniforms.waveTime[1] = -1
+						self.layerDrawObj.uniforms.waveInfo[1] = -1
 						self.layerDrawObj.uniforms.uvofs[1] = 0
                         self.layerDrawObj.uniforms.uvofs[2] = 0
 					end
@@ -1293,10 +1308,11 @@ function App:updateGUI()
 				self.view.angle:set(0,0,0,1)
 			end
 
-			ig.luatableInputFloat('waveAmpl', self, 'waveAmpl')
-			ig.luatableInputFloat('waveSpeed', self, 'waveSpeed')
-			ig.luatableInputFloat('waveFreq', self, 'waveFreq')
-
+			for _,info in ipairs(self.waveInfos) do
+				ig.luatableInputFloat('layer'..info.prefix..' waveAmpl', info, 'ampl')
+				ig.luatableInputFloat('layer'..info.prefix..' waveLen', info, 'len')
+				ig.luatableInputFloat('layer'..info.prefix..' waveFreq', info, 'freq')
+			end
 			ig.luatableInputFloat('animSpeed', self, 'animSpeed')
 
 			if map then
