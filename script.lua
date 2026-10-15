@@ -3373,7 +3373,7 @@ print()
 	end
 	for addr,name in pairs{
 		[0x0a004f] = 'WorldTent',
-		[0x0a0059] = 'AirshipGround',
+		[0x0a0059] = 'BlackjackGround',
 		[0x0a0068] = 'AirshipDeck',
 		[0x0a0078] = "FalconDeck",
 		[0x0a0088] = "EnterPhoenixCave",
