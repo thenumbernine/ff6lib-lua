@@ -253,9 +253,7 @@ local function run(game, cmdline)
 				local palette = mapInfo.palette
 				local tilePropsData = mapInfo.tilePropsData
 
-				print('maps[0x'..number.hex(mapIndex)..'] addr '
-					..'0x'..number.hex(ffi.cast('uint8_t*', map) - rom)
-					..' = '..map[0])
+				print('map '..mapIndex)
 				-- map.gfx* points into mapTileGraphicsOffsets into mapTileGraphics
 				-- these are 8x8 tiles
 
@@ -275,7 +273,7 @@ local function run(game, cmdline)
 						tileset.gfxstrs[gfxstr] = true
 						tileset.palettesForGfxStr[gfxstr] = tileset.palettesForGfxStr[gfxstr] or table()
 						tileset.palettesForGfxStr[gfxstr]:insertUnique(paletteIndex)
-		print('setting gfxstr', gfxstr, 'paletteIndex', paletteIndex)
+print('setting gfxstr', gfxstr, 'paletteIndex', paletteIndex)
 						-- map from gfxstr to tilesetIndex/paletteIndex
 						-- this is unique for each set of 640 tile8x8's rendered (used by tilesets)
 						mapGfxStrs[gfxstr] = mapGfxStrs[gfxstr] or {}
@@ -626,6 +624,17 @@ local function run(game, cmdline)
 		end
 		print()
 	end
+
+	for mapIndex=0,countof(game.maps)-1 do
+		local mapInfo = game.getMap(mapIndex)
+		if mapInfo then
+			local map = mapInfo.map
+			print('maps['..mapIndex..'] addr '
+				..'0x'..number.hex(ffi.cast('uint8_t*', map) - rom)
+				..' = '..map[0])
+		end
+	end
+	print()
 
 	for i=0,countof(game.mapAnimPropOfs)-1 do
 		local ofs = game.mapAnimPropOfs[i]

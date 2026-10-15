@@ -643,9 +643,27 @@ layer-3 maps to verify palette:
 90 = south figaro turtle cave
 
 wavy layers
-351 = thamasa house on fire
-90 = south figaro turtle cave
-cyan's dream
+	layers 12
+317 = cyan's dream (layer 2)
+351 = thamasa house on fire (layers 1 and 2)
+	layer 3
+47, 74, 75 = south figaro (still has tile drawing errors)
+70, 73, 90 = south figaro turtle cave
+91 = south figaro dock (south figaro problems)
+157, 158, 184 = mobliz
+159 = lete river at veldt
+169 = nikeah (south figaro problems)
+175 = serpent trench cave
+185 = dragon's neck guy's house wob
+187 = nikeah dock (south figaro problems)
+188, 189 = kohlingen
+217 = esperville
+284 = maranda (south figaro problems)
+298, 299, 300, 301 = daryl's tomb (blend order errors)
+313 = phoenix cave basement (applied to smoke over lava)
+315, 316 = phoenix cave top (applied to water ... i've got a z order issue...)
+323, 324 = albrook (south figaro problems)
+332 = albrook dock (south figaro problems)
 --]]
 
 					local gfxLayer3Ofs, gfxLayer3Data, layer3palor

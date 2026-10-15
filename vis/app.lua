@@ -777,8 +777,10 @@ function App:draw(animFrameIndex)
 				-- hack to look like colormath-4 using 1 buffer
 				if map.colorMath > 0 and map.colorMath < game.countof(game.mapColorMathProps) then
 					local colorMath = game.mapColorMathProps + map.colorMath
-					if (colorMath.cm == 2 and colorMath.main == 19 and colorMath.sub == 23)	-- colormath 4
-					or (colorMath.cm == 19 and colorMath.main == 19 and colorMath.sub == 4)	-- colormath 2
+					if (colorMath.cm == 19 and colorMath.main == 19 and colorMath.sub == 4)		-- colorMath 2
+					or (colorMath.cm == 2 and colorMath.main == 19 and colorMath.sub == 23)		-- colorMath 4
+					or (colorMath.cm == 1 and colorMath.main == 19 and colorMath.sub == 23)		-- colorMath 8
+					or (colorMath.cm == 34 and colorMath.main == 23 and colorMath.sub == 19)	-- colorMath 15
 					then
 						zAndLayers = zAndLayersWithLayer3PriorityAndColorMath4
 					end
