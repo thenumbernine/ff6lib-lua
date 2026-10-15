@@ -444,6 +444,7 @@ data = ffi.string(dest, #data)
 
 				-- get the tile16x16 index part without hflip/vflip
 				local tile16index = bit.band(tile16x16, 0x3f)
+				local palor = layer3PalHiPtr and bit.band(0x1c, layer3PalHiPtr[tile16index])
 
 				--[[
 				wait because tile16x16 << 2 has to be 8 bits
@@ -486,8 +487,7 @@ data = ffi.string(dest, #data)
 							-- why?
 							-- yes for animations like narshe lamps
 							-- no for others like tritoch ice, lete river, etc?
-							if layer3PalHiPtr and dstp[0] > 0 then
-								local palor = bit.band(0x1c, layer3PalHiPtr[tile16index])
+							if dstp[0] > 0 and palor then
 								dstp[0] = bit.bor(dstp[0], palor)
 							end
 							dstp = dstp + 1

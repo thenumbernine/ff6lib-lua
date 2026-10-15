@@ -25,6 +25,7 @@ local tileHeight = require 'ff6.graphics'.tileHeight
 local readTile = require 'ff6.graphics'.readTile
 
 local function run(game, cmdline)
+	cmdline = cmdline or {}
 	local rom = game.rom
 	local Game = game.Game
 	local countof = game.countof
