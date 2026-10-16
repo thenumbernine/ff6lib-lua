@@ -1799,9 +1799,9 @@ local Map = struct{
 		{name='layer3HeightLog2Minus4', type='uint8_t:2'},		-- 0x18.6-7
 		{name='layer3WidthLog2Minus4', type='uint8_t:2'},		-- 0x18.4-5
 		{name='palette', type=uint8_t},							-- 0x19
-		{name='paletteAnimation', type=uint8_t},				-- 0x1a 	index inot game.mapPalAnim[map.paletteAnimation<<1]
+		{name='paletteAnimation', type=uint8_t},				-- 0x1a 	index into game.mapPalAnim[map.paletteAnimation<<1]
 		{name='animatedLayers1And2', type='uint8_t:5'},			-- 0x1b.0-4
-		{name='animatedLayer3', type='uint8_t:3'},				-- 0x1b.5-7
+		{name='animatedLayer3', type='uint8_t:3'},				-- 0x1b.5-7	index into game.mapAnimGraphicsLayer3Ofs
 		{name='music', type=uint8_t},							-- 0x1c
 		{name='unknown_1d', type=uint8_t},						-- 0x1d
 		-- map 21, size is {44,52}, tiles are defined up to {46,54} ... why is it 2 less?
@@ -2843,13 +2843,13 @@ Game = struct{
 		{name = 'formations', type = arrayType(Formation, numFormations)},										-- 0x0f6200 - 0x0f83c0
 		{name = 'padding_0f83c0', type = arrayType(uint8_t, -(0x0f83c0 - 0x0f8400))},							-- 0x0f83c0 - 0x0f8400 - all 'ff' repeated.  probably 4 last empty formations + padding
 		{name = 'monsterScriptOfs', type = arrayType(uint16_t, numMonsters)},									-- 0x0f8400 - 0x0f8700
-		{name = 'monsterScriptData', type = arrayType(uint8_t, -(0x0f8700 - 0x0fc050))},							-- 0x0f8700 - 0x0fc050
+		{name = 'monsterScriptData', type = arrayType(uint8_t, -(0x0f8700 - 0x0fc050))},						-- 0x0f8700 - 0x0fc050
 		{name = 'monsterNames', type = arrayType(MonsterName, numMonsters)},									-- 0x0fc050 - 0x0fcf50
 		{name = 'monsterNameThing', type = arrayType(uint8_t, numMonsters)},									-- 0x0fcf50 - 0x0fd0d0
 		{name = 'monsterAttackNames', type = arrayType(MonsterName, numMonsters)},								-- 0x0fd0d0 - 0x0fdfd0
 		{name = 'padding_0fdfd0', type = arrayType(uint8_t, 0x10)},												-- 0x0fdfd0 - 0x0fdfe0 = 'ff's
 		{name = 'monsterDialogOffsets', type = arrayType(uint16_t, numBattleDialogs)},							-- 0x0fdfe0 - 0x0fe1e0
-		{name = 'monsterDialogBase', type = arrayType(uint8_t, -(0x0fe1e0 - 0x0ff450))},							-- 0x0fe1e0 - 0x0ff450
+		{name = 'monsterDialogBase', type = arrayType(uint8_t, -(0x0fe1e0 - 0x0ff450))},						-- 0x0fe1e0 - 0x0ff450
 
 		{name = 'unknown_0ff450', type = arrayType(uint8_t, -(0x0ff450 - 0x0ffc00))},							-- 0x0ff450 - 0x0ffc00
 
@@ -2867,7 +2867,10 @@ Game = struct{
 		{name = 'padding_0fff47', type = arrayType(uint8_t, 87)},												-- 0x0fff47 - 0x0fff9e = 'ff's
 		{name = 'blitzDescOffsets', type = arrayType(uint16_t, numBlitzes)},									-- 0x0fff9e - 0x0fffae
 		{name = 'swordTechDescOffsets', type = arrayType(uint16_t, numSwordTechs)},								-- 0x0fffae - 0x0fffbe
-		{name = 'battleAnimScripts', type = arrayType(uint8_t, -(0x0fffbe - 0x107fb2))},						-- 0x0fffbe - 0x107fb2 <- indexed into with battleAnimScriptOffsets[i] + 0x100000
+
+		{name = 'padding_0fffbe', type = arrayType(uint8_t, -(0x0fffbe - 0x100000))},							-- 0x0fffbe - 0x100000
+
+		{name = 'battleAnimScriptData', type = arrayType(uint8_t, -(0x100000 - 0x107fb2))},						-- 0x100000 - 0x107fb2 <- indexed into with battleAnimScriptOffsets[i]
 		{name = 'battleAnimSets', type = arrayType(BattleAnimSet, 444)},										-- 0x107fb2 - 0x1097fa
 		{name = 'padding_1097fa', type = arrayType(uint8_t, -(0x1097fa - 0x109800))},							-- 0x1097fa - 0x109800 = 'ff's, just like the end of battleAnimSets
 
@@ -3152,7 +3155,7 @@ assertOffset('esperDescOffsets', 0x0ffe40)
 assertOffset('esperBonusDescs', 0x0ffeae)
 assertOffset('blitzDescOffsets', 0x0fff9e)
 assertOffset('swordTechDescOffsets', 0x0fffae)
-assertOffset('battleAnimScripts', 0x0fffbe)
+assertOffset('battleAnimScriptData', 0x100000)
 assertOffset('battleAnimSets', 0x107fb2)
 assertOffset('battleDialogOffsets', 0x10d000)
 assertOffset('battleAnimFrame16x16Tiles', 0x110141)

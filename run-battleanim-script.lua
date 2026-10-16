@@ -20,7 +20,7 @@ local function outputBattleAnimScripts(game)
 			-- space for 660 entries
 			-- but if they are 1:1 with battleAnimEffects
 			--  then just 650 entries
-			name = 'battleAnimScript',
+			name = 'battleAnimScriptData',
 			n = game.countof(game.battleAnimEffects),
 			--n = 660,
 			offsetArray = game.battleAnimScriptOffsets,
@@ -47,13 +47,13 @@ local function outputBattleAnimScripts(game)
 		for i,addr in ipairs(addrsInOrder) do
 			local addrend = addrsInOrder[i+1] or 0x107fb2
 			print(name..' addr=0x'..number.hex(addr)..':')
-			-- battleAnimScript addrs <-> battleAnimEffects
+			-- battleAnimScriptData addrs <-> battleAnimEffects
 			-- battleEventScript addrs <-> battleAnimEventOfs
 			print(' used by effect/event #s: '..addrs[addr]:mapi(function(effectIndex)
 					-- I forgot already, is effectIndex 1:1 with spell index?
 					return ('0x%02x'):format(effectIndex)
 				end):concat', ')
-			if name == 'battleAnimScript' then
+			if name == 'battleAnimScriptData' then
 				print('-- '..addrs[addr]:mapi(function(effectIndex)
 					return effectIndex < 255 and ('%q'):format(tostring(game.getSpellName(effectIndex))) or ""
 				end):concat', ')
@@ -185,7 +185,7 @@ assert.type(b, 'number')
 					-- 0xc = front of character
 					-- 0xe = "align to character" (which side?)
 					local y = bit.band(subcmd, 4)
--- for battleAnimScript:
+-- for battleAnimScriptData:
 --assert.eq(x, 0)
 --assert.eq(y, 0)
 					rhsprint('setSpeedAndAlign('..speed..', '..align..')')
@@ -1113,7 +1113,7 @@ assert.type(b, 'number')
 					--]]
 					-- [[
 					local arg, arg2 = readu16(), readu16()
--- funny thing, for battleAnimScript, arg2 always matches script PC
+-- funny thing, for battleAnimScriptData, arg2 always matches script PC
 --assert.eq(arg2, bit.band(0xffff, pc))
 					ifblockstack:insert(arg)
 					-- this is always a command "if magitek mode is enabled then jump to" (with no else)

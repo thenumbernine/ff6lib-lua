@@ -134,20 +134,22 @@ local function runEventScript(game, cmdline)
 		end
 	end
 
+	local Cmd = game.Cmds.Cmd
+
 -- override goto's with calls + returns
 -- but that's no good for when the goto is the form of an if-block ...
 --[[
-	local old = game.Cmds.Cmd.getGotoOfsStr
-	game.Cmds.Cmd.getGotoOfsStr = function(addrOfs, op)
+	local old = Cmd.getGotoOfsStr
+	Cmd.getGotoOfsStr = function(addrOfs, op)
 		if op then return old(addrOfs, op) end
 		return game.addrLabel(addrOfs)..'() return'
 	end
 	-- but you also gotta replace in alls subclasses...
 	for i=0,255 do
-		game.EventCmds[i].getGotoOfsStr = game.Cmds.Cmd.getGotoOfsStr
-		game.WorldCmds[i].getGotoOfsStr = game.Cmds.Cmd.getGotoOfsStr
-		game.ObjectCmds[i].getGotoOfsStr = game.Cmds.Cmd.getGotoOfsStr
-		game.VehicleCmds[i].getGotoOfsStr = game.Cmds.Cmd.getGotoOfsStr
+		game.EventCmds[i].getGotoOfsStr = Cmd.getGotoOfsStr
+		game.WorldCmds[i].getGotoOfsStr = Cmd.getGotoOfsStr
+		game.ObjectCmds[i].getGotoOfsStr = Cmd.getGotoOfsStr
+		game.VehicleCmds[i].getGotoOfsStr = Cmd.getGotoOfsStr
 	end
 --]]
 
@@ -189,38 +191,6 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 
 	--]]
 
-	-- return comment with address, bytes, and disasm code
-	-- TODO how about a few columsn on the left instead of every-other-line ?
-	-- and if the byte dump is too big then give this a few newlines
-	local function Cmd_getAsmLine(self)
-		if not self.addr then return end
-		assert.index(self, 'cmdset')
-		assert.index(self, 'sizeInBytes')
-		-- print addr
-		return
-			('%06x '):format(self.addr)
-
-			-- print shorthand cmdset
-			..({
-				EventCmds = 'EV',
-				WorldCmds = 'WO',
-				ObjectCmds = 'OB',
-				VehicleCmds = 'VE',
-				BattleEventCmds = 'BE',
-				MonsterCmds = 'MO',
-			})[self.cmdset]
-
-			-- print out bytes
-			-- TODO for cmds too big, put their data on multiple lines?
-			..ffi.string(rom + self.addr, self.sizeInBytes)
-				:gsub('.', function(b)
-					return (' %02x'):format(b:byte())
-				end)
-	end
-
-	local function Cmd_toCode(self, indent)
-		return tostring(self)
-	end
 
 	-- special-case for multiline indentation for some like charSwitch...
 	local function EventCmds_CallSwitchNPCFlags_toCode(self, indent)
@@ -410,7 +380,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 
 
 	local Patch  = class()
-	Patch.toCode = Cmd_toCode
+	Patch.toCode = Cmd.toCode
 	Patch.toCodeLine = Cmd_toCodeLine
 	function Patch:getAsmLine()
 		if not self.addr then return end
@@ -564,7 +534,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 				..'}'
 		end
 
-		local s = table{Cmd_toCode(self, indent)}
+		local s = table{Cmd.toCode(self, indent)}
 		-- TODO if we have just one call-and-return then just insert that as our callback instead of a lambda of our stmts...
 		if self.stmts then
 			for _,stmt in ipairs(self.stmts) do
@@ -581,8 +551,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		return s:concat'\n'
 	end
 
-
-	for i=0,0xff do
+	do
 		local function check(cl)
 			if game.EventCmds.ObjectScript:isa(cl) then
 				cl.toCode = EventCmds_ObjectScript_toCode
@@ -592,21 +561,22 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 				cl.toCode = EventCmds_CallForDialogResult_toCode
 			elseif game.EventCmds.StartTimer:isa(cl) then
 				cl.toCode = EventCmds_StartTimer_toCode
-			else
-				cl.toCode = Cmd_toCode
 			end
 
 			cl.toCodeLine = Cmd_toCodeLine
-			cl.getAsmLine = Cmd_getAsmLine
 		end
-		check(game.EventCmds[i])
-		check(game.ObjectCmds[i])
-		check(game.WorldCmds[i])
-		check(game.VehicleCmds[i])
-		check(game.BattleEventCmds[i])
-		check(game.MonsterCmds[i])
+		for i=0,0xff do
+			check(game.EventCmds[i])
+			check(game.ObjectCmds[i])
+			check(game.WorldCmds[i])
+			check(game.VehicleCmds[i])
+			check(game.BattleEventCmds[i])
+			check(game.MonsterCmds[i])
+			check(game.BattleAnimCmds[i])
+		end
+		-- instruction without an opcode
+		check(game.BattleAnimCmds.SpeedAndAlign)
 	end
-
 
 	-- BEGIN HIGH LEVEL CODE CONVERSION
 	if not cmdline.skipOpts then
@@ -1528,7 +1498,7 @@ end
 						},
 						-- this is a for-loop-end stmt
 						-- I should instead be nesting for-loop stmts
-						game.EventCmds.EndRepeat()
+						game.Cmds.EndFor()
 					)
 				end
 				i=i+1
@@ -1602,18 +1572,18 @@ end
 				local startIndexes = table()
 				while i <= #stmts do
 					local cmd = stmts[i]
-					if game.EventCmds.BeginRepeat:isa(cmd) then
+					if game.Cmds.ForLoop:isa(cmd) then
 						assert(not cmd.stmts)
 						startIndexes:insert(i)
 						if #startIndexes >= 2 then
 							assert.lt(startIndexes[#startIndexes-1], startIndexes:last())
 						end
-					elseif game.EventCmds.EndRepeat:isa(cmd)
+					elseif game.Cmds.EndFor:isa(cmd)
 					or game.EventCmds.EndRepeatSwitch:isa(cmd)
 					then
 						assert(not cmd.stmts)
 						if #startIndexes == 0 then
-							error(("found EndRepeat/Switch without BeginRepeat at %06x"):format(cmd.addr))
+							error(("found EndFor/Switch without ForLoop at %06x"):format(cmd.addr))
 						end
 
 						-- trace backwards from end--for

@@ -31,6 +31,19 @@ local float = ffi.typeof'float'
 local double = ffi.typeof'double'
 
 
+local function hex2(x)
+	return ('0x%02x'):format(x)
+end
+local function hex4(x)
+	return ('0x%04x'):format(x)
+end
+local function hex6(x)
+	return ('0x%06x'):format(x)
+end
+local function hex8(x)
+	return ('0x%08x'):format(x)
+end
+
 -- this is used to go to for 'return' so often ...
 local commonReturnAddr = 0x0a5eb3
 
@@ -72,6 +85,9 @@ return function(game)
 	local monsterScriptAddr = ffi.offsetof(Game, 'monsterScriptData')	-- 0x0f8700
 	local monsterScriptAddrEnd = monsterScriptAddr + ffi.sizeof(game.monsterScriptData)
 
+	local battleAnimScriptAddr = ffi.offsetof(Game, 'battleAnimScriptData')	-- mine starts at 0x0fffbe but offsets are at 0x100000
+	local battleAnimScriptAddrEnd = battleAnimScriptAddr + ffi.sizeof(game.battleAnimScriptData)
+
 --DEBUG:print('event script ranges:')
 --DEBUG:print(game.addrLabel(scriptBaseAddr)..'-'..game.addrLabel(scriptBaseAddrEnd))
 --DEBUG:print(game.addrLabel(scriptBaseAddr2)..'-'..game.addrLabel(scriptBaseAddrEnd2))
@@ -106,9 +122,16 @@ return function(game)
 	Cmd.__concat = string.concat
 	function Cmd:__tostring()
 		if self.descstr then return self.descstr end
+
+		if type(self.desc) ~= 'string' then
+			error("for cmdset="..tostring(self.classCmdSet)..' cmd='..tostring(self.cmd).." __tostring failed to find self.desc")
+		end
+
+		assert.eq(self.self, nil)
 		self.self = self	-- ugly hack for template cuz i dont want to do an ugly metatable __index hack
 		local s = template(self.desc, self)
 		self.self = nil
+
 		return s
 	end
 	-- only for template env
@@ -139,7 +162,49 @@ return function(game)
 		return op..str
 	end
 
+
+	-- used by run-event-script.lua (should rename to run-script since it does multiple right now)
+	-- default impl:
+	function Cmd.toCode(self, indent)
+		return tostring(self)
+	end
+
+	local cmdSetAbbrev = {
+		EventCmds = 'EV',
+		WorldCmds = 'WO',
+		ObjectCmds = 'OB',
+		VehicleCmds = 'VE',
+		BattleEventCmds = 'BE',
+		MonsterCmds = 'MO',
+		BattleAnimCmds = 'BA',
+	}
+
+	-- return comment with address, bytes, and disasm code
+	-- TODO how about a few columsn on the left instead of every-other-line ?
+	-- and if the byte dump is too big then give this a few newlines
+	function Cmd.getAsmLine(self)
+		if not self.addr then return end
+		assert.index(self, 'cmdset')
+		assert.index(self, 'sizeInBytes')
+		-- print addr
+		return
+			('%06x '):format(self.addr)
+
+			-- print shorthand cmdset
+			..cmdSetAbbrev[self.cmdset]
+
+			-- print out bytes
+			-- TODO for cmds too big, put their data on multiple lines?
+			..ffi.string(rom + self.addr, self.sizeInBytes)
+				:gsub('.', function(b)
+					return (' %02x'):format(b:byte())
+				end)
+	end
+
+
 	-- generic cmds when you need a superclass transcending any specific cmdset:
+
+
 	local Cmds = {}
 	game.Cmds = Cmds
 	Cmds.Cmd = Cmd	-- parent-class of all script cmds
@@ -151,10 +216,12 @@ return function(game)
 	local ObjectCmds = {}
 	local VehicleCmds = {}
 	local BattleEventCmds = {}	-- used by game.battleEventScript[]
-	local MonsterCmds = {}		-- used by game.monsterScriptOfs & game.monsterScriptData
+	local MonsterCmds = {}		-- used by game.monsterScriptOfs[] & game.monsterScriptData
+	local BattleAnimCmds = {}	-- used by game.battleAnimScriptOffsets[] & game.battleAnimScriptData
 
 
 	-- event-commands:
+
 
 	-- this will hold cmds 0-255 for event-scripts
 	game.EventCmds = EventCmds
@@ -513,7 +580,7 @@ return function(game)
 		{0x70, 0x71, 0x72}
 	} do
 		for layer,cmd in ipairs(cmds) do
-			EventCmds['ScrollBackground'..('0x%02x'):format(cmd)] = EventCmd:subclass{
+			EventCmds['ScrollBackground'..hex2(cmd)] = EventCmd:subclass{
 				cmd = cmd,
 				argtypes = {int8_t, int8_t},
 				argnames = {'hscroll', 'vscroll'},
@@ -652,7 +719,7 @@ return function(game)
 				..(self.zUpper and ", zUpper=true" or "")
 				..(self.showTitle and ", showTitle=true" or '')
 				..(", dir="..self.dir)
-				..(", pos={"..('0x%02x'):format(self.x)..", "..('0x%02x'):format(self.y).."}")
+				..(", pos={"..hex2(self.x)..", "..hex2(self.y).."}")
 				..(self.vehicle > 0 and ", vehicle="..self.vehicle or '')
 				..(self.flag2 and ', flag2=true' or '')
 				..(self.flag3 and ', flag3=true' or '')
@@ -893,31 +960,26 @@ return function(game)
 		desc = 'unlockBumRush()',
 	}
 
--- CHECK
 	EventCmds.Sleep15 = EventCmd:subclass{
 		cmd = 0x91,
 		desc = 'sleep(1/4)',
 	}
 
--- CHECK
 	EventCmds.Sleep30 = EventCmd:subclass{
 		cmd = 0x92,
 		desc = 'sleep(1/2)',
 	}
 
--- CHECK
 	EventCmds.Sleep45 = EventCmd:subclass{
 		cmd = 0x93,
 		desc = 'sleep(3/4)',
 	}
 
--- CHECK
 	EventCmds.Sleep60 = EventCmd:subclass{
 		cmd = 0x94,
 		desc = 'sleep(1)',
 	}
 
--- CHECK
 	EventCmds.Sleep120 = EventCmd:subclass{
 		cmd = 0x95,
 		desc = 'sleep(2)',
@@ -1084,26 +1146,28 @@ return function(game)
 		desc = "cutscene'magitek factory'",
 	}
 
-	EventCmds.BeginRepeat = EventCmd:subclass{
-		cmd = 0xb0,
+	local ForLoop = Cmd:subclass{
 		argtypes = {uint8_t},
 		argnames = {'count'},
 		getargs = function(self, ...)
-			EventCmd.getargs(self, ...)
-			self.count = self.count
+			Cmd.getargs(self, ...)
 			self.trace.indent = self.trace.indent + 1
 		end,
 		desc = 'for i=1,<?=count?> do',
 	}
+	Cmds.ForLoop = ForLoop
 
-	EventCmds.EndRepeat = EventCmd:subclass{
-		cmd = 0xb1,
+	local EndFor = Cmd:subclass{
 		getargs = function(self)
 			self.indent = self.indent - 1
 			self.trace.indent = self.trace.indent - 1
 		end,
 		desc = 'end--for',
 	}
+	Cmds.EndFor = EndFor
+
+	EventCmds.ForLoop = EventCmd:subclass(ForLoop, {cmd=0xb0})
+	EventCmds.EndFor = EventCmd:subclass(EndFor, {cmd=0xb1})
 
 	EventCmds.Call = EventCmd:subclass{
 		cmd = 0xb2,
@@ -1137,7 +1201,6 @@ return function(game)
 		end,
 	}
 
--- CHECK
 	EventCmds.Sleep = EventCmd:subclass{
 		cmd = 0xb4,
 		argtypes = {uint8_t},
@@ -1148,7 +1211,6 @@ return function(game)
 		desc = 'sleep(<?=frames?>/60)'
 	}
 
--- CHECK
 	EventCmds.SleepQuarterSeconds = EventCmd:subclass{
 		cmd = 0xb5,
 		argtypes = {uint8_t},
@@ -1370,7 +1432,7 @@ return function(game)
 
 	-- in EventCmds for 0xc0-0xcf and in WorldCmds for 0xb0-0xbf
 	for cmd=0xc0,0xcf do
-		EventCmds[('Cond 0x%02x'):format(cmd)] = EventCmd:subclass(Cond, {cmd = cmd})
+		EventCmds['Cond '..hex2(cmd)] = EventCmd:subclass(Cond, {cmd = cmd})
 	end
 
 	--[[
@@ -1382,7 +1444,7 @@ return function(game)
 	(no delay)
 	--]]
 	for cmd=0xd0,0xdd do
-		EventCmds['SetFlag'..('0x%02x'):format(cmd)] = EventCmd:subclass{
+		EventCmds['SetFlag'..hex2(cmd)] = EventCmd:subclass{
 			cmd = cmd,
 			argtypes = {uint8_t},
 			getargs = function(self, flagIndex)
@@ -1412,9 +1474,9 @@ return function(game)
 	--0xe3 = all characters in all parties
 	--0xe4 = "sets a switch for the current active party index" ... so like "TERRA"=0 for party1, "LOCKE"=1 for party2, etc?
 	for cmd=0xde,0xe4 do
-		EventCmds['SetCharSwitchFlags'..('0x%02x'):format(cmd)] = EventCmd:subclass{
+		EventCmds['SetCharSwitchFlags'..hex2(cmd)] = EventCmd:subclass{
 			cmd = cmd,
-			desc = 'setCharSwitchFlags('..('0x%02x'):format(cmd)..')',
+			desc = 'setCharSwitchFlags('..hex2(cmd)..')',
 		}
 	end
 
@@ -1568,7 +1630,7 @@ return function(game)
 		desc = 'return',
 		endTrace = true,
 	}
-	game.Cmds.Return = Return
+	Cmds.Return = Return
 
 	EventCmds.Return = EventCmd:subclass(Return, {
 		cmd = 0xfe,
@@ -1579,7 +1641,7 @@ return function(game)
 		desc = 'endScript()',
 		endTrace = true
 	}
-	game.Cmds.EndScript = EndScript
+	Cmds.EndScript = EndScript
 
 	EventCmds.EndScript = EventCmd:subclass(EndScript, {
 		cmd = 0xff,
@@ -1598,12 +1660,10 @@ cl.classname = k
 		if not EventCmds[i] then
 			EventCmds[i] = EventCmd:subclass{
 				cmd = i,
-				desc = '??? '..('0x%02x'):format(i),
+				desc = '??? '..hex2(i),
 			}
 		end
 	end
-
-
 
 
 	-- ok now comes object-commands
@@ -1749,7 +1809,6 @@ cl.classname = k
 	-- from everything8215's ff6/src/event/README.md:
 	-- "event, world, and vehicle script modes operate at 60 fps"
 	-- "object script mode operates at 15 fps"
--- CHECK
 	ObjectCmds.Sleep = ObjectCmd:subclass{
 		cmd = 0xe0,
 		argtypes = {uint8_t},
@@ -1762,7 +1821,7 @@ cl.classname = k
 	e4,e5,e6 = clear
 	--]]
 	for cmd=0xe1,0xe6 do
-		ObjectCmds['SetFlag'..('0x%02x'):format(cmd)] = ObjectCmd:subclass{
+		ObjectCmds['SetFlag'..hex2(cmd)] = ObjectCmd:subclass{
 			cmd = cmd,
 			argtypes = {uint8_t},
 			getargs = function(self, flagIndex)
@@ -1789,7 +1848,6 @@ cl.classname = k
 		}
 	end
 
-	-- "goto" or "call" ?
 	ObjectCmds.Call = ObjectCmd:subclass{
 		cmd = 0xf9,
 		argtypes = {uint24_t},
@@ -1834,7 +1892,7 @@ cl.classname = k
 				return 'while true do yield() end'
 			end
 
-			local s = self.getGotoStr(self:getDestAddr())
+			local s = Cmd.getGotoStr(self:getDestAddr())
 			if self.random then
 				s = 'if math.random() < .5 then '..s..' end'
 			end
@@ -1933,7 +1991,7 @@ cl.classname = k
 		if not ObjectCmds[i] then
 			ObjectCmds[i] = ObjectCmd:subclass{
 				cmd = i,
-				desc = '??? '..('0x%02x'):format(i),
+				desc = '??? '..hex2(i),
 			}
 		end
 	end
@@ -2159,7 +2217,7 @@ cl.classname = k
 		if not WorldCmds[i] then
 			WorldCmds[i] = WorldCmd:subclass{
 				cmd = i,
-				desc = '??? '..('0x%02x'):format(i),
+				desc = '??? '..hex2(i),
 			}
 		end
 	end
@@ -2404,135 +2462,138 @@ cl.classname = k
 		if not VehicleCmds[i] then
 			VehicleCmds[i] = VehicleCmd:subclass{
 				cmd = i,
-				desc = '??? '..('0x%02x'):format(i),
+				desc = '??? '..hex2(i),
 			}
 		end
 	end
+
 
 
 	-- battle-event-script:
 
 
-	game.BattleEventCmds = BattleEventCmds
-	local BattleEventCmd = Cmd:subclass()
-	game.BattleEventCmd  = BattleEventCmd
+	do
+		game.BattleEventCmds = BattleEventCmds
+		local BattleEventCmd = Cmd:subclass()
+		game.BattleEventCmd  = BattleEventCmd
 
-	BattleEventCmds.BattleDialogTop = BattleEventCmd:subclass{
-		cmd = 0x00,
-		argtypes = {uint8_t},
-		argnames = {'index'},
-		__tostring = function(self)
-			return 'dialogTop('..tolua(tostring(game.battleDialog[self.index]))..')'
-		end,
-	}
-	BattleEventCmds.BattleDialogBottom = BattleEventCmd:subclass{
-		cmd = 0x01,
-		argtypes = {uint8_t},
-		argnames = {'index'},
-		__tostring = function(self)
-			return 'dialogBottom('..tolua(tostring(game.battleDialog[self.index]))..')'
-		end,
-	}
-	-- 0x02 is unused?
-	for i=0,3 do
-		BattleEventCmds['CharAnim'..i] = BattleEventCmd:subclass{
-			cmd = 0x03 + i,
-			argtypes = {uint8_t, uint16_t},
-			argnames = {'char', 'addrOfs'},	-- addrOfs relative to 0x100000 / 0xd00000 probably for all battle events
+		BattleEventCmds.BattleDialogTop = BattleEventCmd:subclass{
+			cmd = 0x00,
+			argtypes = {uint8_t},
+			argnames = {'index'},
 			__tostring = function(self)
-				return 'charAnim('
-					..i..', '
-					..self.char..', '
-					..('0x%04x'):format(self.addrOfs)
-				..')'
+				return 'dialogTop('..tolua(tostring(game.battleDialog[self.index]))..')'
 			end,
 		}
-	end
-	for i=0,5 do
-		BattleEventCmds['MonsterAnim'..i] = BattleEventCmd:subclass{
-			cmd = 0x07 + i,
-			argtypes = {uint8_t, uint16_t},
-			argnames = {'char', 'addrOfs'},	-- addrOfs relative to 0x100000 / 0xd00000 probably for all battle events
+		BattleEventCmds.BattleDialogBottom = BattleEventCmd:subclass{
+			cmd = 0x01,
+			argtypes = {uint8_t},
+			argnames = {'index'},
 			__tostring = function(self)
-				return 'monsterAnim('
-					..i..', '
-					..self.char..', '
-					..('0x%04x'):format(self.addrOfs)
-				..')'
+				return 'dialogBottom('..tolua(tostring(game.battleDialog[self.index]))..')'
 			end,
 		}
-	end
-	BattleEventCmds.AttackAnim = BattleEventCmd:subclass{
-		cmd = 0x0d,
-		argtypes = {uint8_t, uint8_t, uint8_t},
-		argnames = {'anim', 'attacker', 'targets'},
-		desc = 'attackAnim(<?=anim?>, <?=attacker?>, <?=targets?>)',
-	}
-	BattleEventCmds.ResetAnim = BattleEventCmd:subclass{
-		cmd = 0x0e,
-		desc = 'resetAnim()',
-	}
-	BattleEventCmds.ExecAnim = BattleEventCmd:subclass{
-		cmd = 0x0f,
-		desc = 'execAnim()',
-	}
-	BattleEventCmds.CloseDialog = BattleEventCmd:subclass{
-		cmd = 0x10,
-		desc = 'closeDialog()',
-	}
-	BattleEventCmds.OpenDialog = BattleEventCmd:subclass{
-		cmd = 0x11,
-		desc = 'openDialog()',
-	}
-	BattleEventCmds.AllCharsAnim = BattleEventCmd:subclass{
-		cmd = 0x12,
-		argtypes = table{uint16_t}:rep(24),
-		__tostring = function(self)
-			return 'allCharsAnim('
-				..self.args
-				:mapi(function(addr)
-					return ('0x%04x'):format(addr)
-				end)
-				:concat', '
-			..')'
-		end,
-		--[[ TODO switch to BattleAnimCmds
-		getBranchAddrs = function(self)
-			return self.args:mapi(function(addr)
-				return {addr = 0x100000 + addr}
-			end)
-		end,
-		--]]
-	}
-	BattleEventCmds.AddCharTarget = BattleEventCmd:subclass{
-		cmd = 0x13,
-		argtypes = {uint8_t},
-		argnames = {'target'},
-		desc = 'addCharTarget(<?=target?>)',
-	}
-	BattleEventCmds.ShowCharMenu = BattleEventCmd:subclass{
-		cmd = 0x14,
-		argtypes = {uint8_t},
-		argnames = {'target'},
-		desc = 'showCharMenu(<?=target?>)',
-	}
-	BattleEventCmds.EndScript = BattleEventCmd:subclass(EndScript, {
-		cmd = 0xff,
-	})
-	for _,k in ipairs(table.keys(BattleEventCmds)) do
-		local cl = BattleEventCmds[k]
-		if cl.cmd then	-- some abstract classes are in BattleEventCmds but don't have a .cmd
-			assert.type(cl.cmd, 'number')
-cl.classname = k
-			BattleEventCmds[cl.cmd] = cl
-		end
-	end
-	for i=0,255 do
-		if not BattleEventCmds[i] then
-			BattleEventCmds[i] = BattleEventCmd:subclass{
-				cmd = i,
-				desc = '??? '..('0x%02x'):format(i),
+		-- 0x02 is unused?
+		for i=0,3 do
+			BattleEventCmds['CharAnim'..i] = BattleEventCmd:subclass{
+				cmd = 0x03 + i,
+				argtypes = {uint8_t, uint16_t},
+				argnames = {'char', 'addrOfs'},	-- addrOfs relative to battleAnimScriptAddr / 0x100000 / 0xd00000 probably for all battle events
+				__tostring = function(self)
+					return 'charAnim('
+						..i..', '
+						..self.char..', '
+						..hex4(self.addrOfs)
+					..')'
+				end,
 			}
+		end
+		for i=0,5 do
+			BattleEventCmds['MonsterAnim'..i] = BattleEventCmd:subclass{
+				cmd = 0x07 + i,
+				argtypes = {uint8_t, uint16_t},
+				argnames = {'char', 'addrOfs'},	-- addrOfs relative to battleAnimScriptAddr / 0x100000 / 0xd00000 probably for all battle events
+				__tostring = function(self)
+					return 'monsterAnim('
+						..i..', '
+						..self.char..', '
+						..hex4(self.addrOfs)
+					..')'
+				end,
+			}
+		end
+		BattleEventCmds.BattleAnim = BattleEventCmd:subclass{
+			cmd = 0x0d,
+			argtypes = {uint8_t, uint8_t, uint8_t},
+			argnames = {'anim', 'attacker', 'targets'},
+			desc = 'battleAnim(<?=anim?>, <?=attacker?>, <?=targets?>)',
+		}
+		BattleEventCmds.ResetAnim = BattleEventCmd:subclass{
+			cmd = 0x0e,
+			desc = 'resetAnim()',
+		}
+		BattleEventCmds.ExecAnim = BattleEventCmd:subclass{
+			cmd = 0x0f,
+			desc = 'execAnim()',
+		}
+		BattleEventCmds.CloseDialog = BattleEventCmd:subclass{
+			cmd = 0x10,
+			desc = 'closeDialog()',
+		}
+		BattleEventCmds.OpenDialog = BattleEventCmd:subclass{
+			cmd = 0x11,
+			desc = 'openDialog()',
+		}
+		BattleEventCmds.AllCharsAnim = BattleEventCmd:subclass{
+			cmd = 0x12,
+			argtypes = table{uint16_t}:rep(24),
+			__tostring = function(self)
+				return 'allCharsAnim('
+					..self.args
+					:mapi(function(addr)
+						return hex4(addr)
+					end)
+					:concat', '
+				..')'
+			end,
+			--[[ TODO switch to BattleAnimCmds
+			getBranchAddrs = function(self)
+				return self.args:mapi(function(addr)
+					return {addr = battleAnimScriptAddr + addr}
+				end)
+			end,
+			--]]
+		}
+		BattleEventCmds.AddCharTarget = BattleEventCmd:subclass{
+			cmd = 0x13,
+			argtypes = {uint8_t},
+			argnames = {'target'},
+			desc = 'addCharTarget(<?=target?>)',
+		}
+		BattleEventCmds.ShowCharMenu = BattleEventCmd:subclass{
+			cmd = 0x14,
+			argtypes = {uint8_t},
+			argnames = {'target'},
+			desc = 'showCharMenu(<?=target?>)',
+		}
+		BattleEventCmds.EndScript = BattleEventCmd:subclass(EndScript, {
+			cmd = 0xff,
+		})
+		for _,k in ipairs(table.keys(BattleEventCmds)) do
+			local cl = BattleEventCmds[k]
+			if cl.cmd then	-- some abstract classes are in BattleEventCmds but don't have a .cmd
+				assert.type(cl.cmd, 'number')
+	cl.classname = k
+				BattleEventCmds[cl.cmd] = cl
+			end
+		end
+		for i=0,255 do
+			if not BattleEventCmds[i] then
+				BattleEventCmds[i] = BattleEventCmd:subclass{
+					cmd = i,
+					desc = '??? '..hex2(i),
+				}
+			end
 		end
 	end
 
@@ -2608,7 +2669,7 @@ cl.classname = k
 		game.MonsterCmd = MonsterCmd
 
 		for cmd=0,0xef do
-			MonsterCmds['Attack '..('0x%02x'):format(cmd)] = MonsterCmd:subclass{
+			MonsterCmds['Attack '..hex2(cmd)] = MonsterCmd:subclass{
 				cmd = cmd,
 				__tostring = function(self)
 					return	'doAttack('..self.cmd..')\t-- '..getSpellName(cmd)
@@ -2862,9 +2923,9 @@ cl.classname = k
 					-- is it always < ?
 					return 'if '..getTarget(p2)..'.mp < '..p3
 				elseif condIndex == 8 then
-					return 'if 0 ~= targetStatus('..getTarget(p2)..') & (1 << '..('0x02%x'):format(p3)..')'
+					return 'if 0 ~= targetStatus('..getTarget(p2)..') & (1 << '..hex2(p3)..')'
 				elseif condIndex == 9 then
-					return 'if 0 == targetStatus('..getTarget(p2)..') & (1 << '..('0x%02x'):format(p3)..')'
+					return 'if 0 == targetStatus('..getTarget(p2)..') & (1 << '..hex2(p3)..')'
 				elseif condIndex == 11 then
 					assert.eq(p3, 0)
 					return 'if monsterTimer(self) > '..(p2 * 2)	-- seconds?
@@ -2982,39 +3043,1582 @@ cl.classname = k
 			if not MonsterCmds[i] then
 				MonsterCmds[i] = MonsterCmd:subclass{
 					cmd = i,
-					desc = '??? '..('0x%02x'):format(i),
+					desc = '??? '..hex2(i),
 				}
 			end
 		end
 	end
 
 
-	-- still to do: battle-anim-script
+	-- battle-anim-script
 
 
-	-- useful function
-	local function readAndInc(ctype, addr)
-		ctype = ffi.typeof(ctype)
-		local ptrtype = ffi.typeof('$*', ctype)
-		local o = ffi.cast(ptrtype, rom + addr)[0]
-		addr = addr + ffi.sizeof(ctype)
-		-- if it's a primitive and bitness <= 32
-		if ctype == uint8_t
-		or ctype == int8_t
-		or ctype == uint16_t
-		or ctype == int16_t
-		or ctype == uint32_t
-		or ctype == int32_t
-		or ctype == float
-		or ctype == double
-		then
-			o = tonumber(o)
-		elseif ctype == uint24_t then
-			o = o:value()
-		else
-			o = ctype(o)
+	do
+		local function getaddr(addr)
+			return game.addrLabel(addr + battleAnimScriptAddr)
 		end
-		return o, addr
+		local movedirs = {
+			[0] = 'down/forward',
+			'down',
+			'down/back',
+			'forward',
+			'back',
+			'up/forward',
+			'up',
+			'up/back'
+		}
+
+
+		game.BattleAnimCmds = BattleAnimCmds
+		local BattleAnimCmd = Cmd:subclass()
+		game.BattleAnimCmd  = BattleAnimCmd
+
+		local ShowFrame = BattleAnimCmd:subclass{
+			desc = 'showFrame(<?=cmd?>)',
+		}
+		BattleAnimCmds.ShowFrame = ShowFrame
+		for cmd=0,0x1f do
+			BattleAnimCmds[('ShowFrame_0x%02x'):format(cmd)] = ShowFrame:subclass{cmd=cmd}
+		end
+
+		BattleAnimCmds.Cmd_0x80 = BattleAnimCmd:subclass{
+			cmd = 0x80,
+			digest = function(self, read)
+				-- maybe this deserves a lookup table of its own?
+				local subcmd = read(uint8_t)
+				if subcmd == 0x00 then
+					self.descstr = 'quadraSlamSlice()'
+				elseif subcmd == 0x01 then
+					self.descstr = ''
+				elseif subcmd == 0x02 then
+					self.descstr = ''
+				elseif subcmd == 0x03 then
+					self.descstr = ''
+				elseif subcmd == 0x04 then
+					self.descstr = 'randomizeVectorAngleAndPosInitFireDanceSprites()'
+				elseif subcmd == 0x05 then
+					self.descstr = 'bumRush()'
+				elseif subcmd == 0x06 then
+					self.descstr = 'initTornado()'
+				elseif subcmd == 0x07 then
+					self.descstr = 'moveTornadoToThreadPos()'
+				elseif subcmd == 0x08 then
+					self.descstr = 'moveThreadToVectorPosition()'
+				elseif subcmd == 0x09 then
+					self.descstr = 'updateObjSpriteTilePriorityForTornado()'
+				elseif subcmd == 0x0A then
+					self.descstr = 'whiteEffectMagicIntro()'
+				elseif subcmd == 0x0B then
+					self.descstr = 'updateEsperPreAnimationBallsPos()'
+				elseif subcmd == 0x0C then
+					self.descstr = ''
+				elseif subcmd == 0x0D then
+					self.descstr = ''
+				elseif subcmd == 0x0E then
+					self.descstr = ''
+				elseif subcmd == 0x0F then
+					self.descstr = ''
+				elseif subcmd == 0x10 then
+					self.descstr = 'moveToTargetPos()'
+				elseif subcmd == 0x11 then
+					self.descstr = 'randomizeVectorAngle()'
+				elseif subcmd == 0x12 then
+					self.descstr = ''
+				elseif subcmd == 0x13 then
+					self.descstr = 'makeTargetImp()'
+				elseif subcmd == 0x14 then
+					self.descstr = 'makeTargetVanish()'
+				elseif subcmd == 0x15 then
+					self.descstr = 'moveCircleToThreadPos()'
+				elseif subcmd == 0x16 then
+					self.descstr = ''
+				elseif subcmd == 0x17 then
+					self.descstr = 'updateSpriteLayerPriorityBasedOnTarget()'
+				elseif subcmd == 0x18 then
+					self.descstr = 'loadSketchedMonsterPalette()'
+				elseif subcmd == 0x19 then
+					self.descstr = 'sketch()'
+				elseif subcmd == 0x1A then
+					local arg = read(uint8_t)
+					self.descstr = ''
+				elseif subcmd == 0x1B then
+					self.descstr = 'transformIntoMagicite()'
+				elseif subcmd == 0x1C then
+					self.descstr = 'decrScreenBrightness()'
+				elseif subcmd == 0x1D then
+					self.descstr = 'transformIntoMagicite()'
+				elseif subcmd == 0x1E then
+					self.descstr = ''
+				elseif subcmd == 0x1F then
+					self.descstr = ''
+				elseif subcmd == 0x20 then
+					self.descstr = ''
+				elseif subcmd == 0x21 then
+					self.descstr = 'updateRotatingSpriteLayerPriority()'
+				elseif subcmd == 0x22 then
+					self.descstr = 'pearlWind()'
+				elseif subcmd == 0x23 then
+					self.descstr = 'pearlWind()'
+				elseif subcmd == 0x24 then
+					self.descstr = 'clear_BG3_HDMA_scrolldata()'
+				elseif subcmd == 0x25 then
+					self.descstr = 'clear_BG1_HDMA_scrolldata()'
+				elseif subcmd == 0x26 then
+					local arg = read(uint8_t)
+					self.descstr = 'setCharColorPalUpdates('..tostring(arg ~= 0)..')'
+				elseif subcmd == 0x27 then
+					local arg = read(uint8_t)
+					self.descstr = 'showCharsForEsperAttack('..tostring(arg ~= 0)..')'
+				elseif subcmd == 0x28 then
+					local arg = read(uint8_t)
+					self.descstr = 'setAllCharsSpritePriority('
+						..bit.band(3, bit.rshift(arg, 4))
+						..')'
+				elseif subcmd == 0x29 then
+					local arg = read(uint8_t)
+					self.descstr = 'showEsperAttackCursorSprite('..tostring(arg ~= 0)..')'
+				elseif subcmd == 0x2A then
+					local arg = read(uint8_t)
+					self.descstr = 'loadSpriteAndAnimPal('..hex2(arg)..')'
+				elseif subcmd == 0x2B then
+					local arg = read(uint8_t)
+					self.descstr = 'loadBG1AnimPal('..hex2(arg)..')'
+				elseif subcmd == 0x2C then
+					local arg = read(uint8_t)
+					self.descstr = 'loadBG3AnimPal('..hex2(arg)..')'
+				elseif subcmd == 0x2D then
+					local x = read(uint16_t)
+					local y = read(uint16_t)
+					local z = read(uint16_t)
+					self.descstr = 'jumpBasedOnAttackType{'
+						..'normal='..getaddr(x)
+						..', backOrSide34='..getaddr(y)
+						..', pincerOrSide12='..getaddr(z)
+						..'}'
+				elseif subcmd == 0x2E then
+					local x = read(uint8_t)
+					local y = read(uint8_t)
+					self.descstr = 'moveSpriteTo('
+						..hex2(x)..', '
+						..hex2(y)..')'
+				elseif subcmd == 0x2F then
+					self.descstr = ''
+				elseif subcmd == 0x30 then
+					local arg = read(uint8_t)
+					self.descstr = 'loadChar1AnimPal('..hex2(arg)..')'
+				elseif subcmd == 0x31 then
+					local speed = read(uint8_t)
+					self.descstr = 'moveInWideSineWave('..hex2(speed)..')'
+				elseif subcmd == 0x32 then
+					local x = read(uint16_t)
+					local y = read(uint16_t)
+					if x == y then
+						self.descstr = 'jumpTo('..getaddr(x)..')'
+					else
+						self.descstr = 'jumpIfFacing('
+							..getaddr(x)..', '
+							..getaddr(y)..')'
+					end
+				elseif subcmd == 0x33 then
+					local arg = read(uint8_t)
+					self.descstr = 'updateRainbowGradientLines()'
+				elseif subcmd == 0x34 then
+					self.descstr = 'copyMonsterToCharPalettes()'
+				elseif subcmd == 0x35 then
+					self.descstr = 'useCharPalsForMonsterSpriteData()'
+				elseif subcmd == 0x36 then
+					self.descstr = 'restoreMonsterSpritePals()'
+				elseif subcmd == 0x37 then
+					self.descstr = 'clearFixedColorValueHDMAData()'
+				elseif subcmd == 0x38 then
+					self.descstr = 'enableHighPriorityBG3()'
+				elseif subcmd == 0x39 then
+					local arg = read(uint8_t)
+					self.descstr = 'updateBlueGradientLines()'
+				elseif subcmd == 0x3A then
+					local arg = read(uint8_t)
+					self.descstr = ''
+				elseif subcmd == 0x3B then
+					self.descstr = 'setTargetColorPalToAnimPal()'
+				elseif subcmd == 0x3C then
+					self.descstr = 'setTargetColorPaletteToNormal()'
+				elseif subcmd == 0x3D then
+					self.descstr = 'quadraSlamSlice()'
+				elseif subcmd == 0x3E then
+					local arg = read(uint8_t)
+					self.descstr = 'setMainScreenDesignation()'
+				elseif subcmd == 0x3F then
+					self.descstr = 'sonicDive()'
+				elseif subcmd == 0x40 then
+					local arg = read(uint8_t)
+					self.descstr = 'setScreenMode('..hex2(arg)..')'
+				elseif subcmd == 0x41 then
+					local cx, cy, dx, dy = read(int8_t), read(int8_t), read(int8_t), read(int8_t)
+					self.descstr = 'shrinkBG1AndMove('
+						..cx..','..cy..', '	-- shrink-x shrink-y
+						..dx..','..dy..')'	-- move-x move-y
+				elseif subcmd == 0x42 then
+					local vh = read(uint8_t)
+					self.descstr = 'set_MODE7_register('
+						..tostring(0 ~= bit.band(2, vh))..', '		-- vflip
+						..tostring(0 ~= bit.band(1, vh))..')'		-- hflip
+				elseif subcmd == 0x43 then
+					self.descstr = 'moonSongCharm()'
+				elseif subcmd == 0x44 then
+					self.descstr = 'fireBoltIceBeam()'
+				elseif subcmd == 0x45 then
+					local arg = read(uint8_t)
+					self.descstr = 'set_BG12_mask_register()'
+				elseif subcmd == 0x46 then
+					self.descstr = ''
+				elseif subcmd == 0x47 then
+					self.descstr = ''
+				elseif subcmd == 0x48 then
+					self.descstr = 'clear'
+				elseif subcmd == 0x49 then
+					self.descstr = 'inkHitVirite()'
+				elseif subcmd == 0x4A then
+					self.descstr = ''
+				elseif subcmd == 0x4B then
+					self.descstr = 'updateRedYellowGradientLines()'
+				elseif subcmd == 0x4C then
+					self.descstr = 'moveTriangleToThreadPosition()'
+				elseif subcmd == 0x4D then
+					self.descstr = 'setVectorFromTriangleToTarget()'
+				elseif subcmd == 0x4E then
+					self.descstr = ''
+				elseif subcmd == 0x4F then
+					self.descstr = ''
+				elseif subcmd == 0x50 then
+					self.descstr = ''
+				elseif subcmd == 0x51 then
+					self.descstr = 'rippler()'
+				elseif subcmd == 0x52 then
+					self.descstr = 'stone()'
+				elseif subcmd == 0x53 then
+					self.descstr = 'rpolarity()'
+				elseif subcmd == 0x54 then
+					self.descstr = 'rpolarity()'
+				elseif subcmd == 0x55 then
+					self.descstr = 'quasar()'
+				elseif subcmd == 0x56 then
+					self.descstr = 'goner()'
+				elseif subcmd == 0x57 then
+					local arg = read(uint8_t)
+					self.descstr = 'set_BG34_window_mask('..hex2(arg)..')'
+				elseif subcmd == 0x58 then
+					local arg = read(uint8_t)
+					self.descstr = 'setCircleShape('..hex2(arg)..')'
+				elseif subcmd == 0x59 then
+					self.descstr = 'gonerFlareStar()'
+				elseif subcmd == 0x5A then
+					self.descstr = 'mindBlast()'
+				elseif subcmd == 0x5B then
+					self.descstr = 'mindBlast()'
+				elseif subcmd == 0x5C then
+					self.descstr = 'mindBlast()'
+				elseif subcmd == 0x5D then
+					self.descstr = ''
+				elseif subcmd == 0x5E then
+					self.descstr = 'overcast()'
+				elseif subcmd == 0x5F then
+					local arg = read(int8_t)
+					self.descstr = 'incBlueBgGrad('..arg..')'
+				elseif subcmd == 0x60 then
+					local flags = read(uint32_t)	-- TODO is aabbccdd 4 sets of 2 bits or 4 bytes?
+					self.descstr = 'toggleAttackerStatus('..hex8(flags)..')'
+				elseif subcmd == 0x61 then
+					local xx, yy, zz = read(uint8_t), read(uint8_t), read(uint8_t)
+					self.descstr = ''
+				elseif subcmd == 0x62 then
+					self.descstr = 'evilTootFader()'
+				elseif subcmd == 0x63 then
+					local arg = read(uint8_t)
+					self.descstr = 'moveInNarrowVertSineWave('..hex2(arg)..')'	-- speed
+				elseif subcmd == 0x64 then
+					self.descstr = 'purifierInvizEdge()'
+				elseif subcmd == 0x65 then
+					self.descstr = ''
+				elseif subcmd == 0x66 then
+					self.descstr = 'shockWave()'
+				elseif subcmd == 0x67 then
+					self.descstr = 'loadExtraEsperPalette()'
+				elseif subcmd == 0x68 then
+					self.descstr = 'purifier()'
+				elseif subcmd == 0x69 then
+					self.descstr = 'updateSpriteLayerPriorityBasedOnAttacker('
+				elseif subcmd == 0x6A then
+					self.descstr = 'alignBottomOfThreadWithBottomOfTarget()'
+				elseif subcmd == 0x6B then
+					self.descstr = 'lqpearl()'
+				elseif subcmd == 0x6C then
+					self.descstr = 'overcast()'
+				elseif subcmd == 0x6D then
+					self.descstr = 'disableBattleMenu()'
+				elseif subcmd == 0x6E then
+					self.descstr = ''
+				elseif subcmd == 0x6F then
+					self.descstr = ''
+				elseif subcmd == 0x70 then
+					self.descstr = ''
+				elseif subcmd == 0x71 then
+					self.descstr = 'restoreCharPals()'
+				elseif subcmd == 0x72 then
+					local arg = read(uint8_t)
+					self.descstr = 'branchIfAttackHit('..getaddr(self.trace.pc + arg)..')'
+				elseif subcmd == 0x73 then
+					local arg = read(uint8_t)
+					self.descstr = 'setDiceGraphics('..hex2(arg)..')'
+				elseif subcmd == 0x74 then
+					self.descstr = ''
+				elseif subcmd == 0x75 then
+					self.descstr = 'superball()'
+				elseif subcmd == 0x76 then
+					local arg = read(uint8_t)
+					self.descstr = 'seize'
+				elseif subcmd == 0x77 then
+					self.descstr = 'seize'
+				elseif subcmd == 0x78 then
+					self.descstr = 'discard'
+				elseif subcmd == 0x79 then
+					self.descstr = 'characters run to left side of screen (takes 56 loops to reach other side)'
+				elseif subcmd == 0x7A then
+					self.descstr = 'characters run to right side of screen (takes 56 loops to reach other side)'
+				elseif subcmd == 0x7B then
+					self.descstr = 'flip all characters (after running to opposite side of screen)'
+				elseif subcmd == 0x7C then
+					self.descstr = 'swap target and attacker'
+				elseif subcmd == 0x7D then
+					local arg = read(uint8_t)
+					self.descstr = 'if dragonHornEffectIsActive() then goto _'..getaddr(self.trace.pc + arg)..' end'
+				elseif subcmd == 0x7E then
+					self.descstr = 'flip target character vertically'
+				elseif subcmd == 0x7F then
+					self.descstr = 'hide all monsters'
+				elseif subcmd == 0x80 then
+					self.descstr = 'boss death'
+				elseif subcmd == 0x81 then
+					self.descstr = ''
+				elseif subcmd == 0x82 then
+					self.descstr = 'boss death'
+				elseif subcmd == 0x83 then
+					self.descstr = ''
+				elseif subcmd == 0x84 then
+					self.descstr = 'chadarnook exit'
+				elseif subcmd == 0x85 then
+					self.descstr = 'chadarnook exit'
+				elseif subcmd == 0x86 then
+					local arg = read(uint8_t)
+					self.descstr = 'play sound effect '
+						..hex2(arg)..', pan based on sprite X position'
+				elseif subcmd == 0x87 then
+					local arg = read(uint8_t)
+					self.descstr = 'play sound effect '
+						..hex2(arg)..', pan based on sprite Y position'
+				elseif subcmd == 0x88 then
+					self.descstr = ''
+				elseif subcmd == 0x89 then
+					local arg = read(uint8_t)
+					self.descstr = ''
+				elseif subcmd == 0x8A then
+					self.descstr = 'set target monster sprite priority to 0'
+				elseif subcmd == 0x8B then
+					self.descstr = 'play ching sound effect'
+				elseif subcmd == 0x8C then
+					local arg = read(uint8_t)
+					self.descstr = 'play sound effect '
+						..hex2(arg)..', pan center'
+				else
+					self.descstr = '!!! uncharted subcmd'
+				end
+			end,
+		}
+
+		BattleAnimCmds[0x81] = BattleAnimCmd:subclass{
+			cmd = 0x81,
+			argtypes = {uint8_t, uint8_t},
+			argnames = {'leftSpriteIndex', 'rightSpriteIndex'},
+			desc = 'setAttackerSprite(<?=leftSpriteIndex?>, <?=rightSpriteIndex?>)'	-- npc/char sprite, (left, right)
+		}
+		BattleAnimCmds[0x82] = BattleAnimCmd:subclass{
+			cmd = 0x82,
+			argtypes = {uint8_t, uint8_t},
+			argnames = {'leftSpriteIndex', 'rightSpriteIndex'},
+			desc ='setTargetSprite(<?=leftSpriteIndex?>, <?=rightSpriteIndex?>)',	-- (left, right)
+		}
+		BattleAnimCmds[0x83] = BattleAnimCmd:subclass{
+			cmd = 0x83,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'move(currentEnt, '
+					..movedirs[bit.rshift(self.arg, 5)]
+					..', '..hex2(bit.band(self.arg, 0x1f)+1)
+					..')'
+			end,
+		}
+		BattleAnimCmds[0x84] = BattleAnimCmd:subclass{
+			cmd = 0x84,
+			argtypes = {uint8_t},
+			argnames = {'speed'},
+			desc = 'setAnimSpeed(<?=speed?>)',
+		}
+		BattleAnimCmds[0x85] = BattleAnimCmd:subclass{
+			cmd = 0x85,
+			desc = 'moveThreadToAttackerPosition()',
+		}
+		BattleAnimCmds[0x86] = BattleAnimCmd:subclass{
+			cmd = 0x86,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'move(attacker, '
+					..movedirs[bit.rshift(self.arg, 5)]
+					..', '..hex2(bit.band(self.arg, 0x1f)+1)..')'
+			end,
+		}
+		BattleAnimCmds[0x87] = BattleAnimCmd:subclass{
+			cmd = 0x87,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'move(target, '
+					..movedirs[bit.rshift(self.arg, 5)]
+					..', '..hex2(bit.band(self.arg, 0x1f)+1)..')'
+			end,
+		}
+		BattleAnimCmds[0x88] = BattleAnimCmd:subclass{
+			cmd = 0x88,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return [[$F71D fight: set frame to ]]
+					..hex2(self.arg)..[[ and jump forward with weapon]]
+			end,
+		}
+
+		-- same as eventcmds 0xb0 & 0xb1
+		BattleAnimCmds.ForLoop = BattleAnimCmd:subclass(ForLoop, {
+			cmd = 0x89,
+			getargs = function(self, ...)
+				Cmds.ForLoop.getargs(self, ...)
+				self.count = self.count - 1
+			end,
+		})
+
+		BattleAnimCmds.EndFor = EventCmd:subclass(EndFor, {cmd=0x8a})
+
+		BattleAnimCmds[0x8B] = BattleAnimCmd:subclass{
+			cmd = 0x8B,
+			argtypes = {uint8_t},
+			getargs = function(self, arg)
+				Cmd.getargs(self, arg)
+				self.arg = arg
+				self.trace.indent = self.trace.indent + 1
+			end,
+			__tostring = function(self)
+				return 'animated loop frame offset from +0 to +'..hex2(self.arg-1)
+			end,
+		}
+		BattleAnimCmds[0x8C] = BattleAnimCmd:subclass{
+			cmd = 0x8C,
+			getargs = function(self)
+				self.indent = self.indent - 1
+				self.trace.indent = self.trace.indent - 1
+			end,
+			desc = 'end -- animated loop',
+		}
+
+		BattleAnimCmds[0x8D] = BattleAnimCmd:subclass{
+			cmd = 0x8D,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'if animationIsHflipped() then setDirAndMove('
+					..movedirs[bit.rshift(self.arg, 5)]
+					..', '..hex2(bit.band(self.arg, 0x1f)+1)..') end'
+			end,
+		}
+		BattleAnimCmds[0x8E] = BattleAnimCmd:subclass{
+			cmd = 0x8E,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'show thread'
+					..(0 ~= bit.band(0x80, self.arg) and ' below' or ' above')
+					..(0 ~= bit.band(0x40, self.arg) and ' front' or ' back')
+					..' other sprites (sprite priority) with'
+					..(0 ~= bit.band(1, self.arg) and '' or ' opposite')..' weapon hand'
+			end,
+		}
+		BattleAnimCmds[0x8F] = BattleAnimCmd:subclass{
+			cmd = 0x8F,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				-- TODO either 0x8D or 0x8F should probably be 'vflipped'
+				return 'if animationIsHflipped() then setDirAndMove('
+					..movedirs[bit.rshift(self.arg, 5)]
+					..' an, '..hex2(bit.band(self.arg, 0x1f)+1)..') end'
+			end,
+		}
+		BattleAnimCmds[0x90] = BattleAnimCmd:subclass{
+			cmd = 0x90,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'set thread sprite tile priority to '
+					..bit.band(3, bit.rshift(self.arg, 4))
+					..' (tile priority)'
+			end,
+		}
+		BattleAnimCmds[0x91] = BattleAnimCmd:subclass{
+			cmd = 0x91,
+			desc = 'move this thread to attacker thread position',
+		}
+		BattleAnimCmds[0x92] = BattleAnimCmd:subclass{
+			cmd = 0x92,
+			argtypes = {uint8_t, uint8_t},
+			argnames = {'speed', 'branch'},
+			__tostring = function(self)
+				return 'move thread along vector (speed '
+					..hex2(self.speed)..', code branch '
+					..hex2(self.branch)..')'
+			end,
+		}
+		BattleAnimCmds[0x93] = BattleAnimCmd:subclass{
+			cmd = 0x93,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'set position on vector to '..hex2(self.arg)
+			end,
+		}
+		BattleAnimCmds[0x94] = BattleAnimCmd:subclass{
+			cmd = 0x94,
+			desc = 'set vector from attacker to a random location on the target (GP Rain, AutoCrossbow)',
+		}
+		BattleAnimCmds[0x95] = BattleAnimCmd:subclass{
+			cmd = 0x95,
+			desc ='set vector from attacker to target',
+		}
+		BattleAnimCmds[0x96] = BattleAnimCmd:subclass{
+			cmd = 0x96,
+			argtypes = {uint8_t, uint8_t},
+			argnames = {'xx', 'yy'},
+			__tostring = function(self)
+				return 'if idk then jump backwards '..hex2(self.xx)
+			end,
+		}
+		BattleAnimCmds[0x97] = BattleAnimCmd:subclass{
+			cmd = 0x97,
+			desc = 'boomerang/wing edge/full moon/rising sun',
+		}
+		BattleAnimCmds[0x98] = BattleAnimCmd:subclass{
+			cmd = 0x98,
+			argtypes = {uint8_t, uint8_t},
+			argnames = {'arg', 'arg2'},
+			__tostring = function(self)
+				return 'increment graphic index offset every '
+					..hex2(self.arg)
+					..' frame(s), '..hex2(self.arg2)
+			end,
+		}
+		BattleAnimCmds[0x99] = BattleAnimCmd:subclass{
+			cmd = 0x99,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'setPalette('..hex2(bit.band(7, bit.rshift(self.arg, 1)))..')'
+			end,
+		}
+		BattleAnimCmds[0x9A] = BattleAnimCmd:subclass{
+			cmd = 0x9A,
+			desc = 'set thread facing direction to match attacker',
+		}
+
+		BattleAnimCmds[0x9F] = BattleAnimCmd:subclass{
+			cmd = 0x9F,
+			argtypes = {uint8_t},
+			getargs = function(self, arg)
+				Cmd.getargs(self, arg)
+				self.arg = arg
+				self.trace.indent = self.trace.indent + 1
+			end,
+			__tostring = function(self)
+				return 'animated loop start (loop count equal to the number of active threads, '
+					..hex2(self.arg)..' = 0) (autocrossbow)'
+			end,
+		}
+
+		BattleAnimCmds[0xA0] = BattleAnimCmd:subclass{
+			cmd = 0xA0,
+			argtypes = {uint8_t, uint8_t},
+			argnames = {'arg', 'arg2'},
+			__tostring = function(self)
+				return 'jump forward along vector (speed '
+					..hex2(self.arg)..', code branch '..hex2(self.arg2)..')'
+			end,
+		}
+		BattleAnimCmds[0xA1] = BattleAnimCmd:subclass{
+			cmd = 0xA1,
+			argtypes = {uint8_t, uint8_t},
+			argnames = {'arg', 'arg2'},
+			__tostring = function(self)
+				return 'jump backward along vector (speed '
+					..hex2(self.arg)..', code branch '..hex2(self.arg2)..')'
+			end,
+		}
+		BattleAnimCmds[0xA2] = BattleAnimCmd:subclass{
+			cmd = 0xA2,
+			desc = 'drill()',
+		}
+		BattleAnimCmds[0xA3] = BattleAnimCmd:subclass{
+			cmd = 0xA3,
+			argtypes = {uint16_t},
+			argnames = {'xxxx'},
+			desc = 'shift color palette left',
+		}
+		BattleAnimCmds[0xA4] = BattleAnimCmd:subclass{
+			cmd = 0xA4,
+			argtypes = {uint8_t, uint8_t},
+			argnames = {'arg', 'arg2'},
+			__tostring = function(self)
+				return 'shift color palette right'
+					..' numcolors='..bit.band(0xf, self.arg)
+					..' offset='..bit.band(0xf, bit.rshift(self.arg, 4))
+					..' speed='..bit.band(0xf, self.arg2)
+					..' paletteIndex='..bit.band(0xf, bit.rshift(self.arg, 4))
+			end,
+		}
+		BattleAnimCmds[0xA5] = BattleAnimCmd:subclass{
+			cmd = 0xA5,
+			argtypes = {uint8_t, uint8_t, uint8_t, uint8_t, uint16_t, uint8_t},
+			argnames = {'aa', 'bb', 'cc', 'xx', 'yyyy', 'zz'},
+			__tostring = function(self)
+				return 'circle origin ('
+					..hex2(self.aa+0x80)..','..hex2(self.bb+0x80)..')'
+					..' growspeed?='..hex2(self.cc)
+					..' maxsize='..hex2(self.yyyy)
+			end,
+		}
+		BattleAnimCmds[0xA6] = BattleAnimCmd:subclass{
+			cmd = 0xA6,
+			argtypes = {int8_t, int8_t, int8_t},
+			argnames = {'dx', 'dy', 'dr'},
+			__tostring = function(self)
+				return 'move circle ('..self.dx..','..self.dy..'), circle size += '..self.dr
+			end,
+		}
+		BattleAnimCmds[0xA7] = BattleAnimCmd:subclass{
+			cmd = 0xA7,
+			desc = 'update circle?',
+		}
+		BattleAnimCmds[0xA8] = BattleAnimCmd:subclass{
+			cmd = 0xA8,
+			desc = 'move circle to attacker',
+		}
+		BattleAnimCmds[0xA9] = BattleAnimCmd:subclass{
+			cmd = 0xA9,
+			argtypes = {int8_t, int8_t},
+			argnames = {'dx', 'dy'},
+			desc = 'moveCircle(<?=dx?>, <?=dy?>)', --based on character facing direction
+		}
+		BattleAnimCmds[0xAA] = BattleAnimCmd:subclass{
+			cmd = 0xAA,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'set sprite palette 3 color subtraction (absolute)'
+					..' amount='..hex2(bit.band(0x1f, self.arg))
+					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
+					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
+			end,
+		}
+		BattleAnimCmds[0xAB] = BattleAnimCmd:subclass{
+			cmd = 0xAB,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'set sprite palette 3 color addition (absolute)'
+					..' amount='..hex2(bit.band(0x1f, self.arg))
+					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
+					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
+			end,
+		}
+		BattleAnimCmds[0xAC] = BattleAnimCmd:subclass{
+			cmd = 0xAC,
+			argtypes = {uint8_t, uint8_t},
+			argnames = {'xx', 'yy'},
+			__tostring = function(self)
+				return [[$EE9C set background scroll HDMA data 123fffff vhaaaaaa 1: affect BG1 2: affect BG2 3: affect BG3 f: frequency v: vertical h: horizontal a: amplitude (max 14, must be even ???)]]
+			end,
+		}
+		BattleAnimCmds[0xAD] = BattleAnimCmd:subclass{
+			cmd = 0xAD,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'set BG scroll HDMA index: BG='..bit.rshift(self.arg, 6)
+					..' index='..hex2(bit.band(self.arg, 0x3f))
+			end,
+		}
+		BattleAnimCmds[0xAE] = BattleAnimCmd:subclass{
+			cmd = 0xAE,
+			argtypes = {uint8_t},
+			argnames = {'vh___123'},
+			__tostring = function(self)
+				return 'vh---123    $ED86 Update Scroll HDMA data v: vertical h: horizontal 1: affect BG1 2: affect BG2 3: affect BG3'
+			end,
+		}
+		BattleAnimCmds[0xAF] = BattleAnimCmd:subclass{
+			cmd = 0xAF,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'set background palette color subtraction (absolute)'
+					..' amount='..hex2(bit.band(0x1f, self.arg))
+					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
+					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
+			end,
+		}
+		BattleAnimCmds[0xB0] = BattleAnimCmd:subclass{
+			cmd = 0xB0,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'set background palette color addition (absolute)'
+					..' amount='..hex2(bit.band(0x1f, self.arg))
+					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
+					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
+			end,
+		}
+		BattleAnimCmds[0xB1] = BattleAnimCmd:subclass{
+			cmd = 0xB1,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'set sprite palette 1 color subtraction (absolute)'
+					..' amount='..hex2(bit.band(0xf, self.arg))
+					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
+					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
+					..(0 ~= bit.band(0x10, self.arg) and ' sub' or ' add')
+			end,
+		}
+		BattleAnimCmds[0xB2] = BattleAnimCmd:subclass{
+			cmd = 0xB2,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'Set sprite palette 1 color addition (absolute)'
+					..' amount='..hex2(bit.band(0xf, self.arg))
+					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
+					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
+					..(0 ~= bit.band(0x10, self.arg) and ' sub' or ' add')
+			end,
+		}
+		BattleAnimCmds[0xB3] = BattleAnimCmd:subclass{
+			cmd = 0xB3,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'add color to sprite palette 3 (relative)'
+					..' amount='..hex2(bit.band(0xf, self.arg))
+					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
+					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
+					..(0 ~= bit.band(0x10, self.arg) and ' sub' or ' add')
+			end,
+		}
+		BattleAnimCmds[0xB4] = BattleAnimCmd:subclass{
+			cmd = 0xB4,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'subtract color from sprite palette 3 palette (relative)'
+					..' amount='..hex2(bit.band(0xf, self.arg))
+					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
+					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
+					..(0 ~= bit.band(0x10, self.arg) and ' sub' or ' add')
+			end,
+		}
+		BattleAnimCmds[0xB5] = BattleAnimCmd:subclass{
+			cmd = 0xB5,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'add color to background palette (relative)'
+					..' amount='..hex2(bit.band(0xf, self.arg))
+					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
+					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
+					..(0 ~= bit.band(0x10, self.arg) and ' sub' or ' add')
+			end,
+		}
+		BattleAnimCmds[0xB6] = BattleAnimCmd:subclass{
+			cmd = 0xB6,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'subtract color from background palette (relative)'
+					..' amount='..hex2(bit.band(0xf, self.arg))
+					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
+					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
+					..(0 ~= bit.band(0x10, self.arg) and ' sub' or ' add')
+			end,
+		}
+		BattleAnimCmds[0xB7] = BattleAnimCmd:subclass{
+			cmd = 0xB7,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'add color to sprite palette 1 (relative)'
+					..' amount='..hex2(bit.band(0xf, self.arg))
+					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
+					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
+					..(0 ~= bit.band(0x10, self.arg) and ' sub' or ' add')
+			end,
+		}
+		BattleAnimCmds[0xB8] = BattleAnimCmd:subclass{
+			cmd = 0xB8,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'subtract color from sprite palette 1 (relative)'
+					..' amount='..hex2(bit.band(0xf, self.arg))
+					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
+					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
+					..(0 ~= bit.band(0x10, self.arg) and ' sub' or ' add')
+			end,
+		}
+		BattleAnimCmds[0xB9] = BattleAnimCmd:subclass{
+			cmd = 0xB9,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'set monster palettes color subtraction (absolute)'
+					..' amount='..hex2(bit.band(0x1f, self.arg))
+					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
+					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
+			end,
+		}
+		BattleAnimCmds[0xBA] = BattleAnimCmd:subclass{
+			cmd = 0xBA,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'set monster palettes color addition (absolute)'
+					..' amount='..hex2(bit.band(0x1f, self.arg))
+					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
+					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
+			end,
+		}
+		BattleAnimCmds[0xBB] = BattleAnimCmd:subclass{
+			cmd = 0xBB,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'add color to monster palettes (relative)'
+					..' amount='..hex2(bit.band(0xf, self.arg))
+					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
+					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
+					..(0 ~= bit.band(0x10, self.arg) and ' sub' or ' add')
+			end,
+		}
+		BattleAnimCmds[0xBC] = BattleAnimCmd:subclass{
+			cmd = 0xBC,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'subtract color from monster palettes (relative)'
+					..' amount='..hex2(bit.band(0xf, self.arg))
+					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
+					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
+					..(0 ~= bit.band(0x10, self.arg) and ' sub' or ' add')
+			end,
+		}
+		BattleAnimCmds[0xBD] = BattleAnimCmd:subclass{
+			cmd = 0xBD,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				local arg = self.arg
+				return
+					(0 ~= bit.band(0x80, arg) and
+						(
+							(0 ~= bit.band(0x20, arg) and 'hide' or 'show')
+							..' BG1'
+						)
+						or ''
+					)
+					..(0 ~= bit.band(0x40, arg) and
+						(
+							(0 ~= bit.band(0x10, arg) and 'hide' or 'show')
+							..' BG3'
+						)
+						or ''
+					)
+					..' animation thread graphics'
+			end,
+		}
+		BattleAnimCmds[0xBE] = BattleAnimCmd:subclass{
+			cmd = 0xBE,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'set screen mosaic to '..hex2(self.arg)..' ($2106)'
+			end,
+		}
+
+		BattleAnimCmds[0xBF] = BattleAnimCmd:subclass{
+			cmd = 0xBF,
+			argtypes = {uint16_t},
+			argnames = {'destAddr'},
+			__tostring = function(self)
+				return Cmd.getGotoStr(self:getDestAddr(), 'call')
+			end,
+			getDestAddr = function(self)
+				return battleAnimScriptAddr + self.destAddr
+			end,
+			getBranchAddrs = function(self)
+				return {
+					{addr=self:getDestAddr()},
+				}
+			end,
+		}
+
+		BattleAnimCmds[0xC0] = BattleAnimCmd:subclass(Return, {cmd=0xC0})
+
+		BattleAnimCmds[0xC1] = BattleAnimCmd:subclass{
+			cmd = 0xC1,
+			argtypes = {uint8_t, uint8_t},
+			argnames = {'xx', 'yy'},
+			__tostring = function(self)
+				return 'vector movement speed? = '..hex2(self.xx)..', branch to '..getaddr(self.trace.pc - self.yy)..' (-'..hex2(self.yy)..')'
+			end,
+		}
+		BattleAnimCmds[0xC2] = BattleAnimCmd:subclass{
+			cmd = 0xC2,
+			argtypes = {uint8_t},
+			argnames = {'abc_____'},
+			__tostring = function(self)
+				return 'unpause animation a: unpause BG1 b: unpause BG3 c: unpause sprites'
+			end,
+		}
+		BattleAnimCmds[0xC3] = BattleAnimCmd:subclass{
+			cmd = 0xC3,
+			desc = 'moveCircleToTarget()',
+		}
+		BattleAnimCmds[0xC4] = BattleAnimCmd:subclass{
+			cmd = 0xC4,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'moveThreadToThisThreadPos('
+					..(0 ~= bit.band(self.arg, 0x80) and '1' or '')	-- BG1
+					..(0 ~= bit.band(self.arg, 0x40) and '3' or '')	-- BG3
+					..')'
+			end,
+		}
+		BattleAnimCmds[0xC5] = BattleAnimCmd:subclass{
+			cmd = 0xC5,
+			argtypes = {uint16_t, uint16_t, uint16_t, uint16_t},
+			argnames = {'a', 'b', 'c', 'd'},
+			__tostring = function(self)
+				return 'jumpBasedOnSwdtechHit('
+					..table{hex4(self.a), hex4(self.b), hex4(self.c), hex4(self.d)}:concat', '..')'
+			end,
+		}
+		BattleAnimCmds[0xC6] = BattleAnimCmd:subclass{
+			cmd = 0xC6,
+			argtypes = {uint8_t, uint8_t},
+			argnames = {'xx', 'yy'},
+			desc = 'quadraSlamSlice()',
+		}
+		BattleAnimCmds[0xC7] = BattleAnimCmd:subclass{
+			cmd = 0xC7,
+			digest = function(self, read)
+				local subcmd = read(uint8_t)
+				if subcmd == 0x00 then
+					local arg = read(uint8_t)
+					self.descstr = 'setAttackingCharacterDirectionToFace()'
+						..(arg == 0 and 'left' or 'right')
+				elseif subcmd == 0x01 then
+					self.descstr = 'resetPositionOffsetsForAttackingCharacter()'
+				elseif subcmd == 0x02 then
+					self.descstr = 'saveAttackingCharacterPosition()'
+				elseif subcmd == 0x03 then
+					self.descstr = 'restoreAttackingCharacterPositionAndResetOffsets()'
+				elseif subcmd == 0x04 then
+					self.descstr = 'restoreAttackingCharacterPosition()'
+				elseif subcmd == 0x05 then
+					local arg = read(uint8_t)
+					error'here'
+					self.descstr = '(unused)'
+				elseif subcmd == 0x06 then
+					local arg, arg2 = read(uint8_t), read(uint8_t)
+					self.descstr = ''
+				elseif subcmd == 0x07 then
+					self.descstr = 'updateCharacterActionBasedOnVectorDirectionWalking()'
+				elseif subcmd == 0x08 then
+					local x, y = read(uint8_t), read(uint8_t)
+					self.descstr = 'setVectorTargetFromAttacker('..hex2(x)..','..hex2(y)..')'
+				elseif subcmd == 0x09 then
+					self.descstr = 'updateCharacterActionBasedOnVectorDirectionArmsUp()'
+				elseif subcmd == 0x0A then
+					local xx = read(uint8_t)
+					error'here'
+					self.descstr = '(unused)'
+				elseif subcmd == 0x0B then
+					local x, y, z = read(uint8_t), read(uint8_t), read(uint8_t)
+					self.descstr = 'spc('
+						..table{hex2(x), hex2(y), hex2(z)}:concat', '..')'
+				elseif subcmd == 0x0C then
+					local actor, graphicsIndex = read(uint8_t), read(uint8_t)
+					self.descstr = 'setActorGraphicIndex('..hex2(actor)..', '..hex2(graphicsIndex)..')'
+				elseif subcmd == 0x0D then
+					local arg = read(uint8_t)
+					self.descstr = ''
+				elseif subcmd == 0x0E then
+					local arg = read(uint8_t)
+					self.descstr = 'screenShaking( '..hex2(arg)..')'	-- $6285
+				elseif subcmd == 0x0F then
+					error'here'
+					self.descstr = '(unused)'
+				elseif subcmd == 0x10 then
+					local xx = read(uint8_t)
+					self.descstr = ''
+				elseif subcmd == 0x11 then
+					self.descstr = 'disable run from battle'
+				else
+					self.descstr = '!!! unknown subcmd'
+				end
+			end,
+		}
+		BattleAnimCmds[0xC8] = BattleAnimCmd:subclass{
+			cmd = 0xC8,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'set attacker graphic = '..hex2(self.arg)
+			end,
+		}
+		BattleAnimCmds[0xC9] = BattleAnimCmd:subclass{
+			cmd = 0xC9,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return ''..(self.arg == 0
+					and ('play animation default sound effect')
+					or 'play sound effect '..hex2(self.arg)
+				)
+			end,
+		}
+
+		BattleAnimCmds[0xCB] = BattleAnimCmd:subclass{
+			cmd = 0xCB,
+			argtypes = {uint8_t},
+			argnames = {'eddddddd'},
+			__tostring = function(self)
+				return 'enable/disable echo sprites (4 copies of character sprite) e: 1 = enable, 0 = disable d: frame delay between echo sprites (bitmask)'
+			end,
+		}
+		BattleAnimCmds[0xCC] = BattleAnimCmd:subclass{
+			cmd = 0xCC,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				local arg = self.arg
+				return 'set sprite palette 2 color subtraction (absolute)'
+					..' amount='..hex2(bit.band(0x1f, arg))
+					..' red='..tostring(0 ~= bit.band(0x80, arg))
+					..' green='..tostring(0 ~= bit.band(0x40, arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, arg))
+			end,
+		}
+		BattleAnimCmds[0xCD] = BattleAnimCmd:subclass{
+			cmd = 0xCD,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				local arg = self.arg
+				return 'set sprite palette 2 color addition (absolute)'
+					..' amount='..hex2(bit.band(0x1f, arg))
+					..' red='..tostring(0 ~= bit.band(0x80, arg))
+					..' green='..tostring(0 ~= bit.band(0x40, arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, arg))
+			end,
+		}
+		BattleAnimCmds[0xCE] = BattleAnimCmd:subclass{
+			cmd = 0xCE,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				local arg = self.arg
+				return 'add color to sprite palette 2 (relative)'
+					..' amount='..hex2(bit.band(0xf, arg))
+					..' red='..tostring(0 ~= bit.band(0x80, arg))
+					..' green='..tostring(0 ~= bit.band(0x40, arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, arg))
+					..(0 ~= bit.band(0x10, arg) and ' sub' or ' add')
+			end,
+		}
+		BattleAnimCmds[0xCF] = BattleAnimCmd:subclass{
+			cmd = 0xCF,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				local arg = self.arg
+				return 'subtract color from sprite palette 2 (relative)'
+					..' amount='..hex2(bit.band(0xf, arg))
+					..' red='..tostring(0 ~= bit.band(0x80, arg))
+					..' green='..tostring(0 ~= bit.band(0x40, arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, arg))
+					..(0 ~= bit.band(0x10, arg) and ' sub' or ' add')
+			end,
+		}
+		BattleAnimCmds[0xD0] = BattleAnimCmd:subclass{
+			cmd = 0xD0,
+			argtypes = {uint8_t},
+			argnames = {'vhftpppm'},
+			__tostring = function(self)
+				return 'set sprite data for all character/monster sprites'
+			end,
+		}
+		BattleAnimCmds[0xD1] = BattleAnimCmd:subclass{
+			cmd = 0xD1,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				local arg = self.arg
+				return
+					(arg == 0 and 'validate' or 'invalidate')
+					..'CharacterMonsterOrderPriority()'
+			end,
+		}
+		BattleAnimCmds[0xD2] = BattleAnimCmd:subclass{
+			cmd = 0xD2,
+			argtypes = {uint8_t, uint8_t},
+			argnames = {'x', 'y'},
+			__tostring = function(self)
+				return 'setTargetPos('..self.x..', '..self.y..')'
+			end,
+		}
+		BattleAnimCmds[0xD3] = BattleAnimCmd:subclass{
+			cmd = 0xD3,
+			desc = 'moveCircleToAttackingCharacter()',
+		}
+		BattleAnimCmds[0xD4] = BattleAnimCmd:subclass{
+			cmd = 0xD4,
+			argtypes = {uint16_t, uint8_t},
+			argnames = {'xxxx', 'yy'},
+			__tostring = function(self)
+				-- hmm cant tell bit/byte order from desc...
+				return 'set color addition/subtraction data'
+			end,
+		}
+		BattleAnimCmds[0xD5] = BattleAnimCmd:subclass{
+			cmd = 0xD5,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'set monster'
+					..(0 ~= bit.band(1, self.arg) and ' hflip' or '')
+					..(0 ~= bit.band(2, self.arg) and ' vflip' or '')
+			end,
+		}
+
+		BattleAnimCmds[0xD7] = BattleAnimCmd:subclass{
+			cmd = 0xD7,
+			argtypes = {uint8_t},
+			argnames = {'xx'},
+			__tostring = function(self)
+				return 'move fire dance sprites'
+			end,
+		}
+		BattleAnimCmds[0xD8] = BattleAnimCmd:subclass{
+			cmd = 0xD8,
+			argtypes = {uint8_t, uint8_t, uint8_t},
+			argnames = {'xx', 'yy', 'zz'},
+			__tostring = function(self)
+				return 'x speed='..self.xx..' y speed='..self.yy..' ??? = '..self.zz
+			end,
+		}
+		BattleAnimCmds[0xD9] = BattleAnimCmd:subclass{
+			cmd = 0xD9,
+			argtypes = {uint8_t},
+			argnames = {'xx'},
+			desc = 'bumRush(<?=xx?>)',
+		}
+		BattleAnimCmds[0xDA] = BattleAnimCmd:subclass{
+			cmd = 0xDA,
+			argtypes = {uint16_t},
+			argnames = {'xxxx'},
+			__tostring = function(self)
+				return 'update tornado (w wind/spiraler)'
+			end,
+		}
+		BattleAnimCmds[0xDB] = BattleAnimCmd:subclass{
+			cmd = 0xDB,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				local arg = self.arg
+				return 'if characterAlreadySteppedForwardToAttack() then goto _'..getaddr(self.trace.pc - arg)..' end'
+			end,
+		}
+		BattleAnimCmds[0xDC] = BattleAnimCmd:subclass{
+			cmd = 0xDC,
+			desc = 'rotate triangle 2D',
+		}
+		BattleAnimCmds[0xDD] = BattleAnimCmd:subclass{
+			cmd = 0xDD,
+			argtypes = {uint8_t, uint8_t, uint8_t, uint8_t},
+			--argnames = {'xx', 'yy', 'dd', 'rr'},
+			__tostring = function(self)
+				return 'initTriangle('..self.args:mapi(tostring):concat', '..')'
+			end,
+		}
+		BattleAnimCmds[0xDE] = BattleAnimCmd:subclass{
+			cmd = 0xDE,
+			desc = 'moveTriangleToAttackerPos()',
+		}
+		BattleAnimCmds[0xDF] = BattleAnimCmd:subclass{
+			cmd = 0xDF,
+			desc = 'moveTriangleToTargetPosition()',
+		}
+		BattleAnimCmds[0xE0] = BattleAnimCmd:subclass{
+			cmd = 0xE0,
+			argtypes = {uint8_t, uint8_t, uint8_t, uint8_t},
+			--argnames = {'xx', 'yy', 'dd', 'rr'},
+			__tostring = function(self)
+				return 'modifyTriangle('..self.args:mapi(tostring):concat', '..')'
+			end,
+		}
+		BattleAnimCmds[0xE1] = BattleAnimCmd:subclass{
+			cmd = 0xE1,
+			argtypes = {uint8_t},
+			argnames = {'xx'},
+			__tostring = function(self)
+				return 'show/hide attacker sprite'
+			end,
+		}
+
+		BattleAnimCmds[0xE5] = BattleAnimCmd:subclass{
+			cmd = 0xE5,
+			argtypes = {uint8_t, uint8_t, uint8_t},
+			argnames = {'xx', 'yy', 'zz'},
+			__tostring = function(self)
+				local yy = self.yy
+				return 'branch to '..getaddr(self.trace.pc - yy)..' (-'..hex2(yy)..')'
+			end,
+		}
+		BattleAnimCmds[0xE6] = BattleAnimCmd:subclass{
+			cmd = 0xE6,
+			argtypes = {uint8_t, uint8_t, uint8_t},
+			argnames = {'xx', 'yy', 'zz'},
+			__tostring = function(self)
+				local yy = self.yy
+				return 'branch to '..getaddr(self.trace.pc - yy)..' (-'..hex2(yy)..')'
+			end,
+		}
+		BattleAnimCmds[0xE7] = BattleAnimCmd:subclass{
+			cmd = 0xE7,
+			desc = 'calculate vector from attacking character to target',
+		}
+		BattleAnimCmds[0xE8] = BattleAnimCmd:subclass{
+			cmd = 0xE8,
+			argtypes = {uint8_t, uint8_t},
+			argnames = {'rr', 'tt'},
+			__tostring = function(self)
+				local rr = self.rr
+				local tt = self.tt
+				return 'move to polar coordinates r='..hex2(rr)..' theta='..hex2(tt)
+			end,
+		}
+		BattleAnimCmds[0xE9] = BattleAnimCmd:subclass{
+			cmd = 0xE9,
+			argtypes = {uint8_t, uint8_t},
+			argnames = {'dx', 'dy'},
+			__tostring = function(self)
+				-- TODO should this be 0..dx or 0..(dx-1) ?
+				return 'moveRandomly('..self.dx..', '..self.dy..')'
+			end,
+		}
+		BattleAnimCmds[0xEA] = BattleAnimCmd:subclass{
+			cmd = 0xEA,
+			argtypes = {uint8_t},
+			argnames = {'_13__xxxx'},
+			__tostring = function(self)
+				return 'set BG tile data quadrants 1 = affect bg1 3 = affect bg1 x = quadrant'
+			end,
+		}
+		BattleAnimCmds[0xEB] = BattleAnimCmd:subclass{
+			cmd = 0xEB,
+			argtypes = {uint16_t, uint16_t, uint16_t},
+			__tostring = function(self)
+				-- TODO count as many as threads ... how to determine # of threads?
+				return 'jump based on thread to {'
+					..self.args:mapi(hex4):concat', '
+					..'}'
+			end,
+		}
+		BattleAnimCmds[0xEC] = BattleAnimCmd:subclass{
+			cmd = 0xEC,
+			argtypes = {uint8_t},
+			argnames = {'xx'},
+			__tostring = function(self)
+				return 'set thread layer (0 = sprite, 1 = BG1, 2 = BG3)'
+			end,
+		}
+		BattleAnimCmds[0xED] = BattleAnimCmd:subclass{
+			cmd = 0xED,
+			desc = '',
+		}
+		BattleAnimCmds[0xEE] = BattleAnimCmd:subclass{
+			cmd = 0xEE,
+			argtypes = {uint8_t},
+			argnames = {'__oo____'},
+			__tostring = function(self)
+				return 'set target sprite tile priority'
+			end,
+		}
+		BattleAnimCmds[0xEF] = BattleAnimCmd:subclass{
+			cmd = 0xEF,
+			argtypes = {uint8_t, uint8_t},
+			argnames = {'rr', 'tt'},
+			__tostring = function(self)
+				local rr, tt = self.rr, self.tt
+				return 'move to polar coordinates r='..hex2(rr)..' theta='..hex2(tt)..' (similar to $E8)'
+			end,
+		}
+		BattleAnimCmds[0xF0] = BattleAnimCmd:subclass{
+			cmd = 0xF0,
+			argtypes = {uint16_t, uint16_t, uint16_t, uint16_t, uint16_t},
+			argnames = {'a', 'b', 'c', 'd', 'e'},
+			__tostring = function(self)
+				local a,b,c,d,e = self.a, self.b, self.c, self.d, self.e
+				return 'jump based on current target'
+					..' char1='..getaddr(a)
+					..' char2='..getaddr(b)
+					..' char3='..getaddr(c)
+					..' char4='..getaddr(d)
+					..' monster='..getaddr(e)
+			end,
+		}
+		--[[
+		BattleAnimCmds[0xF1] = BattleAnimCmd:subclass{
+			cmd = 0xF1,
+			argtypes = {uint8_t},
+			argnames = {'xx'},
+			__tostring = function(self)
+				return ''
+			end,
+		}
+		--]]
+		BattleAnimCmds[0xF2] = BattleAnimCmd:subclass{
+			cmd = 0xF2,
+			desc = 'set a trajectory from target center to attacker',
+		}
+		BattleAnimCmds[0xF3] = BattleAnimCmd:subclass{
+			cmd = 0xF3,
+			argtypes = {uint16_t, uint16_t, uint16_t, uint16_t, uint16_t},
+			argnames = {'a', 'b', 'c', 'd', 'e'},
+			__tostring = function(self)
+				local a,b,c,d,e = self.a, self.b, self.c, self.d, self.e
+				return 'jump based on current attacker'
+					..' char1='..getaddr(a)
+					..' char2='..getaddr(b)
+					..' char3='..getaddr(c)
+					..' char4='..getaddr(d)
+					..' monster='..getaddr(e)
+			end,
+		}
+		BattleAnimCmds[0xF4] = BattleAnimCmd:subclass{
+			cmd = 0xF4,
+			argtypes = {uint8_t},
+			argnames = {'_______t'},
+			__tostring = function(self)
+				return 'set sprite layer priority'
+			end,
+		}
+		BattleAnimCmds[0xF5] = BattleAnimCmd:subclass{
+			cmd = 0xF5,
+			desc = 'until no threads are active',
+		}
+		BattleAnimCmds[0xF6] = BattleAnimCmd:subclass{
+			cmd = 0xF6,
+			desc ='rotate triangle 3D',
+		}
+		BattleAnimCmds[0xF7] = BattleAnimCmd:subclass{
+			cmd = 0xF7,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				return 'wait until vertical scanline position '..hex2(self.arg)
+			end,
+		}
+
+		-- TODO use If
+		BattleAnimCmds[0xF8] = BattleAnimCmd:subclass{
+			cmd = 0xF8,
+			argtypes = {uint16_t, uint16_t},
+			argnames = {'gotoAddr', 'gotoElseAddr'},
+			__tostring = function(self)
+				return 'if '..self:getCond()..' then '..Cmd.getGotoStr(self.gotoAddr)
+					..' else '..Cmd.getGotoStr(self.gotoElseAddr)
+					..' end'
+			end,
+			getCond = function(self)
+				return 'not magitekMode()'
+			end,
+			getBranchAddrs = function(self)
+				return {
+					{addr=self.gotoAddr},
+					{addr=self.gotoElseAddr},
+				}
+			end,
+		}
+
+		--[[
+		BattleAnimCmds[0xF9] = BattleAnimCmd:subclass{
+			cmd = 0xF9,
+			argtypes = {uint8_t, uint8_t, uint8_t},
+			argnames = {'xx', 'yy', 'zz'},
+			__tostring = function(self)
+				return ''
+			end,
+		}
+		--]]
+
+		BattleAnimCmds.Goto = BattleAnimCmd:subclass{
+			cmd = 0xFA,
+			argtypes = {uint16_t},
+			argnames = {'gotoAddr'},
+			__tostring = function(self)
+				return Cmd.getGotoStr(self.gotoAddr)
+			end,
+			getBranchAddrs = function(self)
+				return {
+					-- this will always use event-cmds, whereas typical getBranchAddrs for branch/goto/call will preserve cmdset
+					{addr = self.gotoAddr, cmdset = 'BattleAnimCmds'},
+				}
+			end,
+		}
+
+		BattleAnimCmds[0xFB] = BattleAnimCmd:subclass{
+			cmd = 0xFB,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				local arg = self.arg
+				return 'set character palettes color subtraction (absolute)'
+					..' amount='..hex2(bit.band(0x1f, arg))
+					..' red='..tostring(0 ~= bit.band(0x80, arg))
+					..' green='..tostring(0 ~= bit.band(0x40, arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, arg))
+			end,
+		}
+		BattleAnimCmds[0xFC] = BattleAnimCmd:subclass{
+			cmd = 0xFC,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				local arg = self.arg
+				return 'set character palettes color addition (absolute)'
+					..' amount='..hex2(bit.band(0x1f, arg))
+					..' red='..tostring(0 ~= bit.band(0x80, arg))
+					..' green='..tostring(0 ~= bit.band(0x40, arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, arg))
+			end,
+		}
+		BattleAnimCmds[0xFD] = BattleAnimCmd:subclass{
+			cmd = 0xFD,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				local arg = self.arg
+				return 'add color to character palettes (relative)'
+					..' amount='..hex2(bit.band(0xf, arg))
+					..' red='..tostring(0 ~= bit.band(0x80, arg))
+					..' green='..tostring(0 ~= bit.band(0x40, arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, arg))
+					..(0 ~= bit.band(0x10, arg) and ' sub' or ' add')
+			end,
+		}
+		BattleAnimCmds[0xFE] = BattleAnimCmd:subclass{
+			cmd = 0xFE,
+			argtypes = {uint8_t},
+			argnames = {'arg'},
+			__tostring = function(self)
+				local arg = self.arg
+				return 'subtract color from character palettes (relative)'
+					..' amount='..hex2(bit.band(0xf, arg))
+					..' red='..tostring(0 ~= bit.band(0x80, arg))
+					..' green='..tostring(0 ~= bit.band(0x40, arg))
+					..' blue='..tostring(0 ~= bit.band(0x20, arg))
+					..(0 ~= bit.band(0x10, arg) and ' sub' or ' add')
+			end,
+		}
+		BattleAnimCmds.EndScript = BattleAnimCmd:subclass(EndScript, {cmd=0xff})
+
+		-- used for the first two bytes of every BattleCmd
+		BattleAnimCmds.SpeedAndAlign = BattleAnimCmd:subclass{
+			argtypes = {uint8_t, uint8_t},
+			argnames = {'speed', 'align'},
+			desc = 'setSpeedAndAlign(<?=speed?>, <?=align?>)',
+		}
+
+		for _,k in ipairs(table.keys(BattleAnimCmds)) do
+			local cl = BattleAnimCmds[k]
+			if cl.cmd then	-- some abstract classes are in BattleAnimCmds but don't have a .cmd
+				assert.type(cl.cmd, 'number')
+cl.classname = k
+				BattleAnimCmds[cl.cmd] = cl
+			end
+		end
+		for i=0,255 do
+			if not BattleAnimCmds[i] then
+				BattleAnimCmds[i] = BattleAnimCmd:subclass{
+					cmd = i,
+					desc = '??? '..hex2(i),
+				}
+			end
+		end
+	end
+
+
+	for _,cmdset in ipairs{
+		'EventCmds',
+		'ObjectCmds',
+		'WorldCmds',
+		'VehicleCmds',
+		'BattleEventCmds',
+		'MonsterCmds',
+		'BattleAnimCmds',
+	} do
+		local cmdSetObj = game[cmdset]
+		for _,cl in pairs(cmdSetObj) do
+			-- why not .cmdset?
+			-- the obj stores .cmdset dynamically
+			-- but it should always match the cmd class's cmdset, which is this, right?
+			-- right?
+			cl.classCmdSet = cmdset
+		end
 	end
 
 
@@ -3036,15 +4640,12 @@ cl.classname = k
 	local decompileTraces = {}
 
 	local Trace = class()
-	Trace.indent = 0
-	function Trace:printInterval()
-		return game.addrLabel(self.addr)..' - '..game.addrLabel(self.endAddr)
-	end
 
-	local function decompileFrom(args)
-		local startAddr = args.addr
-		local startCmdSet = args.cmdset
---DEBUG:assert.type(startCmdSet, 'string')
+	Trace.indent = 0
+
+	function Trace:init(args)
+		self.addr = assert.index(args, 'addr')
+
 		local reverseRefInfo = args.reverseRefInfo
 
 --[==[ debugging
@@ -3057,104 +4658,106 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {
 	},
 }))
 --]==]
-		game.whatsPointingToAddr[startAddr] = game.whatsPointingToAddr[startAddr] or table()
-		game.whatsPointingToAddr[startAddr]:insert(reverseRefInfo)
+		game.whatsPointingToAddr[self.addr] = game.whatsPointingToAddr[self.addr] or table()
+		game.whatsPointingToAddr[self.addr]:insert(reverseRefInfo)
+
+		self.cmds = table()
+		self.cmdObjForAddr = {}	-- keys are cmds[i].addr
+
+		-- optional?
+		self.lastDialogPromptCount = args.lastDialogPromptCount
+
+		local cmdset = assert.index(args, 'cmdset')
+--DEBUG:assert.type(cmdset, 'string')
 
 		-- force override addrs here
-		do
-			local newCmdSet = ({
-				[0x0a5eb4] = 'EventCmds',	-- end-script used by event and world cmds
-			})[startAddr]
-			if newCmdSet then
-				startCmdSet = newCmdSet
-			end
+		if self.addr == 0x0a5eb4 then
+			cmdset = 'EventCmds'	-- end-script used by event and world cmds
 		end
 
-		local trace = Trace()
-		trace.addr = startAddr
-		trace.cmds = table()
-		trace.cmdObjForAddr = {}	-- keys are cmds[i].addr
-		trace.lastDialogPromptCount = args.lastDialogPromptCount
-
 		-- not sure about this
-		trace.stateStack = table()
-		trace.stateStack:insert{
-			cmdset = startCmdSet,
+		self.stateStack = table()
+		self.stateStack:insert{
+			cmdset = cmdset,
 		}
 
 		if args.inVehicle then
-			trace.stateStack:insert{
+			self.stateStack:insert{
 				cmdset = 'VehicleCmds',
 			}
 		end
 
-		-- make sure we haven't decoded this already
-		for _,otherTrace in pairs(decompileTraces) do
-			local cmdobj = otherTrace.cmdObjForAddr[startAddr]
-			if cmdobj then
-				if cmdobj.cmdset ~= trace.stateStack:last().cmdset then
-					print('!!! DANGER !!! '
-						..game.addrLabel(startAddr)
-						..' decoding address from differing cmdset!'
-						..' previous cmdset '..cmdobj.cmdset
-						..' from trace at '..game.addrLabel(otherTrace.cmds[1].addr)
-						..' vs new cmdset '..trace.stateStack:last().cmdset
-					)
-				else
-					return otherTrace
-				end
-			end
+		self.newBranches = table()
+
+		self.pc = self.addr
+	end
+
+	function Trace:readAndInc(ctype)
+		ctype = ffi.typeof(ctype)
+		local ptrtype = ffi.typeof('$*', ctype)
+
+		local o = ffi.cast(ptrtype, rom + self.pc)[0]
+		self.pc = self.pc + ffi.sizeof(ctype)
+
+		-- if it's a primitive and bitness <= 32
+		if ctype == uint8_t
+		or ctype == int8_t
+		or ctype == uint16_t
+		or ctype == int16_t
+		or ctype == uint32_t
+		or ctype == int32_t
+		or ctype == float
+		or ctype == double
+		then
+			o = tonumber(o)
+		elseif ctype == uint24_t then
+			o = o:value()
+		else
+			o = ctype(o)
 		end
 
-		decompileTraces[startAddr] = trace
+		return o
+	end
 
-		local newBranches = table()
+	function Trace:readNext()
+		local cmdaddr = self.pc
+		local cmd = self:readAndInc(uint8_t)
 
-		local addr = startAddr
+--DEBUG:assert.gt(#self.stateStack, 0, "someone popped the last cmdset...")
+		local cmdset = self.stateStack:last().cmdset
+--DEBUG:assert.type(cmdset, 'string')
+
+		return self:readInstr(cmdaddr, cmdset, cmd)
+	end
+
+	-- cmdaddr has to be abstracted because typical cmds addrs are pc-1 from args, for reading the type of cmd
+	-- but some hard-coded cmds for addrs dont have the extra byte and so they have to use pc itself
+	function Trace:readInstr(cmdaddr, cmdset, cmd)
+		local cl = game[cmdset][cmd]
+		if not cl then error("failed to find cmd "..tolua(cmd).." in cmdset "..tolua(cmdset)) end
+
+		local cmdobj = cl()
+		cmdobj.trace = self
+		cmdobj.addr = cmdaddr
+		cmdobj.cmdset = cmdset
+		cmdobj.indent = self.indent
+
+		-- self:less function to pass to cmd digest()
 		local function read(ctype)
 			local o
-			o, addr = readAndInc(ctype, addr)
+			o = self:readAndInc(ctype)
 			return o
 		end
 
---[==[ debugging:
-print(('BEGIN '..game.addrLabel(startAddr))
---]==]
+		-- hmm instead of just 'read' with 'addr', how about a whole interpretation-state, with 'cmdset' too?
+		cmdobj:digest(read)
 
-		while true do
-			if not (
-				(scriptBaseAddr <= addr and addr < scriptBaseAddrEnd)
-				or (scriptBaseAddr2 <= addr and addr < scriptBaseAddrEnd2)
-				or (battleEventScriptAddr <= addr and addr < battleEventScriptAddrEnd)
-				or (monsterScriptAddr <= addr and addr < monsterScriptAddrEnd)
-			) then
-print('!!! script oob !!! '..game.addrLabel(addr))
-				break
-			end
+		-- track all bytes used here, in case someone cares?
+		cmdobj.sizeInBytes = self.pc - cmdaddr
 
-			local cmdaddr = addr
-			local cmd = read(uint8_t)
-
---DEBUG:assert.gt(#trace.stateStack, 0, "someone popped the last cmdset...")
-			local cmdset = trace.stateStack:last().cmdset
---DEBUG:assert.type(cmdset, 'string')
-			local cl = game[cmdset][cmd]
-			if not cl then error("failed to find cmd "..('0x%02x'):format(cmd).." in cmdset "..cmdset) end
-			local cmdobj = cl()
-			cmdobj.trace = trace
-			cmdobj.addr = cmdaddr
-			cmdobj.cmdset = cmdset
-			cmdobj.indent = trace.indent
-
-			-- hmm instead of just 'read' with 'addr', how about a whole interpretation-state, with 'cmdset' too?
-			cmdobj:digest(read)
-
-			-- track all bytes used here, in case someone cares?
-			cmdobj.sizeInBytes = addr - cmdaddr
-
-			game.eventScriptCmds:insert(cmdobj)
-			trace.cmds:insert(cmdobj)
-			trace.cmdObjForAddr[cmdaddr] = cmdobj
+		game.eventScriptCmds:insert(cmdobj)
+		self.cmds:insert(cmdobj)
+		self.cmdObjForAddr[cmdaddr] = cmdobj
 
 --[==[ debugging print as we go
 	io.write(game.addrLabel(cmdobj.addr), '\t')
@@ -3187,74 +4790,119 @@ print('!!! script oob !!! '..game.addrLabel(addr))
 	))
 --]==]
 
-			if cmdobj.getBranchAddrs then
-				-- decode branches ... now or later?
-				for _,newBranch in ipairs(cmdobj:getBranchAddrs()) do
-					newBranch.cmdset = newBranch.cmdset or trace.stateStack[1].cmdset		-- make sure we record the current cmdset
-					newBranch.inVehicle = trace.stateStack:last().cmdset == 'VehicleCmds'	-- right now trace.stateStack is just 1 or 2 in size, and 2 is always VehicleCmds, and 1 is always not...
-					newBranch.lastDialogPromptCount = trace.lastDialogPromptCount
-					newBranch.reverseRefInfo = {
-						cmdobj = cmdobj,
-						branchFromAddr = cmdaddr,
-						cmdset = newBranch.cmdset,
-					}
-					newBranches:insert(newBranch)
+		if cmdobj.getBranchAddrs then
+			-- decode branches ... now or later?
+			for _,newBranch in ipairs(cmdobj:getBranchAddrs()) do
+				newBranch.cmdset = newBranch.cmdset or self.stateStack[1].cmdset		-- make sure we record the current cmdset
+				newBranch.inVehicle = self.stateStack:last().cmdset == 'VehicleCmds'	-- right now self.stateStack is just 1 or 2 in size, and 2 is always VehicleCmds, and 1 is always not...
+				newBranch.lastDialogPromptCount = self.lastDialogPromptCount
+				newBranch.reverseRefInfo = {
+					cmdobj = cmdobj,
+					branchFromAddr = cmdaddr,
+					cmdset = newBranch.cmdset,
+				}
+				self.newBranches:insert(newBranch)
+			end
+		end
+
+		-- this is gonna go before cmds very soon
+		local newCmdSet = ({
+			-- these are all SetMap's:
+			[0x0a0096] = 'WorldCmds',	-- doomgaze defeated - the setmap sets vehicle but I guess don't?
+			[0x0a00e3] = 'WorldCmds',	-- from map touch, specifically doomgaze
+			[0x0a7a86] = 'EventCmds',	-- branch
+			[0x0a8ff0] = 'EventCmds',	-- branch
+			[0x0af4c1] = 'WorldCmds',	-- branch
+			[0x0af4d7] = 'WorldCmds',	-- branch
+			[0x0af4f3] = 'WorldCmds',	-- branch, so it matters
+			[0x0af567] = 'EventCmds',	-- branch, so it matters
+			[0x0af596] = 'EventCmds',	-- branch
+			[0x0b4505] = 'EventCmds',	-- branch
+			[0x0b67f7] = 'WorldCmds',	-- branch ... everything8215's event_main.asm says first set to World ... then after endScript set to Events ... does endScript always set cmdset to Events?
+			[0x0c3383] = 'EventCmds',	-- branch
+			-- sometimes just a goto, or a conditional-goto will change things?
+			[0x0af4c7] = 'EventCmds',	-- $0af4c7	WO b0 76 01 b4 5e 00       if not mapFlagGet(374) then goto $0a5eb4 end
+			[0x0af4dd] = 'EventCmds',	-- $0af4dd	WO b0 76 01 b4 5e 00       if not mapFlagGet(374) then goto $0a5eb4 end
+			[0x0a8ca8] = 'EventCmds',	-- $0a8ca8	VE b0 27 01 e3 8b 00       if not mapFlagGet(295) then goto $0a8be3 end
+		})[cmdaddr]
+		if newCmdSet then
+			for i=2,#self.stateStack do self.stateStack[i] = nil end	-- clear VehicleCmds too
+			self.stateStack[1].cmdset = newCmdSet
+		end
+
+		return cmdobj
+	end
+
+	function Trace:run()
+
+		-- make sure we haven't decoded this already
+		for _,otherTrace in pairs(decompileTraces) do
+			local cmdobj = otherTrace.cmdObjForAddr[self.addr]
+			if cmdobj then
+				if cmdobj.cmdset ~= self.stateStack:last().cmdset then
+					print('!!! DANGER !!! '
+						..game.addrLabel(self.addr)
+						..' decoding address from differing cmdset!'
+						..' previous cmdset '..cmdobj.cmdset
+						..' from trace at '..game.addrLabel(otherTrace.cmds[1].addr)
+						..' vs new cmdset '..self.stateStack:last().cmdset
+					)
+				else
+					return otherTrace
 				end
 			end
+		end
 
-			-- this is gonna go before cmds very soon
-			local newCmdSet = ({
-				-- these are all SetMap's:
-				[0x0a0096] = 'WorldCmds',	-- doomgaze defeated - the setmap sets vehicle but I guess don't?
-				[0x0a00e3] = 'WorldCmds',	-- from map touch, specifically doomgaze
-				[0x0a7a86] = 'EventCmds',	-- branch
-				[0x0a8ff0] = 'EventCmds',	-- branch
-				[0x0af4c1] = 'WorldCmds',	-- branch
-				[0x0af4d7] = 'WorldCmds',	-- branch
-				[0x0af4f3] = 'WorldCmds',	-- branch, so it matters
-				[0x0af567] = 'EventCmds',	-- branch, so it matters
-				[0x0af596] = 'EventCmds',	-- branch
-				[0x0b4505] = 'EventCmds',	-- branch
-				[0x0b67f7] = 'WorldCmds',	-- branch ... everything8215's event_main.asm says first set to World ... then after endScript set to Events ... does endScript always set cmdset to Events?
-				[0x0c3383] = 'EventCmds',	-- branch
-				-- sometimes just a goto, or a conditional-goto will change things?
-				[0x0af4c7] = 'EventCmds',	-- $0af4c7	WO b0 76 01 b4 5e 00       if not mapFlagGet(374) then goto $0a5eb4 end
-				[0x0af4dd] = 'EventCmds',	-- $0af4dd	WO b0 76 01 b4 5e 00       if not mapFlagGet(374) then goto $0a5eb4 end
-				[0x0a8ca8] = 'EventCmds',	-- $0a8ca8	VE b0 27 01 e3 8b 00       if not mapFlagGet(295) then goto $0a8be3 end
-			})[cmdaddr]
-			if newCmdSet then
-				for i=2,#trace.stateStack do trace.stateStack[i] = nil end	-- clear VehicleCmds too
-				trace.stateStack[1].cmdset = newCmdSet
+		decompileTraces[self.addr] = self
+
+--[==[ debugging:
+print(('BEGIN '..game.addrLabel(self.addr))
+--]==]
+
+		while true do
+			if not (
+				(scriptBaseAddr <= self.pc and self.pc < scriptBaseAddrEnd)
+				or (scriptBaseAddr2 <= self.pc and self.pc < scriptBaseAddrEnd2)
+				or (battleEventScriptAddr <= self.pc and self.pc < battleEventScriptAddrEnd)
+				or (monsterScriptAddr <= self.pc and self.pc < monsterScriptAddrEnd)
+				or (battleAnimScriptAddr <= self.pc and self.pc < battleAnimScriptAddrEnd)
+			) then
+print('!!! script oob !!! '..game.addrLabel(self.pc))
+				break
 			end
 
+			local cmdobj = self:readNext()
 
 			if cmdobj.endTrace then break end
 		end
 
 		-- set this before trying recursive, so they know this trace's address interval
-		trace.endAddr = addr
+		self.endAddr = self.pc
 
 --[==[ debugging:
-print('END '..game.addrLabel(startAddr))
+print('END '..game.addrLabel(self.endAddr))
 print()
 --]==]
 
-		assert.ge(#trace.stateStack, 1, "somehow we popped all our states...")
+		assert.ge(#self.stateStack, 1, "somehow we popped all our states...")
 
-		if trace.stateStack:last().objectScriptCmd then
+		if self.stateStack:last().objectScriptCmd then
 			print('!!! DANGER !!! event-script ended still inside an object-script:',
-				'script start = '..game.addrLabel(startAddr),
-				'object-script start = '..game.addrLabel(trace.stateStack:last().objectScriptCmd.addr)
+				'script start = '..game.addrLabel(self.addr),
+				'object-script start = '..game.addrLabel(self.stateStack:last().objectScriptCmd.addr)
 			)
 		end
 
-		for _,newBranch in ipairs(newBranches) do
-			decompileFrom(newBranch)
+		for _,newBranch in ipairs(self.newBranches) do
+			Trace(newBranch):run()
 		end
 
-		return trace
+		return self
 	end
 
+	function Trace:printInterval()
+		return game.addrLabel(self.addr)..' - '..game.addrLabel(self.endAddr)
+	end
 
 	-- collect script addrs from npcs
 	-- hmm should I use the master npc list or just which ones are in maps?
@@ -3278,12 +4926,12 @@ print()
 					inVehicle = true
 				end
 
-				return decompileFrom{
+				return Trace{
 					addr = startAddr,
 					cmdset = startCmdSet,
 					inVehicle = inVehicle,
 					reverseRefInfo = reverseRefInfo,
-				}
+				}:run()
 			end
 
 			-- if the mapIndex < 3 then it's a world-script, otherwise it's an event-script
@@ -3365,11 +5013,11 @@ print()
 		[0x0ce566] = "GameOver",
 		[0x0cb1e7] = "NarsheOpenSecretCave",
 	} do
-		decompileFrom{
+		Trace{
 			addr = addr,
 			cmdset = 'EventCmds',
 			reverseRefInfo = {builtin = name},
-		}
+		}:run()
 	end
 	for addr,name in pairs{
 		[0x0a004f] = 'WorldTent',
@@ -3380,33 +5028,33 @@ print()
 		[0x0a008f] = "EnterGogosLair",
 		[0x0a0096] = "DoomGazeDefeated",
 	} do
-		decompileFrom{
+		Trace{
 			addr = addr,
 			cmdset = 'WorldCmds',
 			reverseRefInfo = {builtin = name},
-		}
+		}:run()
 	end
 	for addr,name in pairs{
 		[0x0a007f] = "enter kefka's tower",
 		[0x0aa6c0] = "BlackjackManual",
 	} do
-		decompileFrom{
+		Trace{
 			addr = addr,
 			cmdset = 'EventCmds',
 			inVehicle = true,
 			reverseRefInfo = {builtin = name},
-		}
+		}:run()
 	end
 
 	-- battle-event scripts here too?
 	-- they will have a different base-offset than the other 4 cmdsets
 	for i=0,countof(game.battleEventScriptOfs)-1 do
-		local addr = 0x100000 + game.battleEventScriptOfs[i]
-		decompileFrom{
+		local addr = battleAnimScriptAddr + game.battleEventScriptOfs[i]
+		Trace{
 			addr = addr,
 			cmdset = 'BattleEventCmds',
 			reverseRefInfo = {builtin = 'battleEvent'..i},
-		}
+		}:run()
 	end
 
 
@@ -3434,22 +5082,22 @@ print()
 			--local name = string.trim(tostring(game.monsterNames[monsterIndex]))
 			--if name ~= '' then name = ' '..name end
 			--print('\t['..monsterIndex..'] = {\t-- '..(' 0x%06x'):format(actAddr)..'-'..('0x%06x'):format(nextAddr)..name)
-			local trace = decompileFrom{
+			local trace = Trace{
 				addr = actAddr,
 				cmdset = 'MonsterCmds',
 				reverseRefInfo = {builtin = 'monsters_'..monsterIndex..'_act'},
-			}
+			}:run()
 			local reactAddr = trace.endAddr
 			if reactAddr == nextAddr then
 				-- most monsters with no react at least have their react ptr point to a 'return'
 				-- but some (monster 243 etc) don't even have this
 				reactAddr = nil
 			else
-				decompileFrom{
+				Trace{
 					addr = reactAddr,
 					cmdset = 'MonsterCmds',
 					reverseRefInfo = {builtin = 'monsters_'..monsterIndex..'_react'},
-				}
+				}:run()
 			end
 
 			game.monsterScripts[monsterIndex] = {
@@ -3460,7 +5108,28 @@ print()
 	end
 	--]]
 
+	do
+		local scriptAddrs = {}
+		for i=0,game.countof(game.battleAnimEffects)-1 do
+			local addr = battleAnimScriptAddr + game.battleAnimScriptOffsets[i]
+			scriptAddrs[addr] = true
+		end
+		scriptAddrs = table.keys(scriptAddrs):sort()
 
+		for i=1,#scriptAddrs do
+			local addr = scriptAddrs[i]
+
+			local trace = Trace{
+				addr = addr,
+				cmdset = 'BattleAnimCmds',
+				reverseRefInfo = {builtin = 'BattleAnim'..i},
+			}
+
+			trace:readInstr(trace.pc, 'BattleAnimCmds', 'SpeedAndAlign')
+
+			trace:run()
+		end
+	end
 
 	-- is this a good idea, or should I double-check by storing trace address ranges and make sure none overlap so that i'm not inserting cmds between/ontop one another?
 	game.eventScriptCmds:sort(function(a,b) return a.addr < b.addr end)
