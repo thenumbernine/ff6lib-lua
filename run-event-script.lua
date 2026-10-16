@@ -1593,8 +1593,10 @@ end
 						local loop = ForLoop()
 						loop.count = startCmd.count
 
-						-- since we are throwing away the ending, make sure nothin points there
-						assert(not game.whatsPointingToAddr[stmts[i].addr])
+						-- since we are throwing away the ending, make sure nothing points there
+						if game.whatsPointingToAddr[stmts[i].addr] then
+							error("building for-loop, whatsPointingToAddr["..('%06x'):format(stmts[i].addr)..'] already exists!')
+						end
 
 						if game.EventCmds.EndRepeatSwitch:isa(cmd) then
 							loop.stmts = stmts:sub(startIndex+1,i)

@@ -3198,9 +3198,7 @@ cl.classname = k
 				elseif subcmd == 0x2E then
 					local x = read(uint8_t)
 					local y = read(uint8_t)
-					self.descstr = 'moveSpriteTo('
-						..hex2(x)..', '
-						..hex2(y)..')'
+					self.descstr = 'moveSpriteTo('..x..', '..y..')'
 				elseif subcmd == 0x2F then
 					self.descstr = ''
 				elseif subcmd == 0x30 then
@@ -3374,8 +3372,7 @@ cl.classname = k
 				elseif subcmd == 0x75 then
 					self.descstr = 'superball()'
 				elseif subcmd == 0x76 then
-					local arg = read(uint8_t)
-					self.descstr = 'seize'
+					self.descstr = 'seize '..read(uint8_t)
 				elseif subcmd == 0x77 then
 					self.descstr = 'seize'
 				elseif subcmd == 0x78 then
@@ -3394,13 +3391,13 @@ cl.classname = k
 				elseif subcmd == 0x7E then
 					self.descstr = 'flip target character vertically'
 				elseif subcmd == 0x7F then
-					self.descstr = 'hide all monsters'
+					self.descstr = 'hideAllMonsters()'
 				elseif subcmd == 0x80 then
-					self.descstr = 'boss death'
+					self.descstr = 'bossDeathSetPal('..read(uint8_t)..', '..read(uint8_t)..', '..read(uint8_t)..')'
 				elseif subcmd == 0x81 then
 					self.descstr = ''
 				elseif subcmd == 0x82 then
-					self.descstr = 'boss death'
+					self.descstr = 'enemyMoveX('..read(int8_t)..')'
 				elseif subcmd == 0x83 then
 					self.descstr = ''
 				elseif subcmd == 0x84 then
@@ -3409,12 +3406,12 @@ cl.classname = k
 					self.descstr = 'chadarnook exit'
 				elseif subcmd == 0x86 then
 					local arg = read(uint8_t)
-					self.descstr = 'play sound effect '
-						..hex2(arg)..', pan based on sprite X position'
+					self.descstr = 'playSound('
+						..hex2(arg)..') pan based on sprite X position'
 				elseif subcmd == 0x87 then
 					local arg = read(uint8_t)
-					self.descstr = 'play sound effect '
-						..hex2(arg)..', pan based on sprite Y position'
+					self.descstr = 'playSound('
+						..hex2(arg)..') pan based on sprite Y position'
 				elseif subcmd == 0x88 then
 					self.descstr = ''
 				elseif subcmd == 0x89 then
@@ -3426,8 +3423,8 @@ cl.classname = k
 					self.descstr = 'play ching sound effect'
 				elseif subcmd == 0x8C then
 					local arg = read(uint8_t)
-					self.descstr = 'play sound effect '
-						..hex2(arg)..', pan center'
+					self.descstr = 'playSound('
+						..hex2(arg)..') pan center'
 				else
 					self.descstr = '!!! uncharted subcmd'
 				end
@@ -3453,7 +3450,7 @@ cl.classname = k
 			__tostring = function(self)
 				return 'move(currentEnt, '
 					..movedirs[bit.rshift(self.arg, 5)]
-					..', '..hex2(bit.band(self.arg, 0x1f)+1)
+					..', '..(bit.band(self.arg, 0x1f)+1)
 					..')'
 			end,
 		}
@@ -3461,7 +3458,7 @@ cl.classname = k
 			cmd = 0x84,
 			argtypes = {uint8_t},
 			argnames = {'speed'},
-			desc = 'setAnimSpeed(<?=speed?>)',
+			desc = 'setAnimSpeed(<?=speed+1?>)',
 		}
 		BattleAnimCmds[0x85] = BattleAnimCmd:subclass{
 			cmd = 0x85,
@@ -3502,7 +3499,7 @@ cl.classname = k
 			cmd = 0x89,
 			getargs = function(self, ...)
 				Cmds.ForLoop.getargs(self, ...)
-				self.count = self.count - 1
+				self.count = self.count + 1
 			end,
 		})
 
@@ -4122,10 +4119,9 @@ cl.classname = k
 			argtypes = {uint8_t},
 			argnames = {'arg'},
 			__tostring = function(self)
-				return ''..(self.arg == 0
-					and ('play animation default sound effect')
-					or 'play sound effect '..hex2(self.arg)
-				)
+				return self.arg == 0
+					and 'play animation default sound effect'
+					or 'playSound('..hex2(self.arg)..')'
 			end,
 		}
 
@@ -4367,14 +4363,117 @@ cl.classname = k
 				return 'set BG tile data quadrants 1 = affect bg1 3 = affect bg1 x = quadrant'
 			end,
 		}
-		BattleAnimCmds[0xEB] = BattleAnimCmd:subclass{
+		BattleAnimCmds.GotoForThread = BattleAnimCmd:subclass{
 			cmd = 0xEB,
-			argtypes = {uint16_t, uint16_t, uint16_t},
+			digest = function(self, read)
+
+				-- TODO this is gonna vary
+				local numThreads = 4
+				if self.addr == 0x100f5f then
+					numThreads = 8
+				elseif self.addr == 0x10139d then
+					numThreads = 3
+				elseif self.addr == 0x10141f then
+					numThreads = 3
+				elseif self.addr == 0x10147b then
+					numThreads = 6
+				elseif self.addr == 0x1018cd then
+					numThreads = 3
+				elseif self.addr == 0x101c21 then
+					numThreads = 2
+				elseif self.addr == 0x101d78 then
+					numThreads = 6
+				elseif self.addr == 0x101e89 then
+					numThreads = 6
+				elseif self.addr == 0x101f5c then
+					numThreads = 6
+				elseif self.addr == 0x101fc1 then
+					numThreads = 6
+				elseif self.addr == 0x102162 then
+					numThreads = 6
+				elseif self.addr == 0x102438 then
+					numThreads = 3
+				elseif self.addr == 0x10285b then
+					numThreads = 6
+				elseif self.addr == 0x102e73 then
+					numThreads = 2
+				elseif self.addr == 0x103468 then
+					numThreads = 6
+				elseif self.addr == 0x1034c0 then
+					numThreads = 6
+				elseif self.addr == 0x1035b4 then
+					numThreads = 2
+				elseif self.addr == 0x103670 then
+					numThreads = 3
+				elseif self.addr == 0x10390d then
+					numThreads = 6
+				elseif self.addr == 0x103bfc then
+					numThreads = 6
+				elseif self.addr == 0x103d5f then
+					numThreads = 6
+				elseif self.addr == 0x103e53 then
+					numThreads = 3
+				elseif self.addr == 0x10422d then
+					numThreads = 3
+				elseif self.addr == 0x10426c then
+					numThreads = 3
+				elseif self.addr == 0x10441f then
+					numThreads = 3
+				elseif self.addr == 0x10452e then
+					numThreads = 3
+				elseif self.addr == 0x10456b then
+					numThreads = 8
+				elseif self.addr == 0x104767 then
+					numThreads = 8
+				elseif self.addr == 0x104fc6 then
+					numThreads = 3
+				elseif self.addr == 0x105141 then
+					numThreads = 6
+				elseif self.addr == 0x10571e then
+					numThreads = 8
+				elseif self.addr == 0x105873 then
+					numThreads = 3
+				elseif self.addr == 0x1058f8 then
+					numThreads = 8
+				elseif self.addr == 0x105b42 then
+					numThreads = 6
+				elseif self.addr == 0x105d51 then
+					numThreads = 3
+				elseif self.addr == 0x105d73 then
+					numThreads = 6
+				elseif self.addr == 0x105f25 then
+					numThreads = 8
+				elseif self.addr == 0x10625a then
+					numThreads = 6
+				elseif self.addr == 0x1062a4 then
+					numThreads = 6
+				elseif self.addr == 0x10632f then
+					numThreads = 6
+				elseif self.addr == 0x1063a6 then
+					numThreads = 2
+				elseif self.addr == 0x106485 then
+					numThreads = 6
+				elseif self.addr == 0x1064d2 then
+					numThreads = 6
+				end
+
+				self.destAddrs = table()
+				for i=1,numThreads do
+					self.destAddrs:insert(read(uint16_t) + battleAnimScriptAddr)
+				end
+			end,
 			__tostring = function(self)
 				-- TODO count as many as threads ... how to determine # of threads?
-				return 'jump based on thread to {'
-					..self.args:mapi(hex4):concat', '
-					..'}'
+				return 'gotoForThread('
+					..self.destAddrs:mapi(function(addr)
+						return game.addrLabel(addr)
+					end):concat', '
+					..')'
+			end,
+			getBranchAddrs = function(self)
+				return self.destAddrs:mapi(function(addr)
+					return {addr = addr}
+				end)
 			end,
 		}
 		BattleAnimCmds[0xEC] = BattleAnimCmd:subclass{
@@ -4477,9 +4576,13 @@ cl.classname = k
 		BattleAnimCmds[0xF8] = BattleAnimCmd:subclass{
 			cmd = 0xF8,
 			argtypes = {uint16_t, uint16_t},
-			argnames = {'gotoAddr', 'gotoElseAddr'},
+			getargs = function(self, gotoAddr, gotoElseAddr)
+				self.gotoAddr = gotoAddr + battleAnimScriptAddr
+				self.gotoElseAddr = gotoElseAddr + battleAnimScriptAddr
+			end,
 			__tostring = function(self)
-				return 'if '..self:getCond()..' then '..Cmd.getGotoStr(self.gotoAddr)
+				return 'if '..self:getCond()
+					..' then '..Cmd.getGotoStr(self.gotoAddr)
 					..' else '..Cmd.getGotoStr(self.gotoElseAddr)
 					..' end'
 			end,
@@ -4508,14 +4611,16 @@ cl.classname = k
 		BattleAnimCmds.Goto = BattleAnimCmd:subclass{
 			cmd = 0xFA,
 			argtypes = {uint16_t},
-			argnames = {'gotoAddr'},
+			getargs = function(self, gotoAddr)
+				self.gotoAddr = gotoAddr + battleAnimScriptAddr
+			end,
 			__tostring = function(self)
 				return Cmd.getGotoStr(self.gotoAddr)
 			end,
 			getBranchAddrs = function(self)
 				return {
 					-- this will always use event-cmds, whereas typical getBranchAddrs for branch/goto/call will preserve cmdset
-					{addr = self.gotoAddr, cmdset = 'BattleAnimCmds'},
+					{addr = self.gotoAddr},
 				}
 			end,
 		}
