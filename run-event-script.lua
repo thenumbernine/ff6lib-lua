@@ -1552,7 +1552,7 @@ end
 		function ForLoop:toCode(indent)
 			indent = indent or 0
 			local s = table()
-			s:insert('for i=1,'..self.count..' do')
+			s:insert('for '..self.forCond..' do')
 			for _,stmt in ipairs(self.stmts) do
 				s:insert(stmt:toCodeLine(indent+1))	-- toCodeLine means also insert asm if asked to
 			end
@@ -1591,7 +1591,7 @@ end
 						local startCmd = stmts[startIndex]
 
 						local loop = ForLoop()
-						loop.count = startCmd.count
+						loop.forCond = startCmd:getFor()
 
 						-- since we are throwing away the ending, make sure nothing points there
 						if game.whatsPointingToAddr[stmts[i].addr] then

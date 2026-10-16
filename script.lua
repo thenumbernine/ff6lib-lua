@@ -156,9 +156,9 @@ return function(game)
 		end
 		-- is it 'goto return' as in we jmp to the instruction and its a rts and so we return?
 		--  and therefore a 'goto return' is the same as just 'return'
-		-- but then how about the 'call' ... does that push to the same stack as whatever invoked the script in the first place,
+		-- but then how about the 'call ' ... does that push to the same stack as whatever invoked the script in the first place,
 		--  such that 'call return' is a 'nop'?
-		--  or are all 'call return's erroneous, in that if the pc stack is different between invoking touch/event s and 'call' within the script, then a 'call return' would produce some kind of error?
+		--  or are all 'call return's erroneous, in that if the pc stack is different between invoking touch/event s and 'call ' within the script, then a 'call return' would produce some kind of error?
 		return op..str
 	end
 
@@ -1153,7 +1153,12 @@ return function(game)
 			Cmd.getargs(self, ...)
 			self.trace.indent = self.trace.indent + 1
 		end,
-		desc = 'for i=1,<?=count?> do',
+		__tostring = function(self)
+			return 'for '..self:getFor()..' do'
+		end,
+		getFor = function(self)
+			return 'i=1,'..self.count
+		end,
 	}
 	Cmds.ForLoop = ForLoop
 
@@ -3081,6 +3086,16 @@ cl.classname = k
 			BattleAnimCmds[('ShowFrame_0x%02x'):format(cmd)] = ShowFrame:subclass{cmd=cmd}
 		end
 
+		BattleAnimCmds[0x67] = BattleAnimCmd:subclass{
+			cmd = 0x67,
+			desc = '-- unknown/nop 0x67',
+		}
+
+		BattleAnimCmds[0x70] = BattleAnimCmd:subclass{
+			cmd = 0x70,
+			desc = '-- unknown/nop 0x70',
+		}
+
 		BattleAnimCmds.Cmd_0x80 = BattleAnimCmd:subclass{
 			cmd = 0x80,
 			digest = function(self, read)
@@ -3283,8 +3298,8 @@ cl.classname = k
 					self.descstr = 'moveTriangleToThreadPosition()'
 				elseif subcmd == 0x4D then
 					self.descstr = 'setVectorFromTriangleToTarget()'
-				elseif subcmd == 0x4E then
-					self.descstr = ''
+				elseif subcmd == 0x4e then
+					self.descstr = 'resetFrameOffset()'
 				elseif subcmd == 0x4F then
 					self.descstr = ''
 				elseif subcmd == 0x50 then
@@ -3460,9 +3475,9 @@ cl.classname = k
 			argnames = {'speed'},
 			desc = 'setAnimSpeed(<?=speed+1?>)',
 		}
-		BattleAnimCmds[0x85] = BattleAnimCmd:subclass{
+		BattleAnimCmds.MoveToAttacker = BattleAnimCmd:subclass{
 			cmd = 0x85,
-			desc = 'moveThreadToAttackerPosition()',
+			desc = 'moveToAttacker()',
 		}
 		BattleAnimCmds[0x86] = BattleAnimCmd:subclass{
 			cmd = 0x86,
@@ -3614,12 +3629,8 @@ cl.classname = k
 		BattleAnimCmds[0x98] = BattleAnimCmd:subclass{
 			cmd = 0x98,
 			argtypes = {uint8_t, uint8_t},
-			argnames = {'arg', 'arg2'},
-			__tostring = function(self)
-				return 'increment graphic index offset every '
-					..hex2(self.arg)
-					..' frame(s), '..hex2(self.arg2)
-			end,
+			argnames = {'numFrames', 'x'},
+			desc = 'waitAndIncFrame(<?=numFrames?>, <?=x?>)',
 		}
 		BattleAnimCmds[0x99] = BattleAnimCmd:subclass{
 			cmd = 0x99,
@@ -3634,19 +3645,14 @@ cl.classname = k
 			desc = 'set thread facing direction to match attacker',
 		}
 
-		BattleAnimCmds[0x9F] = BattleAnimCmd:subclass{
-			cmd = 0x9F,
+		BattleAnimCmds.AnimThreadLoop = BattleAnimCmd:subclass(ForLoop, {
+			cmd = 0x9f,
 			argtypes = {uint8_t},
-			getargs = function(self, arg)
-				Cmd.getargs(self, arg)
-				self.arg = arg
-				self.trace.indent = self.trace.indent + 1
+			argnames = {'arg'},
+			getFor = function(self)
+				return 'i=1,numAnimThreads'..self.arg
 			end,
-			__tostring = function(self)
-				return 'animated loop start (loop count equal to the number of active threads, '
-					..hex2(self.arg)..' = 0) (autocrossbow)'
-			end,
-		}
+		})
 
 		BattleAnimCmds[0xA0] = BattleAnimCmd:subclass{
 			cmd = 0xA0,
@@ -3951,25 +3957,18 @@ cl.classname = k
 		BattleAnimCmds[0xBD] = BattleAnimCmd:subclass{
 			cmd = 0xBD,
 			argtypes = {uint8_t},
-			argnames = {'arg'},
+			getargs = function(self, arg)
+				self.arg = arg
+				if 0 ~= bit.band(0x80, arg) then
+					self.bg = 1
+					self.visible = 0 == bit.band(0x20, arg)
+				elseif 0 ~= bit.band(0x40, arg) then
+					self.bg = 3
+					self.visible = 0 == bit.band(0x10, arg)
+				end
+			end,
 			__tostring = function(self)
-				local arg = self.arg
-				return
-					(0 ~= bit.band(0x80, arg) and
-						(
-							(0 ~= bit.band(0x20, arg) and 'hide' or 'show')
-							..' BG1'
-						)
-						or ''
-					)
-					..(0 ~= bit.band(0x40, arg) and
-						(
-							(0 ~= bit.band(0x10, arg) and 'hide' or 'show')
-							..' BG3'
-						)
-						or ''
-					)
-					..' animation thread graphics'
+				return 'setThreadVisible('..self.bg..', '..tostring(self.visible)..') -- '..self.arg
 			end,
 		}
 		BattleAnimCmds[0xBE] = BattleAnimCmd:subclass{
@@ -3986,7 +3985,7 @@ cl.classname = k
 			argtypes = {uint16_t},
 			argnames = {'destAddr'},
 			__tostring = function(self)
-				return Cmd.getGotoStr(self:getDestAddr(), 'call')
+				return Cmd.getGotoStr(self:getDestAddr(), 'call ')
 			end,
 			getDestAddr = function(self)
 				return battleAnimScriptAddr + self.destAddr
@@ -4120,7 +4119,7 @@ cl.classname = k
 			argnames = {'arg'},
 			__tostring = function(self)
 				return self.arg == 0
-					and 'play animation default sound effect'
+					and 'playSoundDefault()'
 					or 'playSound('..hex2(self.arg)..')'
 			end,
 		}
@@ -4195,16 +4194,11 @@ cl.classname = k
 				return 'set sprite data for all character/monster sprites'
 			end,
 		}
-		BattleAnimCmds[0xD1] = BattleAnimCmd:subclass{
-			cmd = 0xD1,
+		BattleAnimCmds.SetFixedDrawOrder = BattleAnimCmd:subclass{
+			cmd = 0xd1,
 			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				local arg = self.arg
-				return
-					(arg == 0 and 'validate' or 'invalidate')
-					..'CharacterMonsterOrderPriority()'
-			end,
+			argnames = {'arg'},	-- 0 = normal, 1 = fixed
+			desc = 'setFixedDrawOrder(<?=arg?>)',
 		}
 		BattleAnimCmds[0xD2] = BattleAnimCmd:subclass{
 			cmd = 0xD2,
@@ -4221,11 +4215,8 @@ cl.classname = k
 		BattleAnimCmds[0xD4] = BattleAnimCmd:subclass{
 			cmd = 0xD4,
 			argtypes = {uint16_t, uint8_t},
-			argnames = {'xxxx', 'yy'},
-			__tostring = function(self)
-				-- hmm cant tell bit/byte order from desc...
-				return 'set color addition/subtraction data'
-			end,
+			argnames = {'colors', 'layers'},
+			desc = 'setBlend(<?=colors?>, <?=layers?>)',
 		}
 		BattleAnimCmds[0xD5] = BattleAnimCmd:subclass{
 			cmd = 0xD5,
@@ -4236,6 +4227,13 @@ cl.classname = k
 					..(0 ~= bit.band(1, self.arg) and ' hflip' or '')
 					..(0 ~= bit.band(2, self.arg) and ' vflip' or '')
 			end,
+		}
+
+		BattleAnimCmds.ScrollBG = BattleAnimCmd:subclass{
+			cmd = 0xd6,
+			argtypes = {int8_t, int8_t},
+			argnames = {'x', 'y'},
+			desc = 'scrollBG(<?=x?>, <?=y?>)',
 		}
 
 		BattleAnimCmds[0xD7] = BattleAnimCmd:subclass{
@@ -4271,10 +4269,25 @@ cl.classname = k
 		BattleAnimCmds[0xDB] = BattleAnimCmd:subclass{
 			cmd = 0xDB,
 			argtypes = {uint8_t},
-			argnames = {'arg'},
+			getargs = function(self, ofs)
+				self.destAddr = self.addr + ofs
+			end,
 			__tostring = function(self)
 				local arg = self.arg
-				return 'if characterAlreadySteppedForwardToAttack() then goto _'..getaddr(self.trace.pc - arg)..' end'
+				return 'if '..self:getCond()
+					..' then '..Cmd.getGotoStr(self.destAddr)
+					..' end'
+			end,
+			getDestAddr = function(self)
+				return self.destAddr
+			end,
+			getBranchAddrs = function(self)
+				return {
+					{addr=self.destAddr},
+				}
+			end,
+			getCond = function(self)
+				return 'currentEntHasSteppedForwardToAttack()'
 			end,
 		}
 		BattleAnimCmds[0xDC] = BattleAnimCmd:subclass{
@@ -4566,10 +4579,8 @@ cl.classname = k
 		BattleAnimCmds[0xF7] = BattleAnimCmd:subclass{
 			cmd = 0xF7,
 			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				return 'wait until vertical scanline position '..hex2(self.arg)
-			end,
+			argnames = {'y'},
+			desc = 'waitForScanline(<?=y?>)',
 		}
 
 		-- TODO use If
@@ -4939,7 +4950,6 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {
 	end
 
 	function Trace:run()
-
 		-- make sure we haven't decoded this already
 		for _,otherTrace in pairs(decompileTraces) do
 			local cmdobj = otherTrace.cmdObjForAddr[self.addr]
@@ -5233,6 +5243,24 @@ print()
 			trace:readInstr(trace.pc, 'BattleAnimCmds', 'SpeedAndAlign')
 
 			trace:run()
+
+			-- and fix a bug...
+			local t = decompileTraces[0x104cc2]
+			if t then
+				-- this'll inc .pc past .endAddr
+				-- and put an instruction in overlapping memory
+				-- so don't reassemble later I guess?
+				local cmdobj = BattleAnimCmds.EndFor()
+				cmdobj.trace = t
+				cmdobj.cmdset = 'BattleAnimCmds'
+				local lastcmd = t.cmds[#t.cmds]
+				cmdobj.indent = lastcmd.indent
+				cmdobj.addr = lastcmd.addr - .5	-- very cheap trick
+				cmdobj.sizeInBytes = 0
+				lastcmd.indent = lastcmd.indent - 1
+				game.eventScriptCmds:insert(cmdobj)
+				t.cmds:insert(#t.cmds-1, cmdobj)
+			end
 		end
 	end
 
