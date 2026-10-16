@@ -2561,13 +2561,11 @@ cl.classname = k
 					:concat', '
 				..')'
 			end,
-			--[[ TODO switch to BattleAnimCmds
 			getBranchAddrs = function(self)
 				return self.args:mapi(function(addr)
-					return {addr = battleAnimScriptAddr + addr}
+					return {addr = battleAnimScriptAddr + addr, cmdset='BattleAnimCmds'}
 				end)
 			end,
-			--]]
 		}
 		BattleEventCmds.AddCharTarget = BattleEventCmd:subclass{
 			cmd = 0x13,
@@ -3086,14 +3084,9 @@ cl.classname = k
 			BattleAnimCmds[('ShowFrame_0x%02x'):format(cmd)] = ShowFrame:subclass{cmd=cmd}
 		end
 
-		BattleAnimCmds[0x67] = BattleAnimCmd:subclass{
-			cmd = 0x67,
-			desc = '-- unknown/nop 0x67',
-		}
-
-		BattleAnimCmds[0x70] = BattleAnimCmd:subclass{
-			cmd = 0x70,
-			desc = '-- unknown/nop 0x70',
+		BattleAnimCmds.Use8x8BG1Tiles = BattleAnimCmd:subclass{
+			cmd = 0x20,
+			desc = 'use8x8BG1Tiles()',
 		}
 
 		BattleAnimCmds.Cmd_0x80 = BattleAnimCmd:subclass{
@@ -3104,15 +3097,15 @@ cl.classname = k
 				if subcmd == 0x00 then
 					self.descstr = 'quadraSlamSlice()'
 				elseif subcmd == 0x01 then
-					self.descstr = ''
+					self.descstr = 'clearPosOffset()'
 				elseif subcmd == 0x02 then
-					self.descstr = ''
+					self.descstr = 'attackDirPush()'
 				elseif subcmd == 0x03 then
-					self.descstr = ''
+					self.descstr = 'attackDirPop()'
 				elseif subcmd == 0x04 then
 					self.descstr = 'randomizeVectorAngleAndPosInitFireDanceSprites()'
 				elseif subcmd == 0x05 then
-					self.descstr = 'bumRush()'
+					self.descstr = 'bumRushInitPos()'
 				elseif subcmd == 0x06 then
 					self.descstr = 'initTornado()'
 				elseif subcmd == 0x07 then
@@ -3121,24 +3114,22 @@ cl.classname = k
 					self.descstr = 'moveThreadToVectorPosition()'
 				elseif subcmd == 0x09 then
 					self.descstr = 'updateObjSpriteTilePriorityForTornado()'
-				elseif subcmd == 0x0A then
+				elseif subcmd == 0x0a then
 					self.descstr = 'whiteEffectMagicIntro()'
-				elseif subcmd == 0x0B then
+				elseif subcmd == 0x0b then
 					self.descstr = 'updateEsperPreAnimationBallsPos()'
-				elseif subcmd == 0x0C then
-					self.descstr = ''
-				elseif subcmd == 0x0D then
-					self.descstr = ''
-				elseif subcmd == 0x0E then
-					self.descstr = ''
-				elseif subcmd == 0x0F then
-					self.descstr = ''
+				elseif subcmd == 0x0c then
+					self.descstr = 'moveToFirstThread()'
+				elseif subcmd == 0x0e then
+					self.descstr = 'initMonsterJumpPos()'
+				elseif subcmd == 0x0f then
+					self.descstr = 'gravBombCalcVec()'
 				elseif subcmd == 0x10 then
 					self.descstr = 'moveToTargetPos()'
 				elseif subcmd == 0x11 then
 					self.descstr = 'randomizeVectorAngle()'
 				elseif subcmd == 0x12 then
-					self.descstr = ''
+					self.descstr = 'polarInit()'
 				elseif subcmd == 0x13 then
 					self.descstr = 'makeTargetImp()'
 				elseif subcmd == 0x14 then
@@ -3146,7 +3137,7 @@ cl.classname = k
 				elseif subcmd == 0x15 then
 					self.descstr = 'moveCircleToThreadPos()'
 				elseif subcmd == 0x16 then
-					self.descstr = ''
+					self.descstr = 'circleReset()'
 				elseif subcmd == 0x17 then
 					self.descstr = 'updateSpriteLayerPriorityBasedOnTarget()'
 				elseif subcmd == 0x18 then
@@ -3155,19 +3146,19 @@ cl.classname = k
 					self.descstr = 'sketch()'
 				elseif subcmd == 0x1A then
 					local arg = read(uint8_t)
-					self.descstr = ''
+					self.descstr = 'validateMonsterEntry('..arg..')'
 				elseif subcmd == 0x1B then
 					self.descstr = 'transformIntoMagicite()'
 				elseif subcmd == 0x1C then
 					self.descstr = 'decrScreenBrightness()'
 				elseif subcmd == 0x1D then
 					self.descstr = 'transformIntoMagicite()'
-				elseif subcmd == 0x1E then
-					self.descstr = ''
-				elseif subcmd == 0x1F then
-					self.descstr = ''
+				elseif subcmd == 0x1e then
+					self.descstr = 'holyUpdateBG3Scroll()'
+				elseif subcmd == 0x1f then
+					self.descstr = 'holyInitBG3ScrollX()'
 				elseif subcmd == 0x20 then
-					self.descstr = ''
+					self.descstr = 'holyInitBG3ScrollY()'
 				elseif subcmd == 0x21 then
 					self.descstr = 'updateRotatingSpriteLayerPriority()'
 				elseif subcmd == 0x22 then
@@ -3214,8 +3205,6 @@ cl.classname = k
 					local x = read(uint8_t)
 					local y = read(uint8_t)
 					self.descstr = 'moveSpriteTo('..x..', '..y..')'
-				elseif subcmd == 0x2F then
-					self.descstr = ''
 				elseif subcmd == 0x30 then
 					local arg = read(uint8_t)
 					self.descstr = 'loadChar1AnimPal('..hex2(arg)..')'
@@ -3223,6 +3212,8 @@ cl.classname = k
 					local speed = read(uint8_t)
 					self.descstr = 'moveInWideSineWave('..hex2(speed)..')'
 				elseif subcmd == 0x32 then
+					-- TODO argument for emitting separate cmd objs
+					-- / make a recursive emit() that does table lookup and class obj generation
 					local x = read(uint16_t)
 					local y = read(uint16_t)
 					if x == y then
@@ -3234,7 +3225,7 @@ cl.classname = k
 					end
 				elseif subcmd == 0x33 then
 					local arg = read(uint8_t)
-					self.descstr = 'updateRainbowGradientLines()'
+					self.descstr = 'updateRainbowGradient()'
 				elseif subcmd == 0x34 then
 					self.descstr = 'copyMonsterToCharPalettes()'
 				elseif subcmd == 0x35 then
@@ -3247,10 +3238,10 @@ cl.classname = k
 					self.descstr = 'enableHighPriorityBG3()'
 				elseif subcmd == 0x39 then
 					local arg = read(uint8_t)
-					self.descstr = 'updateBlueGradientLines()'
-				elseif subcmd == 0x3A then
+					self.descstr = 'updateBlueGradient()'
+				elseif subcmd == 0x3a then
 					local arg = read(uint8_t)
-					self.descstr = ''
+					self.descstr = 'initBlueGradient('..arg..')'
 				elseif subcmd == 0x3B then
 					self.descstr = 'setTargetColorPalToAnimPal()'
 				elseif subcmd == 0x3C then
@@ -3283,39 +3274,40 @@ cl.classname = k
 					local arg = read(uint8_t)
 					self.descstr = 'set_BG12_mask_register()'
 				elseif subcmd == 0x46 then
-					self.descstr = ''
+					local arg = read(uint8_t)
+					self.descstr = 'setBG1TilemapLocation('..hex2(arg)..'00)'
 				elseif subcmd == 0x47 then
-					self.descstr = ''
+					self.descstr = 'setBG1GfxAddr('..read(uint8_t)..')'
 				elseif subcmd == 0x48 then
 					self.descstr = 'clear'
 				elseif subcmd == 0x49 then
 					self.descstr = 'inkHitVirite()'
-				elseif subcmd == 0x4A then
-					self.descstr = ''
+				elseif subcmd == 0x4a then
+					self.descstr = 'disableStepBack()'
 				elseif subcmd == 0x4B then
-					self.descstr = 'updateRedYellowGradientLines()'
+					self.descstr = 'updateRedYellowGradient()'
 				elseif subcmd == 0x4C then
 					self.descstr = 'moveTriangleToThreadPosition()'
 				elseif subcmd == 0x4D then
 					self.descstr = 'setVectorFromTriangleToTarget()'
 				elseif subcmd == 0x4e then
 					self.descstr = 'resetFrameOffset()'
-				elseif subcmd == 0x4F then
-					self.descstr = ''
+				elseif subcmd == 0x4f then
+					self.descstr = 'moveToAttacker_80_4f()'
 				elseif subcmd == 0x50 then
-					self.descstr = ''
+					self.descstr = 'scrollBG3Random('..read(uint8_t)..')'
 				elseif subcmd == 0x51 then
 					self.descstr = 'rippler()'
 				elseif subcmd == 0x52 then
 					self.descstr = 'stone()'
 				elseif subcmd == 0x53 then
-					self.descstr = 'rpolarity()'
+					self.descstr = 'rpolarity(0x53)'
 				elseif subcmd == 0x54 then
-					self.descstr = 'rpolarity()'
+					self.descstr = 'rpolarity(0x54)'
 				elseif subcmd == 0x55 then
 					self.descstr = 'quasar()'
 				elseif subcmd == 0x56 then
-					self.descstr = 'goner()'
+					self.descstr = 'bg1ScrollGoner()'
 				elseif subcmd == 0x57 then
 					local arg = read(uint8_t)
 					self.descstr = 'set_BG34_window_mask('..hex2(arg)..')'
@@ -3323,15 +3315,16 @@ cl.classname = k
 					local arg = read(uint8_t)
 					self.descstr = 'setCircleShape('..hex2(arg)..')'
 				elseif subcmd == 0x59 then
-					self.descstr = 'gonerFlareStar()'
+					local arg = read(uint8_t)
+					self.descstr = 'setWindow2Size('..arg..')'
 				elseif subcmd == 0x5A then
-					self.descstr = 'mindBlast()'
+					self.descstr = 'mindBlast(0x5a)'
 				elseif subcmd == 0x5B then
-					self.descstr = 'mindBlast()'
+					self.descstr = 'mindBlast(0x5b)'
 				elseif subcmd == 0x5C then
-					self.descstr = 'mindBlast()'
-				elseif subcmd == 0x5D then
-					self.descstr = ''
+					self.descstr = 'mindBlast(0x5c)'
+				elseif subcmd == 0x5d then
+					self.descstr = 'updateVecWave()'
 				elseif subcmd == 0x5E then
 					self.descstr = 'overcast()'
 				elseif subcmd == 0x5F then
@@ -3341,17 +3334,17 @@ cl.classname = k
 					local flags = read(uint32_t)	-- TODO is aabbccdd 4 sets of 2 bits or 4 bytes?
 					self.descstr = 'toggleAttackerStatus('..hex8(flags)..')'
 				elseif subcmd == 0x61 then
-					local xx, yy, zz = read(uint8_t), read(uint8_t), read(uint8_t)
-					self.descstr = ''
+					local x, y, z = read(uint8_t), read(uint8_t), read(uint8_t)
+					self.descstr = 'eyedropUpdate('..x..', '..y..', '..z..')'
 				elseif subcmd == 0x62 then
 					self.descstr = 'evilTootFader()'
 				elseif subcmd == 0x63 then
 					local arg = read(uint8_t)
-					self.descstr = 'moveInNarrowVertSineWave('..hex2(arg)..')'	-- speed
+					self.descstr = 'moveInNarrowVertSineWave('..arg..')'	-- speed
 				elseif subcmd == 0x64 then
 					self.descstr = 'purifierInvizEdge()'
 				elseif subcmd == 0x65 then
-					self.descstr = ''
+					self.descstr = '-- unknown/nop 0x80 0x65'
 				elseif subcmd == 0x66 then
 					self.descstr = 'shockWave()'
 				elseif subcmd == 0x67 then
@@ -3368,12 +3361,10 @@ cl.classname = k
 					self.descstr = 'overcast()'
 				elseif subcmd == 0x6D then
 					self.descstr = 'disableBattleMenu()'
-				elseif subcmd == 0x6E then
-					self.descstr = ''
-				elseif subcmd == 0x6F then
-					self.descstr = ''
+				elseif subcmd == 0x6f then
+					self.descstr = 'updateWindowHDMA()'
 				elseif subcmd == 0x70 then
-					self.descstr = ''
+					self.descstr = 'alignBG3VScroll()'
 				elseif subcmd == 0x71 then
 					self.descstr = 'restoreCharPals()'
 				elseif subcmd == 0x72 then
@@ -3382,10 +3373,8 @@ cl.classname = k
 				elseif subcmd == 0x73 then
 					local arg = read(uint8_t)
 					self.descstr = 'setDiceGraphics('..hex2(arg)..')'
-				elseif subcmd == 0x74 then
-					self.descstr = ''
 				elseif subcmd == 0x75 then
-					self.descstr = 'superball()'
+					self.descstr = 'superball('..read(uint8_t)..', '..read(uint8_t)..', '..read(uint8_t)..')'
 				elseif subcmd == 0x76 then
 					self.descstr = 'seize '..read(uint8_t)
 				elseif subcmd == 0x77 then
@@ -3409,39 +3398,38 @@ cl.classname = k
 					self.descstr = 'hideAllMonsters()'
 				elseif subcmd == 0x80 then
 					self.descstr = 'bossDeathSetPal('..read(uint8_t)..', '..read(uint8_t)..', '..read(uint8_t)..')'
-				elseif subcmd == 0x81 then
-					self.descstr = ''
 				elseif subcmd == 0x82 then
 					self.descstr = 'enemyMoveX('..read(int8_t)..')'
-				elseif subcmd == 0x83 then
-					self.descstr = ''
 				elseif subcmd == 0x84 then
-					self.descstr = 'chadarnook exit'
+					self.descstr = 'chadarnookExit(0x84)'
+				elseif subcmd == 0x83 then
+					self.descstr = 'chadarnookSavePos()'
 				elseif subcmd == 0x85 then
-					self.descstr = 'chadarnook exit'
+					self.descstr = 'chadarnookExit(0x85)'
 				elseif subcmd == 0x86 then
 					local arg = read(uint8_t)
 					self.descstr = 'playSound('
-						..hex2(arg)..') pan based on sprite X position'
+						..arg..') pan based on sprite X position'
 				elseif subcmd == 0x87 then
 					local arg = read(uint8_t)
 					self.descstr = 'playSound('
-						..hex2(arg)..') pan based on sprite Y position'
-				elseif subcmd == 0x88 then
-					self.descstr = ''
+						..arg..') pan based on sprite Y position'
 				elseif subcmd == 0x89 then
 					local arg = read(uint8_t)
-					self.descstr = ''
-				elseif subcmd == 0x8A then
-					self.descstr = 'set target monster sprite priority to 0'
-				elseif subcmd == 0x8B then
-					self.descstr = 'play ching sound effect'
-				elseif subcmd == 0x8C then
+					self.descstr = 'setKefkaHeadShakeEnabled('..arg..')'
+				elseif subcmd == 0x8a then
+					self.descstr = 'clearTargetMonsterSpritePriority()'
+				elseif subcmd == 0x8b then
+					self.descstr = 'playSoundChing()'
+				elseif subcmd == 0x8c then
 					local arg = read(uint8_t)
 					self.descstr = 'playSound('
 						..hex2(arg)..') pan center'
+				elseif subcmd == 0xdb then
+					local ofs = read(uint8_t)
+					self.descstr = 'jumpStep('..Cmd.getGotoStr(self.addr + ofs, '')..')'
 				else
-					self.descstr = '!!! uncharted subcmd'
+					self.descstr = '??? 0x80 '..hex2(subcmd)
 				end
 			end,
 		}
@@ -3477,7 +3465,7 @@ cl.classname = k
 		}
 		BattleAnimCmds.MoveToAttacker = BattleAnimCmd:subclass{
 			cmd = 0x85,
-			desc = 'moveToAttacker()',
+			desc = 'moveToAttacker_84()',
 		}
 		BattleAnimCmds[0x86] = BattleAnimCmd:subclass{
 			cmd = 0x86,
@@ -3520,26 +3508,22 @@ cl.classname = k
 
 		BattleAnimCmds.EndFor = EventCmd:subclass(EndFor, {cmd=0x8a})
 
-		BattleAnimCmds[0x8B] = BattleAnimCmd:subclass{
-			cmd = 0x8B,
+		BattleAnimCmds.AnimForLoop = BattleAnimCmd:subclass(ForLoop, {
+			cmd = 0x8b,
 			argtypes = {uint8_t},
 			getargs = function(self, arg)
-				Cmd.getargs(self, arg)
+				Cmds.ForLoop.getargs(self, arg)
 				self.arg = arg
-				self.trace.indent = self.trace.indent + 1
 			end,
-			__tostring = function(self)
-				return 'animated loop frame offset from +0 to +'..hex2(self.arg-1)
+			getFor = function(self)
+				return 'animFrameOfs=0,'..(self.arg-1)
 			end,
-		}
-		BattleAnimCmds[0x8C] = BattleAnimCmd:subclass{
-			cmd = 0x8C,
-			getargs = function(self)
-				self.indent = self.indent - 1
-				self.trace.indent = self.trace.indent - 1
-			end,
-			desc = 'end -- animated loop',
-		}
+		})
+
+		BattleAnimCmds.AnimEndFor = BattleAnimCmd:subclass(EndFor, {
+			cmd = 0x8c,
+			desc = 'end -- for animFrameOfs',
+		})
 
 		BattleAnimCmds[0x8D] = BattleAnimCmd:subclass{
 			cmd = 0x8D,
@@ -3555,13 +3539,16 @@ cl.classname = k
 			cmd = 0x8E,
 			argtypes = {uint8_t},
 			argnames = {'arg'},
+			desc = 'showThread(<?=arg?>)',
+			--[[
 			__tostring = function(self)
-				return 'show thread'
+				return 'showThread('
 					..(0 ~= bit.band(0x80, self.arg) and ' below' or ' above')
 					..(0 ~= bit.band(0x40, self.arg) and ' front' or ' back')
 					..' other sprites (sprite priority) with'
 					..(0 ~= bit.band(1, self.arg) and '' or ' opposite')..' weapon hand'
 			end,
+			--]]
 		}
 		BattleAnimCmds[0x8F] = BattleAnimCmd:subclass{
 			cmd = 0x8F,
@@ -3571,7 +3558,7 @@ cl.classname = k
 				-- TODO either 0x8D or 0x8F should probably be 'vflipped'
 				return 'if animationIsHflipped() then setDirAndMove('
 					..movedirs[bit.rshift(self.arg, 5)]
-					..' an, '..hex2(bit.band(self.arg, 0x1f)+1)..') end'
+					..', '..hex2(bit.band(self.arg, 0x1f)+1)..') end'
 			end,
 		}
 		BattleAnimCmds[0x90] = BattleAnimCmd:subclass{
@@ -3593,26 +3580,25 @@ cl.classname = k
 			argtypes = {uint8_t, uint8_t},
 			argnames = {'speed', 'branch'},
 			__tostring = function(self)
-				return 'move thread along vector (speed '
-					..hex2(self.speed)..', code branch '
-					..hex2(self.branch)..')'
+				-- TODO this is an end-loop and branch is how many instructions to go back
+				return 'moveAlongVec('
+					..self.speed..', '
+					..self.branch..')'
 			end,
 		}
 		BattleAnimCmds[0x93] = BattleAnimCmd:subclass{
 			cmd = 0x93,
 			argtypes = {uint8_t},
 			argnames = {'arg'},
-			__tostring = function(self)
-				return 'set position on vector to '..hex2(self.arg)
-			end,
+			desc ='setVectorOffset(<?=arg?>)',
 		}
 		BattleAnimCmds[0x94] = BattleAnimCmd:subclass{
 			cmd = 0x94,
-			desc = 'set vector from attacker to a random location on the target (GP Rain, AutoCrossbow)',
+			desc = 'setVecFromAttackerToRandomLocOnTarget()',
 		}
 		BattleAnimCmds[0x95] = BattleAnimCmd:subclass{
 			cmd = 0x95,
-			desc ='set vector from attacker to target',
+			desc ='setVecFromAttackerToTarget()',
 		}
 		BattleAnimCmds[0x96] = BattleAnimCmd:subclass{
 			cmd = 0x96,
@@ -3657,10 +3643,15 @@ cl.classname = k
 		BattleAnimCmds[0xA0] = BattleAnimCmd:subclass{
 			cmd = 0xA0,
 			argtypes = {uint8_t, uint8_t},
-			argnames = {'arg', 'arg2'},
+			getargs = function(self, speed, addrOfs)
+				self.speed = speed
+				self.destAddr = self.addr + 2 - addrOfs
+			end,
 			__tostring = function(self)
-				return 'jump forward along vector (speed '
-					..hex2(self.arg)..', code branch '..hex2(self.arg2)..')'
+				return 'moveAlongVecAndGoto('
+					..self.speed..', '
+					..Cmd.getGotoStr(self.destAddr, '')
+					..')'
 			end,
 		}
 		BattleAnimCmds[0xA1] = BattleAnimCmd:subclass{
@@ -3679,281 +3670,79 @@ cl.classname = k
 		BattleAnimCmds[0xA3] = BattleAnimCmd:subclass{
 			cmd = 0xA3,
 			argtypes = {uint16_t},
-			argnames = {'xxxx'},
-			desc = 'shift color palette left',
+			argnames = {'arg'},
+			desc = 'rotatePalette(<?=arg?>)',
 		}
 		BattleAnimCmds[0xA4] = BattleAnimCmd:subclass{
 			cmd = 0xA4,
 			argtypes = {uint8_t, uint8_t},
 			argnames = {'arg', 'arg2'},
 			__tostring = function(self)
-				return 'shift color palette right'
-					..' numcolors='..bit.band(0xf, self.arg)
-					..' offset='..bit.band(0xf, bit.rshift(self.arg, 4))
-					..' speed='..bit.band(0xf, self.arg2)
-					..' paletteIndex='..bit.band(0xf, bit.rshift(self.arg, 4))
+				return 'rotatePalette{'
+					..'numcolors='..bit.band(0xf, self.arg)
+					..', offset='..bit.band(0xf, bit.rshift(self.arg, 4))
+					..', speed='..bit.band(0xf, self.arg2)
+					..', paletteIndex='..bit.band(0xf, bit.rshift(self.arg, 4))
+					..'}'
 			end,
 		}
 		BattleAnimCmds[0xA5] = BattleAnimCmd:subclass{
 			cmd = 0xA5,
-			argtypes = {uint8_t, uint8_t, uint8_t, uint8_t, uint16_t, uint8_t},
-			argnames = {'aa', 'bb', 'cc', 'xx', 'yyyy', 'zz'},
-			__tostring = function(self)
-				return 'circle origin ('
-					..hex2(self.aa+0x80)..','..hex2(self.bb+0x80)..')'
-					..' growspeed?='..hex2(self.cc)
-					..' maxsize='..hex2(self.yyyy)
+			argtypes = {int8_t, int8_t, uint8_t, uint8_t, uint16_t, uint8_t},
+			getargs = function(self, x, y, dr, p, rmax, q)
+				self.x = x + 0x80
+				self.y = y + 0x80
+				self.dr = dr
+				self.rmax = rmax
+				self.p = p
+				self.q = q
 			end,
+			desc = 'circleSeProps(<?=x?>, <?=y?>, <?=dr?>, <?=rmax?>, <?=p?>, <?=q?>)'
 		}
 		BattleAnimCmds[0xA6] = BattleAnimCmd:subclass{
 			cmd = 0xA6,
 			argtypes = {int8_t, int8_t, int8_t},
 			argnames = {'dx', 'dy', 'dr'},
-			__tostring = function(self)
-				return 'move circle ('..self.dx..','..self.dy..'), circle size += '..self.dr
-			end,
+			desc = 'circleMoveAndResize(<?=dx?>, <?=dy?>, <?=dr?>)',
 		}
 		BattleAnimCmds[0xA7] = BattleAnimCmd:subclass{
 			cmd = 0xA7,
-			desc = 'update circle?',
+			desc = 'circleUpdate()',
 		}
 		BattleAnimCmds[0xA8] = BattleAnimCmd:subclass{
 			cmd = 0xA8,
-			desc = 'move circle to attacker',
+			desc = 'circleMoveToAttacker()',
 		}
 		BattleAnimCmds[0xA9] = BattleAnimCmd:subclass{
 			cmd = 0xA9,
 			argtypes = {int8_t, int8_t},
 			argnames = {'dx', 'dy'},
-			desc = 'moveCircle(<?=dx?>, <?=dy?>)', --based on character facing direction
+			desc = 'circleMove(<?=dx?>, <?=dy?>)', --based on character facing direction
 		}
-		BattleAnimCmds[0xAA] = BattleAnimCmd:subclass{
-			cmd = 0xAA,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				return 'set sprite palette 3 color subtraction (absolute)'
-					..' amount='..hex2(bit.band(0x1f, self.arg))
-					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
-					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
-			end,
-		}
-		BattleAnimCmds[0xAB] = BattleAnimCmd:subclass{
-			cmd = 0xAB,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				return 'set sprite palette 3 color addition (absolute)'
-					..' amount='..hex2(bit.band(0x1f, self.arg))
-					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
-					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
-			end,
-		}
+
 		BattleAnimCmds[0xAC] = BattleAnimCmd:subclass{
 			cmd = 0xAC,
 			argtypes = {uint8_t, uint8_t},
-			argnames = {'xx', 'yy'},
-			__tostring = function(self)
-				return [[$EE9C set background scroll HDMA data 123fffff vhaaaaaa 1: affect BG1 2: affect BG2 3: affect BG3 f: frequency v: vertical h: horizontal a: amplitude (max 14, must be even ???)]]
-			end,
+			argnames = {'x', 'y'},
+			desc = 'initScrollWave(<?=x?>, <?=y?>)',
 		}
 		BattleAnimCmds[0xAD] = BattleAnimCmd:subclass{
 			cmd = 0xAD,
 			argtypes = {uint8_t},
 			argnames = {'arg'},
 			__tostring = function(self)
-				return 'set BG scroll HDMA index: BG='..bit.rshift(self.arg, 6)
-					..' index='..hex2(bit.band(self.arg, 0x3f))
+				return 'setScrollHDMA('..bit.rshift(self.arg, 6)
+					..', '..hex2(bit.band(self.arg, 0x3f))
+					..')'
 			end,
 		}
 		BattleAnimCmds[0xAE] = BattleAnimCmd:subclass{
 			cmd = 0xAE,
 			argtypes = {uint8_t},
-			argnames = {'vh___123'},
-			__tostring = function(self)
-				return 'vh---123    $ED86 Update Scroll HDMA data v: vertical h: horizontal 1: affect BG1 2: affect BG2 3: affect BG3'
-			end,
+			argnames = {'x'},	-- vh___123
+			desc = 'updateScrollWave(<?=x?>)',
 		}
-		BattleAnimCmds[0xAF] = BattleAnimCmd:subclass{
-			cmd = 0xAF,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				return 'set background palette color subtraction (absolute)'
-					..' amount='..hex2(bit.band(0x1f, self.arg))
-					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
-					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
-			end,
-		}
-		BattleAnimCmds[0xB0] = BattleAnimCmd:subclass{
-			cmd = 0xB0,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				return 'set background palette color addition (absolute)'
-					..' amount='..hex2(bit.band(0x1f, self.arg))
-					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
-					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
-			end,
-		}
-		BattleAnimCmds[0xB1] = BattleAnimCmd:subclass{
-			cmd = 0xB1,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				return 'set sprite palette 1 color subtraction (absolute)'
-					..' amount='..hex2(bit.band(0xf, self.arg))
-					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
-					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
-					..(0 ~= bit.band(0x10, self.arg) and ' sub' or ' add')
-			end,
-		}
-		BattleAnimCmds[0xB2] = BattleAnimCmd:subclass{
-			cmd = 0xB2,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				return 'Set sprite palette 1 color addition (absolute)'
-					..' amount='..hex2(bit.band(0xf, self.arg))
-					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
-					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
-					..(0 ~= bit.band(0x10, self.arg) and ' sub' or ' add')
-			end,
-		}
-		BattleAnimCmds[0xB3] = BattleAnimCmd:subclass{
-			cmd = 0xB3,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				return 'add color to sprite palette 3 (relative)'
-					..' amount='..hex2(bit.band(0xf, self.arg))
-					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
-					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
-					..(0 ~= bit.band(0x10, self.arg) and ' sub' or ' add')
-			end,
-		}
-		BattleAnimCmds[0xB4] = BattleAnimCmd:subclass{
-			cmd = 0xB4,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				return 'subtract color from sprite palette 3 palette (relative)'
-					..' amount='..hex2(bit.band(0xf, self.arg))
-					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
-					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
-					..(0 ~= bit.band(0x10, self.arg) and ' sub' or ' add')
-			end,
-		}
-		BattleAnimCmds[0xB5] = BattleAnimCmd:subclass{
-			cmd = 0xB5,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				return 'add color to background palette (relative)'
-					..' amount='..hex2(bit.band(0xf, self.arg))
-					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
-					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
-					..(0 ~= bit.band(0x10, self.arg) and ' sub' or ' add')
-			end,
-		}
-		BattleAnimCmds[0xB6] = BattleAnimCmd:subclass{
-			cmd = 0xB6,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				return 'subtract color from background palette (relative)'
-					..' amount='..hex2(bit.band(0xf, self.arg))
-					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
-					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
-					..(0 ~= bit.band(0x10, self.arg) and ' sub' or ' add')
-			end,
-		}
-		BattleAnimCmds[0xB7] = BattleAnimCmd:subclass{
-			cmd = 0xB7,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				return 'add color to sprite palette 1 (relative)'
-					..' amount='..hex2(bit.band(0xf, self.arg))
-					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
-					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
-					..(0 ~= bit.band(0x10, self.arg) and ' sub' or ' add')
-			end,
-		}
-		BattleAnimCmds[0xB8] = BattleAnimCmd:subclass{
-			cmd = 0xB8,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				return 'subtract color from sprite palette 1 (relative)'
-					..' amount='..hex2(bit.band(0xf, self.arg))
-					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
-					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
-					..(0 ~= bit.band(0x10, self.arg) and ' sub' or ' add')
-			end,
-		}
-		BattleAnimCmds[0xB9] = BattleAnimCmd:subclass{
-			cmd = 0xB9,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				return 'set monster palettes color subtraction (absolute)'
-					..' amount='..hex2(bit.band(0x1f, self.arg))
-					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
-					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
-			end,
-		}
-		BattleAnimCmds[0xBA] = BattleAnimCmd:subclass{
-			cmd = 0xBA,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				return 'set monster palettes color addition (absolute)'
-					..' amount='..hex2(bit.band(0x1f, self.arg))
-					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
-					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
-			end,
-		}
-		BattleAnimCmds[0xBB] = BattleAnimCmd:subclass{
-			cmd = 0xBB,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				return 'add color to monster palettes (relative)'
-					..' amount='..hex2(bit.band(0xf, self.arg))
-					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
-					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
-					..(0 ~= bit.band(0x10, self.arg) and ' sub' or ' add')
-			end,
-		}
-		BattleAnimCmds[0xBC] = BattleAnimCmd:subclass{
-			cmd = 0xBC,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				return 'subtract color from monster palettes (relative)'
-					..' amount='..hex2(bit.band(0xf, self.arg))
-					..' red='..tostring(0 ~= bit.band(0x80, self.arg))
-					..' green='..tostring(0 ~= bit.band(0x40, self.arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, self.arg))
-					..(0 ~= bit.band(0x10, self.arg) and ' sub' or ' add')
-			end,
-		}
+
 		BattleAnimCmds[0xBD] = BattleAnimCmd:subclass{
 			cmd = 0xBD,
 			argtypes = {uint8_t},
@@ -4002,21 +3791,19 @@ cl.classname = k
 		BattleAnimCmds[0xC1] = BattleAnimCmd:subclass{
 			cmd = 0xC1,
 			argtypes = {uint8_t, uint8_t},
-			argnames = {'xx', 'yy'},
+			argnames = {'speed', 'addrOfs'},
 			__tostring = function(self)
-				return 'vector movement speed? = '..hex2(self.xx)..', branch to '..getaddr(self.trace.pc - self.yy)..' (-'..hex2(self.yy)..')'
+				return 'moveAlongVecInArc('..self.speed..', '..Cmd.getGotoStr(self.addr + 2 - self.addrOfs, '')..')'
 			end,
 		}
-		BattleAnimCmds[0xC2] = BattleAnimCmd:subclass{
-			cmd = 0xC2,
+		BattleAnimCmds[0xc2] = BattleAnimCmd:subclass{
+			cmd = 0xc2,
 			argtypes = {uint8_t},
-			argnames = {'abc_____'},
-			__tostring = function(self)
-				return 'unpause animation a: unpause BG1 b: unpause BG3 c: unpause sprites'
-			end,
+			argnames = {'layer'},	-- abc_____
+			desc = 'unpauseLayer(<?=layer?>)',
 		}
-		BattleAnimCmds[0xC3] = BattleAnimCmd:subclass{
-			cmd = 0xC3,
+		BattleAnimCmds[0xc3] = BattleAnimCmd:subclass{
+			cmd = 0xc3,
 			desc = 'moveCircleToTarget()',
 		}
 		BattleAnimCmds[0xC4] = BattleAnimCmd:subclass{
@@ -4034,9 +3821,21 @@ cl.classname = k
 			cmd = 0xC5,
 			argtypes = {uint16_t, uint16_t, uint16_t, uint16_t},
 			argnames = {'a', 'b', 'c', 'd'},
+			getargs = function(self, ...)
+				self.destAddrs = table{...}:mapi(function(ofs)
+					return ofs + battleAnimScriptAddr
+				end)
+			end,
 			__tostring = function(self)
-				return 'jumpBasedOnSwdtechHit('
-					..table{hex4(self.a), hex4(self.b), hex4(self.c), hex4(self.d)}:concat', '..')'
+				return 'gotoForSwdtechHit('
+					..self.destAddrs:mapi(function(addr)
+						return Cmd.getGotoStr(addr, '')
+					end):concat', '..')'
+			end,
+			getBranchAddrs = function(self)
+				return self.destAddrs:mapi(function(addr)
+					return {addr=addr}
+				end)
 			end,
 		}
 		BattleAnimCmds[0xC6] = BattleAnimCmd:subclass{
@@ -4058,9 +3857,9 @@ cl.classname = k
 				elseif subcmd == 0x02 then
 					self.descstr = 'saveAttackingCharacterPosition()'
 				elseif subcmd == 0x03 then
-					self.descstr = 'restoreAttackingCharacterPositionAndResetOffsets()'
+					self.descstr = 'restoreAttackerPosAndResetOffsets()'
 				elseif subcmd == 0x04 then
-					self.descstr = 'restoreAttackingCharacterPosition()'
+					self.descstr = 'restoreAttackerPos()'
 				elseif subcmd == 0x05 then
 					local arg = read(uint8_t)
 					error'here'
@@ -4109,9 +3908,7 @@ cl.classname = k
 			cmd = 0xC8,
 			argtypes = {uint8_t},
 			argnames = {'arg'},
-			__tostring = function(self)
-				return 'set attacker graphic = '..hex2(self.arg)
-			end,
+			desc = 'attackerAction(<?=arg?>)',
 		}
 		BattleAnimCmds[0xC9] = BattleAnimCmd:subclass{
 			cmd = 0xC9,
@@ -4124,75 +3921,95 @@ cl.classname = k
 			end,
 		}
 
+		BattleAnimCmds[0xca] = BattleAnimCmd:subclass{
+			cmd = 0xca,
+			desc = 'doubleActionSpeed()',
+		}
+
 		BattleAnimCmds[0xCB] = BattleAnimCmd:subclass{
 			cmd = 0xCB,
 			argtypes = {uint8_t},
-			argnames = {'eddddddd'},
-			__tostring = function(self)
-				return 'enable/disable echo sprites (4 copies of character sprite) e: 1 = enable, 0 = disable d: frame delay between echo sprites (bitmask)'
-			end,
-		}
-		BattleAnimCmds[0xCC] = BattleAnimCmd:subclass{
-			cmd = 0xCC,
-			argtypes = {uint8_t},
 			argnames = {'arg'},
-			__tostring = function(self)
-				local arg = self.arg
-				return 'set sprite palette 2 color subtraction (absolute)'
-					..' amount='..hex2(bit.band(0x1f, arg))
-					..' red='..tostring(0 ~= bit.band(0x80, arg))
-					..' green='..tostring(0 ~= bit.band(0x40, arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, arg))
-			end,
+			desc = 'enableEchoSprites(<?=arg?>)'
 		}
-		BattleAnimCmds[0xCD] = BattleAnimCmd:subclass{
-			cmd = 0xCD,
+
+		for _,info in ipairs{
+			{pal='Sprite1', cmds={0xb1, 0xb2, 0xb7, 0xb8}},
+			{pal='Sprite2', cmds={0xcc, 0xcd, 0xce, 0xcf}},
+			{pal='Sprite3', cmds={0xaa, 0xab, 0xb3, 0xb4}},
+			{pal='Char', cmds={0xfb, 0xfc, 0xfd, 0xfe}},
+			{pal='Background', cmds={0xaf, 0xb0, 0xb5, 0xb6}},
+			{pal='Monster', cmds={0xb9, 0xba, 0xbb, 0xbc}},
+		} do
+			local pal = info.pal
+			local cmd1, cmd2, cmd3, cmd4 = table.unpack(info.cmds)
+			BattleAnimCmds[cmd1] = BattleAnimCmd:subclass{
+				cmd = cmd1,
+				argtypes = {uint8_t},
+				argnames = {'arg'},
+				__tostring = function(self)
+					local arg = self.arg
+					return 'change'..pal..'PaletteSubAbs{'
+						..'intensity='..hex2(bit.band(0x1f, arg))
+						..', red='..tostring(0 ~= bit.band(0x80, arg))
+						..', green='..tostring(0 ~= bit.band(0x40, arg))
+						..', blue='..tostring(0 ~= bit.band(0x20, arg))
+						..'}'
+				end,
+			}
+			BattleAnimCmds[cmd2] = BattleAnimCmd:subclass{
+				cmd = cmd2,
+				argtypes = {uint8_t},
+				argnames = {'arg'},
+				__tostring = function(self)
+					local arg = self.arg
+					return 'change'..pal..'PaletteAddAbs{'
+						..'intensity='..hex2(bit.band(0x1f, arg))
+						..', red='..tostring(0 ~= bit.band(0x80, arg))
+						..', green='..tostring(0 ~= bit.band(0x40, arg))
+						..', blue='..tostring(0 ~= bit.band(0x20, arg))
+						..'}'
+				end,
+			}
+
+			-- why is ce vs cf add/sub when their func is add/sub?
+			BattleAnimCmds[cmd3] = BattleAnimCmd:subclass{
+				cmd = cmd3,
+				argtypes = {uint8_t},
+				argnames = {'arg'},
+				__tostring = function(self)
+					local arg = self.arg
+					return 'change'..pal..'PaletteAdd{'
+						.."func='"..(0 ~= bit.band(0x10, arg) and ' sub' or ' add')..'"'
+						..', intensity='..hex2(bit.band(0xf, arg))
+						..', red='..tostring(0 ~= bit.band(0x80, arg))
+						..', green='..tostring(0 ~= bit.band(0x40, arg))
+						..', blue='..tostring(0 ~= bit.band(0x20, arg))
+						..'}'
+				end,
+			}
+			BattleAnimCmds[cmd4] = BattleAnimCmd:subclass{
+				cmd = cmd4,
+				argtypes = {uint8_t},
+				argnames = {'arg'},
+				__tostring = function(self)
+					local arg = self.arg
+					return 'change'..pal..'PaletteSub{'
+						.." func='"..(0 ~= bit.band(0x10, arg) and ' sub' or ' add').."'"
+						..', intensity='..hex2(bit.band(0xf, arg))
+						..', red='..tostring(0 ~= bit.band(0x80, arg))
+						..', green='..tostring(0 ~= bit.band(0x40, arg))
+						..', blue='..tostring(0 ~= bit.band(0x20, arg))
+						..'}'
+				end,
+			}
+		end
+
+		BattleAnimCmds[0xd0] = BattleAnimCmd:subclass{
+			cmd = 0xd0,
 			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				local arg = self.arg
-				return 'set sprite palette 2 color addition (absolute)'
-					..' amount='..hex2(bit.band(0x1f, arg))
-					..' red='..tostring(0 ~= bit.band(0x80, arg))
-					..' green='..tostring(0 ~= bit.band(0x40, arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, arg))
-			end,
-		}
-		BattleAnimCmds[0xCE] = BattleAnimCmd:subclass{
-			cmd = 0xCE,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				local arg = self.arg
-				return 'add color to sprite palette 2 (relative)'
-					..' amount='..hex2(bit.band(0xf, arg))
-					..' red='..tostring(0 ~= bit.band(0x80, arg))
-					..' green='..tostring(0 ~= bit.band(0x40, arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, arg))
-					..(0 ~= bit.band(0x10, arg) and ' sub' or ' add')
-			end,
-		}
-		BattleAnimCmds[0xCF] = BattleAnimCmd:subclass{
-			cmd = 0xCF,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				local arg = self.arg
-				return 'subtract color from sprite palette 2 (relative)'
-					..' amount='..hex2(bit.band(0xf, arg))
-					..' red='..tostring(0 ~= bit.band(0x80, arg))
-					..' green='..tostring(0 ~= bit.band(0x40, arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, arg))
-					..(0 ~= bit.band(0x10, arg) and ' sub' or ' add')
-			end,
-		}
-		BattleAnimCmds[0xD0] = BattleAnimCmd:subclass{
-			cmd = 0xD0,
-			argtypes = {uint8_t},
-			argnames = {'vhftpppm'},
-			__tostring = function(self)
-				return 'set sprite data for all character/monster sprites'
-			end,
+			argnames = {'arg'},	-- vhftpppm
+			desc = 'setAllObjsSpriteData(<?=arg?>)',
 		}
 		BattleAnimCmds.SetFixedDrawOrder = BattleAnimCmd:subclass{
 			cmd = 0xd1,
@@ -4239,32 +4056,28 @@ cl.classname = k
 		BattleAnimCmds[0xD7] = BattleAnimCmd:subclass{
 			cmd = 0xD7,
 			argtypes = {uint8_t},
-			argnames = {'xx'},
-			__tostring = function(self)
-				return 'move fire dance sprites'
-			end,
+			argnames = {'arg'},
+			desc ='fireDanceUpdate(<?=arg?>',
 		}
 		BattleAnimCmds[0xD8] = BattleAnimCmd:subclass{
 			cmd = 0xD8,
 			argtypes = {uint8_t, uint8_t, uint8_t},
-			argnames = {'xx', 'yy', 'zz'},
+			argnames = {'x', 'y', 'destOfs'},
 			__tostring = function(self)
-				return 'x speed='..self.xx..' y speed='..self.yy..' ??? = '..self.zz
+				return 'bumRushUpdate('..self.x..', '..self.y..', '..Cmd.getGotoStr(self.addr + 4 + self.destOfs, '')..')'
 			end,
 		}
 		BattleAnimCmds[0xD9] = BattleAnimCmd:subclass{
 			cmd = 0xD9,
 			argtypes = {uint8_t},
-			argnames = {'xx'},
-			desc = 'bumRush(<?=xx?>)',
+			argnames = {'arg'},
+			desc = 'attackerPriority(<?=arg?>)',
 		}
 		BattleAnimCmds[0xDA] = BattleAnimCmd:subclass{
 			cmd = 0xDA,
 			argtypes = {uint16_t},
-			argnames = {'xxxx'},
-			__tostring = function(self)
-				return 'update tornado (w wind/spiraler)'
-			end,
+			argnames = {'arg'},
+			desc = 'tornadoUpdate(<?=arg?>)',
 		}
 		BattleAnimCmds[0xDB] = BattleAnimCmd:subclass{
 			cmd = 0xDB,
@@ -4318,22 +4131,42 @@ cl.classname = k
 				return 'modifyTriangle('..self.args:mapi(tostring):concat', '..')'
 			end,
 		}
-		BattleAnimCmds[0xE1] = BattleAnimCmd:subclass{
-			cmd = 0xE1,
+		BattleAnimCmds[0xe1] = BattleAnimCmd:subclass{
+			cmd = 0xe1,
 			argtypes = {uint8_t},
-			argnames = {'xx'},
-			__tostring = function(self)
-				return 'show/hide attacker sprite'
-			end,
+			argnames = {'arg'},
+			desc = 'attackerSetVisible(<?=arg?>)',
+		}
+
+		BattleAnimCmds.MoveVecMonsterFwd = BattleAnimCmd:subclass{
+			cmd = 0xe2,
+			argtypes = {uint8_t, uint8_t},
+			argnames = {'a', 'b'},
+			desc = 'moveVecMonsterFwd(<?=a?>, <?=b?>)',
+		}
+
+		BattleAnimCmds.MoveVecMonsterBack = BattleAnimCmd:subclass{
+			cmd = 0xe3,
+			argtypes = {uint8_t, uint8_t},
+			argnames = {'a', 'b'},
+			desc = 'moveVecMonsterBack(<?=a?>, <?=b?>)',
+		}
+
+		BattleAnimCmds.CalcVelJump = BattleAnimCmd:subclass{
+			cmd = 0xe4,
+			desc = 'calcVelJump()',
 		}
 
 		BattleAnimCmds[0xE5] = BattleAnimCmd:subclass{
 			cmd = 0xE5,
 			argtypes = {uint8_t, uint8_t, uint8_t},
-			argnames = {'xx', 'yy', 'zz'},
+			argnames = {'x', 'addrOfs', 'y'},
 			__tostring = function(self)
-				local yy = self.yy
-				return 'branch to '..getaddr(self.trace.pc - yy)..' (-'..hex2(yy)..')'
+				return 'moveVecCharAndGoto('
+					..self.x..', '
+					..self.y..', '
+					..Cmd.getGotoStr(self.addr + 2 - self.addrOfs, '')
+					..')'
 			end,
 		}
 		BattleAnimCmds[0xE6] = BattleAnimCmd:subclass{
@@ -4347,20 +4180,16 @@ cl.classname = k
 		}
 		BattleAnimCmds[0xE7] = BattleAnimCmd:subclass{
 			cmd = 0xE7,
-			desc = 'calculate vector from attacking character to target',
+			desc = 'calcVecFromAttackerToTarget()',
 		}
-		BattleAnimCmds[0xE8] = BattleAnimCmd:subclass{
-			cmd = 0xE8,
-			argtypes = {uint8_t, uint8_t},
-			argnames = {'rr', 'tt'},
-			__tostring = function(self)
-				local rr = self.rr
-				local tt = self.tt
-				return 'move to polar coordinates r='..hex2(rr)..' theta='..hex2(tt)
-			end,
+		BattleAnimCmds[0xe8] = BattleAnimCmd:subclass{
+			cmd = 0xe8,
+			argtypes = {uint8_t, int8_t},
+			argnames = {'r', 'theta'},
+			desc = 'polarMove(<?=r?>, <?=theta?>)',
 		}
-		BattleAnimCmds[0xE9] = BattleAnimCmd:subclass{
-			cmd = 0xE9,
+		BattleAnimCmds[0xe9] = BattleAnimCmd:subclass{
+			cmd = 0xe9,
 			argtypes = {uint8_t, uint8_t},
 			argnames = {'dx', 'dy'},
 			__tostring = function(self)
@@ -4371,10 +4200,8 @@ cl.classname = k
 		BattleAnimCmds[0xEA] = BattleAnimCmd:subclass{
 			cmd = 0xEA,
 			argtypes = {uint8_t},
-			argnames = {'_13__xxxx'},
-			__tostring = function(self)
-				return 'set BG tile data quadrants 1 = affect bg1 3 = affect bg1 x = quadrant'
-			end,
+			argnames = {'arg'},	-- _13__xxxx
+			desc = 'setBGScreenPos(<?=arg?>)',
 		}
 		BattleAnimCmds.GotoForThread = BattleAnimCmd:subclass{
 			cmd = 0xEB,
@@ -4499,7 +4326,9 @@ cl.classname = k
 		}
 		BattleAnimCmds[0xED] = BattleAnimCmd:subclass{
 			cmd = 0xED,
-			desc = '',
+			argtypes = {uint8_t, uint8_t},
+			argnames = {'arg', 'destOfs'},
+			desc = 'moveVecGravBomb(<?=arg?>, <?=destOfs?>)',
 		}
 		BattleAnimCmds[0xEE] = BattleAnimCmd:subclass{
 			cmd = 0xEE,
@@ -4532,16 +4361,14 @@ cl.classname = k
 					..' monster='..getaddr(e)
 			end,
 		}
-		--[[
-		BattleAnimCmds[0xF1] = BattleAnimCmd:subclass{
-			cmd = 0xF1,
+
+		BattleAnimCmds.HideTargetMonsters = BattleAnimCmd:subclass{
+			cmd = 0xf1,
 			argtypes = {uint8_t},
-			argnames = {'xx'},
-			__tostring = function(self)
-				return ''
-			end,
+			argnames = {'x'},
+			desc = 'hideTargetMonsters(<?=x?>)',
 		}
-		--]]
+
 		BattleAnimCmds[0xF2] = BattleAnimCmd:subclass{
 			cmd = 0xF2,
 			desc = 'set a trajectory from target center to attacker',
@@ -4563,10 +4390,8 @@ cl.classname = k
 		BattleAnimCmds[0xF4] = BattleAnimCmd:subclass{
 			cmd = 0xF4,
 			argtypes = {uint8_t},
-			argnames = {'_______t'},
-			__tostring = function(self)
-				return 'set sprite layer priority'
-			end,
+			argnames = {'x'},	-- _______t
+			desc = 'setSpriteLayerPriority<?=x?>',
 		}
 		BattleAnimCmds[0xF5] = BattleAnimCmd:subclass{
 			cmd = 0xF5,
@@ -4608,16 +4433,12 @@ cl.classname = k
 			end,
 		}
 
-		--[[
-		BattleAnimCmds[0xF9] = BattleAnimCmd:subclass{
-			cmd = 0xF9,
+		BattleAnimCmds[0xf9] = BattleAnimCmd:subclass{
+			cmd = 0xf9,
 			argtypes = {uint8_t, uint8_t, uint8_t},
-			argnames = {'xx', 'yy', 'zz'},
-			__tostring = function(self)
-				return ''
-			end,
+			argnames = {'x', 'y', 'z'},
+			desc ='magitekAction(<?=x?>, <?=y?>, <?=z?>)',
 		}
-		--]]
 
 		BattleAnimCmds.Goto = BattleAnimCmd:subclass{
 			cmd = 0xFA,
@@ -4636,60 +4457,6 @@ cl.classname = k
 			end,
 		}
 
-		BattleAnimCmds[0xFB] = BattleAnimCmd:subclass{
-			cmd = 0xFB,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				local arg = self.arg
-				return 'set character palettes color subtraction (absolute)'
-					..' amount='..hex2(bit.band(0x1f, arg))
-					..' red='..tostring(0 ~= bit.band(0x80, arg))
-					..' green='..tostring(0 ~= bit.band(0x40, arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, arg))
-			end,
-		}
-		BattleAnimCmds[0xFC] = BattleAnimCmd:subclass{
-			cmd = 0xFC,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				local arg = self.arg
-				return 'set character palettes color addition (absolute)'
-					..' amount='..hex2(bit.band(0x1f, arg))
-					..' red='..tostring(0 ~= bit.band(0x80, arg))
-					..' green='..tostring(0 ~= bit.band(0x40, arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, arg))
-			end,
-		}
-		BattleAnimCmds[0xFD] = BattleAnimCmd:subclass{
-			cmd = 0xFD,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				local arg = self.arg
-				return 'add color to character palettes (relative)'
-					..' amount='..hex2(bit.band(0xf, arg))
-					..' red='..tostring(0 ~= bit.band(0x80, arg))
-					..' green='..tostring(0 ~= bit.band(0x40, arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, arg))
-					..(0 ~= bit.band(0x10, arg) and ' sub' or ' add')
-			end,
-		}
-		BattleAnimCmds[0xFE] = BattleAnimCmd:subclass{
-			cmd = 0xFE,
-			argtypes = {uint8_t},
-			argnames = {'arg'},
-			__tostring = function(self)
-				local arg = self.arg
-				return 'subtract color from character palettes (relative)'
-					..' amount='..hex2(bit.band(0xf, arg))
-					..' red='..tostring(0 ~= bit.band(0x80, arg))
-					..' green='..tostring(0 ~= bit.band(0x40, arg))
-					..' blue='..tostring(0 ~= bit.band(0x20, arg))
-					..(0 ~= bit.band(0x10, arg) and ' sub' or ' add')
-			end,
-		}
 		BattleAnimCmds.EndScript = BattleAnimCmd:subclass(EndScript, {cmd=0xff})
 
 		-- used for the first two bytes of every BattleCmd
@@ -5237,7 +5004,7 @@ print()
 			local trace = Trace{
 				addr = addr,
 				cmdset = 'BattleAnimCmds',
-				reverseRefInfo = {builtin = 'BattleAnim'..i},
+				reverseRefInfo = {builtin = ('BattleAnim_%06x'):format(addr)},
 			}
 
 			trace:readInstr(trace.pc, 'BattleAnimCmds', 'SpeedAndAlign')
@@ -5260,6 +5027,15 @@ print()
 				lastcmd.indent = lastcmd.indent - 1
 				game.eventScriptCmds:insert(cmdobj)
 				t.cmds:insert(#t.cmds-1, cmdobj)
+			end
+
+			-- another bug ... I bet an anim-for-begin should go in the beginning somewhere
+			-- but just remove the last unmatched anim-end-for
+			if trace.addr == 0x105e49 then
+				local cmdobj = trace.cmds:remove(#trace.cmds-1)
+				assert.eq(cmdobj.addr, 0x105e5e)
+				trace.cmdObjForAddr[cmdobj.addr] = nil
+				game.eventScriptCmds:removeObject(cmdobj)
 			end
 		end
 	end
