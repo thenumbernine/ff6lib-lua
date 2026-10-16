@@ -4270,7 +4270,7 @@ cl.classname = k
 			cmd = 0xDB,
 			argtypes = {uint8_t},
 			getargs = function(self, ofs)
-				self.destAddr = self.addr + ofs
+				self.destAddr = self.addr + ofs + 2
 			end,
 			__tostring = function(self)
 				local arg = self.arg
