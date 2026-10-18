@@ -1879,6 +1879,7 @@ local MapPalAnim = ff6struct{
 		{firstColor_x2 = uint8_t},		-- firstColor_x2 = firstColor<<1
 		{numColors_x2_1 = uint8_t},		-- numColors_x2_1 = (numColors-1)<<1
 
+		-- type == 2, all Doma castle:
 		-- $26f200 - $26f300 = rom-palette info for mapPalAnim[6] (ofs 0, numColors=16, colorCounter=8) ... 8*16*2 = 256
 		-- $26f300 - $26f380 = rom-palette info for mapPalAnim[10] (ofs +0x100, numColors=16, colorCounter=4) ... 4*16*2 = 128
 		-- $26f380 - $26f3c0 = rom-palette info for mapPalAnim[11] (ofs +0x180, numColors=8, colorCounter=4) ... 4*8*2 = 64
@@ -2703,7 +2704,11 @@ Game = struct{
 		{name = 'characterMenuImageOffsets', type = arrayType(uint16_t, 16)},									-- 0x0051ba - 0x0051da
 		{name = 'characterMenuImageTileLayout', type = arrayType(uint8_t, 25)},									-- 0x0051da - 0x0051f3
 
-		{name = 'unknown_0051f3', type = arrayType(uint8_t, -(0x0051f3 - 0x0091d5))}, 							-- 0x0051f3 - 0x0091d5
+		{name = 'unknown_0051f3', type = arrayType(uint8_t, -(0x0051f3 - 0x008df2))}, 							-- 0x0051f3 - 0x008df2
+
+		{name = 'palAnimPulseData', type = arrayType(uint8_t, 18)},												-- 0x008df2 - 0x008e04
+
+		{name = 'unknown_008e04', type = arrayType(uint8_t, -(0x008e04 - 0x0091d5))}, 							-- 0x008e04 - 0x0091d5
 
 		{name = 'mapAnimPropOfs', type = arrayType(uint16_t, 0x15)},											-- 0x0091d5 - 0x0091ff = map animation properties pointer table (+0x0091ff) (only 10 used)
 		{name = 'mapAnimProps', type = arrayType(MapAnimProps, 144)},											-- 0x0091ff - 0x00979f = map animation properties [144] @ 10 bytes each

@@ -772,7 +772,7 @@ function App:draw(animFrameIndex)
 				-- copy between self.mapWindow.origMapPalData and .mapPalData
 				for i=0,numColors-1 do
 					local dstp = self.mapWindow.mapPalData + bit.lshift(bit.band(((i + self.palAnimColor[j]) % numColors) + firstColor, 0xff), 2)
-					local srcp = self.mapWindow.origMapPalData + bit.lshift(bit.band((i + firstColor), 0xff), 2)
+					local srcp = self.mapWindow.origMapPalData + bit.lshift(bit.band(i + firstColor, 0xff), 2)
 					for ch=0,3 do
 						dstp[ch] = srcp[ch]
 					end
@@ -789,11 +789,20 @@ function App:draw(animFrameIndex)
 					dstp[0] = bit.bor(bit.lshift(srcp.r, 3), bit.rshift(srcp.r, 2))
 					dstp[1] = bit.bor(bit.lshift(srcp.g, 3), bit.rshift(srcp.g, 2))
 					dstp[2] = bit.bor(bit.lshift(srcp.b, 3), bit.rshift(srcp.b, 2))
-					dstp[3] = (1 - srcp.a) * 0xff
+					dstp[3] = srcp.a == 0 and 0xff or 0
 					srcp = srcp + 1
 				end
+				-- but what about those magenta colors?
 			elseif palAnim.type == 3 then
-				-- subtract-pulse / kefka's tower
+				local numPulse = ffi.sizeof(game.palAnimPulseData)
+				local intensity = bit.rshift(game.palAnimPulseData[self.palAnimColor[j] % numPulse], 4) / 15
+				for i=0,numColors-1 do
+					local dstp = self.mapWindow.mapPalData + bit.lshift(bit.band(i + firstColor, 0xff), 2)
+					local srcp = self.mapWindow.origMapPalData + bit.lshift(bit.band(i + firstColor, 0xff), 2)
+					for ch=0,2 do
+						dstp[ch] = srcp[ch] * intensity
+					end
+				end
 			end
 		end
 		self.mapWindow.mapPalTex:bind():subimage()
