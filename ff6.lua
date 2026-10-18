@@ -1726,49 +1726,76 @@ local Map = struct{
 		{name='layer3Priority', type='uint8_t:1'},				-- 2.7
 		{name='unknown_3', type=uint8_t},						-- 3
 		{name='tileProps', type=uint8_t},						-- 4		mapTilePropsOffsets[]
+
 		{name='attacks', type='uint8_t:7'},						-- 5.0-6
 		{name='enableBattles', type='uint8_t:1'},				-- 5.7
-		{name='windowMask', type='uint8_t:2'},					-- 6.0-1: 0=default, 1=imperial camp, 2=ebot's rock, 3=kefka's tower spotlight
-		{name='unknown_6_2', type='uint8_t:6'},					-- 6.2-7
+		{name='windowMask', type='uint8_t:2'},					-- 6.0-6.1: 0=default, 1=imperial camp, 2=ebot's rock, 3=kefka's tower spotlight
+		{name='unknown_6_2', type='uint8_t:6'},					-- 6.2-6.7
 
 		-- I can't just put these fields into the base struct... it says "NYI: packed bit fields"
 		-- but if I nest them as an anonymous struct ... works fine
-		{
-			type = struct{
-				anonymous = true,
-				tostringFields = true,
-				tostringOmitFalse = true,
-				tostringOmitNil = true,
-				tostringOmitEmpty = true,
-				fields = {
-					{name='gfx1', type='uint32_t:7'},			-- 7.0-6
-					{name='gfx2', type='uint32_t:7'},			-- 7.7-13
-					{name='gfx3', type='uint32_t:7'},			-- 7.14-20
-					{name='gfx4', type='uint32_t:7'},			-- 7.21-27
-					{name='gfxLayer3', type='uint32_t:4'},		-- 7.28-31
-				},
-				metatable = function(mt)
-					mt.typeToString = fieldsToHex
-				end,
+		{type = struct{
+			union = true,
+			anonymous = true,
+			tostringFields = true,
+			tostringOmitFalse = true,
+			tostringOmitNil = true,
+			tostringOmitEmpty = true,
+			packed = true,
+			fields = {
+
+				{type = struct{
+					anonymous = true,
+					tostringFields = true,
+					tostringOmitFalse = true,
+					tostringOmitNil = true,
+					tostringOmitEmpty = true,
+					fields = {
+						{name='gfx1', type='uint32_t:7'},				-- 7.0-7.6
+						{name='gfx2', type='uint32_t:7'},				-- 7.7-8.5
+						{name='gfx3', type='uint32_t:7'},				-- 8.6-9.4
+						{name='gfx4', type='uint32_t:7'},				-- 9.5-a.3
+						{name='unionpadding_a_4', type='uint32_t:4', no_iter=true},	-- a.4-a.7
+					},
+					metatable = function(mt)
+						mt.typeToString = fieldsToHex
+					end,
+				}},
+
+				{type = struct{
+					anonymous = true,
+					tostringFields = true,
+					tostringOmitFalse = true,
+					tostringOmitNil = true,
+					tostringOmitEmpty = true,
+					packed = true,
+					fields = {
+						{name='unionpadding_7_0', type=uint16_t, no_iter=true},			-- 7.0-8.7
+
+						{type = struct{
+							anonymous = true,
+							tostringFields = true,
+							tostringOmitFalse = true,
+							tostringOmitNil = true,
+							tostringOmitEmpty = true,
+							fields = {
+
+								{name='unionpadding_9_0', type='uint32_t:12', no_iter=true},	-- 9.0-a.3
+								{name='gfxLayer3', type='uint32_t:6'},			-- a.4-b.1
+								{name='tileset1', type='uint32_t:7'},			-- b.2-c.0		mapTilesets[]
+								{name='tileset2', type='uint32_t:7'},			-- c.1-d.7
+
+							},
+						}},
+					},
+					metatable = function(mt)
+						mt.typeToString = fieldsToHex
+					end,
+				}},
+
 			},
-		},
-		{
-			type = struct{
-				anonymous = true,
-				tostringFields = true,
-				tostringOmitFalse = true,
-				tostringOmitNil = true,
-				tostringOmitEmpty = true,
-				fields = {
-					{name='unknown_b', type='uint16_t:2'},		-- 0xb.0-1
-					{name='tileset1', type='uint16_t:7'},		-- 0xb.2-8		mapTilesets[]
-					{name='tileset2', type='uint16_t:7'},		-- 0xb.8-15
-				},
-				metatable = function(mt)
-					mt.typeToString = fieldsToHex
-				end,
-			},
-		},
+		}},
+
 		{
 			type = struct{
 				anonymous = true,
@@ -2978,7 +3005,7 @@ Game = struct{
 		{name = 'mapAnimGraphics', type = arrayType(uint8_t, -(0x260000 - 0x268000))},							-- 0x260000 - 0x268000 = 4bpp
 		{name = 'characterPalettes', type = arrayType(Palette16, numCharacterPalettes)},						-- 0x268000 - 0x268400
 		{name = 'mapNameOffsets', type = arrayType(uint16_t, numMapNames)},										-- 0x268400 - 0x268780
-		{name = 'mapTileGraphicsLayer3', type = arrayType(uint8_t, -(0x268780 - 0x26cd60))},					-- 0x268780 - 0x26cd60  map tile garphics for layer 3, 2bpp
+		{name = 'mapTileGraphicsLayer3', type = arrayType(uint8_t, -(0x268780 - 0x26cd60))},					-- 0x268780 - 0x26cd60  map tile graphics for layer 3, 2bpp
 		{name = 'mapTileGraphicsLayer3Offsets', type = arrayType(uint24_t, 18)},								-- 0x26cd60 - 0x26cd96 = offset, +0x268780 .. there's 19, but only 18 point to valid compressed data ...
 		{name = 'padding_26cd96', type = arrayType(uint8_t, 10)},												-- 0x26cd96 - 0x26cda0
 		{name = 'mapAnimGraphicsLayer3Ofs', type = arrayType(uint24_t, 10)},									-- 0x26cda0 - 0x26cdbe = offset, +0x26cdc0 to mapAnimGraphicsLayer3.  has values [0]=0 thru [6]=0x23d8 (which is the end of mapAnimGraphicsLayer3), so there's 6 entries
@@ -3098,8 +3125,8 @@ Game = struct{
 		{name = 'worldChocobo1Compressed', type = arrayType(uint8_t, -(0x2fc624 - 0x2fce77))},					-- 0x2fc624 - 0x2fce77
 
 		-- TODO
-		{name = 'vectorApproachPalette', type = Palette16},															-- 0x2fce77 - 0x2fce97
-		{name = 'worldMorphedTerraPalette', type = Palette16},														-- 0x2fce97 - 0x2fceb7
+		{name = 'vectorApproachPalette', type = Palette16},														-- 0x2fce77 - 0x2fce97
+		{name = 'worldMorphedTerraPalette', type = Palette16},													-- 0x2fce97 - 0x2fceb7
 
 		-- TODO lz compressed 4bpp
 		{name = 'worldAnimSpritesCompressed', type = arrayType(uint8_t, -(0x2fceb7 - 0x2fcfb9))},				-- 0x2fceb7 - 0x2fcfb9

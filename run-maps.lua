@@ -142,14 +142,9 @@ local function run(game, cmdline)
 			if gfxLayer3 then
 				gfxLayer3.mapIndexes = table()
 				gfxLayer3.palettes = table()
-				print('mapTileGraphicsLayer3[0x'..number.hex(i)..'] offset=0x'
-					..number.hex(gfxLayer3.offset)
-					..' addr=0x'..('%06x'):format(gfxLayer3.addr)
-					..' size=0x'..number.hex(#gfxLayer3.data)
-				)
-				--if data then print(data:hexdump()) end
 			end
 		end
+
 		-- each is 0x1040 in size .....
 		-- wait, is the first 0x40 the tileset?
 		-- leaving 0x1000 = 0x100 x 8x8x2bpp tiles
@@ -637,6 +632,27 @@ print('setting gfxstr', gfxstr, 'paletteIndex', paletteIndex)
 	end
 	print()
 
+	--[[
+	<- 113, 114, 190 lete river
+		168 serpent trench
+		254, 259, 260, 333 magitek / kefka's tower - unused
+		262, 263 magitek factory
+		292, 296, 337, 355, 409, 410 kefka's tower magitek factory
+	mapTileGraphicsLayer3[0x1] offset=0x524 addr=0x268ca4 size=0x1040
+	--]]
+	for i=0,countof(game.mapTileGraphicsLayer3Offsets)-1 do
+		local gfxLayer3 = game.getMapTileGraphicsLayer3(i)
+		if gfxLayer3 then
+			print('mapTileGraphicsLayer3[0x'..number.hex(i)..'] offset=0x'
+				..number.hex(gfxLayer3.offset)
+				..' addr=0x'..('%06x'):format(gfxLayer3.addr)
+				..' size=0x'..number.hex(#gfxLayer3.data)
+			)
+			--if data then print(data:hexdump()) end
+		end
+	end
+	print()
+
 	for i=0,countof(game.mapAnimPropOfs)-1 do
 		local ofs = game.mapAnimPropOfs[i]
 		print('mapAnimPropOfs[0x'..number.hex(i)..'] = $'..number.hex(ofs))
@@ -668,6 +684,64 @@ print('setting gfxstr', gfxstr, 'paletteIndex', paletteIndex)
 		print('mapAnimPropsLayer3[0x'..number.hex(i)..'] = '..game.mapAnimPropsLayer3[i])
 	end
 	print()
+
+	-- game.countof(game.mapAnimGraphicsLayer3Ofs) is 10
+	-- but 6 is just the ending of 5
+	-- and 7, 8, 9 are just 0xffffff
+	for index=0,5 do
+		local offset = game.mapAnimGraphicsLayer3Ofs[index]:value()
+		local nextOffset = game.mapAnimGraphicsLayer3Ofs[index+1]:value()
+		local addr = offset + ffi.offsetof(Game, 'mapAnimGraphicsLayer3')
+		local size = nextOffset - offset
+		local data = game.getMapTileGraphicsLayer3ForAddr(addr, size, index, offset).data
+		print('mapAnimGraphicsLayer3Ofs['..index..'] ='
+			..(' offset=0x%04x'):format(offset)
+			..(addr and (' addr=0x%06x'):format(addr) or '')
+			..(type(data) == 'string'
+				and (' size=0x%04x'):format(#data)
+				or ''
+			)
+		)
+	end
+	print()
+	--[[
+<- (water waves) used by
+	113, 114, 190 Lete River
+	168 serpent trench
+mapAnimGraphicsLayer3Ofs[0] = offset=0x0000 addr=0x26cdc0 size=0x1000
+
+<- (castle fans) used by 54, 55 Figaro Castle
+<- (fire) 253 Vector
+<- (fire) 343 Thamasa
+<- (fire) 357
+mapAnimGraphicsLayer3Ofs[1] = offset=0x0b42 addr=0x26d902 size=0x1000
+
+<- (rain) used by 221 Zozo
+mapAnimGraphicsLayer3Ofs[2] = offset=0x1085 addr=0x26de45 size=0x1000
+
+<- (torches)
+	36, 38, 40, 41, 43, 48, 50 Narshe Mines
+	53 South Figaro Cave
+	68, 69, 72, 92 South Figaro Cave
+	109, 110, 111 Returners Hideout
+	150, 154, 183 Mobliz cave under houses
+	219 Esperville Caves
+	281, 282, 283 umaro caves
+	319, 320 cyan's dream caves
+	384, 385 cave to the sealed gate
+	404 = looks like an unused ebot rock map
+mapAnimGraphicsLayer3Ofs[3] = offset=0x138c addr=0x26e14c size=0x1000
+
+<- (waves) 398, 400 solitary island beach
+mapAnimGraphicsLayer3Ofs[4] = offset=0x15da addr=0x26e39a size=0x1000
+
+	(smoke and steam)
+<- used by 19,20,21,39 Narshe
+mapAnimGraphicsLayer3Ofs[5] = offset=0x1bd1 addr=0x26e991 size=0x1000
+
+
+
+	--]]
 
 	for i=0,countof(game.mapPalAnim)-1 do
 		print('mapPalAnim[0x'..number.hex(i)..'] = '..game.mapPalAnim[i])
@@ -797,6 +871,7 @@ print('setting gfxstr', gfxstr, 'paletteIndex', paletteIndex)
 	for i=0,countof(game.mapOverlayPropsOfs)-1 do
 		print('mapOverlayPropsOfs['..i..'] = '..game.mapOverlayPropsOfs[i])
 	end
+	print()
 
 	-- have 0x120 = 288 bytes of data
 	-- i think this is layer 4

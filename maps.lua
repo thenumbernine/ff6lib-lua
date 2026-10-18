@@ -482,11 +482,6 @@ data = ffi.string(dest, #data)
 						for x=0,tileWidth-1 do
 							local cx = hFlip and tileWidth-1-x or x
 							dstp[0] = readpixel(tileptr, cx, cy, bpp)
-							-- leave 0 as 0 for transparency's sake
-							-- offset the other colors by 8 ...
-							-- why?
-							-- yes for animations like narshe lamps
-							-- no for others like tritoch ice, lete river, etc?
 							if dstp[0] > 0 and palor then
 								dstp[0] = bit.bor(dstp[0], palor)
 							end
@@ -630,6 +625,19 @@ data = ffi.string(dest, #data)
 			local layerSize = self.layerSizes[layer]
 			local layout = self.layouts[layer]
 			local layoutData = layout and layout.data
+--[[
+if layoutData then
+	print('layer', layer, 'layout size', #layout.data)
+	local i = 1
+	for y=0,self.layerSizes[layer].y-1 do
+		for x=0,self.layerSizes[layer].x-1 do
+			io.write((' %02x'):format(layout.data:byte(i)))
+			i=i+1
+		end
+		print()
+	end
+end
+--]]
 
 			local gfxLayer3BaseData = self.gfxLayer3 and self.gfxLayer3.data
 
@@ -688,103 +696,8 @@ data = ffi.string(dest, #data)
 					end
 					local layoutptr = ffi.cast(uint8_t_p, layoutData)
 
---[[
-layer-3 maps to verify palette (find via gfxLayer? layout3? animatedLayer3?):
-19, 20, 21, 32, 33, 39 = narshe outdoors
-23, 35 = tritoch on narshe cliff
-36, 37, 38, 40, 41, 43, 48, 50 = narshe caves/mines
-42 = tritoch in narshe cave
-47, 74, 75 = south figaro (water palette might be off?)
-68, 69, 70, 72, 73, 90 = south figaro caves
-91 = south figaro dock
-97, 99 = mt kolts (clouds)
-100, 103 = mt kolts (caves)
-104 = classroom (but no visible difference when disabling it)
-109, 110, 112 = returners hideout
-113 = lete river (the palette-animated water layer)
-114 = lete river caves
-130, 132, 133, 134, 135 = phantom forest (tree overlay)
-136, 156 = some mountain
-148, 156, 157, 158, 184 = mobliz (water)
-150, 154, 183 = mobliz cave (torches)
-155 = mountain cave (light rays)
-159 = baron falls at the veldt
-168 = river to serpent trench
-169 = nikeah
-174 = shadow's dream (phantom forest)
-175 = serpent trench cave
-176, 177, 178 = mt zozo mountain (clouds)
-179, 180 = mt zozo cave (lightrays)
-185 = dragon's neck wob (water)
-187 = nikeah dock water
-188, 189 = kohlingen
-190 = lete river
-195 = kohlingen interior (unused)
-212, 276 = gogo's lair (godrays)
-216 = ending scene of esper world (layer 3 is the left curtain)
-217 = esperville (water)
-218 = esperville cave (lightrays)
-219 = esperville indoors (torches)
-220 = some docks (water)
-221 = zozo (rain)
-253 = vector
-259 = airship over kefka tower ... ? (FIXME layer3 tiles are off)
-261 = kefka's tower outside ... FIXME layer scroll is off
-262, 263, 267, 268, 269, 271, 274 = magitek-factory-like (FIXME layer3 here and magitek facotry is pink blobs)
-275 = ???
-278 = gogo's room (glow)
-281, 282, 283 = umaro's cave (torches)
-284 = maranda (FIXME water)
-292, 296 = kefka's tower magitek rooms (FIXME layer3 tiles)
-298, 299, 300 = daryl's tomb (water)
-313, 314 = phoenix cave downstairs (mist)
-315, 316 = phoenix cave upstairs (water)
-320 = cyan's dream in cave (torches)
-323, 324 = albrook (what a mess ... layer3 priority and colormath=1, maybe it can be rearranged and saved?)
-332 = albrook docks (FIXME water palette in all these towns)
-333 = another magitek lookign place (FIXME)
-334 = kefka's tower exterior ... looks right this time
-335 = kefka's dragon room (layer 3 unused)
-336, 356, 357 = final kefka room (clouds) ... layer3 clouds lookk good but the rest needs work ...
-337 = 3 switch room - magitek factory errors FIXME
-343 = thamasa - unused
-351 = burning house - unused
-352 = magitek lab - FIXME
-353 = cave on veldt (torches)
-355 = kefka statues room (magitek factory errors FIXME)
-358 = floating continent save point (light ray)
-359-364 = fanatic's tower (clouds ... colormath?)
-371, 375 = esper cave (lightrays)
-373 = esper cave mountain
-...
-394 = floating continent (clouds under land and over background earth)
-
-
-also ... wavy layers
-	layers 12
-317 = cyan's dream (layer 2)
-351 = thamasa house on fire (layers 1 and 2)
-	layer 3
-47, 74, 75 = south figaro (still has tile drawing errors)
-70, 73, 90 = south figaro turtle cave
-91 = south figaro dock (south figaro problems)
-157, 158, 184 = mobliz
-159 = baron falls at veldt
-169 = nikeah (south figaro problems)
-175 = serpent trench cave
-185 = dragon's neck guy's house wob
-187 = nikeah dock (south figaro problems)
-188, 189 = kohlingen
-217 = esperville
-284 = maranda (south figaro problems)
-298, 299, 300, 301 = daryl's tomb (blend order errors)
-313 = phoenix cave basement (applied to smoke over lava)
-315, 316 = phoenix cave top (applied to water ... i've got a z order issue...)
-323, 324 = albrook (south figaro problems)
-332 = albrook dock (south figaro problems)
---]]
 					-- first 0x40 bytes are the hi pal data
-					local layer3PalHiPtr = ffi.cast(uint8_t_p, gfxLayer3BaseData)
+					local layer3PalHiPtr = gfxLayer3BaseData and ffi.cast(uint8_t_p, gfxLayer3BaseData)
 
 					local gfxLayer3Ofs, gfxLayer3Data
 					if not animLayer3Props then
