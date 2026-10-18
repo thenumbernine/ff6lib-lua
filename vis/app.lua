@@ -781,7 +781,7 @@ function App:draw(animFrameIndex)
 				-- rom colors / doma castle
 				local srcp = ffi.cast(
 					RGBA5551_p,
-					game.mapPalAnimCustomData + palAnim.offset
+					game.mapPalAnimCustomData + palAnim.customOffset
 					+ (self.palAnimColor[j] % palAnim.colorCounter) * numColors * 2
 				)
 				for i=0,numColors-1 do

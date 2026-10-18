@@ -1883,7 +1883,7 @@ local MapPalAnim = ff6struct{
 		-- $26f200 - $26f300 = rom-palette info for mapPalAnim[6] (ofs 0, numColors=16, colorCounter=8) ... 8*16*2 = 256
 		-- $26f300 - $26f380 = rom-palette info for mapPalAnim[10] (ofs +0x100, numColors=16, colorCounter=4) ... 4*16*2 = 128
 		-- $26f380 - $26f3c0 = rom-palette info for mapPalAnim[11] (ofs +0x180, numColors=8, colorCounter=4) ... 4*8*2 = 64
-		{offset = uint16_t},			-- offset into game.mapPalAnimCustomData[]
+		{customOffset = uint16_t},			-- offset into game.mapPalAnimCustomData[]
 	},
 }
 assert.eq(ffi.sizeof(MapPalAnim), 6)
