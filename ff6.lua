@@ -1799,7 +1799,7 @@ local Map = struct{
 		{name='layer3HeightLog2Minus4', type='uint8_t:2'},		-- 0x18.6-7
 		{name='layer3WidthLog2Minus4', type='uint8_t:2'},		-- 0x18.4-5
 		{name='palette', type=uint8_t},							-- 0x19
-		{name='paletteAnimation', type=uint8_t},				-- 0x1a 	index into game.mapPalAnim[map.paletteAnimation<<1]
+		{name='palAnim', type=uint8_t},							-- 0x1a 	index into game.mapPalAnim[map.palAnim<<1]
 		{name='animatedLayers1And2', type='uint8_t:5'},			-- 0x1b.0-4
 		{name='animatedLayer3', type='uint8_t:3'},				-- 0x1b.5-7	index into game.mapAnimGraphicsLayer3Ofs
 		{name='music', type=uint8_t},							-- 0x1c
@@ -1869,12 +1869,20 @@ assert.eq(ffi.sizeof(MapAnimPropsLayer3), 0x14)
 local MapPalAnim = ff6struct{
 	ctypeOnly = true,
 	fields = {
+		-- inc this many colors before resetting animation
+		-- colorCounter is 1 for type=1 cycle anim, does "reset" for those really mean "increment" ? but then why separate colorCounter and frameCounter?
+		-- colorCounter makes more sense for ROM pal anim where it needs to track what index it is
 		{colorCounter = 'uint8_t:4'},
-		{type = 'uint8_t:4'},	-- 0=none, 1=cycle, 2=rom, 3=pulse, 8=disabled
-		{frameCounter = uint8_t},
-		{firstColor = uint8_t},	-- firstIndex<<1
-		{numColors = uint8_t},	-- (numIndexes-1)<<1
-		{romColorOffset = uint16_t},
+
+		{type = 'uint8_t:4'},			-- 0=none, 1=cycle, 2=custom, 3=pulse, 8=disabled
+		{frameCounter = uint8_t},		-- inc this many frames before advancing color
+		{firstColor_x2 = uint8_t},		-- firstColor_x2 = firstColor<<1
+		{numColors_x2_1 = uint8_t},		-- numColors_x2_1 = (numColors-1)<<1
+
+		-- $26f200 - $26f300 = rom-palette info for mapPalAnim[6] (ofs 0, numColors=16, colorCounter=8) ... 8*16*2 = 256
+		-- $26f300 - $26f380 = rom-palette info for mapPalAnim[10] (ofs +0x100, numColors=16, colorCounter=4) ... 4*16*2 = 128
+		-- $26f380 - $26f3c0 = rom-palette info for mapPalAnim[11] (ofs +0x180, numColors=8, colorCounter=4) ... 4*8*2 = 64
+		{offset = uint16_t},			-- offset into game.mapPalAnimCustomData[]
 	},
 }
 assert.eq(ffi.sizeof(MapPalAnim), 6)
@@ -2972,9 +2980,7 @@ Game = struct{
 		{name = 'padding_26cdbe', type = arrayType(uint8_t, 2)},												-- 0x26cdbe - 0x26cdc0
 		{name = 'mapAnimGraphicsLayer3', type = arrayType(uint8_t, -(0x26cdc0 - 0x26f198))},					-- 0x26cdc0 - 0x26f198 = 2bpp, compressed
 		{name = 'padding_26f198', type = arrayType(uint8_t, -(0x26f198 - 0x26f200))},							-- 0x26f198 - 0x26f200 = FF's, probably tail filler of mapAnimGraphicsLayer3
-
-		{name = 'unknown_26f200', type = arrayType(uint8_t, -(0x26f200 - 0x26f4a0))},							-- 0x26f200 - 0x26f4a0.  filled from 0x26f200 - 0x26f440, then FF's from 0x0026f440 - 0x26f4a0
-
+		{name = 'mapPalAnimCustomData', type = arrayType(uint8_t, -(0x26f200 - 0x26f4a0))},						-- 0x26f200 - 0x26f4a0.  filled from 0x26f200 - 0x26f440, then FF's from 0x0026f440 - 0x26f4a0
 		{name = 'hpIncPerLevelUp', type = arrayType(uint8_t, numLevels)},										-- 0x26f4a0 - 0x26f502
 		{name = 'mpIncPerLevelUp', type = arrayType(uint8_t, numLevels)},										-- 0x26f502 - 0x26f564
 		{name = 'stragoInitialLores', type = arrayType(uint8_t, 3)},											-- 0x26f564 - 0x26f567 ... hmm TODO?

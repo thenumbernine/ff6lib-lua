@@ -580,19 +580,13 @@ return function(game)
 		{0x70, 0x71, 0x72}
 	} do
 		for layer,cmd in ipairs(cmds) do
-			EventCmds['ScrollBackground'..hex2(cmd)] = EventCmd:subclass{
+			EventCmds['SetLayerVel_'..hex2(cmd)] = EventCmd:subclass{
 				cmd = cmd,
 				argtypes = {int8_t, int8_t},
 				argnames = {'hscroll', 'vscroll'},
 				layer = layer,
 				_1scomp = _1scomp==1,
-				-- 1's comp is negative scrolling?
-				desc = 'scrollBackgroundLayer{'
-					..'layer=<?=layer?>'
-					..'<?=_1scomp and ", _1scomp=true" or ""?>'
-					..', hscroll=<?=hscroll?>'
-					..', vscroll=<?=vscroll?>'
-					..'}',
+				desc = 'setLayerVel(<?=layer?>, <?=hscroll?>, <?=vscroll?><?=_1scomp and ", true" or ""?>)',
 			}
 		end
 	end

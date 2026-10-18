@@ -706,6 +706,10 @@ function App:centerView(x, y)
 end
 
 
+App.palAnimFrame = {0,0}
+App.palAnimColor = {0,0}
+local RGBA5551_p
+
 -- called by update and called by save ...
 function App:draw(animFrameIndex)
 	local game = self.game
@@ -745,19 +749,51 @@ function App:draw(animFrameIndex)
 	local mapInfo = self.mapWindow:getMapInfo()
 	local map = mapInfo and mapInfo.map
 
-	if map.paletteAnimation ~= 0 then
-		for j=0,1 do
-			local palAnim = game.mapPalAnim + (((map.paletteAnimation-1) << 1) + j)
-			-- copy between self.mapWindow.origMapPalData and .mapPalData
-			local d = math.floor((timer.getTime() - startTime) * 60 / math.max(1,palAnim.frameCounter))
-			local numColors = bit.rshift(palAnim.numColors,1)+1
-			local firstColor = bit.rshift(palAnim.firstColor, 1)
-			for i=0,numColors-1 do
-				local dstp = self.mapWindow.mapPalData + bit.lshift(bit.band(((i + d) % numColors) + firstColor, 0xff), 2)
-				local srcp = self.mapWindow.origMapPalData + bit.lshift(bit.band((i + firstColor), 0xff), 2)
-				for ch=0,3 do
-					dstp[ch] = srcp[ch]
+	RGBA5551_p = RGBA5551_p or ffi.typeof('$*', game.RGBA5551)
+
+	if map.palAnim ~= 0 then
+		local frameIndex = math.floor((timer.getTime() - startTime) * 60)
+		if frameIndex ~= self.palAnimLastFrameIndex then
+			self.palAnimLastFrameIndex = frameIndex
+			for j=1,2 do
+				local palAnim = game.mapPalAnim + (((map.palAnim-1) << 1) + (j-1))
+				self.palAnimFrame[j] = self.palAnimFrame[j] + 1
+				if self.palAnimFrame[j] >= palAnim.frameCounter then
+					self.palAnimFrame[j] = 0
+					self.palAnimColor[j] = self.palAnimColor[j] + 1
 				end
+			end
+		end
+		for j=1,2 do
+			local palAnim = game.mapPalAnim + (((map.palAnim-1) << 1) + (j-1))
+			local numColors = bit.rshift(palAnim.numColors_x2_1, 1) + 1
+			local firstColor = bit.rshift(palAnim.firstColor_x2, 1)
+			if palAnim.type == 1 then
+				-- copy between self.mapWindow.origMapPalData and .mapPalData
+				for i=0,numColors-1 do
+					local dstp = self.mapWindow.mapPalData + bit.lshift(bit.band(((i + self.palAnimColor[j]) % numColors) + firstColor, 0xff), 2)
+					local srcp = self.mapWindow.origMapPalData + bit.lshift(bit.band((i + firstColor), 0xff), 2)
+					for ch=0,3 do
+						dstp[ch] = srcp[ch]
+					end
+				end
+			elseif palAnim.type == 2 then
+				-- rom colors / doma castle
+				local srcp = ffi.cast(
+					RGBA5551_p,
+					game.mapPalAnimCustomData + palAnim.offset
+					+ (self.palAnimColor[j] % palAnim.colorCounter) * numColors * 2
+				)
+				for i=0,numColors-1 do
+					local dstp = self.mapWindow.mapPalData + bit.lshift(bit.band(i + firstColor, 0xff), 2)
+					dstp[0] = bit.bor(bit.lshift(srcp.r, 3), bit.rshift(srcp.r, 2))
+					dstp[1] = bit.bor(bit.lshift(srcp.g, 3), bit.rshift(srcp.g, 2))
+					dstp[2] = bit.bor(bit.lshift(srcp.b, 3), bit.rshift(srcp.b, 2))
+					dstp[3] = (1 - srcp.a) * 0xff
+					srcp = srcp + 1
+				end
+			elseif palAnim.type == 3 then
+				-- subtract-pulse / kefka's tower
 			end
 		end
 		self.mapWindow.mapPalTex:bind():subimage()
