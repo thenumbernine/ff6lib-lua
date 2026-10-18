@@ -758,7 +758,7 @@ function App:draw(animFrameIndex)
 			for j=1,2 do
 				local palAnim = game.mapPalAnim + (((map.palAnim-1) << 1) + (j-1))
 				self.palAnimFrame[j] = self.palAnimFrame[j] + 1
-				if self.palAnimFrame[j] >= palAnim.frameCounter then
+				if self.palAnimFrame[j] >= palAnim.frameDelay then
 					self.palAnimFrame[j] = 0
 					self.palAnimColor[j] = self.palAnimColor[j] + 1
 				end
@@ -782,7 +782,7 @@ function App:draw(animFrameIndex)
 				local srcp = ffi.cast(
 					RGBA5551_p,
 					game.mapPalAnimCustomData + palAnim.customOffset
-					+ (self.palAnimColor[j] % palAnim.colorCounter) * numColors * 2
+					+ (self.palAnimColor[j] % palAnim.numFrames) * numColors * 2
 				)
 				for i=0,numColors-1 do
 					local dstp = self.mapWindow.mapPalData + bit.lshift(bit.band(i + firstColor, 0xff), 2)

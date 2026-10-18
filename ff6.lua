@@ -1870,19 +1870,19 @@ local MapPalAnim = ff6struct{
 	ctypeOnly = true,
 	fields = {
 		-- inc this many colors before resetting animation
-		-- colorCounter is 1 for type=1 cycle anim, does "reset" for those really mean "increment" ? but then why separate colorCounter and frameCounter?
-		-- colorCounter makes more sense for ROM pal anim where it needs to track what index it is
-		{colorCounter = 'uint8_t:4'},
+		-- numFrames is 1 for type=1 cycle anim, does "reset" for those really mean "increment" ? but then why separate numFrames and frameCounter?
+		-- numFrames makes more sense for ROM pal anim where it needs to track what index it is
+		{numFrames = 'uint8_t:4'},
 
 		{type = 'uint8_t:4'},			-- 0=none, 1=cycle, 2=custom, 3=pulse, 8=disabled
-		{frameCounter = uint8_t},		-- inc this many frames before advancing color
+		{frameDelay = uint8_t},			-- inc this many frames before advancing color
 		{firstColor_x2 = uint8_t},		-- firstColor_x2 = firstColor<<1
 		{numColors_x2_1 = uint8_t},		-- numColors_x2_1 = (numColors-1)<<1
 
 		-- type == 2, all Doma castle:
-		-- $26f200 - $26f300 = rom-palette info for mapPalAnim[6] (ofs 0, numColors=16, colorCounter=8) ... 8*16*2 = 256
-		-- $26f300 - $26f380 = rom-palette info for mapPalAnim[10] (ofs +0x100, numColors=16, colorCounter=4) ... 4*16*2 = 128
-		-- $26f380 - $26f3c0 = rom-palette info for mapPalAnim[11] (ofs +0x180, numColors=8, colorCounter=4) ... 4*8*2 = 64
+		-- $26f200 - $26f300 = rom-palette info for mapPalAnim[6] (ofs 0, numColors=16, numFrames=8) ... 8*16*2 = 256
+		-- $26f300 - $26f380 = rom-palette info for mapPalAnim[10] (ofs +0x100, numColors=16, numFrames=4) ... 4*16*2 = 128
+		-- $26f380 - $26f3c0 = rom-palette info for mapPalAnim[11] (ofs +0x180, numColors=8, numFrames=4) ... 4*8*2 = 64
 		{customOffset = uint16_t},			-- offset into game.mapPalAnimCustomData[]
 	},
 }
