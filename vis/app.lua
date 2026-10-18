@@ -706,8 +706,8 @@ function App:centerView(x, y)
 end
 
 
-App.palAnimFrame = {0,0}
-App.palAnimColor = {0,0}
+App.palAnimDrawFrame = {0,0}	-- which 60 hz frame we're not
+App.palAnimFrames = {0,0}		-- which frame in the palette animation data we're on
 local RGBA5551_p
 
 -- called by update and called by save ...
@@ -752,60 +752,65 @@ function App:draw(animFrameIndex)
 	RGBA5551_p = RGBA5551_p or ffi.typeof('$*', game.RGBA5551)
 
 	if map.palAnim ~= 0 then
+		local modified
 		local frameIndex = math.floor((timer.getTime() - startTime) * 60)
 		if frameIndex ~= self.palAnimLastFrameIndex then
 			self.palAnimLastFrameIndex = frameIndex
-			for j=1,2 do
-				local palAnim = game.mapPalAnim + (((map.palAnim-1) << 1) + (j-1))
-				self.palAnimFrame[j] = self.palAnimFrame[j] + 1
-				if self.palAnimFrame[j] >= palAnim.frameDelay then
-					self.palAnimFrame[j] = 0
-					self.palAnimColor[j] = self.palAnimColor[j] + 1
+			for palAnim12Index=1,2 do
+				local palAnim = game.mapPalAnim + (((map.palAnim-1) << 1) + (palAnim12Index-1))
+				if palAnim.type ~= 8 then	-- skip disabled
+					self.palAnimDrawFrame[palAnim12Index] = self.palAnimDrawFrame[palAnim12Index] + 1
+					if self.palAnimDrawFrame[palAnim12Index] >= palAnim.frameDelay then
+						self.palAnimDrawFrame[palAnim12Index] = 0
+						self.palAnimFrames[palAnim12Index] = self.palAnimFrames[palAnim12Index] + 1
+						-- change colors
+						modified = true
+						local numColors = bit.rshift(palAnim.numColors_x2_1, 1) + 1
+						local firstColor = bit.rshift(palAnim.firstColor_x2, 1)
+						if palAnim.type == 1 then
+							-- copy between self.mapWindow.origMapPalData and .mapPalData
+							for i=0,numColors-1 do
+								local dstp = self.mapWindow.mapPalData + bit.lshift(bit.band(((i + self.palAnimFrames[palAnim12Index]) % numColors) + firstColor, 0xff), 2)
+								local srcp = self.mapWindow.origMapPalData + bit.lshift(bit.band(i + firstColor, 0xff), 2)
+								for ch=0,3 do
+									dstp[ch] = srcp[ch]
+								end
+							end
+						elseif palAnim.type == 2 then
+							-- rom colors / doma castle
+							local srcp = ffi.cast(
+								RGBA5551_p,
+								game.mapPalAnimCustomData + palAnim.customOffset
+								+ (self.palAnimFrames[palAnim12Index] % palAnim.numFrames) * numColors * 2
+							)
+--print('setting pal to', palAnim12Index, self.palAnimFrames[palAnim12Index], require 'ext.tolua'(range(0,numColors-1):mapi(function(i) return ffi.cast('uint16_t*', srcp)[i] end)))
+							for i=0,numColors-1 do
+								local dstp = self.mapWindow.mapPalData + bit.lshift(bit.band(i + firstColor, 0xff), 2)
+								dstp[0] = bit.bor(bit.lshift(srcp.r, 3), bit.rshift(srcp.r, 2))
+								dstp[1] = bit.bor(bit.lshift(srcp.g, 3), bit.rshift(srcp.g, 2))
+								dstp[2] = bit.bor(bit.lshift(srcp.b, 3), bit.rshift(srcp.b, 2))
+								dstp[3] = srcp.a == 0 and 0xff or 0
+								srcp = srcp + 1
+							end
+							-- but what about those magenta colors?
+						elseif palAnim.type == 3 then
+							local numPulse = ffi.sizeof(game.palAnimPulseData)
+							local intensity = bit.rshift(game.palAnimPulseData[self.palAnimFrames[palAnim12Index] % numPulse], 4) / 15
+							for i=0,numColors-1 do
+								local dstp = self.mapWindow.mapPalData + bit.lshift(bit.band(i + firstColor, 0xff), 2)
+								local srcp = self.mapWindow.origMapPalData + bit.lshift(bit.band(i + firstColor, 0xff), 2)
+								for ch=0,2 do
+									dstp[ch] = srcp[ch] * intensity
+								end
+							end
+						end
+					end
 				end
 			end
 		end
-		for j=1,2 do
-			local palAnim = game.mapPalAnim + (((map.palAnim-1) << 1) + (j-1))
-			local numColors = bit.rshift(palAnim.numColors_x2_1, 1) + 1
-			local firstColor = bit.rshift(palAnim.firstColor_x2, 1)
-			if palAnim.type == 1 then
-				-- copy between self.mapWindow.origMapPalData and .mapPalData
-				for i=0,numColors-1 do
-					local dstp = self.mapWindow.mapPalData + bit.lshift(bit.band(((i + self.palAnimColor[j]) % numColors) + firstColor, 0xff), 2)
-					local srcp = self.mapWindow.origMapPalData + bit.lshift(bit.band(i + firstColor, 0xff), 2)
-					for ch=0,3 do
-						dstp[ch] = srcp[ch]
-					end
-				end
-			elseif palAnim.type == 2 then
-				-- rom colors / doma castle
-				local srcp = ffi.cast(
-					RGBA5551_p,
-					game.mapPalAnimCustomData + palAnim.customOffset
-					+ (self.palAnimColor[j] % palAnim.numFrames) * numColors * 2
-				)
-				for i=0,numColors-1 do
-					local dstp = self.mapWindow.mapPalData + bit.lshift(bit.band(i + firstColor, 0xff), 2)
-					dstp[0] = bit.bor(bit.lshift(srcp.r, 3), bit.rshift(srcp.r, 2))
-					dstp[1] = bit.bor(bit.lshift(srcp.g, 3), bit.rshift(srcp.g, 2))
-					dstp[2] = bit.bor(bit.lshift(srcp.b, 3), bit.rshift(srcp.b, 2))
-					dstp[3] = srcp.a == 0 and 0xff or 0
-					srcp = srcp + 1
-				end
-				-- but what about those magenta colors?
-			elseif palAnim.type == 3 then
-				local numPulse = ffi.sizeof(game.palAnimPulseData)
-				local intensity = bit.rshift(game.palAnimPulseData[self.palAnimColor[j] % numPulse], 4) / 15
-				for i=0,numColors-1 do
-					local dstp = self.mapWindow.mapPalData + bit.lshift(bit.band(i + firstColor, 0xff), 2)
-					local srcp = self.mapWindow.origMapPalData + bit.lshift(bit.band(i + firstColor, 0xff), 2)
-					for ch=0,2 do
-						dstp[ch] = srcp[ch] * intensity
-					end
-				end
-			end
+		if modified then
+			self.mapWindow.mapPalTex:bind():subimage()
 		end
-		self.mapWindow.mapPalTex:bind():subimage()
 	end
 
 	if self.showAnimTexs then
