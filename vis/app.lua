@@ -781,9 +781,8 @@ function App:draw(animFrameIndex)
 							local srcp = ffi.cast(
 								RGBA5551_p,
 								game.mapPalAnimCustomData + palAnim.customOffset
-								+ (self.palAnimFrames[palAnim12Index] % palAnim.numFrames) * numColors * 2
+								+ (self.palAnimFrames[palAnim12Index] % palAnim.numFrames) * 16 * 2
 							)
---print('setting pal to', palAnim12Index, self.palAnimFrames[palAnim12Index], require 'ext.tolua'(range(0,numColors-1):mapi(function(i) return ffi.cast('uint16_t*', srcp)[i] end)))
 							for i=0,numColors-1 do
 								local dstp = self.mapWindow.mapPalData + bit.lshift(bit.band(i + firstColor, 0xff), 2)
 								dstp[0] = bit.bor(bit.lshift(srcp.r, 3), bit.rshift(srcp.r, 2))
