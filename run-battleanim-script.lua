@@ -1,8 +1,6 @@
 #!/usr/bin/env luajit
 --[[
-source is everything8215 ff6/notes/battle-lists.txt:952 Battle Animation Commands
-
-TODO convert this to use ff6.script please
+I have converted this to script.lua, so TODO copy over whatever notes are important and delete this file.
 --]]
 local ffi = require 'ffi'
 local path = require 'ext.path'
@@ -22,7 +20,7 @@ local function outputBattleAnimScripts(game)
 			--  then just 650 entries
 			name = 'battleAnimScriptData',
 			n = game.countof(game.battleAnimEffects),
-			--n = 660,
+			--n = 650,
 			offsetArray = game.battleAnimScriptOffsets,
 		},
 	} do
@@ -54,9 +52,8 @@ local function outputBattleAnimScripts(game)
 					return ('0x%02x'):format(effectIndex)
 				end):concat', ')
 			if name == 'battleAnimScriptData' then
-				print('-- '..addrs[addr]:mapi(function(effectIndex)
-					return effectIndex < 255 and ('%q'):format(tostring(game.getSpellName(effectIndex))) or ""
-				end):concat', ')
+				-- I don't think this is how things correlate...
+				--print('-- '..addrs[addr]:mapi(function(effectIndex) return effectIndex < 255 and ('%q'):format(tostring(game.getSpellName(effectIndex))) or "" end):concat', ')
 			end
 			local pc = addr
 			local linepc

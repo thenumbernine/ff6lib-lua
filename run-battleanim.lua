@@ -7,6 +7,8 @@ local tileHeight = require 'graphics'.tileHeight
 local readTile = require 'graphics'.readTile
 
 --[[
+this is a script used to dump binaries and sprite-sheets for use with numo9's ff6t3d
+
 lets try to make sense of this mess...
 
 battleAnimScriptOffsets[i]

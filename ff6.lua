@@ -586,6 +586,20 @@ local Spell = ff6struct{
 }
 assert.eq(ffi.sizeof(Spell), 0x0e)
 
+local SpellAndLevel = struct{
+	ctypeOnly = true,
+	tostringFields = true,
+	tostringOmitFalse = true,
+	tostringOmitNil = true,
+	tostringOmitEmpty = true,
+	packed = true,
+	fields = {
+		{name='spell', type=SpellRef},
+		{name='level', type=uint8_t},
+	},
+}
+assert.eq(ffi.sizeof(SpellAndLevel), 2)
+
 local EsperBonusDesc = Str9
 local numEsperBonuses = 17
 
@@ -636,6 +650,29 @@ local EsperRef = reftype{
 	getterSkipNone = true,
 }
 
+local WeaponAnimProps = struct{
+	ctypeOnly = true,
+	tostringFields = true,
+	tostringOmitFalse = true,
+	tostringOmitNil = true,
+	tostringOmitEmpty = true,
+	packed = true,
+
+	fields = {
+		{name='rightScript', type=uint8_t},	-- index into battleAnimEffects
+		{name='leftScript', type=uint8_t},	-- index into battleAnimEffects
+		{name='weaponPal', type=uint8_t},
+		{name='hitScript', type=uint8_t},
+		{name='hitPal', type=uint8_t},
+		{name='initFn', type=uint8_t},
+		{name='sound', type='uint8_t:7'},
+		{name='hitIsSprite', type='uint8_t:1'},
+		{name='zero', type=uint8_t},
+	},
+}
+assert.eq(ffi.sizeof(WeaponAnimProps), 8)
+
+
 --[[ can't do this until i convert all ff6struct to struct, then i can use anonymous fields.
 local BattleAnimEffectIndex = struct{
 	ctypeOnly = true,
@@ -654,7 +691,76 @@ local BattleAnimEffectIndex = struct{
 assert.eq(ffi.sizeof(BattleAnimEffectIndex), 2)
 --]]
 
--- collections of up to 3 animation-effects to play
+--[[
+this has animation info one per spell
+collections of up to 3 animation-effects to play
+also has a bunch of the other skills and items
+
+BattleAnimSet battleAnimSets[] @0x107fb2
+same as everything8215/src/data/attack_anim_prop.asm
+
+everything8215 ff6/notes/battle-lists.txt:952 Battle Animation Commands
+
+looks like this drives the spells and the scripts
+0x107fb2 battleAnimSets[406] (everything8215's ff6/src/data/attack_anim_prop.asm)
+	... 0-53 <-> spells 0-53
+	... 54-80 <-> spells 54-80 (esper attacks)
+	... 81-83 <-> spells 81-83 (edges)
+	... 84 <-> spell 84 ("storm") ?
+	... 85-92 <-> spells 85-92 (swdtechs)
+	... 93-100 <-> spells 93-100 (blitzes)
+	... 101-124 <-> spells 101-124 (dances)
+	... 125 = super ball, (spells 125 = "bio blast" tools?))
+	... 126 = "flash slot" (spells 126 = "flash" tools?)
+	... 127-129 <-> spells 127-129 (slots)
+	... 130 = shock, spells 130 = "megahit"
+	... 131-138 <-> spells 131-138 (magitek)
+	... 139-163 <-> spells 139-163 (lore)
+	... 164-237 <-> spells 164-237 = monster spells / rages / sketches
+	... 238 <-> spells 238 "battle"
+	... 239 <-> spells 239 "special"
+	... 240-251 <-> spells 240-251 desperation attacks
+	... 252 <-> spells 252 "takedown"
+	... 253 <-> spells 253 "wild fang"
+	... 254 <-> spells 254 "lagomorph"
+	... 255 "none" <-> spells 255 "????????????"
+
+	... 256 magitek
+
+	.. after that is lots of esper stuff
+
+	throw:
+	... 312-327 = various throws by type or item
+
+	use-in-battle items:
+	... (items 53-58 fire rod - gravity rod just casts the spell)
+	... (items 96-98 fire shield - thunder shield just casts the spell)
+	... 337-359 <-> items 231-254 "tonic" - "dried meat"
+
+	... 402 <-> items 231 "rename card"
+
+	has .uint16_t effect[3]
+		- effect points into 0x14d000 battleAnimEffects[650]
+			has animation frames
+		- effect points into 0x11ead8 battleAnimScriptOffsets[660]
+			- offsets into 0x100000 battleAnimScriptData[]
+				- has the script of what to play for this effect
+
+TODO find this in the rom:
+everything8215 src/data/weapon_anim_prop.asm also has
+	... has 0-127
+	WeaponAnimProp $ec/e400 (starts at entry #0)
+		entry #0 is for unarmed attack
+		entry #1 <-> item #0 <-> Dirk
+			...
+		entry #90 <-> item #89 <-> Tiger Fangs
+			(item #90 is the end of the weapons)
+		entry #91 = "atma weapon 2"
+		entry #92 = "atma weapon 3"
+	MonsterAttackAnimProp $ec/e6e8 (entry #93)
+		(in spells somewhere?)
+
+--]]
 local BattleAnimSet = ff6struct{
 	ctypeOnly = true,
 	fields = {
@@ -690,7 +796,12 @@ local BattleAnimSet = ff6struct{
 }
 assert.eq(ffi.sizeof(BattleAnimSet), 0xe)
 
--- animations made up of frames
+--[[
+animations made up of frames
+pointed into for spells, weapons, monsters animations
+BattleAnimEffect battleAnimEffects[] @0x14d000
+same as everything8215/ff6/src/data/attack_gfx_prop.asm
+--]]
 local BattleAnimEffect = ff6struct{
 	ctypeOnly = true,
 	fields = {
@@ -2911,7 +3022,7 @@ Game = struct{
 		{name = 'padding_0fffbe', type = arrayType(uint8_t, -(0x0fffbe - 0x100000))},							-- 0x0fffbe - 0x100000
 
 		{name = 'battleAnimScriptData', type = arrayType(uint8_t, -(0x100000 - 0x107fb2))},						-- 0x100000 - 0x107fb2 <- indexed into with battleAnimScriptOffsets[i]
-		{name = 'battleAnimSets', type = arrayType(BattleAnimSet, 444)},										-- 0x107fb2 - 0x1097fa
+		{name = 'battleAnimSets', type = arrayType(BattleAnimSet, 444)},										-- 0x107fb2 - 0x1097fa aka everything8215/ff6/src/data/attack_anim_prop.asm but he only has 0-405
 		{name = 'padding_1097fa', type = arrayType(uint8_t, -(0x1097fa - 0x109800))},							-- 0x1097fa - 0x109800 = 'ff's, just like the end of battleAnimSets
 
 		{name = 'battleEventScriptOfs', type = arrayType(uint16_t, 33)},										-- 0x109800 - 0x109842 = relative to 0x100000, within battleEventScripts[]
@@ -3029,7 +3140,15 @@ Game = struct{
 		{name = 'battleBgLayoutCompressed', type = arrayType(uint8_t, -(0x271928 - 0x27a9e7))},					-- 0x271928 - 0x27a9e7 = 32x32x4bpp
 		{name = 'battleBgGfxCompressed', type = arrayType(uint8_t, -(0x27a9e7 - 0x296300))},					-- 0x27a9e7 - 0x296300 = 4bpp
 		{name = 'theEndGraphics1', type = arrayType(uint8_t, -(0x296300 - 0x297000))},							-- 0x296300 - 0x297000 = 4bpp
-		{name = 'monsterSpriteData', type = arrayType(uint8_t, -(0x297000 - 0x2d0000))},						-- 0x297000 - 0x2d0000 = monster graphics
+		{name = 'monsterSpriteData', type = arrayType(uint8_t, -(0x297000 - 0x2ce3c0))},						-- 0x297000 - 0x2ce3c0 = monster graphics
+		{name = 'naturalMagic', type = arrayType(SpellAndLevel, 32)},											-- 0x2ce3c0 - 0x2ce400
+		{name = 'weaponAnimProps', type = arrayType(WeaponAnimProps, 93)},										-- 0x2ce400 - 0x2ce6e8
+		{name = 'monsterAttackAnimProps', type = arrayType(WeaponAnimProps, 128-93)},							-- 0x2ce6e8 - 0x2ce800
+		{name = 'monsterSpriteAlign', type = arrayType(uint8_t, 256)},											-- 0x2ce800 - 0x2ce900 = enum { ceiling, ground, floating, buried, flying }
+
+		-- 2ce900 = "ruin_cutscene" gfx compressed
+		{name = 'unknown_2ce900', type = arrayType(uint8_t, -(0x2ce900 - 0x2d0000))},							-- 0x2ce900 - 0x2d0000
+
 		{name = 'menuImages', type = arrayType(uint8_t, -(0x2d0000 - 0x2d0e00))},								-- 0x2d0000 - 0x2d0e00 = menu images 0x200 = bg pattern, 0x180 = borders, so 0x380 total ... x8 per menu scheme
 
 		{name = 'unknown_2d0e00', type = arrayType(uint8_t, -(0x2d0e00 - 0x2d1c00))},							-- 0x2d0e00 - 0x2d1c00
