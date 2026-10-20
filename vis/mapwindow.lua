@@ -188,10 +188,10 @@ function MapWindow:showIndexUI()
 				end
 			end
 
-			if map.colorMath >= 0 and map.colorMath < game.countof(game.mapColorMathProps) then
+			if map.colorMath >= 0 and map.colorMath < game.countof(game.mapColorMath) then
 				ig.igSeparator()
 				ig.igText'colorMath:'
-				local colorMath = game.mapColorMathProps + map.colorMath
+				local colorMath = game.mapColorMath + map.colorMath
 				for fieldname, ctype, field in colorMath:fielditer() do
 					self:editField(colorMath, fieldname, ctype, field)
 				end

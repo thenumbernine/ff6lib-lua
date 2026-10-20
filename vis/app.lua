@@ -824,8 +824,8 @@ function App:draw(animFrameIndex)
 				zAndLayers = zAndLayersWithLayer3Priority
 
 				-- hack to look like colormath-4 using 1 buffer
-				if map.colorMath > 0 and map.colorMath < game.countof(game.mapColorMathProps) then
-					local colorMath = game.mapColorMathProps + map.colorMath
+				if map.colorMath > 0 and map.colorMath < game.countof(game.mapColorMath) then
+					local colorMath = game.mapColorMath + map.colorMath
 					if (colorMath.cm == 19 and colorMath.main == 19 and colorMath.sub == 4)		-- colorMath 2
 					or (colorMath.cm == 2 and colorMath.main == 19 and colorMath.sub == 4)		-- colorMath 3 ... used by 278 (gogo's room), 315, 316 (phoenix cave upstairs)
 					or (colorMath.cm == 2 and colorMath.main == 19 and colorMath.sub == 23)		-- colorMath 4

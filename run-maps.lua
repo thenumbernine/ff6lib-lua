@@ -858,8 +858,8 @@ mapAnimGraphicsLayer3Ofs[5] = offset=0x1bd1 addr=0x26e991 size=0x1000
 	end
 	print()
 
-	for i=0,countof(game.mapColorMathProps) do
-		print('mapColorMathProps['..i..'] = '..game.mapColorMathProps[i])
+	for i=0,countof(game.mapColorMath) do
+		print('mapColorMath['..i..'] = '..game.mapColorMath[i])
 	end
 	print()
 

@@ -650,7 +650,7 @@ local EsperRef = reftype{
 	getterSkipNone = true,
 }
 
-local WeaponAnimProps = struct{
+local WeaponAnim = struct{
 	ctypeOnly = true,
 	tostringFields = true,
 	tostringOmitFalse = true,
@@ -670,7 +670,7 @@ local WeaponAnimProps = struct{
 		{name='zero', type=uint8_t},
 	},
 }
-assert.eq(ffi.sizeof(WeaponAnimProps), 8)
+assert.eq(ffi.sizeof(WeaponAnim), 8)
 
 
 --[[ can't do this until i convert all ff6struct to struct, then i can use anonymous fields.
@@ -700,7 +700,7 @@ also has a bunch of the other skills and items
 TODO find this in the rom:
 everything8215 src/data/weapon_anim_prop.asm also has
 	... has 0-127
-	WeaponAnimProps $ec/e400 (starts at entry #0)
+	WeaponAnim $ec/e400 (starts at entry #0)
 		entry #0 is for unarmed attack
 		entry #1 <-> item #0 <-> Dirk
 			...
@@ -725,10 +725,10 @@ looks like this drives the spells and the scripts
 	... 85-92 <-> spells 85-92 (swdtechs)
 	... 93-100 <-> spells 93-100 (blitzes)
 	... 101-124 <-> spells 101-124 (dances)
-	... 125 = super ball, (spells 125 = "bio blast" tools?))
-	... 126 = "flash slot" (spells 126 = "flash" tools?)
+EXCEPTION?	... 125 = super ball, (spells 125 = "bio blast" tools?))
+EXCEPTION?	... 126 = "flash slot" (spells 126 = "flash" tools?)
 	... 127-129 <-> spells 127-129 (slots)
-	... 130 = shock, spells 130 = "megahit"
+EXCEPTION?	... 130 = shock, spells 130 = "megahit"
 	... 131-138 <-> spells 131-138 (magitek)
 	... 139-163 <-> spells 139-163 (lore)
 	... 164-237 <-> spells 164-237 = monster spells / rages / sketches
@@ -750,7 +750,7 @@ looks like this drives the spells and the scripts
 	use-in-battle items:
 	... (items 53-58 fire rod - gravity rod just casts the spell)
 	... (items 96-98 fire shield - thunder shield just casts the spell)
-	... 337-359 <-> items 231-254 "tonic" - "dried meat"
+	... 337-359 <-> items 232-254 "tonic" - "dried meat"
 
 	... 402 <-> items 231 "rename card"
 
@@ -1783,17 +1783,17 @@ local numBattleMessages = 0x100
 local numPositionedText = 5	-- might actually be lower
 
 
-local MapColorMathProps = ff6struct{
+local MapColorMath = ff6struct{
 	ctypeOnly = true,
 	fields = {
-		{cm = 'uint8_t:6'},	-- 0=layer1, 1=layer2, 2=layer3, 3=layer4, 4=sprites, 5=back area
+		{cm = 'uint8_t:6'},	-- which layers to apply colormath (blending) to.  0=layer1, 1=layer2, 2=layer3, 3=layer4, 4=sprites, 5=back area
 		{half = 'uint8_t:1'},
 		{subtract = 'uint8_t:1'},
-		{main = uint8_t},	-- only uses 5 bits? same as .cm
-		{sub = uint8_t},	-- only uses 5 bits?
+		{main = uint8_t},	-- which main buffer layers to render
+		{sub = uint8_t},	-- which sub-buffer layers to render
 	},
 }
-assert.eq(ffi.sizeof(MapColorMathProps), 3)
+assert.eq(ffi.sizeof(MapColorMath), 3)
 
 local MapScroll = struct{
 	ctypeOnly = true,
@@ -2879,7 +2879,7 @@ Game = struct{
 
 		{name = 'unknown_00fd00', type = arrayType(uint8_t, -(0x00fd00 - 0x00fe00))},							-- 0x00fd00 - 0x00fe00
 
-		{name = 'mapColorMathProps', type = arrayType(MapColorMathProps, 19)},									-- 0x00fe00 - 0x00fe39
+		{name = 'mapColorMath', type = arrayType(MapColorMath, 19)},											-- 0x00fe00 - 0x00fe39
 		{name = 'padding_00fe39', type = arrayType(uint8_t, 7)},												-- 0x00fe39 - 0x00fe40 = ff's
 
 		-- everything8215 says "length 21 max 32"
@@ -3143,8 +3143,8 @@ Game = struct{
 		{name = 'theEndGraphics1', type = arrayType(uint8_t, -(0x296300 - 0x297000))},							-- 0x296300 - 0x297000 = 4bpp
 		{name = 'monsterSpriteData', type = arrayType(uint8_t, -(0x297000 - 0x2ce3c0))},						-- 0x297000 - 0x2ce3c0 = monster graphics
 		{name = 'naturalMagic', type = arrayType(SpellAndLevel, 32)},											-- 0x2ce3c0 - 0x2ce400
-		{name = 'weaponAnimProps', type = arrayType(WeaponAnimProps, 93)},										-- 0x2ce400 - 0x2ce6e8
-		{name = 'monsterAttackAnimProps', type = arrayType(WeaponAnimProps, 128-93)},							-- 0x2ce6e8 - 0x2ce800
+		{name = 'weaponAnimProps', type = arrayType(WeaponAnim, 93)},											-- 0x2ce400 - 0x2ce6e8
+		{name = 'monsterAttackAnimProps', type = arrayType(WeaponAnim, 128-93)},								-- 0x2ce6e8 - 0x2ce800
 		{name = 'monsterSpriteAlign', type = arrayType(uint8_t, 256)},											-- 0x2ce800 - 0x2ce900 = enum { ceiling, ground, floating, buried, flying }
 
 		-- 2ce900 = "ruin_cutscene" gfx compressed
