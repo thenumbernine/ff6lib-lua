@@ -1,4 +1,9 @@
+#!/usr/bin/env luajit
 local ffi = require 'ffi'
+local path = require 'ext.path'
+local table = require 'ext.table'
+local assert = require 'ext.assert'
+local number = require 'ext.number'
 local Image = require 'image'
 local makePalette = require 'graphics'.makePalette
 local makePaletteSets = require 'graphics'.makePaletteSets
@@ -11,20 +16,21 @@ this is a script used to dump binaries and sprite-sheets for use with numo9's ff
 
 lets try to make sense of this mess...
 
-battleAnimScriptOffsets[i]
-	points to byte offset within battleAnimScripts[]
-
-battleAnimScripts[i]
-	handles frame playback of battleAnimSets[]
-	(TODO make structs out of this like I do for event-scripts in scripts.lua)
-
-battleAnimSets[i]
+has an entry per spell, item, weapon-type, throw-type, and skill...
+battleAnimSets[444]
 	.wait is how long to wait
 	.sound is what sound to play
 	for j in 0,1,2:
 		.palette[j] points into battleAnimPalettes[]
-		.effect[j] points into battleAnimEffects[]
-battleAnimEffects[i] ... this is one animated sequence, i.e. a collection of frames.
+		.effect[j] points into battleAnimEffects[] & battleAnimScriptOffsets[]
+
+battleAnimScriptOffsets[660]
+	points to byte offset within battleAnimScriptData[]
+battleAnimScriptData[]
+	handles frame playback of battleAnimEffects[]
+	(TODO make structs out of this like I do for event-scripts in scripts.lua)
+
+battleAnimEffects[650] ... this is one animated sequence, i.e. a collection of frames.
 	.numFrames = how many frames in this animation-set's animation-effect's animation
 	.width, .height = frame size, in 8x8 tiles
 	._2bpp is true for 2bpp, false for 3bpp
@@ -60,7 +66,7 @@ i.e. 256x1600 i.e. 6.25 x 256x256 sheets
 local battleAnimGraphicSetsPath = path'battleanim_graphicsets'
 battleAnimGraphicSetsPath:mkdir()
 
-return function(game)
+local function runBattleAnim(game)
 	local rom = game.rom
 	local romsize = game.romsize
 	local countof = game.countof
@@ -69,6 +75,14 @@ return function(game)
 	local palettesUsed = table()
 	local frame16x16TileAddrInfo = table()
 
+
+
+	-- weapons props too...
+	-- the fields here should point into 'battleAnimEffects' ?
+	for i=0,game.countof(game.weaponAnimProps)-1 do
+		print('weaponAnimProps['..i..'] = '..game.weaponAnimProps[i])
+	end
+	print()
 
 	-- [==[ interface layer for game.*
 
@@ -137,7 +151,7 @@ return function(game)
 	battleAnimSetPath:mkdir()
 	for battleAnimSetIndex=0,countof(game.battleAnimSets)-1 do
 		local battleAnim = battleAnimSets + battleAnimSetIndex
-		print('battleAnimSet['..battleAnimSetIndex..'] = '..battleAnim)
+		print('battleAnimSets['..battleAnimSetIndex..'] = '..battleAnim)
 
 		for j=0,2 do
 			-- TODO array plz, but then TODO serialzie arrays in 'struct' please
@@ -176,18 +190,18 @@ return function(game)
 					local graphicSetTiles = battleAnimGraphicSetsPerBpp[bpp] + graphicSetOffset
 
 					local tileLen = bit.lshift(bpp, 3)
-					print('\t\teffectAddr=0x'..graphicSetAddr:hex()
-						..', tileLen=0x'..tileLen:hex())
+					print('\t\teffectAddr=0x'..number.hex(graphicSetAddr)
+						..', tileLen=0x'..number.hex(tileLen))
 
 					local numFrames = effect.numFrames
 					-- https://web.archive.org/web/20190907020126/https://www.ff6hacking.com/forums/thread-925.html
 					-- ... says dont use the last 2 bits
 					numFrames = bit.band(0x3f, numFrames)
 					for frameIndex=0,numFrames-1 do
-						print('\t\t\tframeIndex=0x'..frameIndex:hex()..':')
+						print('\t\t\tframeIndex=0x'..number.hex(frameIndex)..':')
 
 						local frame16x16TilesAddr = 0x110000 + effectFrame16x16TileOffsetPtr[frameIndex]  -- somewhere inside battleAnimFrame16x16Tiles
-						print('\t\t\t\tframe16x16TilesAddr=0x'..frame16x16TilesAddr:hex())
+						print('\t\t\t\tframe16x16TilesAddr=0x'..number.hex(frame16x16TilesAddr))
 
 						--[[
 						ok i've got a theory.
@@ -197,7 +211,7 @@ return function(game)
 						i.e. they will have the same .bpp and .graphicSetIndex
 						--]]
 						frame16x16TileAddrInfo[frame16x16TilesAddr] = frame16x16TileAddrInfo[frame16x16TilesAddr] or table()
-						local key = '0x'..graphicSetIndex:hex()..'/'..bpp
+						local key = '0x'..number.hex(graphicSetIndex)..'/'..bpp
 						frame16x16TileAddrInfo[frame16x16TilesAddr][key] = true
 
 						-- convert the 0x110000-relative address into an battleAnimFrame16x16Tiles[] index since thats where it points after all
@@ -272,7 +286,7 @@ return function(game)
 									)
 									local vflip = 0 ~= graphicSetTile.vflip
 									local hflip = 0 ~= graphicSetTile.hflip
---print('xofs', xofs:hex(), 'yofs', yofs:hex(), 'graphicSetTile', graphicSetTile)
+--print('xofs', number.hex(xofs), 'yofs', number.hex(yofs), 'graphicSetTile', graphicSetTile)
 									-- 16384 indexable, but points to 0x130000 - 0x14c998, which only holds 4881
 									paletteForTileIndex[graphicSetTile.tile] = paletteIndex
 									local tile8x8DataAddr = info.tile8x8DataBaseAddr + tileLen * graphicSetTile.tile
@@ -318,7 +332,7 @@ return function(game)
 	print()
 
 	local uniquePalettesUsed = palettesUsed:keys():sort()
-	print('palettes used #:', uniquePalettesUsed:mapi(function(i) return '0x'..i:hex() end):concat', ')
+	print('palettes used #:', uniquePalettesUsed:mapi(function(i) return '0x'..number.hex(i) end):concat', ')
 	print('...'..#uniquePalettesUsed..' unique palettes')
 	-- TODO these are palette8's used for 3bpp, but 2bpp just needs 4 colors ...
 	-- 175 of 240 palettes are used ...
@@ -327,7 +341,7 @@ return function(game)
 
 	-- [[ graphic sets for effect #3 is supposed to have a different base address, hmmm...
 	local uniqueGraphicSets = graphicSetsUsed:keys():sort()
-	print('graphicSets used', uniqueGraphicSets:mapi(function(i) return '0x'..i:hex() end):concat', ')
+	print('graphicSets used', uniqueGraphicSets:mapi(function(i) return '0x'..number.hex(i) end):concat', ')
 	print('...'..#uniqueGraphicSets..' unique graphic sets')
 	print()
 	--]]
@@ -435,7 +449,7 @@ return function(game)
 
 	print'frame16x16TileAddrInfo={'
 	for _,addr in ipairs(frame16x16TileAddrInfo:keys():sort()) do
-		print('\t[0x'..addr:hex()..'] = {'
+		print('\t[0x'..number.hex(addr)..'] = {'
 			..frame16x16TileAddrInfo[addr]:keys():sort():concat', '
 			..'},')
 	end
@@ -510,3 +524,15 @@ return function(game)
 		end
 	)
 end
+
+if select('#', ...) > 0 then
+	local cmdline = require 'ext.cmdline'(...)
+	print'--[['
+	local game = require 'ff6'((
+		assert(path((...)):read())
+	))
+	print'--]]'
+	runBattleAnim(game, cmdline)
+end
+
+return runBattleAnim

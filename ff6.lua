@@ -696,6 +696,21 @@ this has animation info one per spell
 collections of up to 3 animation-effects to play
 also has a bunch of the other skills and items
 
+
+TODO find this in the rom:
+everything8215 src/data/weapon_anim_prop.asm also has
+	... has 0-127
+	WeaponAnimProps $ec/e400 (starts at entry #0)
+		entry #0 is for unarmed attack
+		entry #1 <-> item #0 <-> Dirk
+			...
+		entry #90 <-> item #89 <-> Tiger Fangs
+			(item #90 is the end of the weapons)
+		entry #91 = "atma weapon 2"
+		entry #92 = "atma weapon 3"
+	MonsterAttackAnimProp $ec/e6e8 (entry #93)
+		(in spells somewhere?)
+
 BattleAnimSet battleAnimSets[] @0x107fb2
 same as everything8215/src/data/attack_anim_prop.asm
 
@@ -745,20 +760,6 @@ looks like this drives the spells and the scripts
 		- effect points into 0x11ead8 battleAnimScriptOffsets[660]
 			- offsets into 0x100000 battleAnimScriptData[]
 				- has the script of what to play for this effect
-
-TODO find this in the rom:
-everything8215 src/data/weapon_anim_prop.asm also has
-	... has 0-127
-	WeaponAnimProp $ec/e400 (starts at entry #0)
-		entry #0 is for unarmed attack
-		entry #1 <-> item #0 <-> Dirk
-			...
-		entry #90 <-> item #89 <-> Tiger Fangs
-			(item #90 is the end of the weapons)
-		entry #91 = "atma weapon 2"
-		entry #92 = "atma weapon 3"
-	MonsterAttackAnimProp $ec/e6e8 (entry #93)
-		(in spells somewhere?)
 
 --]]
 local BattleAnimSet = ff6struct{

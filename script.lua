@@ -1638,7 +1638,7 @@ return function(game)
 
 	local EndScript = Cmd:subclass{
 		desc = 'endScript()',
-		endTrace = true
+		endTrace = true,
 	}
 	Cmds.EndScript = EndScript
 
@@ -2546,18 +2546,23 @@ cl.classname = k
 		BattleEventCmds.AllCharsAnim = BattleEventCmd:subclass{
 			cmd = 0x12,
 			argtypes = table{uint16_t}:rep(24),
+			getargs = function(self, ...)
+				self.destAddrs = table{...}:mapi(function(ofs)
+					return battleAnimScriptAddr + ofs
+				end)
+			end,
 			__tostring = function(self)
 				return 'allCharsAnim('
-					..self.args
+					..self.destAddrs
 					:mapi(function(addr)
-						return hex4(addr)
+						return Cmd.getGotoStr(addr, '')
 					end)
 					:concat', '
 				..')'
 			end,
 			getBranchAddrs = function(self)
-				return self.args:mapi(function(addr)
-					return {addr = battleAnimScriptAddr + addr, cmdset='BattleAnimCmds'}
+				return self.destAddrs:mapi(function(addr)
+					return {addr = addr, cmdset='BattleAnimCmds'}
 				end)
 			end,
 		}
@@ -2580,7 +2585,7 @@ cl.classname = k
 			local cl = BattleEventCmds[k]
 			if cl.cmd then	-- some abstract classes are in BattleEventCmds but don't have a .cmd
 				assert.type(cl.cmd, 'number')
-	cl.classname = k
+cl.classname = k
 				BattleEventCmds[cl.cmd] = cl
 			end
 		end
@@ -4344,23 +4349,29 @@ cl.classname = k
 		BattleAnimCmds[0xF0] = BattleAnimCmd:subclass{
 			cmd = 0xF0,
 			argtypes = {uint16_t, uint16_t, uint16_t, uint16_t, uint16_t},
-			argnames = {'a', 'b', 'c', 'd', 'e'},
+			getargs = function(self, ...)
+				self.destAddrs = table{...}:mapi(function(ofs)
+					return battleAnimScriptAddr + ofs
+				end)
+			end,
 			__tostring = function(self)
-				local a,b,c,d,e = self.a, self.b, self.c, self.d, self.e
-				return 'jump based on current target'
-					..' char1='..getaddr(a)
-					..' char2='..getaddr(b)
-					..' char3='..getaddr(c)
-					..' char4='..getaddr(d)
-					..' monster='..getaddr(e)
+				return 'gotoForTarget('
+					..self.destAddrs:mapi(function(addr)
+						return game.addrLabel(addr)
+					end):concat', '..')'
+			end,
+			getBranchAddrs = function(self)
+				return self.destAddrs:mapi(function(addr)
+					return {addr=addr}
+				end)
 			end,
 		}
 
 		BattleAnimCmds.HideTargetMonsters = BattleAnimCmd:subclass{
 			cmd = 0xf1,
 			argtypes = {uint8_t},
-			argnames = {'x'},
-			desc = 'hideTargetMonsters(<?=x?>)',
+			argnames = {'visible'},
+			desc = 'targetSetVisible(<?=visible==0 and "false" or "true"?>)',
 		}
 
 		BattleAnimCmds[0xF2] = BattleAnimCmd:subclass{
@@ -4711,6 +4722,18 @@ print('decompiling from '..require'ext.tolua'(reverseRefInfo, {
 	end
 
 	function Trace:run()
+		local startCmdSet = self.stateStack:last().cmdset
+
+		--[[ special-case always for BattleAnimCmds,
+		-- whether starting from game.battleAnimScriptOffsets[]
+		-- or from BattleEventCmds.AllCharsAnim branches...
+		-- ... always use first 2 bytes as a special instruction
+		-- why is it messing things up later?
+		if startCmdSet == 'BattleAnimCmds' then
+			self:readInstr(self.pc, startCmdSet, 'SpeedAndAlign')
+		end
+		--]]
+
 		-- make sure we haven't decoded this already
 		for _,otherTrace in pairs(decompileTraces) do
 			local cmdobj = otherTrace.cmdObjForAddr[self.addr]
@@ -4748,7 +4771,6 @@ print('!!! script oob !!! '..game.addrLabel(self.pc))
 			end
 
 			local cmdobj = self:readNext()
-
 			if cmdobj.endTrace then break end
 		end
 
@@ -4770,7 +4792,18 @@ print()
 		end
 
 		for _,newBranch in ipairs(self.newBranches) do
-			Trace(newBranch):run()
+			local trace = Trace(newBranch)
+
+			-- [[ why can't I just do this in Trace:run?
+			-- because I only should do this when the previous cmdset was different
+			if startCmdSet ~= 'BattleAnimCmds'
+			and newBranch.cmdset == 'BattleAnimCmds'
+			then
+				trace:readInstr(trace.pc, newBranch.cmdset, 'SpeedAndAlign')
+			end
+			--]]
+
+			trace:run()
 		end
 
 		return self

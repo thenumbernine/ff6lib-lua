@@ -9,6 +9,8 @@ local table = require 'ext.table'
 local range = require 'ext.range'
 local number = require 'ext.number'
 
+-- all the script stuff has been merged into run-script.lua
+-- this just outputs tables of info to show relations.
 local function outputBattleAnimScripts(game)
 	local rom = game.rom
 	local romsize = game.romsize
