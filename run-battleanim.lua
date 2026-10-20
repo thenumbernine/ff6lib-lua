@@ -17,7 +17,7 @@ this is a script used to dump binaries and sprite-sheets for use with numo9's ff
 lets try to make sense of this mess...
 
 has an entry per spell, item, weapon-type, throw-type, and skill...
-battleAnimSets[444]
+battleAnims[444]
 	.wait is how long to wait
 	.sound is what sound to play
 	for j in 0,1,2:
@@ -79,15 +79,15 @@ local function runBattleAnim(game)
 
 	-- weapons props too...
 	-- the fields here should point into 'battleAnimEffects' ?
-	for i=0,game.countof(game.weaponAnimProps)-1 do
-		print('weaponAnimProps['..i..'] = '..game.weaponAnimProps[i])
+	for i=0,game.countof(game.weaponAnims)-1 do
+		print('weaponAnims['..i..'] = '..game.weaponAnims[i])
 	end
 	print()
 
 	-- [==[ interface layer for game.*
 
 	--[[ using the originals?
-	local battleAnimSets = game.battleAnimSets
+	local battleAnims = game.battleAnims
 	local battleAnimEffects = game.battleAnimEffects
 	local battleAnimFrame16x16TileOffsets = game.battleAnimFrame16x16TileOffsets
 	local battleAnimGraphicsSets2bpp = game.battleAnimGraphicsSets2bpp
@@ -95,9 +95,9 @@ local function runBattleAnim(game)
 	local battleAnimFrame16x16Tiles = game.battleAnimFrame16x16Tiles
 	--]]
 	-- [[ lets try to separate the blobs and still reconstruct the same data correctly
-	local battleAnimSets = ffi.new(ffi.typeof('$[?]', game.BattleAnimSet), countof(game.battleAnimSets))
-	ffi.copy(battleAnimSets, game.battleAnimSets, ffi.sizeof(battleAnimSets))
-	battleAnimGraphicSetsPath'animsets.bin':write(ffi.string(battleAnimSets, ffi.sizeof(battleAnimSets)))
+	local battleAnims = ffi.new(ffi.typeof('$[?]', game.BattleAnim), countof(game.battleAnims))
+	ffi.copy(battleAnims, game.battleAnims, ffi.sizeof(battleAnims))
+	battleAnimGraphicSetsPath'animsets.bin':write(ffi.string(battleAnims, ffi.sizeof(battleAnims)))
 
 	local battleAnimEffects = ffi.new(ffi.typeof('$[?]', game.BattleAnimEffect), countof(game.battleAnimEffects))
 	ffi.copy(battleAnimEffects, game.battleAnimEffects, ffi.sizeof(battleAnimEffects))
@@ -147,11 +147,11 @@ local function runBattleAnim(game)
 	-- to give me a rough texture-atlas idea if I want to save the expanded tiles
 	local totalTilesSaved = 0
 
-	local battleAnimSetPath = path'battleanim'
-	battleAnimSetPath:mkdir()
-	for battleAnimSetIndex=0,countof(game.battleAnimSets)-1 do
-		local battleAnim = battleAnimSets + battleAnimSetIndex
-		print('battleAnimSets['..battleAnimSetIndex..'] = '..battleAnim)
+	local battleAnimPath = path'battleanim'
+	battleAnimPath:mkdir()
+	for battleAnimIndex=0,countof(game.battleAnims)-1 do
+		local battleAnim = battleAnims + battleAnimIndex
+		print('battleAnims['..battleAnimIndex..'] = '..battleAnim)
 
 		for j=0,2 do
 			-- TODO array plz, but then TODO serialzie arrays in 'struct' please
@@ -315,8 +315,8 @@ local function runBattleAnim(game)
 
 						local paltable = makePalette(game, game.battleAnimPalettes + paletteIndex, bpp, bit.lshift(1, bpp))
 						im.palette = paltable
-						im:save(battleAnimSetPath(
-							('%03d'):format(battleAnimSetIndex)
+						im:save(battleAnimPath(
+							('%03d'):format(battleAnimIndex)
 							..('-%d'):format(j)	-- effect1,2,3
 							..('-%02d'):format(frameIndex)
 							..'.png').path)

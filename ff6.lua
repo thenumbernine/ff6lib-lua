@@ -659,10 +659,10 @@ local WeaponAnim = struct{
 	packed = true,
 
 	fields = {
-		{name='rightScript', type=uint8_t},	-- index into battleAnimEffects
-		{name='leftScript', type=uint8_t},	-- index into battleAnimEffects
+		{name='rightScript', type=uint8_t},	-- index into battleAnimEffects[] & battleAnimScriptOffsets[]
+		{name='leftScript', type=uint8_t},	-- index into battleAnimEffects[] & battleAnimScriptOffsets[]
 		{name='weaponPal', type=uint8_t},
-		{name='hitScript', type=uint8_t},
+		{name='hitScript', type=uint8_t},	-- index into battleAnimEffects[] & battleAnimScriptOffsets[]
 		{name='hitPal', type=uint8_t},
 		{name='initFn', type=uint8_t},
 		{name='sound', type='uint8_t:7'},
@@ -711,13 +711,13 @@ everything8215 src/data/weapon_anim_prop.asm also has
 	MonsterAttackAnimProp $ec/e6e8 (entry #93)
 		(in spells somewhere?)
 
-BattleAnimSet battleAnimSets[] @0x107fb2
+BattleAnim battleAnims[] @0x107fb2
 same as everything8215/src/data/attack_anim_prop.asm
 
 everything8215 ff6/notes/battle-lists.txt:952 Battle Animation Commands
 
 looks like this drives the spells and the scripts
-0x107fb2 battleAnimSets[406] (everything8215's ff6/src/data/attack_anim_prop.asm)
+0x107fb2 battleAnims[406] (everything8215's ff6/src/data/attack_anim_prop.asm)
 	... 0-53 <-> spells 0-53
 	... 54-80 <-> spells 54-80 (esper attacks)
 	... 81-83 <-> spells 81-83 (edges)
@@ -762,7 +762,7 @@ EXCEPTION?	... 130 = shock, spells 130 = "megahit"
 				- has the script of what to play for this effect
 
 --]]
-local BattleAnimSet = ff6struct{
+local BattleAnim = ff6struct{
 	ctypeOnly = true,
 	fields = {
 		--[[ TODO get struct to serialize member arrays
@@ -795,7 +795,7 @@ local BattleAnimSet = ff6struct{
 		{wait = uint8_t},
 	},
 }
-assert.eq(ffi.sizeof(BattleAnimSet), 0xe)
+assert.eq(ffi.sizeof(BattleAnim), 0xe)
 
 --[[
 animations made up of frames
@@ -3023,8 +3023,8 @@ Game = struct{
 		{name = 'padding_0fffbe', type = arrayType(uint8_t, -(0x0fffbe - 0x100000))},							-- 0x0fffbe - 0x100000
 
 		{name = 'battleAnimScriptData', type = arrayType(uint8_t, -(0x100000 - 0x107fb2))},						-- 0x100000 - 0x107fb2 <- indexed into with battleAnimScriptOffsets[i]
-		{name = 'battleAnimSets', type = arrayType(BattleAnimSet, 444)},										-- 0x107fb2 - 0x1097fa aka everything8215/ff6/src/data/attack_anim_prop.asm but he only has 0-405
-		{name = 'padding_1097fa', type = arrayType(uint8_t, -(0x1097fa - 0x109800))},							-- 0x1097fa - 0x109800 = 'ff's, just like the end of battleAnimSets
+		{name = 'battleAnims', type = arrayType(BattleAnim, 444)},												-- 0x107fb2 - 0x1097fa aka everything8215/ff6/src/data/attack_anim_prop.asm but he only has 0-405
+		{name = 'padding_1097fa', type = arrayType(uint8_t, -(0x1097fa - 0x109800))},							-- 0x1097fa - 0x109800 = 'ff's, just like the end of battleAnims
 
 		{name = 'battleEventScriptOfs', type = arrayType(uint16_t, 33)},										-- 0x109800 - 0x109842 = relative to 0x100000, within battleEventScripts[]
 		{name = 'battleEventScripts', type = arrayType(uint8_t, -(0x109842 - 0x10d000))},						-- 0x109842 - 0x10d000
@@ -3143,8 +3143,8 @@ Game = struct{
 		{name = 'theEndGraphics1', type = arrayType(uint8_t, -(0x296300 - 0x297000))},							-- 0x296300 - 0x297000 = 4bpp
 		{name = 'monsterSpriteData', type = arrayType(uint8_t, -(0x297000 - 0x2ce3c0))},						-- 0x297000 - 0x2ce3c0 = monster graphics
 		{name = 'naturalMagic', type = arrayType(SpellAndLevel, 32)},											-- 0x2ce3c0 - 0x2ce400
-		{name = 'weaponAnimProps', type = arrayType(WeaponAnim, 93)},											-- 0x2ce400 - 0x2ce6e8
-		{name = 'monsterAttackAnimProps', type = arrayType(WeaponAnim, 128-93)},								-- 0x2ce6e8 - 0x2ce800
+		{name = 'weaponAnims', type = arrayType(WeaponAnim, 93)},												-- 0x2ce400 - 0x2ce6e8
+		{name = 'monsterAttackAnims', type = arrayType(WeaponAnim, 128-93)},									-- 0x2ce6e8 - 0x2ce800
 		{name = 'monsterSpriteAlign', type = arrayType(uint8_t, 256)},											-- 0x2ce800 - 0x2ce900 = enum { ceiling, ground, floating, buried, flying }
 
 		-- 2ce900 = "ruin_cutscene" gfx compressed
@@ -3314,7 +3314,7 @@ assertOffset('esperBonusDescs', 0x0ffeae)
 assertOffset('blitzDescOffsets', 0x0fff9e)
 assertOffset('swordTechDescOffsets', 0x0fffae)
 assertOffset('battleAnimScriptData', 0x100000)
-assertOffset('battleAnimSets', 0x107fb2)
+assertOffset('battleAnims', 0x107fb2)
 assertOffset('battleDialogOffsets', 0x10d000)
 assertOffset('battleAnimFrame16x16Tiles', 0x110141)
 assertOffset('battleMessageOffsets', 0x11f7a0)
@@ -3541,7 +3541,7 @@ game.TouchTrigger = TouchTrigger
 game.WorldTileProps = WorldTileProps
 game.BattleBgProps = BattleBgProps
 game.Treasure = Treasure
-game.BattleAnimSet = BattleAnimSet
+game.BattleAnim = BattleAnim
 game.BattleAnimEffect = BattleAnimEffect
 game.BattleAnim16x16Tile = BattleAnim16x16Tile
 game.BattleAnim8x8Tile = BattleAnim8x8Tile
