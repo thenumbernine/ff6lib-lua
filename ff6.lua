@@ -6,6 +6,7 @@ local number = require 'ext.number'
 local assert = require 'ext.assert'
 local struct = require 'struct'
 local createVec = require 'vec-ffi.create_vec'
+local vec3ub = require 'vec-ffi.vec3ub'
 local vector = require 'stl.vector-lua'
 local ff6struct = require 'ff6.ff6struct'
 local reftype = require 'ff6.reftype'
@@ -673,23 +674,37 @@ local WeaponAnim = struct{
 assert.eq(ffi.sizeof(WeaponAnim), 8)
 
 
---[[ can't do this until i convert all ff6struct to struct, then i can use anonymous fields.
 local BattleAnimEffectIndex = struct{
 	ctypeOnly = true,
+	tostringFields = true,
+	tostringOmitFalse = true,
+	tostringOmitNil = true,
+	tostringOmitEmpty = true,
 	union = true,
+
 	fields = {
 		{name='u16', type=uint16_t, no_iter=true},
 		{type=struct{
 			anonymous = true,
+			tostringFields = true,
+			tostringOmitFalse = true,
+			tostringOmitNil = true,
+			tostringOmitEmpty = true,
 			fields = {
-				{index = 'uint16_t:15'},
-				{dontRunScript = 'uint16_t:1'},
+				{name='index', type='uint16_t:15'},
+				{name='dontRunScript', type='uint16_t:1'},
 			},
 		}},
 	},
 }
 assert.eq(ffi.sizeof(BattleAnimEffectIndex), 2)
---]]
+
+local BattleAnimEffectIndex3 = createVec{
+	ctypeOnly = true,
+	ctype = BattleAnimEffectIndex,
+	dim = 3,
+}
+assert.eq(ffi.sizeof(BattleAnimEffectIndex3), 6)
 
 --[[
 this has animation info one per spell
@@ -762,8 +777,14 @@ EXCEPTION?	... 130 = shock, spells 130 = "megahit"
 				- has the script of what to play for this effect
 
 --]]
-local BattleAnim = ff6struct{
+local BattleAnim = struct{
 	ctypeOnly = true,
+	tostringFields = true,
+	tostringOmitFalse = true,
+	tostringOmitNil = true,
+	tostringOmitEmpty = true,
+	packed = true,
+
 	fields = {
 		--[[ TODO get struct to serialize member arrays
 		{effect = arrayType(uint16_t, 3)},	-- 0xffff = none, otherwise values are from 0-0x3fff, bit15 means something, idk.
@@ -771,28 +792,18 @@ local BattleAnim = ff6struct{
 		--]]
 		-- [[
 
-		-- [[ index into 'battleAnimEffects' table
+		-- index into 'battleAnimEffects' table
 		-- 0xffff = none
 		-- bit 15 means something else I think
-		{effect1 = uint16_t},
-		{effect2 = uint16_t},
-		{effect3 = uint16_t},
-		--]]
-		--[[
-		{effect1 = BattleAnimEffectIndex},
-		{effect2 = BattleAnimEffectIndex},
-		{effect3 = BattleAnimEffectIndex},
-		--]]
+		{name='effects', type=BattleAnimEffectIndex3},
 
 		-- index into 'battleAnimPalettes' table
-		{palette1 = uint8_t},
-		{palette2 = uint8_t},
-		{palette3 = uint8_t},
+		{name='pals',  type=vec3ub},
 		--]]
-		{sound = uint8_t},
-		{unknown10 = uint8_t},
-		{unknown11 = uint16_t},
-		{wait = uint8_t},
+		{name='sound', type=uint8_t},
+		{name='unknown10', type=uint8_t},
+		{name='unknown11', type=uint16_t},
+		{name='wait', type=uint8_t},
 	},
 }
 assert.eq(ffi.sizeof(BattleAnim), 0xe)

@@ -155,17 +155,16 @@ local function runBattleAnim(game)
 
 		for j=0,2 do
 			-- TODO array plz, but then TODO serialzie arrays in 'struct' please
-			local effectIndex = battleAnim['effect'..(j+1)]
-			local paletteIndex = battleAnim['palette'..(j+1)]
+			local effectIndex = battleAnim.effects.s[j]
+			local paletteIndex = battleAnim.pals.s[j]
 
-			if effectIndex ~= 0xffff then
-				local dontRunScript = 0 ~= bit.band(0x8000, effectIndex)
-				effectIndex = bit.band(0x7fff, effectIndex)
-				if effectIndex >= countof(game.battleAnimEffects) then
+			if effectIndex.u16 ~= 0xffff then
+				local dontRunScript = 0 ~= effectIndex.dontRunScript
+				if effectIndex.index >= countof(game.battleAnimEffects) then
 					-- NO MORE OF THESE ERRORS BEING HIT, NICE
-					print('!!! effect is oob !!! '..('%x'):format(effectIndex))
+					print('!!! effect is oob !!! '..('%x'):format(effectIndex.index))
 				else
-					local effect = battleAnimEffects + effectIndex
+					local effect = battleAnimEffects + effectIndex.index
 					print('\t\teffect'..(j+1)..'='..effect)
 
 					local effectFrame16x16TileOffsetPtr = battleAnimFrame16x16TileOffsets + effect.frameIndexBase
