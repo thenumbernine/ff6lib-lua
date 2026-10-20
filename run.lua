@@ -26,8 +26,7 @@ local countof = game.countof
 
 -- meh the one giant out file is too big
 -- maybe make run.lua spit out individual files?
-require 'run-event-script'(game)	-- event, vehicle, world, object scripts
-require 'run-monster-script'(game)	-- monstere ai scripts
+require 'run-script'(game)			-- all scripts: event, vehicle, world, object scripts, monsters, battle-events, battle-animations
 require 'run-spells'(game)			-- spells table
 require 'run-items'(game)			-- items table
 
@@ -613,7 +612,7 @@ print('battleRedPalette = '..game.battleRedPalette)
 print('battleMenuPalettes = '..game.battleMenuPalettes)
 print()
 
---[=[ now in run-battleanim-script (TODO rename the file)
+--[=[ now in run-script
 do
 	local n = game.countof(game.battleEventScriptOfs)
 	-- get all addrs in order
@@ -641,7 +640,6 @@ end
 --]=]
 
 require 'ff6.run-battleanim'(game)
-require 'ff6.run-battleanim-script'(game)
 
 do
 	local img = Image(8*16, 8*16, 1, 'uint8_t')

@@ -4967,7 +4967,6 @@ print()
 	end
 
 
-	-- monster-scripts too?
 	do
 		game.monsterScripts = {}
 
