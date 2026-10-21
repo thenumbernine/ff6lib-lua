@@ -3213,15 +3213,25 @@ cl.classname = k
 				elseif subcmd == 0x32 then
 					-- TODO argument for emitting separate cmd objs
 					-- / make a recursive emit() that does table lookup and class obj generation
-					local x = read(uint16_t)
-					local y = read(uint16_t)
-					if x == y then
-						self.descstr = 'jumpTo('..getaddr(x)..')'
+					local destAddr1 = battleAnimScriptAddr + read(uint16_t)
+					local destAddr2 = battleAnimScriptAddr + read(uint16_t)
+					if destAddr1 == destAddr2 then
+						self.descstr = 'goto '..Cmd.getGotoStr(destAddr1, '')
+						self.getBranchAddrs = function(self)
+							return {{addr=destAddr1}}
+						end
 					else
-						self.descstr = 'jumpIfFacing('
-							..getaddr(x)..', '
-							..getaddr(y)..')'
+						self.descstr = 'gotoForLRDir('
+							..Cmd.getGotoStr(destAddr1, '')..', '
+							..Cmd.getGotoStr(destAddr2, '')..')'
+						self.getBranchAddrs = function(self)
+							return {
+								{addr=destAddr1},
+								{addr=destAddr2},
+							}
+						end
 					end
+					self.endTrace = true
 				elseif subcmd == 0x33 then
 					local arg = read(uint8_t)
 					self.descstr = 'updateRainbowGradient()'
@@ -3367,8 +3377,12 @@ cl.classname = k
 				elseif subcmd == 0x71 then
 					self.descstr = 'restoreCharPals()'
 				elseif subcmd == 0x72 then
-					local arg = read(uint8_t)
-					self.descstr = 'branchIfAttackHit('..getaddr(self.trace.pc + arg)..')'
+					local ofs = read(uint8_t)
+					local addr = self.trace.pc + ofs
+					self.descstr = 'if attackHit() then goto '..game.addrLabel(addr)..' end'
+					self.getBranchAddrs = function(self)
+						return {{addr=addr}}
+					end
 				elseif subcmd == 0x73 then
 					local arg = read(uint8_t)
 					self.descstr = 'setDiceGraphics('..hex2(arg)..')'
@@ -3390,7 +3404,11 @@ cl.classname = k
 					self.descstr = 'swap target and attacker'
 				elseif subcmd == 0x7D then
 					local arg = read(uint8_t)
-					self.descstr = 'if dragonHornEffectIsActive() then goto _'..getaddr(self.trace.pc + arg)..' end'
+					local addr = self.trace.pc + arg
+					self.descstr = 'if dragonHornEffectIsActive() then goto '..game.addrLabel(addr)..' end'
+					self.getBranchAddrs = function(self)
+						return {{addr=addr}}
+					end
 				elseif subcmd == 0x7E then
 					self.descstr = 'flip target character vertically'
 				elseif subcmd == 0x7F then
@@ -3768,7 +3786,7 @@ cl.classname = k
 			end,
 		}
 
-		BattleAnimCmds[0xBF] = BattleAnimCmd:subclass{
+		BattleAnimCmds.Call = BattleAnimCmd:subclass{
 			cmd = 0xBF,
 			argtypes = {uint16_t},
 			argnames = {'destAddr'},
@@ -3819,7 +3837,6 @@ cl.classname = k
 		BattleAnimCmds[0xC5] = BattleAnimCmd:subclass{
 			cmd = 0xC5,
 			argtypes = {uint16_t, uint16_t, uint16_t, uint16_t},
-			argnames = {'a', 'b', 'c', 'd'},
 			getargs = function(self, ...)
 				self.destAddrs = table{...}:mapi(function(ofs)
 					return ofs + battleAnimScriptAddr
@@ -3831,6 +3848,7 @@ cl.classname = k
 						return Cmd.getGotoStr(addr, '')
 					end):concat', '..')'
 			end,
+			endTrace = true,
 			getBranchAddrs = function(self)
 				return self.destAddrs:mapi(function(addr)
 					return {addr=addr}
@@ -4156,26 +4174,29 @@ cl.classname = k
 			desc = 'calcVelJump()',
 		}
 
-		BattleAnimCmds[0xE5] = BattleAnimCmd:subclass{
-			cmd = 0xE5,
+		BattleAnimCmds[0xe5] = BattleAnimCmd:subclass{
+			cmd = 0xe5,
 			argtypes = {uint8_t, uint8_t, uint8_t},
+			getargs = function(self, x, addrOfs, y)
+				self.x = x
+				self.y = y
+				self.destAddr = self.addr + 2 - addrOfs
+			end,
 			argnames = {'x', 'addrOfs', 'y'},
 			__tostring = function(self)
-				return 'moveVecCharAndGoto('
+				return 'moveCharAlongVecAndGoto('
 					..self.x..', '
 					..self.y..', '
-					..Cmd.getGotoStr(self.addr + 2 - self.addrOfs, '')
+					..Cmd.getGotoStr(self.destAddr, '')
 					..')'
 			end,
-		}
-		BattleAnimCmds[0xE6] = BattleAnimCmd:subclass{
-			cmd = 0xE6,
-			argtypes = {uint8_t, uint8_t, uint8_t},
-			argnames = {'xx', 'yy', 'zz'},
-			__tostring = function(self)
-				local yy = self.yy
-				return 'branch to '..getaddr(self.trace.pc - yy)..' (-'..hex2(yy)..')'
+			getBranchAddrs = function(self)
+				return {{addr=self.destAddr}}
 			end,
+		}
+		BattleAnimCmds[0xe6] = BattleAnimCmd:subclass{
+			cmd = 0xe6,
+			desc = 'cmd_e6()',
 		}
 		BattleAnimCmds[0xE7] = BattleAnimCmd:subclass{
 			cmd = 0xE7,
@@ -4309,6 +4330,7 @@ cl.classname = k
 					end):concat', '
 					..')'
 			end,
+			endTrace = true,
 			getBranchAddrs = function(self)
 				return self.destAddrs:mapi(function(addr)
 					return {addr = addr}
@@ -4365,6 +4387,7 @@ cl.classname = k
 					return {addr=addr}
 				end)
 			end,
+			endTrace = true,
 		}
 
 		BattleAnimCmds.HideTargetMonsters = BattleAnimCmd:subclass{
@@ -4381,16 +4404,21 @@ cl.classname = k
 		BattleAnimCmds[0xF3] = BattleAnimCmd:subclass{
 			cmd = 0xF3,
 			argtypes = {uint16_t, uint16_t, uint16_t, uint16_t, uint16_t},
-			argnames = {'a', 'b', 'c', 'd', 'e'},
-			__tostring = function(self)
-				local a,b,c,d,e = self.a, self.b, self.c, self.d, self.e
-				return 'jump based on current attacker'
-					..' char1='..getaddr(a)
-					..' char2='..getaddr(b)
-					..' char3='..getaddr(c)
-					..' char4='..getaddr(d)
-					..' monster='..getaddr(e)
+			getargs = function(self, ...)
+				self.destAddrs = table{...}:mapi(function(ofs) return ofs + battleAnimScriptAddr end)
 			end,
+			__tostring = function(self)
+				return 'gotoForAttacker('
+					..self.destAddrs:mapi(function(addr)
+						return Cmd.getGotoStr(addr, '')
+					end):concat', '..')'
+			end,
+			getBranchAddrs = function(self)
+				return self.destAddrs:mapi(function(addr)
+					return {addr=addr}
+				end)
+			end,
+			endTrace = true,
 		}
 		BattleAnimCmds[0xF4] = BattleAnimCmd:subclass{
 			cmd = 0xF4,

@@ -522,6 +522,12 @@ local function runBattleAnim(game)
 			return bit.band(mask, index) == 0
 		end
 	)
+
+	for i=0,game.countof(game.battleAnimScriptOffsets)-1 do
+		print('battleAnimScriptOffsets['..i..'] = '
+			..('0x%06x'):format(game.battleAnimScriptOffsets[i] + 0x100000)
+		)
+	end
 end
 
 if select('#', ...) > 0 then

@@ -93,6 +93,7 @@ local function runEventScript(game, cmdline)
 		if game.EventCmds.Call:isa(cmdobj)
 		or game.EventCmds.CallRepeat:isa(cmdobj)
 		or game.EventCmds.StartTimer:isa(cmdobj)	-- it is a function call right?  that gets returned from, right?
+		or game.BattleAnimCmds.Call:isa(cmdobj)
 		then
 			addrsIsFunc[cmdobj:getDestAddr()] = true
 
