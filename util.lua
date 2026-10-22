@@ -261,9 +261,9 @@ local function gamestr(p, len)
 			p=p+1
 			c:insert('['..charNames[1+p[0]]..']')
 		elseif p[0] == 5 then
-			c:insert'[PAUSE]'
+			c:insert'[SLEEP 1]'
 		elseif p[0] == 7 then
-			c:insert'[KEYPRESS]'
+			c:insert'[PAUSE]'
 		else
 			c:insert('['..p[0]..']')
 		end
