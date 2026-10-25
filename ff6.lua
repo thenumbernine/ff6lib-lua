@@ -1521,6 +1521,7 @@ monsterSpecialAttackNames:insert'drain MP'
 -- just reflect, or all effects?
 monsterSpecialAttackNames:insert'remove reflect'
 -- and value 63 is used by SkullDrgn...
+monsterSpecialAttackNames[64] = 'skull dragon'
 
 local Monster = ff6struct{
 	ctypeOnly = true,

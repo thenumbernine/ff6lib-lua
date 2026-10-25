@@ -21,6 +21,7 @@ files = {
 	"run-battleanim.lua",
 	"run-items.lua",
 	"run-maps.lua",
+	"run-monsters.lua",
 	"run-script.lua",
 	"run-sound.lua",
 	"run-spells.lua",
