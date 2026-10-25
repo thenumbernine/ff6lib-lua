@@ -1602,7 +1602,7 @@ local Monster = ff6struct{
 		-- 0x1f:
 		{specialAttack = 'uint8_t:6'},
 		{specialAttackDealsNoDamage = 'uint8_t:1'},
-		{specialAttackDealsCantMiss = 'uint8_t:1'},
+		{specialAttackCantMiss = 'uint8_t:1'},
 	},
 	metatable = function(mt)
 		local oldFieldToString = mt.fieldToString
