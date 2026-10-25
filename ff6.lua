@@ -1498,30 +1498,30 @@ local numRareItems = 20
 
 ---------------- MONSTERS ----------------
 
-local monsterSpecialAttackNames = table()
+local monsterSpecialAttackDescs = table()
 for i=1,8 do
-	monsterSpecialAttackNames:insert('inflict '..Effect1.options[i])
+	monsterSpecialAttackDescs:insert('inflict '..Effect1.options[i])
 end
 for i=1,8 do
-	monsterSpecialAttackNames:insert('inflict '..Effect2.options[i])
+	monsterSpecialAttackDescs:insert('inflict '..Effect2.options[i])
 end
 for i=1,8 do
-	monsterSpecialAttackNames:insert('inflict '..Effect3.options[i])
+	monsterSpecialAttackDescs:insert('inflict '..Effect3.options[i])
 end
 for i=1,8 do
-	monsterSpecialAttackNames:insert('inflict '..Effect4.options[i])
+	monsterSpecialAttackDescs:insert('inflict '..Effect4.options[i])
 end
-assert.len(monsterSpecialAttackNames, 32)
+assert.len(monsterSpecialAttackDescs, 32)
 for i=32,47 do
-	monsterSpecialAttackNames:insert(((i-32)/2+1.5)..'x damage')
+	monsterSpecialAttackDescs:insert(((i-32)/2+1.5)..'x damage')
 end
-assert.len(monsterSpecialAttackNames, 48)
-monsterSpecialAttackNames:insert'drain HP'
-monsterSpecialAttackNames:insert'drain MP'
+assert.len(monsterSpecialAttackDescs, 48)
+monsterSpecialAttackDescs:insert'drain HP'
+monsterSpecialAttackDescs:insert'drain MP'
 -- just reflect, or all effects?
-monsterSpecialAttackNames:insert'remove reflect'
+monsterSpecialAttackDescs:insert'remove reflect'
 -- and value 63 is used by SkullDrgn...
-monsterSpecialAttackNames[64] = 'skull dragon'
+monsterSpecialAttackDescs[64] = 'skull dragon'
 
 local Monster = ff6struct{
 	ctypeOnly = true,
@@ -1608,7 +1608,7 @@ local Monster = ff6struct{
 		local oldFieldToString = mt.fieldToString
 		mt.fieldToString = function(self, name, ctype)
 			if name == 'specialAttack' then
-				local s = monsterSpecialAttackNames[self[name]+1]
+				local s = monsterSpecialAttackDescs[self[name]+1]
 				return s and '"'..s..'"' or tostring(self[name])
 			end
 			return oldFieldToString(self, name, ctype)
@@ -3567,6 +3567,8 @@ game.CharacterSave = CharacterSave
 game.CharacterSave16 = CharacterSave16
 game.SaveSlot = SaveSlot
 game.SRAM = SRAM
+
+game.monsterSpecialAttackDescs = monsterSpecialAttackDescs
 
 require 'ff6.maps'(game)
 
