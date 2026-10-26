@@ -2955,7 +2955,12 @@ Game = struct{
 		{name = 'spcMainCodeLoopLen', type = uint16_t},															-- 0x05070e - 0x050710 -- length of main SPC code loop
 		{name = 'spcMainCode', type = arrayType(uint8_t, -(0x050710 - 0x051ec7))},								-- 0x050710 - 0x051ec7 -- main SPC code loop
 
-		{name = 'unknown_051ec7', type = arrayType(uint8_t, -(0x051ec7 - 0x053c5f))},							-- 0x051ec7 - 0x053c5f
+		{name = 'unknown_051ec7', type = arrayType(uint8_t, -(0x051ec7 - 0x05205e))},							-- 0x051ec7 - 0x05205e = 407 bytes...
+
+		{name = 'sfxOfs', type=arrayType(arrayType(uint16_t, 2), 256)},											-- 0x05205e - 0x05245e = sfxData + sfxOfs[i][l/r] - 0x3000.  descriptions listed in everything8215/src/sound/sfx.inc
+		{name = 'sfxData', type=arrayType(uint8_t, -(0x05245e - 0x053c4e))},									-- 0x05245e - 0x053c4e
+
+		{name = 'unknown_053c4e', type = arrayType(uint8_t, -(0x053c4e - 0x053c5f))},							-- 0x053c4e - 0x053c5f	-- 15 bytes of ... padding?
 
 		{name = 'brrSampleOfs', type = arrayType(uint24_t, numBRRSamples)},										-- 0x053c5f - 0x053d1c -- BRR sample pointers (x63, 3 bytes each)
 		{name = 'brrLoopStartOfs', type = arrayType(uint16_t, numBRRSamples)},									-- 0x053d1c - 0x053d9a -- loop start pointers (x63, 2 bytes each)

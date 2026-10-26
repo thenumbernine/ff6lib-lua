@@ -11,13 +11,312 @@ local assert = require 'ext.assert'
 local function runSound(game, cmdline)
 	cmdline = cmdline or {}
 	local rom = game.rom
-	local romsize = game.romsize
+	local countof = game.countof
+	local Game = game.Game
+
+
+
+		--[[
+SPC song data:
+
+00-0A       Play note, frequency 0
+10-1A       Play note, frequency 1
+20-2A       Play note, frequency 2
+30-3A       Play note, frequency 3
+40-4A       Play note, frequency 4
+50-5A       Play note, frequency 5
+60-6A       Play note, frequency 6
+70-7A       Play note, frequency 7
+80-8A       Play note, frequency 8
+90-9A       Play note, frequency 9
+A0-AA       Play note, frequency 10
+	-- "play note at frequency" but notes are frequencies.  they are a frequency of `f0 * 2^(i/12)`
+	-- does 'note' in this case mean 'instrument'?
+B0-BA       Play silence
+C4 xx       Set volume of channel to xx (00-7F), higher values == greater volume.
+	-- how to change channel? or can you?
+C5 ss xx    Fade volume to xx at speed ss
+C6 xx       Pan song left->right as xx (00-7F) increases
+C7 xx       Pan song right->left as xx (00-7F) increases
+//C8            Created an odd ascending portamento effect.
+CD xx       Pan repeatedly back and forth at speed xx (00-FF), higher values == slower panning.
+CE          Disable pan loop
+D7          Raise octave by 1
+D8          Lower octave by 1
+DE          Disables DF.
+//DF            Created an odd volume "cut" very shortly into the note...
+//E4            Creates a portamento effect linking all following notes with pitch slides.
+E5          Disables E4.
+E6          Enable vibrato.
+E7          Disable vibrato.
+F0 xx       Set tempo to xx (00-FF), higher values == faster tempo.
+F1 ss xx    Fade tempo to xx at speed ss
+F2 xx       Set echo to xx
+F3 ss xx    Fade echo to xx at speed ss
+
+TODO what is MIDI's format?  how to convert?
+or should I bake it into WAV? then convert to mp3?
+and how about exporting to numo9's music format?
+
+
+
+ok redoing all this based on everything8215/ff6/src/spc/spc_main.asm:
+
+c4 xx = set volume (xx, high bit inactive)
+c5 xx yy = set envelope duration (xx, in ticks) and target volume (yy, high bit inactive)
+c6 xx = set pan value (xx), 1 = left, 0x40 = center, 0x7f = right, high bit inactive
+c7 xx yy = set envelope duration (xx, in ticks), pan value (same as c6 i guess)
+c8 xx yy = set envelope duration (xx, in ticks), pitch offset (yy, in half steps)
+c9 xx yy zz = enable vibrato.  xx = delay, in ticks.  yy = cycle duration: (4.875ms * this value * 2 = wave period).  zz = bits 6-7: 0-1 = positive vibrato, 2=negative, 3=balanced.  bits 0-5: amplitude ("low 6 bits active")
+ca = disable vibrato
+cb xx yy zz = enable tremolo.  xx = delay, in ticks.  yy = cycle duration: (4.875ms * this value * 2 = wave period).  zz = ... same as vibrato
+cc = disable tremolo
+cd = enable pansweep
+ce = disable pansweep
+cf xx = noise clock value (1f=max)
+d0 = enable noise
+d1 = disable noise
+d2 = enable pitch modulation
+d3 = disable pitch modulation
+d4 = enable echo
+d5 = disable echo
+d6 = set octave
+d7 = increment octave
+d8 = decrement octave
+d9 xx = "set transpose" (= set pitch offset from brr?) (xx = "transpose value in half steps, signed")
+da xx = "add to transpose" ... does that mean add to pitch?  (xx = "value to add in half steps, signed")
+db xx = set detune
+dc = change sample
+dd = set adsr attack value
+de = set adsr decay value
+df = set adsr sustain value
+e0 = set adsr release value
+e1 = reset adsr values to default
+e2 xx = loop start, xx = loop count - 1
+e3 = loop end
+e4 = enable slur
+e5 = none
+e6 = enable drum roll
+e7 = none
+e8 xx = add to note duration, xx = ticks to add
+e9 = play game sfx (voice a)
+ea = play game sfx (voice b)
+eb-ef = terminate
+f0 xx = set tempo (xx, in bpm)
+f1 xx yy = set envelope duration (xx, in ticks) and tempo (yy, in bpm)
+f2 xx = set echo volume (xx, signed)
+f3 xx yy = set envelope duration (xx, in ticks), echo volume (yy, also signed?)
+f4 xx = set volume (xx)
+f5 xx yy = jump to alt ending, xx = ending / repeat count / idk, yy = jump address (or offset?)
+f6 xx = jump (xx ... = relative? branch?)
+f7 xx yy = set envelope duration (xx, in ticks) and echo feedback (yy, signed)
+f8 xx yy = set envelope duration (xx, in ticks) and filter index (yy = at $17a8)
+f9 = increment output code
+fa = clear output code
+fb = ignore song volume (cleared when instrument changes)
+fc xx = if-then-jump/branch
+fd-ff = terminate
+
+		--]]
+
+	local function readMML(startAddr, endAddr)
+		local cmds = table()
+		local endptr = rom + endAddr
+		local ptr = rom + startAddr
+		while ptr < endptr do
+			local cmd = ptr[0]
+			local lo = bit.band(0xf, cmd)
+			local hi = bit.band(0xf, bit.rshift(cmd, 4))
+			if lo < 11 and hi < 11 then
+				cmds:insert('play instrument '..lo..' at note '..hi)
+			elseif cmd >= 0xb0 and cmd <= 0xba then
+				cmds:insert('silence '..cmd)
+			elseif cmd == 0xc4 then
+				cmds:insert('set volume to '..ptr[1])	-- last bit means something
+				ptr = ptr + 1
+			elseif cmd == 0xc5 then
+				cmds:insert('fade volume to '..ptr[2]..' at speed '..ptr[1])
+				ptr = ptr + 2
+			elseif cmd == 0xc6 then
+				cmds:insert('set pan song left->right as '..ptr[2]..' increases')	-- last bit means something
+				ptr = ptr + 1
+			elseif cmd == 0xc7 then
+				cmds:insert('set envelope duration to '..ptr[1]..' and pan value to '..ptr[2])	-- last bit means something
+				ptr = ptr + 2
+			elseif cmd == 0xc8 then
+				cmds:insert('set envelope duration to '..ptr[1]..' and pitch offset to '..ptr[2])	-- last bit means something
+				ptr = ptr + 2
+			elseif cmd == 0xc9 then
+				cmds:insert('enable vibrato, delay in ticks = '..ptr[1]..', cycle duration = '..ptr[2]..' vibrato = '..ptr[3])
+				ptr = ptr + 3
+			elseif cmd == 0xca then
+				cmds:insert('disable vibrato')
+			elseif cmd == 0xcb then
+				cmds:insert('enable tremolo, delay in ticks = '..ptr[1]..', cycle duration = '..ptr[2]..', tremolo = '..ptr[3])
+				ptr = ptr + 3
+			elseif cmd == 0xcc then
+				cmds:insert('disable tremolo')
+			elseif cmd == 0xcd then -- args?
+				--cmds:insert('pan repeatedly back and forth at speed '..ptr[1])
+				--ptr = ptr + 1
+				cmds:insert('enable pansweep')
+			elseif cmd == 0xce then
+				cmds:insert('disable pan loop')
+			elseif cmd == 0xd0 then
+				cmds:insert'enable noise'
+			elseif cmd == 0xd1 then
+				cmds:insert'disable noise'
+			elseif cmd == 0xd2 then
+				cmds:insert'enable pitch modulation'
+			elseif cmd == 0xd3 then
+				cmds:insert'disable pitch modulation'
+			elseif cmd == 0xd4 then
+				cmds:insert'enable echo'
+			elseif cmd == 0xd5 then
+				cmds:insert'disable echo'
+			elseif cmd == 0xd6 then
+				cmds:insert'set octave'	 -- args?
+			elseif cmd == 0xd7 then
+				cmds:insert('raise octave by 1')
+			elseif cmd == 0xd8 then
+				cmds:insert('lower octave by 1')
+			elseif cmd == 0xd9 then
+				cmds:insert('set transpose '..ptr[1])
+				ptr=ptr+1
+			elseif cmd == 0xda then
+				cmds:insert('add to transpose '..ptr[1])
+				ptr=ptr+1
+			elseif cmd == 0xdb then
+				cmds:insert('set detune to '..ptr[1])
+				ptr=ptr+1
+			elseif cmd == 0xdc then
+				cmds:insert'change sample'	 -- args?
+			elseif cmd == 0xdd then			-- args?
+				cmds:insert('set adsr attack')
+			elseif cmd == 0xde then			-- args?
+				cmds:insert('set adsr decay')
+			elseif cmd == 0xdf then			-- args?
+				cmds:insert('set adsr sustain')
+			elseif cmd == 0xe0 then			-- args?
+				cmds:insert('set adsr release')
+			elseif cmd == 0xe1 then
+				cmds:insert('reset adsr')
+			elseif cmd == 0xe2 then
+				cmds:insert('for i=1,'..ptr[1]..' do')
+				ptr=ptr+1
+			elseif cmd == 0xe3 then
+				cmds:insert'end--for'
+			elseif cmd == 0xe4 then
+				cmds:insert'enable slur'
+			elseif cmd == 0xe5 then
+				cmds:insert'nop'
+			elseif cmd == 0xe6 then
+				cmds:insert('enable drum roll')
+			elseif cmd == 0xe7 then
+				cmds:insert'nop'
+			elseif cmd == 0xe8 then
+				cmds:insert('add note duration '..ptr[1])
+				ptr=ptr+1
+			elseif cmd == 0xe9 then		-- args?
+				cmds:insert'play sfx voice a'
+			elseif cmd == 0xea then		-- args?
+				cmds:insert'play sfx voice b'
+			elseif cmd == 0xeb then
+				cmds:insert'terminate'
+			elseif cmd == 0xec then
+				cmds:insert'terminate'
+			elseif cmd == 0xed then
+				cmds:insert'terminate'
+			elseif cmd == 0xee then
+				cmds:insert'terminate'
+			elseif cmd == 0xef then
+				cmds:insert'terminate'
+			elseif cmd == 0xf0 then
+				cmds:insert('set tempo to '..ptr[1])
+				ptr = ptr + 1
+			elseif cmd == 0xf1 then
+				cmds:insert('set envelope duration '..ptr[1]..', tempo '..ptr[2])
+				ptr = ptr + 2
+			elseif cmd == 0xf2 then
+				cmds:insert('set echo to '..ptr[1])
+				ptr = ptr + 1
+			elseif cmd == 0xf3 then
+				cmds:insert('set envelope duration '..ptr[1]..', echo volume '..ptr[2])
+				ptr = ptr + 2
+			elseif cmd == 0xf4 then
+				cmds:insert('set volume '..ptr[1])
+				ptr = ptr + 1
+			elseif cmd == 0xf5 then
+				cmds:insert('jump to alt ending '..ptr[1]..', branch '..ptr[2])
+				ptr = ptr + 2
+			elseif cmd == 0xf6 then
+				cmds:insert('branch '..ptr[1])
+				ptr = ptr + 1
+			elseif cmd == 0xf7 then
+				cmds:insert('set envelope to '..ptr[1]..', echo feedback '..ptr[2])
+				ptr = ptr + 2
+			elseif cmd == 0xf8 then
+				cmds:insert('set envelope to '..ptr[1]..', filter index '..ptr[2])
+				ptr = ptr + 2
+			elseif cmd == 0xf9 then
+				cmds:insert'increment output code'
+			elseif cmd == 0xfa then
+				cmds:insert'clear output code'
+			elseif cmd == 0xfb then
+				cmds:insert'ignore song volume until instrument changes'
+			elseif cmd == 0xfc then
+				cmds:insert('if-then-branch '..ptr[1])
+				ptr=ptr+1
+			elseif cmd == 0xfd then
+				cmds:insert'terminate'
+			elseif cmd == 0xfe then
+				cmds:insert'terminate'
+			elseif cmd == 0xff then
+				cmds:insert'terminate'
+			else
+				cmds:insert('unknown '..('$%02X'):format(cmd))
+			end
+			ptr = ptr + 1
+		end
+		return cmds
+	end
+
+	local sfxDir = path'sfx'
+	sfxDir:mkdir(true)
+
+	local sfxAddrs = table()
+	for i=0,countof(game.sfxOfs)-1 do
+		for j=0,1 do	-- left/right
+			local ofs = game.sfxOfs[i][j]
+			if ofs > 0 then
+				local addr = ofs - 0x3000 + ffi.offsetof(Game, 'sfxData')
+				sfxAddrs[addr] = true
+			end
+		end
+	end
+	sfxAddrs = sfxAddrs:keys():sort()
+	for i=0,countof(game.sfxOfs)-1 do
+		for j=0,1 do	-- left/right
+			local ofs = game.sfxOfs[i][j]
+			if ofs > 0 then
+				local addr = ofs - 0x3000 + ffi.offsetof(Game, 'sfxData')
+				local addrIndex = sfxAddrs:findi(addr)
+				local nextAddr = sfxAddrs[addrIndex+1]
+					or ffi.offsetof(Game, 'sfxData') + ffi.sizeof(game.sfxData)
+
+				-- if sfx are in mml and only use 15 instruments
+				-- ... then which are the 15 instruments used?
+
+print('sfx addr '..('%06x'):format(addr)..' - '..('%06x'):format(nextAddr))
+				-- so I guess this is MML instructions, and uses the same 63 samples of BRR data as the music does...
+				sfxDir('sfx'..i..'-'..j..'-cmds.txt'):write(readMML(addr, nextAddr):concat'\n'..'\n')
+
+			end
+		end
+	end
 
 	--[[
 	TODO
-	output font ...
-		font16_20_to_7f
-
 	output audio ...
 		spcMainCodeLoopLen
 		spcMainCode
@@ -66,9 +365,10 @@ local function runSound(game, cmdline)
 		-- then the brr data should decode until it gets to a loop frame, and ideally that'll be right before the next brr's address
 	end
 
-	local brrpath = path'brr'
+	-- music instrument brr/wav
+	local brrpath = path'music_brr'
 	brrpath:mkdir()
-	local wavpath = path'wav'
+	local wavpath = path'music_wav'
 	wavpath:mkdir()
 	local wavSamples = table()
 	print'brr data:'
@@ -252,8 +552,8 @@ local function runSound(game, cmdline)
 	end
 
 	local sortedSongAddrs = table(songAddrs):mapi(function(addr) return true, addr end):keys():sort()
-	local musicPath = path'music'
-	musicPath:mkdir(true)
+	local musicDir = path'music'
+	musicDir:mkdir(true)
 	for i=0,#songAddrs-1 do
 		local lenAddr = songAddrs[i+1]
 		-- length of track minus 2 bytes (for the length of the track)
@@ -292,106 +592,12 @@ print('song #'..i
 print('instruments: '..instruments:mapi(function(value) return ('%04x'):format(value) end):concat' ')
 
 		local d = ffi.string(ptr-2, len+2)
-		musicPath('song'..i..'.spc'):write(d)
-		musicPath('song'..i..'.hex'):write(string.hexdump(d))
+		musicDir('song'..i..'.spc'):write(d)
+		musicDir('song'..i..'.hex'):write(string.hexdump(d))
 
-		--[[
-SPC song data:
+		local cmds = readMML(startAddr, endAddr)
 
-00-0A       Play note, frequency 0
-10-1A       Play note, frequency 1
-20-2A       Play note, frequency 2
-30-3A       Play note, frequency 3
-40-4A       Play note, frequency 4
-50-5A       Play note, frequency 5
-60-6A       Play note, frequency 6
-70-7A       Play note, frequency 7
-80-8A       Play note, frequency 8
-90-9A       Play note, frequency 9
-A0-AA       Play note, frequency 10
-	-- "play note at frequency" but notes are frequencies.  they are a frequency of `f0 * 2^(i/12)`
-	-- does 'note' in this case mean 'instrument'?
-B0-BA       Play silence
-C4 xx       Set volume of channel to xx (00-7F), higher values == greater volume.
-	-- how to change channel? or can you?
-C5 ss xx    Fade volume to xx at speed ss
-C6 xx       Pan song left->right as xx (00-7F) increases
-C7 xx       Pan song right->left as xx (00-7F) increases
-//C8            Created an odd ascending portamento effect.
-CD xx       Pan repeatedly back and forth at speed xx (00-FF), higher values == slower panning.
-CE          Disable pan loop
-D7          Raise octave by 1
-D8          Lower octave by 1
-DE          Disables DF.
-//DF            Created an odd volume "cut" very shortly into the note...
-//E4            Creates a portamento effect linking all following notes with pitch slides.
-E5          Disables E4.
-E6          Enable vibrato.
-E7          Disable vibrato.
-F0 xx       Set tempo to xx (00-FF), higher values == faster tempo.
-F1 ss xx    Fade tempo to xx at speed ss
-F2 xx       Set echo to xx
-F3 ss xx    Fade echo to xx at speed ss
-
-TODO what is MIDI's format?  how to convert?
-or should I bake it into WAV? then convert to mp3?
-and how about exporting to numo9's music format?
-		--]]
-
-		local cmds = table()
-		local endptr = rom + endAddr
-		local ptr = rom + startAddr
-		while ptr < endptr do
-			local cmd = ptr[0]
-			local lo = bit.band(0xf, cmd)
-			local hi = bit.band(0xf, bit.rshift(cmd, 4))
-			if lo < 11 and hi < 11 then
-				cmds:insert('play instrument '..lo..' at note '..hi)	-- 
-			elseif cmd >= 0xb0 and cmd <= 0xba then
-				cmds:insert('silence '..cmd)
-			elseif cmd == 0xc4 then
-				cmds:insert('set volume to '..ptr[1])	-- last bit means something
-				ptr = ptr + 1
-			elseif cmd == 0xc5 then
-				cmds:insert('fade volume to '..ptr[2]..' at speed '..ptr[1])
-				ptr = ptr + 2
-			elseif cmd == 0xc6 then
-				cmds:insert('pan song left->right as '..ptr[1]..' increases')	-- last bit means something
-				ptr = ptr + 1
-			elseif cmd == 0xc7 then
-				cmds:insert('pan song right->left as '..ptr[1]..' increases')	-- last bit means something
-				ptr = ptr + 1
-			elseif cmd == 0xcd then
-				cmds:insert('pan repeatedly back and forth at speed '..ptr[1])
-				ptr = ptr + 1
-			elseif cmd == 0xce then
-				cmds:insert('disable pan loop')
-			elseif cmd == 0xd7 then
-				cmds:insert('raise octave by 1')
-			elseif cmd == 0xd8 then
-				cmds:insert('lower octave by 1')
-			elseif cmd == 0xe6 then
-				cmds:insert('enable vibrato')
-			elseif cmd == 0xe7 then
-				cmds:insert('disable vibrato')
-			elseif cmd == 0xf0 then
-				cmds:insert('set tempo to '..ptr[1])
-				ptr = ptr + 1
-			elseif cmd == 0xf1 then
-				cmds:insert('set tempo to '..ptr[2]..' at speed '..ptr[1])
-				ptr = ptr + 2
-			elseif cmd == 0xf2 then
-				cmds:insert('set echo to '..ptr[1])
-				ptr = ptr + 1
-			elseif cmd == 0xf1 then
-				cmds:insert('fade echo to '..ptr[2]..' at speed '..ptr[1])
-				ptr = ptr + 2
-			else
-				cmds:insert('unknown '..('$%02X'):format(cmd))
-			end
-			ptr = ptr + 1
-		end
-		musicPath('song'..i..'-cmds.txt'):write(cmds:concat'\n'..'\n')
+		musicDir('song'..i..'-cmds.txt'):write(cmds:concat'\n'..'\n')
 
 		-- to port this over to numo9 all I gotta do is remap the instruments, then convert note freq to freq time scalar
 	end

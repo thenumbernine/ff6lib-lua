@@ -643,6 +643,7 @@ do
 	end)
 	img:save'font.png'
 
+	-- TODO output font ... font16_20_to_7f
 	print('font16 widths: '..range(0,0x7f):mapi(function(i)
 		return ('%02x'):format(game.font16_widths[i])
 	end):concat' ')
