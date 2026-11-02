@@ -3159,7 +3159,7 @@ Game = struct{
 		{name = 'battleBgGfxCompressed', type = arrayType(uint8_t, -(0x27a9e7 - 0x296300))},					-- 0x27a9e7 - 0x296300 = 4bpp
 		{name = 'theEndGraphics1', type = arrayType(uint8_t, -(0x296300 - 0x297000))},							-- 0x296300 - 0x297000 = 4bpp
 		{name = 'monsterSpriteData', type = arrayType(uint8_t, -(0x297000 - 0x2ce3c0))},						-- 0x297000 - 0x2ce3c0 = monster graphics
-		{name = 'naturalMagic', type = arrayType(SpellAndLevel, 32)},											-- 0x2ce3c0 - 0x2ce400
+		{name = 'naturalMagic', type = arrayType(SpellAndLevel, 32)},											-- 0x2ce3c0 - 0x2ce400 (first 16 are Terra, second 16 are Celes)
 		{name = 'weaponAnims', type = arrayType(WeaponAnim, 93)},												-- 0x2ce400 - 0x2ce6e8
 		{name = 'monsterAttackAnims', type = arrayType(WeaponAnim, 128-93)},									-- 0x2ce6e8 - 0x2ce800
 		{name = 'monsterSpriteAlign', type = arrayType(uint8_t, 256)},											-- 0x2ce800 - 0x2ce900 = enum { ceiling, ground, floating, buried, flying }

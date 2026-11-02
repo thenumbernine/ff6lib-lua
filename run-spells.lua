@@ -4,17 +4,18 @@ local path = require 'ext.path'
 local assert = require 'ext.assert'
 local table = require 'ext.table'
 local op = require 'ext.op'
+local tolua = require 'ext.tolua'
 
 local function runSpells(game, cmdline)
 	print'spells = {'
 	local countof = game.countof
 	for i=0,countof(game.spells)-1 do
 		--print('\t['..i..'] = {')
-		print('\t{')
+		print('\t{\t-- '..i)
 		print('\t\tname="'..game.getSpellName(i)..'",')
 		local desc = game.getSpellDesc(i)
 		if desc then
-			print('\t\tdesc="'..desc..'",')
+			print('\t\tdesc='..tolua(desc)..',')
 		end
 		local spell = game.spells[i]
 		for fieldname, ctype, field in spell:fielditer() do
