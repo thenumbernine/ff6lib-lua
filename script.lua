@@ -5058,7 +5058,6 @@ print()
 			local trace = Trace{
 				addr = addr,
 				cmdset = 'BattleAnimCmds',
-				reverseRefInfo = {builtin = ('BattleAnim_%06x'):format(addr)},
 			}
 
 			trace:readInstr(trace.pc, 'BattleAnimCmds', 'SpeedAndAlign')

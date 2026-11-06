@@ -4,6 +4,7 @@ local class = require 'ext.class'
 local string = require 'ext.string'
 local number = require 'ext.number'
 local assert = require 'ext.assert'
+local timer = require 'ext.timer'
 local struct = require 'struct'
 local createVec = require 'vec-ffi.create_vec'
 local vec3ub = require 'vec-ffi.vec3ub'
@@ -74,20 +75,26 @@ end
 assert.len(romstr, romsize)
 
 -- checksum
-do
-	--print('crc32', require 'sha2'.md5(romstr))
-   -- "crc32": "0xA27F1C7A",
+timer('checksum', function()
+	local sha2 = require 'sha2'
+	--print('crc32', sha2.md5(romstr))
+	-- "crc32": "0xA27F1C7A",
 	local function check(name, a, b)
-		print(name, a)
+--DEBUG:print(name, a)
 		if a ~= b then
 			print('!!! WARNING !!! expected '..a..' == '..b)
 		end
 	end
-	check('md5', require 'sha2'.md5(romstr), '544311e104805e926083acf29ec664da')
-	check('sha1', require 'sha2'.sha1(romstr), '057ada1c641e3e0b3ca34e6e4f4eb1b05a87143a')
-	check('sha256', require 'sha2'.sha256(romstr), '10eccc5d2fab81346dd759f6be478dcb682eef981e8d3d662da176e1f9a996bc')
-	print()
-end
+	timer('sha2.md5', function()
+		check('md5', sha2.md5(romstr), '544311e104805e926083acf29ec664da')
+	end)
+	timer('sha2.sha1', function()
+		check('sha1', sha2.sha1(romstr), '057ada1c641e3e0b3ca34e6e4f4eb1b05a87143a')
+	end)
+	timer('sha2.sha256', function()
+		check('sha256', sha2.sha256(romstr), '10eccc5d2fab81346dd759f6be478dcb682eef981e8d3d662da176e1f9a996bc')
+	end)
+end)
 
 -- hmm to not deal with string internal data issues ... copy this into a vector first, and don't save the string
 local romvec = vector(uint8_t, romsize)
@@ -795,14 +802,14 @@ local BattleAnim = struct{
 		-- index into 'battleAnimEffects' table
 		-- 0xffff = none
 		-- bit 15 means something else I think
-		{name='effects', type=BattleAnimEffectIndex3},
+		{name='effects', type=BattleAnimEffectIndex3},	-- sprite, bg1, bg3
 
 		-- index into 'battleAnimPalettes' table
-		{name='pals',  type=vec3ub},
+		{name='pals',  type=vec3ub},	-- sprite, bg1, bg3
 		--]]
 		{name='sound', type=uint8_t},
-		{name='unknown10', type=uint8_t},
-		{name='unknown11', type=uint16_t},
+		{name='initScript', type=uint8_t},	-- "init_fn" in everything8215
+		{name='extraScriptOfs', type=uint16_t},	-- 0xffff= empty.  first one is 54 i.e. first esper, but continue throughout spells ... what is this relative to?
 		{name='wait', type=uint8_t},
 	},
 }
@@ -3425,7 +3432,9 @@ game.getEsperName = getEsperName
 
 game.countof = countof
 
+timer('require ff6.decompress', function()
 game.decompress = require 'ff6.decompress'
+end)
 
 game.itemForName = {}
 for i=0,numItems-1 do
@@ -3575,13 +3584,19 @@ game.SRAM = SRAM
 
 game.monsterSpecialAttackDescs = monsterSpecialAttackDescs
 
+timer('require ff6.maps', function()
 require 'ff6.maps'(game)
+end)
 
 -- do some initial loading ...
+timer('require ff6.script', function()
 require 'ff6.script'(game)
+end)
 
 -- setup functions for extracting audio
+timer('require ff6.sound', function()
 require 'ff6.sound'(game)
+end)
 
 -- another file for this or nah?
 function game.getMenuCharImage(charIndex)
@@ -3630,8 +3645,9 @@ function game.getCharPal(i)
 	return entry
 end
 
+timer('require ff6.sprites', function()
 require 'ff6.sprites'(game)
-
+end)
 --]]
 
 --[[ 0xd1600

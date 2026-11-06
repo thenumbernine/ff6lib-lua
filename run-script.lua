@@ -76,6 +76,12 @@ local function runEventScript(game, cmdline)
 		end
 	end
 
+	for i=0,game.countof(game.battleAnimEffects)-1 do
+		local battleAnimScriptAddr = ffi.offsetof(game.Game, 'battleAnimScriptData')	-- mine starts at 0x0fffbe but offsets are at 0x100000
+		local addr = battleAnimScriptAddr + game.battleAnimScriptOffsets[i]
+		addLabel(addr, 'BattleAnim_'..i)
+	end
+
 	local scriptBaseAddr = ffi.offsetof(game.Game, 'eventScript')	-- 0xa0000
 	local commonReturnAddr = 0x0a5eb3
 
