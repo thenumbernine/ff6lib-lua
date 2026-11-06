@@ -4374,7 +4374,7 @@ cl.classname = k
 			argtypes = {uint8_t},
 			argnames = {'__oo____'},
 			__tostring = function(self)
-				return 'set target sprite tile priority'
+				return 'setTargetSpriteTilePriority()'
 			end,
 		}
 		BattleAnimCmds[0xEF] = BattleAnimCmd:subclass{
@@ -4383,7 +4383,7 @@ cl.classname = k
 			argnames = {'rr', 'tt'},
 			__tostring = function(self)
 				local rr, tt = self.rr, self.tt
-				return 'move to polar coordinates r='..hex2(rr)..' theta='..hex2(tt)..' (similar to $E8)'
+				return 'moveToPolar('..hex2(rr)..', '..hex2(tt)..')'
 			end,
 		}
 		BattleAnimCmds[0xF0] = BattleAnimCmd:subclass{
@@ -4417,7 +4417,7 @@ cl.classname = k
 
 		BattleAnimCmds[0xF2] = BattleAnimCmd:subclass{
 			cmd = 0xF2,
-			desc = 'set a trajectory from target center to attacker',
+			desc = 'setVecFromTargetCenterToAttacker()',
 		}
 		BattleAnimCmds[0xF3] = BattleAnimCmd:subclass{
 			cmd = 0xF3,
@@ -4446,11 +4446,11 @@ cl.classname = k
 		}
 		BattleAnimCmds[0xF5] = BattleAnimCmd:subclass{
 			cmd = 0xF5,
-			desc = 'until no threads are active',
+			desc = 'until allThreadsDone()',
 		}
 		BattleAnimCmds[0xF6] = BattleAnimCmd:subclass{
 			cmd = 0xF6,
-			desc ='rotate triangle 3D',
+			desc ='rotateTriangle3D()',
 		}
 		BattleAnimCmds[0xF7] = BattleAnimCmd:subclass{
 			cmd = 0xF7,
