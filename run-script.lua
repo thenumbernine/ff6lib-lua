@@ -76,10 +76,434 @@ local function runEventScript(game, cmdline)
 		end
 	end
 
+-- using everything8215/ff6/src/data/attack_anim_prop.asm list of names for now:
+local battleAnimNames = {
+	'🔴Fire',	---'FIRE',					-- 0
+	'🔴Ice',	---'BLIZZARD',					-- 1
+	'🔴Bolt',	---'THUNDER',					-- 2
+	'🔴Poison',	---'POISON',					-- 3
+	'🔴Drain',	---'DRAIN',					-- 4
+	'🔴Fire 2',	---'FIRA',					-- 5
+	'🔴Ice 2',	---'BLIZZARA',					-- 6
+	'🔴Bolt 2',	---'THUNDARA',					-- 7
+	'🔴Bio',	---'BIO',					-- 8
+	'🔴Fire 3',	---'FIRAGA',					-- 9
+	'🔴Ice 3',	---'BLIZZAGA',					-- 10
+	'🔴Bolt 3',	---'THUNDAGA',					-- 11
+	'🔴Break',	---'BREAK',					-- 12
+	'🔴Doom',	---'DOOM',					-- 13
+	'🔴Pearl',	---'HOLY',					-- 14
+	'🔴Flare',	---'FLARE',					-- 15
+	'🔴Demi',	---'DEMI',					-- 16
+	'🔴Quartr',	---'QUARTR',					-- 17
+	'🔴X-Zone',	---'DEZONE',					-- 18
+	'🔴Meteor',	---'METEOR',					-- 19
+	'🔴Ultima',	---'ULTIMA',					-- 20
+	'🔴Quake',	---'QUAKE',					-- 21
+	'🔴W Wind',	---'TORNADO',					-- 22
+	'🔴Merton',	---'MELTDOWN',					-- 23
+	'🔵Scan',	---'SCAN',					-- 24
+	'🔵Slow',	---'SLOW',					-- 25
+	'🔵Rasp',	---'RASP',					-- 26
+	'🔵Mute',	---'MUTE',					-- 27
+	'🔵Safe',	---'SAFE',					-- 28
+	'🔵Sleep',	---'SLEEP',					-- 29
+	'🔵Muddle',	---'CONFUSE',					-- 30
+	'🔵Haste',	---'HASTE',					-- 31
+	'🔵Stop',	---'STOP',					-- 32
+	'🔵Bserk',	---'BERSERK',					-- 33
+	'🔵Float',	---'FLOAT',					-- 34
+	'🔵Imp',	---'IMP',					-- 35
+	'🔵Rflect',	---'REFLECT',					-- 36
+	'🔵Shell',	---'SHELL',					-- 37
+	'🔵Vanish',	---'VANISH',					-- 38
+	'🔵Haste2',	---'HASTE2',					-- 39
+	'🔵Slow 2',	---'SLOW_2',					-- 40
+	'🔵Osmose',	---'OSMOSE',					-- 41
+	'🔵Warp',	---'WARP',					-- 42
+	'🔵Quick',	---'QUICK',					-- 43
+	'🔵Dispel',	---'DISPEL',					-- 44
+	'⚪Cure',	---'CURE',					-- 45
+	'⚪Cure 2',	---'CURA',					-- 46
+	'⚪Cure 3',	---'CURAGA',					-- 47
+	'⚪Life',	---'RAISE',					-- 48
+	'⚪Life 2',	---'ARISE',					-- 49
+	'⚪Antdot',	---'POISONA',					-- 50
+	'⚪Remedy',	---'REMEDY',					-- 51
+	'⚪Regen',	---'REGEN',					-- 52
+	'⚪Life 3',	---'RERAISE',					-- 53
+	'Bolt Fist',   	---'RAMUH',					-- 54
+	'Inferno',     	---'IFRIT',					-- 55
+	'Gem Dust',    	---'SHIVA',					-- 56
+	'Hope Song',   	---'SIREN',					-- 57
+	'Earth Aura',  	---'TERRATO',					-- 58
+	'Demon Eye',   	---'SHOAT',					-- 59
+	'Chaos Wing',  	---'MADUIN',					-- 60
+	'Sea Song',    	---'BISMARK',					-- 61
+	'Cat Rain',    	---'STRAY',					-- 62
+	'Sonic Dive',  	---'PALIDOR',					-- 63
+	'Tri-Dazer',   	---'TRITOCH',					-- 64
+	'Atom Edge',   	---'ODIN',					-- 65
+	'True Edge',   	---'RAIDEN',					-- 66
+	'Sun Flare',   	---'BAHAMUT',					-- 67
+	'Justice',     	---'ALEXANDR',					-- 68
+	'Purifier',    	---'CRUSADER',					-- 69
+	'Metamorph',   	---'RAGNAROK',					-- 70
+	'Life Guard',  	---'KIRIN',					-- 71
+	'Wall',        	---'ZONESEEK',					-- 72
+	'Ruby Power',  	---'CARBUNKL',					-- 73
+	'Fader',       	---'PHANTOM',					-- 74
+	'Reviver',     	---'SRAPHIM',					-- 75
+	'Earth Wall',  	---'GOLEM',					-- 76
+	'Heal Horn',   	---'UNICORN',					-- 77
+	'Moon Song',   	---'FENRIR',					-- 78
+	'Group Hug',   	---'STARLET',					-- 79
+	'Rebirth',     	---'PHOENIX',					-- 80
+	'Fire Skean',  	---'FIRE_SKEAN',					-- 81
+	'Water Edge',  	---'WATER_EDGE',					-- 82
+	'Bolt Edge',   	---'BOLT_EDGE',					-- 83
+	'Storm',       	---'STORM',					-- 84
+	'Dispatch',    	---'DISPATCH',					-- 85
+	'Retort',      	---'RETORT',					-- 86
+	'Slash',       	---'SLASH',					-- 87
+	'Quadra Slam', 	---'QUADRA_SLAM',					-- 88
+	'Empowerer',   	---'EMPOWERER',					-- 89
+	'Stunner',     	---'STUNNER',					-- 90
+	'Quadra Slice',	---'QUADRA_SLICE',					-- 91
+	'Cleave',      	---'CLEAVE',					-- 92
+	'Pummel',      	---'PUMMEL',					-- 93
+	'AuraBolt',    	---'AURABOLT',					-- 94
+	'Suplex',      	---'SUPLEX',					-- 95
+	'Fire Dance',  	---'FIRE_DANCE',					-- 96
+	'Mantra',      	---'MANTRA',					-- 97
+	'Air Blade',   	---'AIR_BLADE',					-- 98
+	'Spiraler',    	---'SPIRALER',					-- 99
+	'Bum Rush',    	---'BUM_RUSH',					-- 100
+	'Wind Slash',  	---'WIND_SLASH',					-- 101
+	'Sun Bath',    	---'SUN_BATH',					-- 102
+	'Rage',        	---'RAGE',					-- 103
+	'Harvester',   	---'HARVESTER',					-- 104
+	'Sand Storm',  	---'SAND_STORM',					-- 105
+	'Antlion',     	---'ANTLION',					-- 106
+	'Elf Fire',    	---'ELF_FIRE',					-- 107
+	'Specter',     	---'SPECTER',					-- 108
+	'Land Slide',  	---'LAND_SLIDE',					-- 109
+	'Sonic Boom',  	---'SONIC_BOOM',					-- 110
+	'El Nino',     	---'EL_NINO',					-- 111
+	'Plasma',      	---'PLASMA',					-- 112
+	'Snare',       	---'SNARE',					-- 113
+	'Cave In',     	---'CAVE_IN',					-- 114
+	'Snowball',    	---'SNOWBALL',					-- 115
+	'Surge',       	---'SURGE',					-- 116
+	'Cokatrice',   	---'COKATRICE',					-- 117
+	'Wombat',      	---'WOMBAT',					-- 118
+	'Kitty',       	---'KITTY',					-- 119
+	'Tapir',       	---'TAPIR',					-- 120
+	'Whump',       	---'WHUMP',					-- 121
+	'Wild Bear',   	---'WILD_BEAR',					-- 122
+	'Pois. Frog',  	---'POIS_FROG',					-- 123
+	'Ice Rabbit',  	---'ICE_RABBIT',					-- 124
+	'Bio Blast',   	---'SUPER_BALL',					-- 125
+	'Flash',       	---'FLASH_SLOT',					-- 126
+	'Chocobop',    	---'CHOCOBOP',					-- 127
+	'H-Bomb',      	---'H_BOMB',					-- 128
+	'7-Flush',     	---'SEVEN_FLUSH',					-- 129
+	'Megahit',     	---'SHOCK',					-- 130
+	'Fire Beam',   	---'FIRE_BEAM',					-- 131
+	'Bolt Beam',   	---'BOLT_BEAM',					-- 132
+	'Ice Beam',    	---'ICE_BEAM',					-- 133
+	'Bio Blast',   	---'BIO_BLAST',					-- 134
+	'Heal Force',  	---'HEAL_FORCE',					-- 135
+	'Confuser',    	---'CONFUSER',					-- 136
+	'X-fer',       	---'XFER',					-- 137
+	'TekMissile',  	---'TEKMISSILE',					-- 138
+	'Condemned',   	---'CONDEMNED',					-- 139
+	'Roulette',    	---'ROULETTE',					-- 140
+	'CleanSweep',  	---'CLEANSWEEP',					-- 141
+	'Aqua Rake',   	---'AQUA_RAKE',					-- 142
+	'Aero',        	---'AERO',					-- 143
+	'Blow Fish',   	---'BLOW_FISH',					-- 144
+	'Big Guard',   	---'BIG_GUARD',					-- 145
+	'Revenge',     	---'REVENGE',					-- 146
+	'Pearl Wind',  	---'WHITE_WIND',					-- 147
+	'L.5 Doom',    	---'L5_DOOM',					-- 148
+	'L.4 Flare',   	---'L4_FLARE',					-- 149
+	'L.3 Muddle',  	---'L3_CONFUSE',					-- 150
+	'Reflect???',  	---'REFLECT_LORE',					-- 151
+	'L? Pearl',    	---'PEARL_LORE',					-- 152
+	'Step Mine',   	---'STEP_MINE',					-- 153
+	'ForceField',  	---'FORCEFIELD',					-- 154
+	'Dischord',    	---'DISCHORD',					-- 155
+	'Sour Mouth',  	---'SOUR_MOUTH',					-- 156
+	'Pep Up',      	---'PEP_UP',					-- 157
+	'Rippler',     	---'RIPPLER',					-- 158
+	'Stone',       	---'STONE',					-- 159
+	'Quasar',      	---'QUASAR',					-- 160
+	'GrandTrain',  	---'GRANDTRAIN',					-- 161
+	'Exploder',    	---'EXPLODER',					-- 162
+	'Imp Song',    	---'IMP_SONG',					-- 163
+	'Clear',       	---'CLEAR',					-- 164
+	'Virite',      	---'VIRITE',					-- 165
+	'ChokeSmoke',  	---'CHOKESMOKE',					-- 166
+	'Schiller',    	---'SCHILLER',					-- 167
+	'Lullaby',     	---'LULLABY',					-- 168
+	'Acid Rain',   	---'ACID_RAIN',					-- 169
+	'Confusion',   	---'CONFUSION',					-- 170
+	'Megazerk',    	---'MEGAZERK',					-- 171
+	'Mute',        	---'ENEMY_MUTE',					-- 172
+	'Net',         	---'NET',					-- 173
+	'Slimer',      	---'SLIMER',					-- 174
+	'Delta Hit',   	---'DELTA_HIT',					-- 175
+	'Entwine',     	---'ENTWINE',					-- 176
+	'Blaster',     	---'BLASTER',					-- 177
+	'Cyclonic',    	---'CYCLONIC',					-- 178
+	'Fire Ball',   	---'FIRE_BALL',					-- 179
+	'Atomic Ray',  	---'ATOMIC_RAY',					-- 180
+	'Tek Laser',   	---'TEK_LASER',					-- 181
+	'Diffuser',    	---'DIFFUSER',					-- 182
+	'WaveCannon',  	---'WAVECANNON',					-- 183
+	'Mega Volt',   	---'MEGA_VOLT',					-- 184
+	'Giga Volt',   	---'GIGA_VOLT',					-- 185
+	'Blizzard',    	---'SNOWSTORM',					-- 186
+	'Absolute 0',  	---'ABSOLUTE0',					-- 187
+	'Magnitude8',  	---'MAGNITUDE8',					-- 188
+	'Raid',        	---'RAID',					-- 189
+	'Flash Rain',  	---'FLASH_RAIN',					-- 190
+	'TekBarrier',  	---'TEKBARRIER',					-- 191
+	'Fallen One',  	---'FALLEN_ONE',					-- 192
+	'WallChange',  	---'WALLCHANGE',					-- 193
+	'Escape',      	---'ESCAPE',					-- 194
+	'50 Gs',       	---'FIFTY_GS',					-- 195
+	'Mind Blast',  	---'MIND_BLAST',					-- 196
+	'N. Cross',    	---'N_CROSS',					-- 197
+	'Flare Star',  	---'FLARE_STAR',					-- 198
+	'Love Token',  	---'LOVE_TOKEN',					-- 199
+	'Seize',       	---'SEIZE',					-- 200
+	'R.Polarity',  	---'R_POLARITY',					-- 201
+	'Targetting',  	---'TARGETTING',					-- 202
+	'Sneeze',      	---'SNEEZE',					-- 203
+	'S. Cross',    	---'S_CROSS',					-- 204
+	'Launcher',    	---'LAUNCHER',					-- 205
+	'Charm',       	---'CHARM',					-- 206
+	'Cold Dust',   	---'COLD_DUST',					-- 207
+	'Tentacle',    	---'TENTACLE',					-- 208
+	'HyperDrive',  	---'HYPERDRIVE',					-- 209
+	'Train',       	---'TRAIN',					-- 210
+	'Evil Toot',   	---'EVIL_TOOT',					-- 211
+	'Grav Bomb',   	---'GRAV_BOMB',					-- 212
+	'Engulf',      	---'ENGULF',					-- 213
+	'Disaster',    	---'DISASTER',					-- 214
+	'Shrapnel',    	---'SHRAPNEL',					-- 215
+	'Bomblet',     	---'BOMBLET',					-- 216
+	'Heart Burn',  	---'HEART_BURN',					-- 217
+	'Zinger',      	---'ZINGER',					-- 218
+	'Discard',     	---'DISCARD',					-- 219
+	'Overcast',    	---'OVERCAST',					-- 220
+	'Missile',     	---'MISSILE',					-- 221
+	'Goner',       	---'GONER',					-- 222
+	'Meteo',       	---'METEO',					-- 223
+	'Revenger',    	---'REVENGER',					-- 224
+	'Phantasm',    	---'PHANTASM',					-- 225
+	'Dread',       	---'DREAD',					-- 226
+	'Shock Wave',  	---'SHOCK_WAVE',					-- 227
+	'Blaze',       	---'BLAZE',					-- 228
+	'Soul Out',    	---'SOUL_OUT',					-- 229
+	'Gale Cut',    	---'GALE_CUT',					-- 230
+	'Shimsham',    	---'SHIMSHAM',					-- 231
+	'Lode Stone',  	---'LODE_STONE',					-- 232
+	'Scar Beam',   	---'SCAR_BEAM',					-- 233
+	'BabaBreath',  	---'BABABREATH',					-- 234
+	'Lifeshaver',  	---'LIFESHAVER',					-- 235
+	'Fire Wall',   	---'FIRE_WALL',					-- 236
+	'Slide',       	---'SLIDE',					-- 237
+	'Battle',      	---'BATTLE',					-- 238
+	'Special',     	---'SPECIAL',					-- 239
+	'Riot Blade',  	---'RIOT_BLADE',					-- 240
+	'Mirager',     	---'MIRAGER',					-- 241
+	'Back Blade',  	---'BACK_BLADE',					-- 242
+	'ShadowFang',  	---'SHADOWFANG',					-- 243
+	'RoyalShock',  	---'ROYALSHOCK',					-- 244
+	'TigerBreak',  	---'TIGERBREAK',					-- 245
+	'Spin Edge',   	---'SPIN_EDGE',					-- 246
+	'SabreSoul',   	---'SABRESOUL',					-- 247
+	'Star Prism',  	---'STAR_PRISM',					-- 248
+	'Red Card',    	---'RED_CARD',					-- 249
+	'MoogleRush',  	---'MOOGLERUSH',					-- 250
+	'X-Meteo',     	---'X_METEO',					-- 251
+	'Takedown',    	---'TAKEDOWN',					-- 252
+	'Wild Fang',   	---'WILD_FANG',					-- 253
+	'Lagomorph',   	---'LAGOMORPH',					-- 254
+	'??????????',  	---'NONE',					-- 255
+	'STEP_FORWARD_MAGITEK',		-- 256
+	'TERRA_TRITOCH',		-- 257
+	'BLIZZARD_FIST',		-- 258
+	'TERRA_TRITOCH_ALT',		-- 259
+	'WATER_SPLASH_BG1',		-- 260
+	'WATER_SPLASH_SPRITE',		-- 261
+	'EVENT_BAHAMUT',		-- 262
+	'EVENT_ZONESEEK',		-- 263
+	'EVENT_FENRIR',		-- 264
+	'EVENT_TERRATO',		-- 265
+	'EVENT_SHIVA',		-- 266
+	'EVENT_KIRIN',		-- 267
+	'EVENT_BISMARK',		-- 268
+	'EVENT_CARBUNKL',		-- 269
+	'EVENT_PHANTOM',		-- 270
+	'TRANSFORM_MAGICITE',		-- 271
+	'MOVE_FORWARD_SLOW',		-- 272
+	'MOVE_BACK_SLOW',		-- 273
+	'FLASH_RED',		-- 274
+	'RUNIC_ABSORB',		-- 275
+	'UMARO_THROW',		-- 276
+	'UMARO_TACKLE',		-- 277
+	'POSSESS',		-- 278
+	'JUMP_UNARMED',		-- 279
+	'JUMP_CMD',		-- 280
+	'ATTACK_GFX_281',		-- 281
+	'STEP_FORWARD',		-- 282
+	'MORPH',		-- 283
+	'BLACK_MAGIC',		-- 284
+	'WHITE_MAGIC',		-- 285
+	'SUMMON',		-- 286
+	'LORE',		-- 287
+	'REVERT',		-- 288
+	'STEAL',		-- 289
+	'BUSHIDO',		-- 290
+	'BLITZ',		-- 291
+	'RUNIC',		-- 292
+	'DANCE',		-- 293
+	'KEFKA_LEO_SMOKE',		-- 294
+	'JUMP_MONSTER_UP',		-- 295
+	'GIL_TOSS',		-- 296
+	'JUMP_MONSTER_DOWN',		-- 297
+	'JUMP_CHAR_MISS',		-- 298
+	'JUMP_MONSTER_MISS',		-- 299
+	'SKETCH',		-- 300
+	'LEAP',		-- 301
+	'HEALTH',		-- 302
+	'RUN_AWAY',		-- 303
+	'JUMP_THICK_KNIFE',		-- 304
+	'JUMP_THIN_KNIFE',		-- 305
+	'JUMP_SWORD',		-- 306
+	'JUMP_KATANA',		-- 307
+	'JUMP_ROD',		-- 308
+	'JUMP_SPEAR',		-- 309
+	'JUMP_HAWK_EYE',		-- 310
+	'JUMP_UNUSED',		-- 311
+	'THROW_THICK_KNIFE',		-- 312
+	'THROW_THIN_KNIFE',		-- 313
+	'THROW_SWORD',		-- 314
+	'THROW_KATANA',		-- 315
+	'THROW_ROD',		-- 316
+	'THROW_SPEAR',		-- 317
+	'THROW_HAWK_EYE',		-- 318
+	'THROW_ARISE',		-- 319
+	'THROW_FIRE_SKEAN',		-- 320
+	'THROW_WATER_EDGE',		-- 321
+	'THROW_BOLT_EDGE',		-- 322
+	'THROW_INVIZ_EDGE',		-- 323
+	'THROW_SHADOW_EDGE',		-- 324
+	'THROW_FULL_MOON',		-- 325
+	'THROW_BOOMERANG',		-- 326
+	'THROW_UNUSED',		-- 327
+	'NOISEBLASTER',		-- 328
+	'BIO_BLASTER',		-- 329
+	'FLASH_TOOL',		-- 330
+	'CHAIN_SAW',		-- 331
+	'DEBILITATOR',		-- 332
+	'DRILL',		-- 333
+	'AIR_ANCHOR',		-- 334
+	'AUTOCROSSBOW',		-- 335
+	'CHAINSAW_ALT',		-- 336
+	'TONIC',		-- 337
+	'POTION',		-- 338
+	'X_POTION',		-- 339
+	'TINCTURE',		-- 340
+	'ETHER',		-- 341
+	'X_ETHER',		-- 342
+	'ELIXIR',		-- 343
+	'MEGALIXIR',		-- 344
+	'FENIX_DOWN',		-- 345
+	'REVIVIFY',		-- 346
+	'ANTIDOTE',		-- 347
+	'EYEDROP',		-- 348
+	'SOFT',		-- 349
+	'REMEDY',		-- 350
+	'SLEEPING_BAG',		-- 351
+	'TENT',		-- 352
+	'GREEN_CHERRY',		-- 353
+	'MAGICITE',		-- 354
+	'SUPER_BALL',		-- 355
+	'ECHO_SCREEN',		-- 356
+	'SMOKE_BOMB',		-- 357
+	'WARP_STONE',		-- 358
+	'DRIED_MEAT',		-- 359
+	'SMOKE_ENTRY',		-- 360
+	'CEILING_EXIT',		-- 361
+	'CEILING_ENTRY',		-- 362
+	'SIDE_EXIT',		-- 363
+	'SIDE_ENTRY',		-- 364
+	'WATER_EXIT',		-- 365
+	'WATER_ENTRY',		-- 366
+	'FLOAT_EXIT',		-- 367
+	'FLOAT_ENTRY',		-- 368
+	'SAND_EXIT',		-- 369
+	'SAND_ENTRY',		-- 370
+	'FADE_DOWN_EXIT',		-- 371
+	'FADE_DOWN_ENTRY',		-- 372
+	'FADE_UP_EXIT',		-- 373
+	'FADE_UP_ENTRY',		-- 374
+	'MATERIALIZE_EXIT',		-- 375
+	'MATERIALIZE_ENTRY',		-- 376
+	'HORZ_FADE_EXIT',		-- 377
+	'HORZ_FADE_ENTRY',		-- 378
+	'DANCE_FAIL',		-- 379
+	'THREE_DICE',		-- 380
+	'TWO_DICE',		-- 381
+	'MOVE_FORWARD_8',		-- 382
+	'MOVE_BACK_8',		-- 383
+	'GESTAHL_LIGHTNING',		-- 384
+	'GESTAHL_BLACK_MAGIC',		-- 385
+	'CAPTURE_TO',		-- 386
+	'CAPTURE_FROM',		-- 387
+	'CHARS_RUN_LEFT',		-- 388
+	'CHARS_RUN_RIGHT',		-- 389
+	'SMOKE_EXIT',		-- 390
+	'BOSS_DEATH',		-- 391
+	'MOVE_FORWARD_64',		-- 392
+	'MOVE_BACK_64',		-- 393
+	'CHARDARNOOK_EXIT',		-- 394
+	'CHARDARNOOK_ENTRY',		-- 395
+	'SIDE_EXIT_INSTANT',		-- 396
+	'SIDE_ENTRY_INSTANT',		-- 397
+	'KEFKA_ENTRY',		-- 398
+	'KEFKA_HEAD',		-- 399
+	'MONSTER_GLOW_LONG',		-- 400
+	'MONSTER_GLOW_SHORT',		-- 401
+	'RENAME_CARD',		-- 402
+	'KEFKA_DEATH',		-- 403
+	'CONTROL',		-- 404
+	'MONSTER_STEAL',		-- 405
+}
+
+	local battleAnimScriptAddr = ffi.offsetof(game.Game, 'battleAnimScriptData')	-- mine starts at 0x0fffbe but offsets are at 0x100000
+	for i=0,game.countof(game.battleAnims)-1 do
+		local battleAnim = game.battleAnims + i
+		for j=0,2 do
+			local effect = battleAnim.effects.s + j
+			if 0 == effect.dontRunScript
+			and effect.index < game.countof(game.battleAnimEffects)
+			then
+				local addr = battleAnimScriptAddr + game.battleAnimScriptOffsets[effect.index]
+				addLabel(addr, 'BattleAnim_'..battleAnimNames[i+1]..'_'..j)
+			end
+		end
+	end
+	-- do we need the labels for enumeration in battleAnimScriptOffsets?
+	-- a few of these don't seem like they are in the BattleAnim effects[] list...
 	for i=0,game.countof(game.battleAnimEffects)-1 do
-		local battleAnimScriptAddr = ffi.offsetof(game.Game, 'battleAnimScriptData')	-- mine starts at 0x0fffbe but offsets are at 0x100000
 		local addr = battleAnimScriptAddr + game.battleAnimScriptOffsets[i]
-		addLabel(addr, 'BattleAnim_'..i)
+		addLabel(addr, 'BattleAnimEffect_'..i)
 	end
 
 	local scriptBaseAddr = ffi.offsetof(game.Game, 'eventScript')	-- 0xa0000
