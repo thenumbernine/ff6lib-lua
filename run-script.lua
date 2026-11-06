@@ -31,8 +31,8 @@ local function runEventScript(game, cmdline)
 	local rom = game.rom
 
 	local function fixname(s)
-		return (s:sub(1,1):gsub('%A', '_')
-			..s:sub(2):gsub('[^%a%d]', '_'))
+		return (s:sub(1,1):gsub('[^a-zA-Z_]', '_')
+			..s:sub(2):gsub('[^a-zA-Z0-9%[%]]', '_'))
 	end
 
 	-- TODO at some point convert the traces into functions
@@ -42,6 +42,12 @@ local function runEventScript(game, cmdline)
 	local function addLabel(addr, name)
 		labelsForAddr[addr] = labelsForAddr[addr] or table()
 		labelsForAddr[addr]:insert(fixname(name))
+	end
+
+	local commentsForAddr = {}
+	local function addComment(addr, str)
+		commentsForAddr[addr] = commentsForAddr[addr] or table()
+		commentsForAddr[addr]:insert(str)
 	end
 
 	-- keep track of labels from builtin calls
@@ -495,7 +501,8 @@ local battleAnimNames = {
 			and effect.index < game.countof(game.battleAnimEffects)
 			then
 				local addr = battleAnimScriptAddr + game.battleAnimScriptOffsets[effect.index]
-				addLabel(addr, 'BattleAnim_'..battleAnimNames[i+1]..'_'..j)
+				--addLabel(addr, 'BattleAnim_'..i..'_'..j)
+				addComment(addr, battleAnimNames[i+1]..' '..j)
 			end
 		end
 	end
@@ -503,7 +510,7 @@ local battleAnimNames = {
 	-- a few of these don't seem like they are in the BattleAnim effects[] list...
 	for i=0,game.countof(game.battleAnimEffects)-1 do
 		local addr = battleAnimScriptAddr + game.battleAnimScriptOffsets[i]
-		addLabel(addr, 'BattleAnimEffect_'..i)
+		addLabel(addr, 'BattleAnimEffect['..i..']')
 	end
 
 	local scriptBaseAddr = ffi.offsetof(game.Game, 'eventScript')	-- 0xa0000
@@ -734,6 +741,10 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 	local function Cmd_toCodeLine(self, indent)
 		indent = indent or 0
 		local s = ''
+
+		if commentsForAddr[self.addr] then
+			s = '-- '..commentsForAddr[self.addr]:concat', '..'\n'
+		end
 
 		-- [[ labels:
 		local whatPointsToScriptAtAddr = game.whatsPointingToAddr[self.addr]

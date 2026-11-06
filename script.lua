@@ -3059,6 +3059,8 @@ cl.classname = k
 		local function getaddr(addr)
 			return game.addrLabel(addr + battleAnimScriptAddr)
 		end
+
+		-- dir arg for move() and setDirAndMove()
 		local movedirs = {
 			[0] = 'down/forward',
 			'down',
@@ -3161,9 +3163,9 @@ cl.classname = k
 				elseif subcmd == 0x21 then
 					self.descstr = 'updateRotatingSpriteLayerPriority()'
 				elseif subcmd == 0x22 then
-					self.descstr = 'pearlWind()'
+					self.descstr = 'pearlWind(0x22)'
 				elseif subcmd == 0x23 then
-					self.descstr = 'pearlWind()'
+					self.descstr = 'pearlWind(0x23)'
 				elseif subcmd == 0x24 then
 					self.descstr = 'clear_BG3_HDMA_scrolldata()'
 				elseif subcmd == 0x25 then
@@ -3234,7 +3236,7 @@ cl.classname = k
 					self.endTrace = true
 				elseif subcmd == 0x33 then
 					local arg = read(uint8_t)
-					self.descstr = 'updateRainbowGradient()'
+					self.descstr = 'updateRainbowGradient('..arg..')'
 				elseif subcmd == 0x34 then
 					self.descstr = 'copyMonsterToCharPalettes()'
 				elseif subcmd == 0x35 then
@@ -3247,7 +3249,7 @@ cl.classname = k
 					self.descstr = 'enableHighPriorityBG3()'
 				elseif subcmd == 0x39 then
 					local arg = read(uint8_t)
-					self.descstr = 'updateBlueGradient()'
+					self.descstr = 'updateBlueGradient('..arg..')'
 				elseif subcmd == 0x3a then
 					local arg = read(uint8_t)
 					self.descstr = 'initBlueGradient('..arg..')'
@@ -3259,7 +3261,7 @@ cl.classname = k
 					self.descstr = 'quadraSlamSlice()'
 				elseif subcmd == 0x3E then
 					local arg = read(uint8_t)
-					self.descstr = 'setMainScreenDesignation()'
+					self.descstr = 'setMainScreenDesignation('..arg..')'
 				elseif subcmd == 0x3F then
 					self.descstr = 'sonicDive()'
 				elseif subcmd == 0x40 then
@@ -3281,14 +3283,14 @@ cl.classname = k
 					self.descstr = 'fireBoltIceBeam()'
 				elseif subcmd == 0x45 then
 					local arg = read(uint8_t)
-					self.descstr = 'set_BG12_mask_register()'
+					self.descstr = 'set_BG12_mask_register('..arg..')'
 				elseif subcmd == 0x46 then
 					local arg = read(uint8_t)
 					self.descstr = 'setBG1TilemapLocation('..hex2(arg)..'00)'
 				elseif subcmd == 0x47 then
 					self.descstr = 'setBG1GfxAddr('..read(uint8_t)..')'
 				elseif subcmd == 0x48 then
-					self.descstr = 'clear'
+					self.descstr = 'clear()'
 				elseif subcmd == 0x49 then
 					self.descstr = 'inkHitVirite()'
 				elseif subcmd == 0x4a then
@@ -3335,7 +3337,7 @@ cl.classname = k
 				elseif subcmd == 0x5d then
 					self.descstr = 'updateVecWave()'
 				elseif subcmd == 0x5E then
-					self.descstr = 'overcast()'
+					self.descstr = 'overcast(0x5e)'
 				elseif subcmd == 0x5F then
 					local arg = read(int8_t)
 					self.descstr = 'incBlueBgGrad('..arg..')'
@@ -3361,13 +3363,13 @@ cl.classname = k
 				elseif subcmd == 0x68 then
 					self.descstr = 'purifier()'
 				elseif subcmd == 0x69 then
-					self.descstr = 'updateSpriteLayerPriorityBasedOnAttacker('
+					self.descstr = 'updateSpriteLayerPriorityBasedOnAttacker()'
 				elseif subcmd == 0x6A then
 					self.descstr = 'alignBottomOfThreadWithBottomOfTarget()'
 				elseif subcmd == 0x6B then
 					self.descstr = 'lqpearl()'
 				elseif subcmd == 0x6C then
-					self.descstr = 'overcast()'
+					self.descstr = 'overcast(0x6c)'
 				elseif subcmd == 0x6D then
 					self.descstr = 'disableBattleMenu()'
 				elseif subcmd == 0x6f then
@@ -3389,19 +3391,20 @@ cl.classname = k
 				elseif subcmd == 0x75 then
 					self.descstr = 'superball('..read(uint8_t)..', '..read(uint8_t)..', '..read(uint8_t)..')'
 				elseif subcmd == 0x76 then
-					self.descstr = 'seize '..read(uint8_t)
+					self.descstr = 'seize('..read(uint8_t)..')'
 				elseif subcmd == 0x77 then
-					self.descstr = 'seize'
+					self.descstr = 'seize()'
 				elseif subcmd == 0x78 then
-					self.descstr = 'discard'
+					self.descstr = 'discard()'
 				elseif subcmd == 0x79 then
-					self.descstr = 'characters run to left side of screen (takes 56 loops to reach other side)'
+					-- takes 56 loops to reach other side
+					self.descstr = 'runToLeftSideOfScreen()'
 				elseif subcmd == 0x7A then
-					self.descstr = 'characters run to right side of screen (takes 56 loops to reach other side)'
+					self.descstr = 'runToRightSideOfScreen()' --'characters run to right side of screen (takes 56 loops to reach other side)'
 				elseif subcmd == 0x7B then
-					self.descstr = 'flip all characters (after running to opposite side of screen)'
+					self.descstr = 'flipAllChars()'	-- 'flip all characters (after running to opposite side of screen)'
 				elseif subcmd == 0x7C then
-					self.descstr = 'swap target and attacker'
+					self.descstr = 'swapTargetAndAttacker()'	--'swap target and attacker'
 				elseif subcmd == 0x7D then
 					local arg = read(uint8_t)
 					local addr = self.trace.pc + arg
@@ -3410,7 +3413,7 @@ cl.classname = k
 						return {{addr=addr}}
 					end
 				elseif subcmd == 0x7E then
-					self.descstr = 'flip target character vertically'
+					self.descstr = 'vflipTargetChar()'
 				elseif subcmd == 0x7F then
 					self.descstr = 'hideAllMonsters()'
 				elseif subcmd == 0x80 then
@@ -3426,11 +3429,13 @@ cl.classname = k
 				elseif subcmd == 0x86 then
 					local arg = read(uint8_t)
 					self.descstr = 'playSound('
-						..arg..') pan based on sprite X position'
+						..arg..') panBasedOnSpriteX()'
 				elseif subcmd == 0x87 then
 					local arg = read(uint8_t)
 					self.descstr = 'playSound('
-						..arg..') pan based on sprite Y position'
+						..arg..') panBasedOnSpriteY()'
+				elseif subcmd == 0x88 then
+					self.descstr = 'moveBlock()'
 				elseif subcmd == 0x89 then
 					local arg = read(uint8_t)
 					self.descstr = 'setKefkaHeadShakeEnabled('..arg..')'
@@ -3441,7 +3446,7 @@ cl.classname = k
 				elseif subcmd == 0x8c then
 					local arg = read(uint8_t)
 					self.descstr = 'playSound('
-						..hex2(arg)..') pan center'
+						..hex2(arg)..') panCenter()'
 				elseif subcmd == 0xdb then
 					local ofs = read(uint8_t)
 					self.descstr = 'jumpStep('..Cmd.getGotoStr(self.addr + ofs, '')..')'
@@ -3469,7 +3474,7 @@ cl.classname = k
 			argnames = {'arg'},
 			__tostring = function(self)
 				return 'move(currentEnt, '
-					..movedirs[bit.rshift(self.arg, 5)]
+					..bit.rshift(self.arg, 5)
 					..', '..(bit.band(self.arg, 0x1f)+1)
 					..')'
 			end,
@@ -3490,7 +3495,7 @@ cl.classname = k
 			argnames = {'arg'},
 			__tostring = function(self)
 				return 'move(attacker, '
-					..movedirs[bit.rshift(self.arg, 5)]
+					..bit.rshift(self.arg, 5)
 					..', '..hex2(bit.band(self.arg, 0x1f)+1)..')'
 			end,
 		}
@@ -3500,7 +3505,7 @@ cl.classname = k
 			argnames = {'arg'},
 			__tostring = function(self)
 				return 'move(target, '
-					..movedirs[bit.rshift(self.arg, 5)]
+					..bit.rshift(self.arg, 5)
 					..', '..hex2(bit.band(self.arg, 0x1f)+1)..')'
 			end,
 		}
@@ -3509,8 +3514,7 @@ cl.classname = k
 			argtypes = {uint8_t},
 			argnames = {'arg'},
 			__tostring = function(self)
-				return [[$F71D fight: set frame to ]]
-					..hex2(self.arg)..[[ and jump forward with weapon]]
+				return 'showFrameAndJumpFwdWithWeapon('..hex2(self.arg)..') '
 			end,
 		}
 
@@ -3548,7 +3552,7 @@ cl.classname = k
 			argnames = {'arg'},
 			__tostring = function(self)
 				return 'if animationIsHflipped() then setDirAndMove('
-					..movedirs[bit.rshift(self.arg, 5)]
+					..bit.rshift(self.arg, 5)
 					..', '..hex2(bit.band(self.arg, 0x1f)+1)..') end'
 			end,
 		}
@@ -3574,7 +3578,7 @@ cl.classname = k
 			__tostring = function(self)
 				-- TODO either 0x8D or 0x8F should probably be 'vflipped'
 				return 'if animationIsHflipped() then setDirAndMove('
-					..movedirs[bit.rshift(self.arg, 5)]
+					..bit.rshift(self.arg, 5)
 					..', '..hex2(bit.band(self.arg, 0x1f)+1)..') end'
 			end,
 		}
@@ -3583,14 +3587,14 @@ cl.classname = k
 			argtypes = {uint8_t},
 			argnames = {'arg'},
 			__tostring = function(self)
-				return 'set thread sprite tile priority to '
+				return 'setThreadSpriteTilePriorityTo('
 					..bit.band(3, bit.rshift(self.arg, 4))
-					..' (tile priority)'
+					..')'
 			end,
 		}
 		BattleAnimCmds[0x91] = BattleAnimCmd:subclass{
 			cmd = 0x91,
-			desc = 'move this thread to attacker thread position',
+			desc = 'moveThreadToAttackerThreadPos()',
 		}
 		BattleAnimCmds[0x92] = BattleAnimCmd:subclass{
 			cmd = 0x92,
@@ -3622,12 +3626,12 @@ cl.classname = k
 			argtypes = {uint8_t, uint8_t},
 			argnames = {'xx', 'yy'},
 			__tostring = function(self)
-				return 'if idk then jump backwards '..hex2(self.xx)
+				return 'moveVecBoomerang('..hex2(self.xx)..', '..hex2(self.yy)..')'
 			end,
 		}
 		BattleAnimCmds[0x97] = BattleAnimCmd:subclass{
 			cmd = 0x97,
-			desc = 'boomerang/wing edge/full moon/rising sun',
+			desc = 'boomerang()',
 		}
 		BattleAnimCmds[0x98] = BattleAnimCmd:subclass{
 			cmd = 0x98,
@@ -3645,8 +3649,27 @@ cl.classname = k
 		}
 		BattleAnimCmds[0x9A] = BattleAnimCmd:subclass{
 			cmd = 0x9A,
-			desc = 'set thread facing direction to match attacker',
+			desc = 'setThreadFacingDirToMatchAttacker()',
 		}
+
+		BattleAnimCmds[0x9b] = BattleAnimCmd:subclass{
+			cmd = 0x9b,
+			argtypes = {uint8_t},
+			desc = 'blockDrawOrder(<?=self.args[1]?>)',
+		}
+
+		BattleAnimCmds[0x9c] = BattleAnimCmd:subclass{
+			cmd = 0x9c,
+			argtypes = {uint8_t},
+			desc = 'moveIfBlockFlipped(<?=self.args[1]?>)',
+		}
+
+		BattleAnimCmds[0x9e] = BattleAnimCmd:subclass{
+			cmd = 0x9e,
+			argtypes = {uint8_t, uint8_t},
+			desc = 'flipTargetDir(<?=self.args:mapi(tostring):concat", "?>)',
+		}
+
 
 		BattleAnimCmds.AnimThreadLoop = BattleAnimCmd:subclass(ForLoop, {
 			cmd = 0x9f,
@@ -3676,13 +3699,14 @@ cl.classname = k
 			argtypes = {uint8_t, uint8_t},
 			argnames = {'arg', 'arg2'},
 			__tostring = function(self)
-				return 'jump backward along vector (speed '
-					..hex2(self.arg)..', code branch '..hex2(self.arg2)..')'
+				return 'jumpBackAlongVec('
+					..hex2(self.arg)..', '..hex2(self.arg2)..')'
 			end,
 		}
 		BattleAnimCmds[0xA2] = BattleAnimCmd:subclass{
 			cmd = 0xA2,
-			desc = 'drill()',
+			argtypes = {uint8_t},
+			desc = 'hflipAnim(<?=self.args[1]?>)',
 		}
 		BattleAnimCmds[0xA3] = BattleAnimCmd:subclass{
 			cmd = 0xA3,
@@ -3782,7 +3806,7 @@ cl.classname = k
 			argtypes = {uint8_t},
 			argnames = {'arg'},
 			__tostring = function(self)
-				return 'set screen mosaic to '..hex2(self.arg)..' ($2106)'
+				return 'setMosaic('..hex2(self.arg)..')'
 			end,
 		}
 
@@ -3867,8 +3891,8 @@ cl.classname = k
 				local subcmd = read(uint8_t)
 				if subcmd == 0x00 then
 					local arg = read(uint8_t)
-					self.descstr = 'setAttackingCharacterDirectionToFace()'
-						..(arg == 0 and 'left' or 'right')
+					self.descstr = 'setAttackingCharacterDirectionToFace('..arg..')'
+						--..(arg == 0 and 'left' or 'right')
 				elseif subcmd == 0x01 then
 					self.descstr = 'resetPositionOffsetsForAttackingCharacter()'
 				elseif subcmd == 0x02 then
@@ -3882,8 +3906,8 @@ cl.classname = k
 					error'here'
 					self.descstr = '(unused)'
 				elseif subcmd == 0x06 then
-					local arg, arg2 = read(uint8_t), read(uint8_t)
-					self.descstr = ''
+					local x, y= read(uint8_t), read(uint8_t)
+					self.descstr = 'setCharPos('..x..', '..y..')'
 				elseif subcmd == 0x07 then
 					self.descstr = 'updateCharacterActionBasedOnVectorDirectionWalking()'
 				elseif subcmd == 0x08 then
@@ -3905,6 +3929,7 @@ cl.classname = k
 				elseif subcmd == 0x0D then
 					local arg = read(uint8_t)
 					self.descstr = ''
+					error'here'
 				elseif subcmd == 0x0E then
 					local arg = read(uint8_t)
 					self.descstr = 'screenShaking( '..hex2(arg)..')'	-- $6285
@@ -3914,6 +3939,7 @@ cl.classname = k
 				elseif subcmd == 0x10 then
 					local xx = read(uint8_t)
 					self.descstr = ''
+					error'here'
 				elseif subcmd == 0x11 then
 					self.descstr = 'disable run from battle'
 				else
@@ -4057,9 +4083,9 @@ cl.classname = k
 			argtypes = {uint8_t},
 			argnames = {'arg'},
 			__tostring = function(self)
-				return 'set monster'
-					..(0 ~= bit.band(1, self.arg) and ' hflip' or '')
-					..(0 ~= bit.band(2, self.arg) and ' vflip' or '')
+				return 'setMonster('..self.arg..')'
+					--..(0 ~= bit.band(1, self.arg) and ' hflip' or '')
+					--..(0 ~= bit.band(2, self.arg) and ' vflip' or '')
 			end,
 		}
 
@@ -4122,7 +4148,7 @@ cl.classname = k
 		}
 		BattleAnimCmds[0xDC] = BattleAnimCmd:subclass{
 			cmd = 0xDC,
-			desc = 'rotate triangle 2D',
+			desc = 'rotateTriangle2D()',
 		}
 		BattleAnimCmds[0xDD] = BattleAnimCmd:subclass{
 			cmd = 0xDD,
@@ -4223,99 +4249,91 @@ cl.classname = k
 			argnames = {'arg'},	-- _13__xxxx
 			desc = 'setBGScreenPos(<?=arg?>)',
 		}
+
+		local numThreadsForAnim = {
+		[0x7d] = 3,
+		[0x7a] = 8,
+		[0x78] = 4,
+		[0x75] = 3,
+		[0x74] = 1,
+		[0x5b] = 3,
+		[0x56] = 3,
+		[0x53] = 6,
+		[0x4d] = 3,
+		[0x4c] = 8,
+		[0x4a] = 8,
+		[0x47] = 4,
+		[0x1e] = 6,
+		[0x20] = 6,
+		[0x31] = 3,
+		[0x1a] = 6,
+		[0x15] = 6,
+		[0x30] = 8,
+		[0x22] = 6,
+		[0x2e] = 6,
+		[0x21] = 6,
+		[0x14] = 6,
+		[0x1c] = 4,
+		--[0x28] = {1,6,3,2,2,1,1}
+		[0x18] = 6,
+		[0x25] = 3,
+		[0x17] = 2,
+		}
+
+		-- how often does this get a non-1 threads for battle anims >= 256?
+		local numThreadsForAddr = {
+			[0x100f5f] = 8,
+			[0x10139d] = 3,
+			[0x10141f] = 3,
+			[0x10147b] = 6,
+			[0x1018cd] = 3,
+			[0x101c21] = 2,
+			[0x101d78] = 6,
+			[0x101e89] = 6,
+			[0x101f5c] = 6,
+			[0x101fc1] = 6,
+			[0x102162] = 6,
+			[0x102438] = 3,
+			[0x10285b] = 6,
+			[0x102e73] = 2,
+			[0x103468] = 6,
+			[0x1034c0] = 6,
+			[0x1035b4] = 2,
+			[0x103670] = 3,
+			[0x10390d] = 6,
+			[0x103bfc] = 6,
+			[0x103d5f] = 6,
+			[0x103e53] = 3,
+			[0x10422d] = 3,
+			[0x10426c] = 3,
+			[0x10441f] = 3,
+			[0x10452e] = 3,
+			[0x10456b] = 8,
+			[0x104767] = 8,
+			[0x104fc6] = 3,
+			[0x105141] = 6,
+			[0x10571e] = 8,
+			[0x105873] = 3,
+			[0x1058f8] = 8,
+			[0x105b42] = 6,
+			[0x105d51] = 3,
+			[0x105d73] = 6,
+			[0x105f25] = 8,
+			[0x10625a] = 6,
+			[0x1062a4] = 6,
+			[0x10632f] = 6,
+			[0x1063a6] = 2,
+			[0x106485] = 6,
+			[0x1064d2] = 6,
+		}--or 4
+
+
 		BattleAnimCmds.GotoForThread = BattleAnimCmd:subclass{
 			cmd = 0xEB,
 			digest = function(self, read)
 
 				-- TODO this is gonna vary
-				local numThreads = 4
-				if self.addr == 0x100f5f then
-					numThreads = 8
-				elseif self.addr == 0x10139d then
-					numThreads = 3
-				elseif self.addr == 0x10141f then
-					numThreads = 3
-				elseif self.addr == 0x10147b then
-					numThreads = 6
-				elseif self.addr == 0x1018cd then
-					numThreads = 3
-				elseif self.addr == 0x101c21 then
-					numThreads = 2
-				elseif self.addr == 0x101d78 then
-					numThreads = 6
-				elseif self.addr == 0x101e89 then
-					numThreads = 6
-				elseif self.addr == 0x101f5c then
-					numThreads = 6
-				elseif self.addr == 0x101fc1 then
-					numThreads = 6
-				elseif self.addr == 0x102162 then
-					numThreads = 6
-				elseif self.addr == 0x102438 then
-					numThreads = 3
-				elseif self.addr == 0x10285b then
-					numThreads = 6
-				elseif self.addr == 0x102e73 then
-					numThreads = 2
-				elseif self.addr == 0x103468 then
-					numThreads = 6
-				elseif self.addr == 0x1034c0 then
-					numThreads = 6
-				elseif self.addr == 0x1035b4 then
-					numThreads = 2
-				elseif self.addr == 0x103670 then
-					numThreads = 3
-				elseif self.addr == 0x10390d then
-					numThreads = 6
-				elseif self.addr == 0x103bfc then
-					numThreads = 6
-				elseif self.addr == 0x103d5f then
-					numThreads = 6
-				elseif self.addr == 0x103e53 then
-					numThreads = 3
-				elseif self.addr == 0x10422d then
-					numThreads = 3
-				elseif self.addr == 0x10426c then
-					numThreads = 3
-				elseif self.addr == 0x10441f then
-					numThreads = 3
-				elseif self.addr == 0x10452e then
-					numThreads = 3
-				elseif self.addr == 0x10456b then
-					numThreads = 8
-				elseif self.addr == 0x104767 then
-					numThreads = 8
-				elseif self.addr == 0x104fc6 then
-					numThreads = 3
-				elseif self.addr == 0x105141 then
-					numThreads = 6
-				elseif self.addr == 0x10571e then
-					numThreads = 8
-				elseif self.addr == 0x105873 then
-					numThreads = 3
-				elseif self.addr == 0x1058f8 then
-					numThreads = 8
-				elseif self.addr == 0x105b42 then
-					numThreads = 6
-				elseif self.addr == 0x105d51 then
-					numThreads = 3
-				elseif self.addr == 0x105d73 then
-					numThreads = 6
-				elseif self.addr == 0x105f25 then
-					numThreads = 8
-				elseif self.addr == 0x10625a then
-					numThreads = 6
-				elseif self.addr == 0x1062a4 then
-					numThreads = 6
-				elseif self.addr == 0x10632f then
-					numThreads = 6
-				elseif self.addr == 0x1063a6 then
-					numThreads = 2
-				elseif self.addr == 0x106485 then
-					numThreads = 6
-				elseif self.addr == 0x1064d2 then
-					numThreads = 6
-				end
+				local numThreads = numThreadsForAddr[self.addr] or 4
 
 				self.destAddrs = table()
 				for i=1,numThreads do
