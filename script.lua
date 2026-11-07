@@ -4360,7 +4360,7 @@ cl.classname = k
 			argtypes = {uint8_t},
 			argnames = {'xx'},
 			__tostring = function(self)
-				return 'set thread layer (0 = sprite, 1 = BG1, 2 = BG3)'
+				return 'setThreadLayer('..self.xx..')'
 			end,
 		}
 		BattleAnimCmds[0xED] = BattleAnimCmd:subclass{
