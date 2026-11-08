@@ -3057,7 +3057,9 @@ Game = struct{
 		{name = 'battleDialogBase', type = arrayType(uint8_t, -(0x10d200 - 0x10fd00))},							-- 0x10d200 - 0x10fd00
 
 		{name = 'battleChars', type = arrayType(BattleCharacters, 32)},											-- 0x10fd00 - 0x110000
-		{name = 'unknown_10ff40', type = arrayType(uint8_t, -(0x110000 - 0x110141))},							-- 0x110000 - 0x110141
+
+		{name = 'itemBattleAnimOfs', type = arrayType(uint16_t, 32)},											-- 0x110000 - 0x110040
+		{name = 'itemJumpThrow', type = arrayType(uint8_t, 257)},												-- 0x110040 - 0x110141
 
 		{name = 'battleAnimFrame16x16Tiles', type = arrayType(BattleAnim16x16Tile, 0x74cb)},					-- 0x110141 - 0x11ead7 ... 2 bytes each ... pointers from battleAnimFrame16x16TileOffsets offset by 0x110000 but point into here
 		{name = 'padding_11ead7', type = uint8_t},																-- 0x11ead7 - 0x11ead8 -- 'ff'

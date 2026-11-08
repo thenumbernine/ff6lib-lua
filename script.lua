@@ -3194,14 +3194,21 @@ cl.classname = k
 					local arg = read(uint8_t)
 					self.descstr = 'loadBG3AnimPal('..hex2(arg)..')'
 				elseif subcmd == 0x2D then
-					local x = read(uint16_t)
-					local y = read(uint16_t)
-					local z = read(uint16_t)
-					self.descstr = 'jumpBasedOnAttackType{'
-						..'normal='..getaddr(x)
-						..', backOrSide34='..getaddr(y)
-						..', pincerOrSide12='..getaddr(z)
-						..'}'
+					local x = battleAnimScriptAddr + read(uint16_t)
+					local y = battleAnimScriptAddr + read(uint16_t)
+					local z = battleAnimScriptAddr + read(uint16_t)
+					self.descstr = 'gotoForBattleType('
+						..Cmd.getGotoStr(x, '')..', '	-- normal
+						..Cmd.getGotoStr(y, '')..', '	-- backOrSide34
+						..Cmd.getGotoStr(z, '')			-- pincerOrSide12
+						..')'
+					self.getBranchAddrs = function(self)
+						return {
+							{addr=x},
+							{addr=y},
+							{addr=z},
+						}
+					end
 				elseif subcmd == 0x2E then
 					local x = read(uint8_t)
 					local y = read(uint8_t)
@@ -3832,9 +3839,17 @@ cl.classname = k
 		BattleAnimCmds[0xC1] = BattleAnimCmd:subclass{
 			cmd = 0xC1,
 			argtypes = {uint8_t, uint8_t},
-			argnames = {'speed', 'addrOfs'},
+			getargs = function(self, speed, addrOfs)
+				self.speed = speed
+				self.destAddr = self.addr + 2 - addrOfs
+			end,
 			__tostring = function(self)
-				return 'moveAlongVecInArc('..self.speed..', '..Cmd.getGotoStr(self.addr + 2 - self.addrOfs, '')..')'
+				-- TODO make this the end of a repeat loop
+				-- all has to be done in run-script.lua
+				return 'moveAlongVecInArcUntil('..self.speed..', '..Cmd.getGotoStr(self.destAddr, '')..')'
+			end,
+			getBranchAddrs = function(self)
+				return {{addr=self.destAddr}}
 			end,
 		}
 		BattleAnimCmds[0xc2] = BattleAnimCmd:subclass{
@@ -4023,7 +4038,7 @@ cl.classname = k
 				__tostring = function(self)
 					local arg = self.arg
 					return 'change'..pal..'PaletteAdd{'
-						.."func='"..(0 ~= bit.band(0x10, arg) and ' sub' or ' add')..'"'
+						.."func='"..(0 ~= bit.band(0x10, arg) and 'sub' or 'add').."'"
 						..', intensity='..hex2(bit.band(0xf, arg))
 						..', red='..tostring(0 ~= bit.band(0x80, arg))
 						..', green='..tostring(0 ~= bit.band(0x40, arg))
@@ -4038,7 +4053,7 @@ cl.classname = k
 				__tostring = function(self)
 					local arg = self.arg
 					return 'change'..pal..'PaletteSub{'
-						.." func='"..(0 ~= bit.band(0x10, arg) and ' sub' or ' add').."'"
+						.."func='"..(0 ~= bit.band(0x10, arg) and 'sub' or 'add').."'"
 						..', intensity='..hex2(bit.band(0xf, arg))
 						..', red='..tostring(0 ~= bit.band(0x80, arg))
 						..', green='..tostring(0 ~= bit.band(0x40, arg))
@@ -4083,7 +4098,7 @@ cl.classname = k
 			argtypes = {uint8_t},
 			argnames = {'arg'},
 			__tostring = function(self)
-				return 'setMonster('..self.arg..')'
+				return 'setMonsterFlip('..self.arg..')'
 					--..(0 ~= bit.band(1, self.arg) and ' hflip' or '')
 					--..(0 ~= bit.band(2, self.arg) and ' vflip' or '')
 			end,
@@ -4100,7 +4115,7 @@ cl.classname = k
 			cmd = 0xD7,
 			argtypes = {uint8_t},
 			argnames = {'arg'},
-			desc ='fireDanceUpdate(<?=arg?>',
+			desc ='fireDanceUpdate(<?=arg?>)',
 		}
 		BattleAnimCmds[0xD8] = BattleAnimCmd:subclass{
 			cmd = 0xD8,
@@ -4442,7 +4457,7 @@ cl.classname = k
 			cmd = 0xF4,
 			argtypes = {uint8_t},
 			argnames = {'x'},	-- _______t
-			desc = 'setSpriteLayerPriority<?=x?>',
+			desc = 'setSpriteLayerPriority(<?=x?>)',
 		}
 		BattleAnimCmds[0xF5] = BattleAnimCmd:subclass{
 			cmd = 0xF5,
