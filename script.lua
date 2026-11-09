@@ -3606,12 +3606,19 @@ cl.classname = k
 		BattleAnimCmds[0x92] = BattleAnimCmd:subclass{
 			cmd = 0x92,
 			argtypes = {uint8_t, uint8_t},
-			argnames = {'speed', 'branch'},
+			getargs = function(self, speed, addrOfs)
+				self.speed = speed
+				self.destAddr = self.addr + 2 - addrOfs
+			end,
 			__tostring = function(self)
 				-- TODO this is an end-loop and branch is how many instructions to go back
-				return 'moveAlongVec('
+				return 'moveAlongVecUntil('
 					..self.speed..', '
-					..self.branch..')'
+					..Cmd.getGotoStr(self.destAddr, '')
+					..')'
+			end,
+			getBranchAddrs = function(self)
+				return {{addr=self.destAddr}}
 			end,
 		}
 		BattleAnimCmds[0x93] = BattleAnimCmd:subclass{
@@ -3846,7 +3853,10 @@ cl.classname = k
 			__tostring = function(self)
 				-- TODO make this the end of a repeat loop
 				-- all has to be done in run-script.lua
-				return 'moveAlongVecInArcUntil('..self.speed..', '..Cmd.getGotoStr(self.destAddr, '')..')'
+				return 'moveAlongVecInArcUntil('
+					..self.speed..', '
+					..Cmd.getGotoStr(self.destAddr, '')
+					..')'
 			end,
 			getBranchAddrs = function(self)
 				return {{addr=self.destAddr}}

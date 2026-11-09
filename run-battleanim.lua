@@ -73,7 +73,7 @@ i.e. 256x1600 i.e. 6.25 x 256x256 sheets
 local battleAnimGraphicSetsPath = path'battleanim_graphicsets'
 battleAnimGraphicSetsPath:mkdir()
 
-local function runBattleAnim(game)
+local function runBattleAnim(game, cmdline)
 	local rom = game.rom
 	local romsize = game.romsize
 	local countof = game.countof
@@ -575,26 +575,25 @@ local function runBattleAnim(game)
 	end
 
 
-	-- [===[ extra ... atlas
-	battleAnimEffectPath:cd()
-	os.exec('rm -fr atlas')
-	assert(os.exec('../../numo9/extra-scripts/multi-atlas.rua nodups startIndex=494'))
-	local atlasResult = assert(require 'ext.fromlua'((assert(path'atlas/atlas.lua':read()))))
-	for atlasIndex,atlasEntries in ipairs(atlasResult) do
-		for _,ae in ipairs(atlasEntries) do
-			local effect,frame = ae.f:match'^(%d+)%-(%d+)%.png$'
-			effect=assert(tonumber(effect))
-			frame=assert(tonumber(frame))
-			local dst = assert.index(assert.index(effectAtlasInfo, effect), frame)
-			dst.atlasOfs = atlasIndex-1
-			dst.shx, dst.shy = table.unpack(ae.placePos)
-			dst.sx, dst.sy = table.unpack(ae.sizeInTiles)
-			dst.flip = ae.flip or 0
+	if cmdline.atlas then
+		battleAnimEffectPath:cd()
+		os.exec('rm -fr atlas')
+		assert(os.exec('../../numo9/extra-scripts/multi-atlas.rua nodups startIndex=494'))
+		local atlasResult = assert(require 'ext.fromlua'((assert(path'atlas/atlas.lua':read()))))
+		for atlasIndex,atlasEntries in ipairs(atlasResult) do
+			for _,ae in ipairs(atlasEntries) do
+				local effect,frame = ae.f:match'^(%d+)%-(%d+)%.png$'
+				effect=assert(tonumber(effect))
+				frame=assert(tonumber(frame))
+				local dst = assert.index(assert.index(effectAtlasInfo, effect), frame)
+				dst.atlasOfs = atlasIndex-1
+				dst.shx, dst.shy = table.unpack(ae.placePos)
+				dst.sx, dst.sy = table.unpack(ae.sizeInTiles)
+				dst.flip = ae.flip or 0
+			end
 		end
+		path'effectAtlasInfo-lua.txt':write(require 'ext.tolua'(effectAtlasInfo))
 	end
-	path'effectAtlasInfo-lua.txt':write(require 'ext.tolua'(effectAtlasInfo))
-	error'done'	-- don't normally do this
-	--]===]
 end
 
 if select('#', ...) > 0 then
