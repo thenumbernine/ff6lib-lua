@@ -1,5 +1,6 @@
 #!/usr/bin/env luajit
 local ffi = require 'ffi'
+local os = require 'ext.os'
 local path = require 'ext.path'
 local table = require 'ext.table'
 local assert = require 'ext.assert'
@@ -154,6 +155,7 @@ local function runBattleAnim(game)
 	local totalTilesSaved = 0
 
 	local battleAnimEffectPath = path'battleanim-effects'
+	os.exec('rm -fr '..battleAnimEffectPath:escape())
 	battleAnimEffectPath:mkdir()
 
 	local palettesForBattleAnimEffects = table()	 -- key = battleAnimEffect #, value = palette #s
@@ -178,6 +180,8 @@ local function runBattleAnim(game)
 	print('total 8x8 tiles used for battle animations:', totalTilesSaved)
 	print()
 
+	-- effectAtlasInfo[effectIndex][frameIndex] = {...}
+	local effectAtlasInfo = table()
 	local uniqueEffects = {}
 	for effectIndex=0,countof(game.battleAnimEffects)-1 do
 		local effect = battleAnimEffects + effectIndex
@@ -349,21 +353,25 @@ local function runBattleAnim(game)
 			if not rect.xmin then
 				print('!!! WARNING !!! EMPTY FRAME AT '..effectIndex..'-'..frameIndex)
 			else
-				print('effect', effectIndex, 'frame', frameIndex, 'rect', require 'ext.tolua'(rect))
+				--print('effect', effectIndex, 'frame', frameIndex, 'rect', require 'ext.tolua'(rect))
 				-- convert to 8x8 tile aligned [incl,excl)
 				rect.xmin = math.floor(rect.xmin / 8) * 8
 				rect.ymin = math.floor(rect.ymin / 8) * 8
 				rect.xmax = math.ceil((rect.xmax + 1) / 8) * 8
 				rect.ymax = math.ceil((rect.ymax + 1) / 8) * 8
+				effectAtlasInfo[effectIndex] = effectAtlasInfo[effectIndex] or table()
+				effectAtlasInfo[effectIndex][frameIndex] = effectAtlasInfo[effectIndex][frameIndex] or table()
+				effectAtlasInfo[effectIndex][frameIndex].scx = rect.xmin
+				effectAtlasInfo[effectIndex][frameIndex].scy = rect.ymin
 				im = im:copy{
 					x = rect.xmin,
 					y = rect.ymin,
 					width = rect.xmax - rect.xmin,
 					height = rect.ymax - rect.ymin,
 				}
-			end
 
-			im:save(battleAnimEffectPath / ('%03d-%02d.png'):format(effectIndex, frameIndex))
+				im:save(battleAnimEffectPath / ('%03d-%02d.png'):format(effectIndex, frameIndex))
+			end
 		end
 		print()
 	end
@@ -565,6 +573,28 @@ local function runBattleAnim(game)
 			..('0x%06x'):format(game.battleAnimScriptOffsets[i] + 0x100000)
 		)
 	end
+
+
+	-- [===[ extra ... atlas
+	battleAnimEffectPath:cd()
+	os.exec('rm -fr atlas')
+	assert(os.exec('../../numo9/extra-scripts/multi-atlas.rua nodups startIndex=494'))
+	local atlasResult = assert(require 'ext.fromlua'((assert(path'atlas/atlas.lua':read()))))
+	for atlasIndex,atlasEntries in ipairs(atlasResult) do
+		for _,ae in ipairs(atlasEntries) do
+			local effect,frame = ae.f:match'^(%d+)%-(%d+)%.png$'
+			effect=assert(tonumber(effect))
+			frame=assert(tonumber(frame))
+			local dst = assert.index(assert.index(effectAtlasInfo, effect), frame)
+			dst.atlasOfs = atlasIndex-1
+			dst.shx, dst.shy = table.unpack(ae.placePos)
+			dst.sx, dst.sy = table.unpack(ae.sizeInTiles)
+			dst.flip = ae.flip or 0
+		end
+	end
+	path'effectAtlasInfo-lua.txt':write(require 'ext.tolua'(effectAtlasInfo))
+	error'done'	-- don't normally do this
+	--]===]
 end
 
 if select('#', ...) > 0 then
