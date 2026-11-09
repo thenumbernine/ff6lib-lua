@@ -11,6 +11,12 @@ local tileWidth = require 'graphics'.tileWidth
 local tileHeight = require 'graphics'.tileHeight
 local readTile = require 'graphics'.readTile
 
+
+local uint8_t = ffi.typeof'uint8_t'
+local uint8_t_ptr = ffi.typeof'uint8_t*'
+local uint16_t_arr = ffi.typeof'uint16_t[?]'
+
+
 --[[
 this is a script used to dump binaries and sprite-sheets for use with numo9's ff6t3d
 
@@ -103,7 +109,7 @@ local function runBattleAnim(game)
 	ffi.copy(battleAnimEffects, game.battleAnimEffects, ffi.sizeof(battleAnimEffects))
 	battleAnimGraphicSetsPath'animeffects.bin':write(ffi.string(battleAnimEffects, ffi.sizeof(battleAnimEffects)))
 
-	local battleAnimFrame16x16TileOffsets = ffi.new('uint16_t[?]', 4194)
+	local battleAnimFrame16x16TileOffsets = uint16_t_arr(4194)
 	ffi.copy(battleAnimFrame16x16TileOffsets, game.battleAnimFrame16x16TileOffsets, ffi.sizeof(battleAnimFrame16x16TileOffsets))
 	battleAnimGraphicSetsPath'animframe16x16offsets.bin':write(ffi.string(battleAnimFrame16x16TileOffsets, ffi.sizeof(battleAnimFrame16x16TileOffsets)))
 
@@ -236,7 +242,7 @@ local function runBattleAnim(game)
 			frame16x16TileAddrInfo[frame16x16TilesAddr][key] = true
 
 			-- convert the 0x110000-relative address into an battleAnimFrame16x16Tiles[] index since thats where it points after all
-			local battleAnimFrame16x16TilesAddr = ffi.cast('uint8_t*', game.battleAnimFrame16x16Tiles) - ffi.cast('uint8_t*', rom)
+			local battleAnimFrame16x16TilesAddr = ffi.cast(uint8_t_ptr, game.battleAnimFrame16x16Tiles) - ffi.cast(uint8_t_ptr, rom)
 			local animFrame16x16TileOffset = frame16x16TilesAddr - battleAnimFrame16x16TilesAddr
 			assert.le(0, animFrame16x16TileOffset)
 			assert.lt(animFrame16x16TileOffset, ffi.sizeof(game.battleAnimFrame16x16Tiles))	-- will this sizeof work?
@@ -255,7 +261,7 @@ local function runBattleAnim(game)
 				2*tileWidth * effect.width,
 				2*tileHeight * effect.height,
 				1,
-				'uint8_t'
+				uint8_t
 			)
 				:clear()
 
@@ -336,6 +342,27 @@ local function runBattleAnim(game)
 
 			local paltable = makePalette(game, game.battleAnimPalettes + paletteIndex, bpp, bit.lshift(1, bpp))
 			im.palette = paltable
+
+			-- now find smallest region of non-transparent
+			-- getZealousCropRect returns [incl,incl]
+			local rect = im:getZealousCropRect()
+			if not rect.xmin then
+				print('!!! WARNING !!! EMPTY FRAME AT '..effectIndex..'-'..frameIndex)
+			else
+				print('effect', effectIndex, 'frame', frameIndex, 'rect', require 'ext.tolua'(rect))
+				-- convert to 8x8 tile aligned [incl,excl)
+				rect.xmin = math.floor(rect.xmin / 8) * 8
+				rect.ymin = math.floor(rect.ymin / 8) * 8
+				rect.xmax = math.ceil((rect.xmax + 1) / 8) * 8
+				rect.ymax = math.ceil((rect.ymax + 1) / 8) * 8
+				im = im:copy{
+					x = rect.xmin,
+					y = rect.ymin,
+					width = rect.xmax - rect.xmin,
+					height = rect.ymax - rect.ymin,
+				}
+			end
+
 			im:save(battleAnimEffectPath / ('%03d-%02d.png'):format(effectIndex, frameIndex))
 		end
 		print()
@@ -401,7 +428,7 @@ local function runBattleAnim(game)
 			setWidth * masterSetsWide,
 			setHeight * masterSetsHigh,
 			4,	-- rgba
-			'uint8_t'
+			uint8_t
 		):clear()
 
 		-- only plot the even graphicSetIndex tiles cuz the odd ones have a row in common
@@ -428,7 +455,7 @@ local function runBattleAnim(game)
 			local im = Image(
 				0x10*tileWidth,
 				4*tileHeight,
-				1, 'uint8_t'
+				1, uint8_t
 			)
 			im.palette = makePalette(game, game.battleAnimPalettes + paletteIndex, bpp, bit.lshift(1, bpp))
 			for y=0,3 do
@@ -474,7 +501,7 @@ local function runBattleAnim(game)
 		local sheetSize = tilesPerSheetSize * tileWidth	-- == tileHeight
 		local tilesPerSheetMask = tilesPerSheetSize-1
 
-		local tileImg = Image(tileWidth, tileHeight, 1, 'uint8_t')
+		local tileImg = Image(tileWidth, tileHeight, 1, uint8_t)
 
 		for bpp=2,3 do
 			local info = infoPerBpp[bpp]
@@ -500,7 +527,7 @@ local function runBattleAnim(game)
 				)
 				local sheet = allTileSheets[sheetIndex+1]
 				if not sheet then
-					sheet = Image(sheetSize, sheetSize, 1, 'uint8_t'):clear()
+					sheet = Image(sheetSize, sheetSize, 1, uint8_t):clear()
 					allTileSheets[sheetIndex+1] = sheet
 				end
 
