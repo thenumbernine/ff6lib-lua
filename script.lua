@@ -3494,7 +3494,7 @@ cl.classname = k
 		}
 		BattleAnimCmds.MoveToAttacker = BattleAnimCmd:subclass{
 			cmd = 0x85,
-			desc = 'moveToAttacker_84()',
+			desc = 'moveToAttacker_85()',
 		}
 		BattleAnimCmds[0x86] = BattleAnimCmd:subclass{
 			cmd = 0x86,
@@ -3511,7 +3511,7 @@ cl.classname = k
 			argtypes = {uint8_t},
 			argnames = {'arg'},
 			__tostring = function(self)
-				return 'move(target, '
+				return 'move(ctx().target, '
 					..bit.rshift(self.arg, 5)
 					..', '..hex2(bit.band(self.arg, 0x1f)+1)..')'
 			end,
@@ -3694,27 +3694,38 @@ cl.classname = k
 			end,
 		})
 
-		BattleAnimCmds[0xA0] = BattleAnimCmd:subclass{
-			cmd = 0xA0,
+		BattleAnimCmds[0xa0] = BattleAnimCmd:subclass{
+			cmd = 0xa0,
 			argtypes = {uint8_t, uint8_t},
 			getargs = function(self, speed, addrOfs)
 				self.speed = speed
 				self.destAddr = self.addr + 2 - addrOfs
 			end,
 			__tostring = function(self)
-				return 'moveAlongVecAndGoto('
+				return 'jumpFwdAlongVecUntil('
 					..self.speed..', '
 					..Cmd.getGotoStr(self.destAddr, '')
 					..')'
 			end,
+			getBranchAddrs = function(self)
+				return {{addr=self.destAddr}}
+			end,
 		}
-		BattleAnimCmds[0xA1] = BattleAnimCmd:subclass{
-			cmd = 0xA1,
+		BattleAnimCmds[0xa1] = BattleAnimCmd:subclass{
+			cmd = 0xa1,
 			argtypes = {uint8_t, uint8_t},
-			argnames = {'arg', 'arg2'},
+			getargs = function(self, speed, addrOfs)
+				self.speed = speed
+				self.destAddr = self.addr + 2 - addrOfs
+			end,
 			__tostring = function(self)
-				return 'jumpBackAlongVec('
-					..hex2(self.arg)..', '..hex2(self.arg2)..')'
+				return 'jumpBackAlongVecUntil('
+					..self.speed..', '
+					..Cmd.getGotoStr(self.destAddr, '')
+					..')'
+			end,
+			getBranchAddrs = function(self)
+				return {{addr=self.destAddr}}
 			end,
 		}
 		BattleAnimCmds[0xA2] = BattleAnimCmd:subclass{
@@ -4235,7 +4246,7 @@ cl.classname = k
 			end,
 			argnames = {'x', 'addrOfs', 'y'},
 			__tostring = function(self)
-				return 'moveCharAlongVecAndGoto('
+				return 'moveCharAlongVecUntil('
 					..self.x..', '
 					..self.y..', '
 					..Cmd.getGotoStr(self.destAddr, '')
