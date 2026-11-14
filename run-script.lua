@@ -778,7 +778,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 						s = s .. '||do\n'
 					end
 				else
-					s = s .. (addrLabel(self.addr)..'=||do\n')
+					s = s .. (disasm:addrLabel(self.addr)..'=||do\n')
 				end
 
 			else
@@ -792,7 +792,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 							s = s .. '::'..label..'::\n'
 						end
 					else
-						s = s .. '::' .. addrLabel(self.addr) .. '::\n'
+						s = s .. '::' .. disasm:addrLabel(self.addr) .. '::\n'
 					end
 				end
 			end
@@ -1928,7 +1928,7 @@ end
 						If{
 							cond = o:getCond(),
 							stmts = {
-								Goto{dest=addrLabel(o:getDestAddr())},
+								Goto{dest=disasm:addrLabel(o:getDestAddr())},
 							},
 						}
 					)
@@ -2084,7 +2084,7 @@ end
 					)
 				end
 			end
-			buildForLoops(game, 'eventScriptCmds')
+			buildForLoops(disasm, 'eventScriptCmds')
 		end
 
 		-- [[ same but with if-statements?
@@ -2235,7 +2235,7 @@ print(('!!! replacing if-goto with while-loop %06x -> %06x'):format(cmd.addr, de
 					i=i-1
 				end
 			end
-			buildIfStmts(game, 'eventScriptCmds')
+			buildIfStmts(disasm, 'eventScriptCmds')
 		end
 		--]]
 
@@ -2421,7 +2421,7 @@ print(('!!! replacing if-goto with while-loop %06x -> %06x'):format(cmd.addr, de
 	print()
 
 	do
-		local function addrtostr(x) return addrLabel(x) end
+		local function addrtostr(x) return disasm:addrLabel(x) end
 		local function check(a,b)
 			if a.endAddr > b.addr then
 				print('!!! collision between '..a:printInterval()..' and '..b:printInterval())

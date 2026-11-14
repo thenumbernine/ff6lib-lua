@@ -1834,22 +1834,19 @@ cl.classname = k
 	ObjectCmds.Branch = ObjectCmd:subclass{
 		--cmd = 0xfa,
 		argtypes = {uint8_t},
-		getargs = function(self, offset)
-			if offset == 0xff then
-				self.destAddr = self.addr
-			else
-				self.destAddr = self.dir == '-'
-					and self.addr - offset
-					or self.addr + offset
-			end
+		argnames = {'offset'},
+		getDestAddr = function(self)
+			if self.offset == 0xff then return end -- return self.addr end
+			return self.dir == '-'
+				and self.addr - self.offset
+				or self.addr + self.offset
 		end,
-
 		-- TODO you will have to generate a label for this instruction, and for wherever it is going
 		__tostring = function(self)
 			-- no signed offset in any branch is >= 0x80
 			--  except branch-backwards -1 i.e. "FC FF"
 			-- in that case, insert an end.
-			if self.destAddr == self.addr then
+			if self.offset == 0xff then
 				return 'while true do yield() end'
 			end
 
@@ -1859,10 +1856,6 @@ cl.classname = k
 			end
 
 			return s
-		end,
-
-		getDestAddr = function(self)
-			return self.destAddr
 		end,
 
 		-- idk that i necessarily want a new trace, just a label...
