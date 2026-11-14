@@ -243,7 +243,7 @@ function ItemWindow:showIndexUI()
 
 	if not self.eventScriptCmdsWithThis then
 		self.eventScriptCmdsWithThis = table()
-		for _,cmd in ipairs(game.eventScriptCmds) do
+		for _,cmd in ipairs(game.disasm.eventScriptCmds) do
 			local cmdname
 			for _,checkcmdname in ipairs{'GiveItem', 'TakeItem'} do
 				if game.EventCmds[checkcmdname]:isa(cmd) then

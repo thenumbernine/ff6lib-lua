@@ -25,31 +25,31 @@ function EventScriptWindow:init(args, ...)
 	-- while we're here...
 	-- insert into the beginning of each script function a reference back to whoever is calling it
 	-- and an empty divider
-	for i=#game.eventScriptCmds,1,-1 do
-		local cmd = game.eventScriptCmds[i]
-		local whatPointsToScriptAdAddr = game.whatsPointingToAddr[cmd.addr]
+	for i=#game.disasm.eventScriptCmds,1,-1 do
+		local cmd = game.disasm.eventScriptCmds[i]
+		local whatPointsToScriptAdAddr = game.disasm.whatsPointingToAddr[cmd.addr]
 		if whatPointsToScriptAdAddr then
-			game.eventScriptCmds:insert(i, {what=whatPointsToScriptAdAddr})
-			game.eventScriptCmds:insert(i, scriptDivider)
+			game.disasm.eventScriptCmds:insert(i, {what=whatPointsToScriptAdAddr})
+			game.disasm.eventScriptCmds:insert(i, scriptDivider)
 		end
 	end
 
 	-- and now I have to recalculate eventScriptCmdIndexForAddr
-	game.eventScriptCmdIndexForAddr = {}
-	for i,cmd in ipairs(game.eventScriptCmds) do
+	game.disasm.eventScriptCmdIndexForAddr = {}
+	for i,cmd in ipairs(game.disasm.eventScriptCmds) do
 		if cmd.addr then
-			game.eventScriptCmdIndexForAddr[cmd.addr] = i
+			game.disasm.eventScriptCmdIndexForAddr[cmd.addr] = i
 		end
 	end
 end
 
 function EventScriptWindow:getArray()
-	return self.app.game.eventScriptCmds
+	return self.app.game.disasm.eventScriptCmds
 end
 
 -- used for buttons, index is 0-based
 function EventScriptWindow:getIndexName(i)
-	local cmd = self.app.game.eventScriptCmds[1+i]
+	local cmd = self.app.game.disasm.eventScriptCmds[1+i]
 	if not cmd.addr then return '' end
 	return ('event $%06x'):format(cmd.addr)
 end
@@ -417,7 +417,7 @@ end
 
 function EventScriptWindow:openScriptAddr(scriptAddr)
 	self.indexStack:insert(self.index)
-	self.index = self.app.game.eventScriptCmdIndexForAddr[scriptAddr]
+	self.index = self.app.game.disasm.eventScriptCmdIndexForAddr[scriptAddr]
 	if not self.index then
 		print(("couldn't find event script command at address $%06x"):format(scriptAddr))
 		self.index = 0

@@ -44,7 +44,7 @@ function ShopWindow:showIndexUI()
 
 	if not self.eventScriptCmdsWithThis then
 		self.eventScriptCmdsWithThis = table()
-		for _,cmd in ipairs(game.eventScriptCmds) do
+		for _,cmd in ipairs(game.disasm.eventScriptCmds) do
 			if game.EventCmds.OpenShopMenu:isa(cmd)
 			and cmd.shopIndex == self.index
 			then

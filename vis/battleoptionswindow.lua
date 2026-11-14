@@ -242,7 +242,7 @@ function EventBattleOptionsWindow:showIndexUI(...)
 
 	if not self.eventScriptCmdsWithThis then
 		self.eventScriptCmdsWithThis = table()
-		for _,cmd in ipairs(game.eventScriptCmds) do
+		for _,cmd in ipairs(game.disasm.eventScriptCmds) do
 			if game.Cmds.Battle:isa(cmd)
 			and cmd.eventBattleOptionsIndex == self.index
 			then

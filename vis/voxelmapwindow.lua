@@ -644,11 +644,11 @@ function VoxelmapWindow:updateWindow()
 
 							local nextaddr = addrsInOrder[addrsInOrder:find(addr)+1]
 
-							local startCmdIndex = game.eventScriptCmdIndexForAddr[addr]
-							local endCmdIndex = (game.eventScriptCmdIndexForAddr[nextaddr] or #game.eventScriptCmds+1)-1
+							local startCmdIndex = game.disasm.eventScriptCmdIndexForAddr[addr]
+							local endCmdIndex = (game.disasm.eventScriptCmdIndexForAddr[nextaddr] or #game.disasm.eventScriptCmds+1)-1
 
 							for i=startCmdIndex, endCmdIndex do
-								lprint('', '', ''..tostring(game.eventScriptCmds[i]))
+								lprint('', '', ''..tostring(game.disasm.eventScriptCmds[i]))
 							end
 
 							lprint('', 'end,')
