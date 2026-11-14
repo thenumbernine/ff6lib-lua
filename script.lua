@@ -55,37 +55,6 @@ return function(game)
 	game.rom[0x0b9dd1] = 0x23
 
 
-	local Disasm = require 'disasm':subclass()
-
-	Disasm.Trace = require 'disasm.trace':subclass()
-	function Disasm.Trace:getValue(o, ctype)
-		if ctype == uint24_t then
-			return o:value()
-		end
-		return Disasm.Trace.super.getValue(self, o, ctype)
-	end
-
-
-
-	local disasm = Disasm(game.rom, game.romsize)
-	game.disasm = disasm
-
-	disasm.cmdSetAbbrev = {
-		EventCmds = 'EV',
-		WorldCmds = 'WO',
-		ObjectCmds = 'OB',
-		VehicleCmds = 'VE',
-		BattleEventCmds = 'BE',
-		MonsterCmds = 'MO',
-		BattleAnimCmds = 'BA',
-	}
-
-	function disasm:addrLabel(addr)
-		return ('$%06x'):format(addr)
-	end
-
-
-
 	-- should I even bounds check?
 	local scriptBaseAddr = ffi.offsetof(Game, 'eventScript')	-- 0xa0000
 	local scriptBaseAddrEnd = scriptBaseAddr + ffi.sizeof(game.eventScript)
@@ -104,8 +73,58 @@ return function(game)
 	local battleAnimScriptAddrEnd = battleAnimScriptAddr + ffi.sizeof(game.battleAnimScriptData)
 
 --DEBUG:print('event script ranges:')
---DEBUG:print(game.addrLabel(scriptBaseAddr)..'-'..game.addrLabel(scriptBaseAddrEnd))
---DEBUG:print(game.addrLabel(scriptBaseAddr2)..'-'..game.addrLabel(scriptBaseAddrEnd2))
+--DEBUG:print(disasm:addrLabel(scriptBaseAddr)..'-'..disasm:addrLabel(scriptBaseAddrEnd))
+--DEBUG:print(disasm:addrLabel(scriptBaseAddr2)..'-'..disasm:addrLabel(scriptBaseAddrEnd2))
+
+
+
+	local Disasm = require 'disasm':subclass()
+
+	Disasm.cmdSetAbbrev = {
+		EventCmds = 'EV',
+		WorldCmds = 'WO',
+		ObjectCmds = 'OB',
+		VehicleCmds = 'VE',
+		BattleEventCmds = 'BE',
+		MonsterCmds = 'MO',
+		BattleAnimCmds = 'BA',
+	}
+
+	function Disasm:addrLabel(addr)
+		return ('$%06x'):format(addr)
+	end
+
+
+	Disasm.Trace = require 'disasm.trace':subclass()
+
+	function Disasm.Trace:readNext()
+		if not (
+			(scriptBaseAddr <= self.pc and self.pc < scriptBaseAddrEnd)
+			or (scriptBaseAddr2 <= self.pc and self.pc < scriptBaseAddrEnd2)
+			or (battleEventScriptAddr <= self.pc and self.pc < battleEventScriptAddrEnd)
+			or (monsterScriptAddr <= self.pc and self.pc < monsterScriptAddrEnd)
+			or (battleAnimScriptAddr <= self.pc and self.pc < battleAnimScriptAddrEnd)
+		) then
+print('!!! script oob !!! '..disasm:addrLabel(self.pc))
+			return
+		end
+
+		return Disasm.Trace.super.readNext(self)
+	end
+
+	function Disasm.Trace:getValue(o, ctype)
+		if ctype == uint24_t then
+			return o:value()
+		end
+		return Disasm.Trace.super.getValue(self, o, ctype)
+	end
+
+
+
+	local disasm = Disasm(game.rom, game.romsize)
+	game.disasm = disasm
+
+
 
 	-- how to generate this in a modular way that both outputs and is reusable later
 	-- for now I will insert in-order and provide an address lookup table to the index in this table
@@ -1010,7 +1029,7 @@ return function(game)
 		__tostring = function(self)
 			return 'startTimer{'
 				..self:getDescArgsWithoutCB()
-				..', cb='..game.addrLabel(self:getDestAddr())
+				..', cb='..disasm:addrLabel(self:getDestAddr())
 			..'}'
 		end,
 		getDestAddr = function(self)
@@ -1167,7 +1186,7 @@ return function(game)
 		cmd = 0xb6,
 		digest = function(self, read)
 			self.options = table()
-			if not self.trace.lastDialogPromptCount then error("required choices but no dialog at "..game.addrLabel(self.addr)) end
+			if not self.trace.lastDialogPromptCount then error("required choices but no dialog at "..disasm:addrLabel(self.addr)) end
 			for i=1,self.trace.lastDialogPromptCount do
 				self.options:insert{addrOfs = read(uint24_t)}
 			end
@@ -1176,7 +1195,7 @@ return function(game)
 			-- it's a goto, so return
 			return 'return callForDialogResult('
 				..self.options:mapi(function(option)
-					return game.addrLabel(scriptBaseAddr + option.addrOfs, '')
+					return disasm:addrLabel(scriptBaseAddr + option.addrOfs, '')
 				end):concat', '
 				..')'
 		end,
@@ -1314,7 +1333,7 @@ return function(game)
 			..self.options:mapi(function(option)
 				return '{'..option.characterIndex..', '
 					..(option.addrOfs
-						and game.addrLabel(scriptBaseAddr + option.addrOfs)
+						and disasm:addrLabel(scriptBaseAddr + option.addrOfs)
 						or 'stmts=...'
 					)..'}'
 			end):concat', '..'}'
@@ -1622,7 +1641,7 @@ cl.classname = k
 		if not dontDoTheProbablyWrongEndAddrCheck
 		and addr ~= objectScriptCmd.addr + objectScriptCmd.length + 1
 		then
-			print("!!! DANGER !!! object-script length doesn't align with end-of-script cmd:", game.addrLabel(addr), 'vs', game.addrLabel(objectScriptCmd.addr + objectScriptCmd.length + 1))
+			print("!!! DANGER !!! object-script length doesn't align with end-of-script cmd:", disasm:addrLabel(addr), 'vs', disasm:addrLabel(objectScriptCmd.addr + objectScriptCmd.length + 1))
 		end
 
 		trace.indent = trace.indent - 1
@@ -1797,7 +1816,8 @@ cl.classname = k
 		end,
 	}
 
-	Cmds.Branch =
+	-- TODO ... have to generalize things up front a bit more now
+	--Cmds.Branch =
 
 	--[[
 	here's a fun fact
@@ -1819,8 +1839,8 @@ cl.classname = k
 				self.destAddr = self.addr
 			else
 				self.destAddr = self.dir == '-'
-					and self.addr - self.offset
-					or self.addr + self.offset
+					and self.addr - offset
+					or self.addr + offset
 			end
 		end,
 
@@ -3010,7 +3030,7 @@ cl.classname = k
 
 	do
 		local function getaddr(addr)
-			return game.addrLabel(addr + battleAnimScriptAddr)
+			return disasm:addrLabel(addr + battleAnimScriptAddr)
 		end
 
 		-- dir arg for move() and setDirAndMove()
@@ -3339,7 +3359,7 @@ cl.classname = k
 				elseif subcmd == 0x72 then
 					local ofs = read(uint8_t)
 					local addr = self.trace.pc + ofs
-					self.descstr = 'if attackHit() then goto '..game.addrLabel(addr)..' end'
+					self.descstr = 'if attackHit() then goto '..disasm:addrLabel(addr)..' end'
 					self.getBranchAddrs = function(self)
 						return {{addr=addr}}
 					end
@@ -3366,7 +3386,7 @@ cl.classname = k
 				elseif subcmd == 0x7D then
 					local arg = read(uint8_t)
 					local addr = self.trace.pc + arg
-					self.descstr = 'if dragonHornEffectIsActive() then goto '..game.addrLabel(addr)..' end'
+					self.descstr = 'if dragonHornEffectIsActive() then goto '..disasm:addrLabel(addr)..' end'
 					self.getBranchAddrs = function(self)
 						return {{addr=addr}}
 					end
@@ -4330,7 +4350,7 @@ cl.classname = k
 				-- TODO count as many as threads ... how to determine # of threads?
 				return 'gotoForThread('
 					..self.destAddrs:mapi(function(addr)
-						return game.addrLabel(addr)
+						return disasm:addrLabel(addr)
 					end):concat', '
 					..')'
 			end,
@@ -4383,7 +4403,7 @@ cl.classname = k
 			__tostring = function(self)
 				return 'gotoForTarget('
 					..self.destAddrs:mapi(function(addr)
-						return game.addrLabel(addr)
+						return disasm:addrLabel(addr)
 					end):concat', '..')'
 			end,
 			getBranchAddrs = function(self)
@@ -4531,7 +4551,7 @@ cl.classname = k
 		'MonsterCmds',
 		'BattleAnimCmds',
 	} do
-		local cmdSetObj = game[cmdset]
+		local cmdSetObj = disasm[cmdset]
 		for _,cl in pairs(cmdSetObj) do
 			-- why not .cmdset?
 			-- the obj stores .cmdset dynamically

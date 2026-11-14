@@ -44,8 +44,16 @@ do
 
 	atlas:save(menucharpath/'atlas.png')
 	atlasRGBA:save(menucharpath/'atlas-rgba.png')
+	makePaletteSets(
+		game,
+		menucharpath,
+		game.menuPortraitPalette,
+		math.floor(ffi.sizeof(game.menuPortraitPalette) / ffi.sizeof(game.RGBA5551)),
+		function(index)
+			return 0xf & index == 0
+		end
+	)
 end
-
 
 -- meh the one giant out file is too big
 -- maybe make run.lua spit out individual files?

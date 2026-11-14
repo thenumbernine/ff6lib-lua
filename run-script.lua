@@ -528,24 +528,24 @@ local battleAnimNames = {
 	for _,cmdobj in ipairs(disasm.eventScriptCmds) do
 
 		-- call
-		if game.EventCmds.Call:isa(cmdobj)
-		or game.EventCmds.CallRepeat:isa(cmdobj)
-		or game.EventCmds.StartTimer:isa(cmdobj)	-- it is a function call right?  that gets returned from, right?
-		or game.BattleAnimCmds.Call:isa(cmdobj)
+		if disasm.EventCmds.Call:isa(cmdobj)
+		or disasm.EventCmds.CallRepeat:isa(cmdobj)
+		or disasm.EventCmds.StartTimer:isa(cmdobj)	-- it is a function call right?  that gets returned from, right?
+		or disasm.BattleAnimCmds.Call:isa(cmdobj)
 		then
 			addrsIsFunc[cmdobj:getDestAddr()] = true
 
 		-- call (right?)
 		-- TODO TODO TODO this is a GOTO not a CALL!
-		elseif game.EventCmds.CallSwitchNPCFlags:isa(cmdobj)
-		or game.EventCmds.GotoForDialogResult:isa(cmdobj)
+		elseif disasm.EventCmds.CallSwitchNPCFlags:isa(cmdobj)
+		or disasm.EventCmds.GotoForDialogResult:isa(cmdobj)
 		then
 			for _,option in ipairs(cmdobj.options) do
 				addrsIsFunc[scriptBaseAddr + option.addrOfs] = true
 			end
 
-		elseif game.EventCmds.CondBattleFlag:isa(cmdobj)
-		or game.EventCmds.Jump5050:isa(cmdobj)
+		elseif disasm.EventCmds.CondBattleFlag:isa(cmdobj)
+		or disasm.EventCmds.Jump5050:isa(cmdobj)
 		-- Branch is goto, fwd = skip code, backwards = loop
 		--  50/50 = 'if math.random() < .5 then...' cond on loop or if
 		-- TODO for branch, if the target is *only* this goto
@@ -554,14 +554,14 @@ local battleAnimNames = {
 		-- then turn it into a loop
 		or game.Cmds.Cond:isa(cmdobj)
 		-- are these even used?
-		or game.WorldCmds.IfKeyThenGoto:isa(cmdobj)
-		or game.WorldCmds.IfFacingThenGoto:isa(cmdobj)
+		or disasm.WorldCmds.IfKeyThenGoto:isa(cmdobj)
+		or disasm.WorldCmds.IfFacingThenGoto:isa(cmdobj)
 		then
 			local destAddr = cmdobj:getDestAddr()
 			addrsIsGoto[destAddr] = addrsIsGoto[destAddr] or table()
 			addrsIsGoto[destAddr]:insert(cmdobj)
 
-		elseif game.ObjectCmds.Branch:isa(cmdobj) then
+		elseif disasm.ObjectCmds.Branch:isa(cmdobj) then
 			local destAddr = cmdobj:getDestAddr()
 			-- branch will return nil when it's an infinite-loop
 			if destAddr then
@@ -581,29 +581,28 @@ local battleAnimNames = {
 	local old = Cmd.getGotoOfsStr
 	Cmd.getGotoOfsStr = function(addrOfs, op)
 		if op then return old(addrOfs, op) end
-		return game.addrLabel(addrOfs)..'() return'
+		return disasm:addrLabel(addrOfs)..'() return'
 	end
 	-- but you also gotta replace in alls subclasses...
 	for i=0,255 do
-		game.EventCmds[i].getGotoOfsStr = Cmd.getGotoOfsStr
-		game.WorldCmds[i].getGotoOfsStr = Cmd.getGotoOfsStr
-		game.ObjectCmds[i].getGotoOfsStr = Cmd.getGotoOfsStr
-		game.VehicleCmds[i].getGotoOfsStr = Cmd.getGotoOfsStr
+		disasm.EventCmds[i].getGotoOfsStr = Cmd.getGotoOfsStr
+		disasm.WorldCmds[i].getGotoOfsStr = Cmd.getGotoOfsStr
+		disasm.ObjectCmds[i].getGotoOfsStr = Cmd.getGotoOfsStr
+		disasm.VehicleCmds[i].getGotoOfsStr = Cmd.getGotoOfsStr
 	end
 --]]
 
 	-- make calls gen to modern func call
-	game.EventCmds.Call.desc = "<?=getGotoStr(scriptBaseAddr + destAddrOfs, '')?>()"
-	game.EventCmds.CallRepeat.desc = "for i=1,<?=count?> do <?=getGotoStr(scriptBaseAddr + destAddrOfs, '')?>() end"
+	disasm.EventCmds.Call.desc = "<?=getGotoStr(scriptBaseAddr + destAddrOfs, '')?>()"
+	disasm.EventCmds.CallRepeat.desc = "for i=1,<?=count?> do <?=getGotoStr(scriptBaseAddr + destAddrOfs, '')?>() end"
 
 	-- when call/goto getting addr, check builtin
-	local function addrLabel(addr)
+	disasm.addrLabel = function(_, addr)
 		local builtin = labelsForAddr[addr]
 		if builtin then return builtin[1] end
 		--return ('$%06x'):format(addr)
 		return ('_%06x'):format(addr)
 	end
-	game.addrLabel = addrLabel
 
 
 	--[[
@@ -645,7 +644,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 				..option.characterIndex..', '
 			if option.addrOfs then
 				assert(not option.stmts)
-				s = s .. game.addrLabel(scriptBaseAddr + option.addrOfs)
+				s = s .. disasm:addrLabel(scriptBaseAddr + option.addrOfs)
 			elseif option.stmts then
 				assert(not option.addrOfs)
 				s = s .. '||do\n'
@@ -688,7 +687,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 				if scriptBaseAddr + option.addrOfs == commonReturnAddr then	-- call return <-> do nothing
 					s = s .. '||do end'
 				else
-					s = s .. game.addrLabel(scriptBaseAddr + option.addrOfs)
+					s = s .. disasm:addrLabel(scriptBaseAddr + option.addrOfs)
 				end
 			elseif option.stmts then
 				assert(not option.addrOfs)
@@ -996,34 +995,34 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 
 	do
 		local function check(cl)
-			if game.EventCmds.ObjectScript:isa(cl) then
+			if disasm.EventCmds.ObjectScript:isa(cl) then
 				cl.toCode = EventCmds_ObjectScript_toCode
-			elseif game.EventCmds.CallSwitchNPCFlags:isa(cl) then
+			elseif disasm.EventCmds.CallSwitchNPCFlags:isa(cl) then
 				cl.toCode = EventCmds_CallSwitchNPCFlags_toCode
-			elseif game.EventCmds.GotoForDialogResult:isa(cl) then
+			elseif disasm.EventCmds.GotoForDialogResult:isa(cl) then
 				cl.toCode = EventCmds_CallForDialogResult_toCode
-			elseif game.EventCmds.StartTimer:isa(cl) then
+			elseif disasm.EventCmds.StartTimer:isa(cl) then
 				cl.toCode = EventCmds_StartTimer_toCode
 			end
 
 			cl.toCodeLine = Cmd_toCodeLine
 		end
 		for i=0,0xff do
-			check(game.EventCmds[i])
-			check(game.ObjectCmds[i])
-			check(game.WorldCmds[i])
-			check(game.VehicleCmds[i])
-			check(game.BattleEventCmds[i])
-			check(game.MonsterCmds[i])
-			check(game.BattleAnimCmds[i])
+			check(disasm.EventCmds[i])
+			check(disasm.ObjectCmds[i])
+			check(disasm.WorldCmds[i])
+			check(disasm.VehicleCmds[i])
+			check(disasm.BattleEventCmds[i])
+			check(disasm.MonsterCmds[i])
+			check(disasm.BattleAnimCmds[i])
 		end
 		-- instruction without an opcode
-		check(game.BattleAnimCmds.SpeedAndAlign)
+		check(disasm.BattleAnimCmds.SpeedAndAlign)
 	end
 
 	-- BEGIN HIGH LEVEL CODE CONVERSION
 	if not cmdline.skipOpts then
-		game.ObjectCmds.EndScript.desc = 'return'
+		disasm.ObjectCmds.EndScript.desc = 'return'
 
 		-- first first thing, patch any code directly
 		-- from = inclusive, to = exclusive, repl = code
@@ -1164,7 +1163,7 @@ end}
 				cmdForAddr[cmdobj.addr] = cmdobj
 			end
 			for _,o in ipairs(disasm.eventScriptCmds) do
-				if game.ObjectCmds.BranchBack:isa(o)
+				if disasm.ObjectCmds.BranchBack:isa(o)
 				and o.offset ~= 0xff
 				then
 					local chain = table()
@@ -1174,7 +1173,7 @@ end}
 						local nextDest = assert.index(cmdForAddr, dest:getDestAddr())
 
 						if not (
-							game.ObjectCmds.BranchBack:isa(nextDest)
+							disasm.ObjectCmds.BranchBack:isa(nextDest)
 							and nextDest.offset ~= 0xff
 						) then break end
 
@@ -1194,7 +1193,7 @@ end}
 					end
 
 					if dest ~= o
-					and game.ObjectCmds.BranchBack:isa(dest)
+					and disasm.ObjectCmds.BranchBack:isa(dest)
 					and dest.offset ~= 0xff
 					then
 -- caught 41 pokemon here
@@ -1203,10 +1202,10 @@ end}
 							-- make sure it's a branch-back...
 							if dest.addr < c.addr then
 								c.offset = c.addr - dest.addr
-								--setmetatable(c, game.ObjectCmds.BranchBack)
+								--setmetatable(c, disasm.ObjectCmds.BranchBack)
 							elseif dest.addr > c.addr then
 								c.offset = dest.addr - c.addr
-								--setmetatable(c, game.ObjectCmds.BranchFwd)
+								--setmetatable(c, disasm.ObjectCmds.BranchFwd)
 							else
 								error'here'
 							end
@@ -1232,7 +1231,7 @@ end}
 			i = 1
 			while i <= #disasm.eventScriptCmds do
 				local cmdobj = disasm.eventScriptCmds[i]
-				if game.EventCmds.ObjectScript:isa(cmdobj) then
+				if disasm.EventCmds.ObjectScript:isa(cmdobj) then
 					-- then trace until ObjectCmds.EndScript
 					-- and insert into cmdobj.stmts
 					assert.eq(cmdobj.stmts, nil)
@@ -1244,7 +1243,7 @@ end}
 						end
 						nextcmd.parent = cmdobj
 						cmdobj.stmts:insert(nextcmd)
-						if game.ObjectCmds.EndScript:isa(nextcmd) then break end
+						if disasm.ObjectCmds.EndScript:isa(nextcmd) then break end
 
 						-- infinite loop can terminate obj-script regions
 						-- all FC FF i.e. inf-loops end obj-script regions. all 2 of them.
@@ -1253,9 +1252,9 @@ end}
 						-- but not all...
 						-- technically you could have a branch-fwd preceding the branch-bwd and that could skip the loop part ...
 						-- but empirically, i wonder if all FC's have immediately following either a loop or a return.
-						if game.ObjectCmds.BranchBack:isa(nextcmd) then
+						if disasm.ObjectCmds.BranchBack:isa(nextcmd) then
 							-- sometimes there's one last objscript 'return'
-							if game.ObjectCmds.EndScript:isa(disasm.eventScriptCmds[i+1]) then
+							if disasm.ObjectCmds.EndScript:isa(disasm.eventScriptCmds[i+1]) then
 								local lastcmd = disasm.eventScriptCmds:remove(i+1)
 								lastcmd.parent = cmdobj
 								cmdobj.stmts:insert(lastcmd)
@@ -1277,7 +1276,7 @@ end}
 			local j=1
 			while j<=#disasm.eventScriptCmds do
 				local o = disasm.eventScriptCmds[j]
-				if game.EventCmds.ObjectScript:isa(o) then
+				if disasm.EventCmds.ObjectScript:isa(o) then
 					for i=#o.stmts,1,-1 do
 						local target = o.stmts[i]
 
@@ -1306,8 +1305,8 @@ assert.eq(branchSrc:getDestAddr(), target.addr)
 							-- or (b) a goto
 							if i == 1 then
 								-- first stmt, we can extract all stmts as a lambda
-							elseif game.ObjectCmds.BranchBack:isa(target)
-							or game.ObjectCmds.BranchFwd:isa(target)
+							elseif disasm.ObjectCmds.BranchBack:isa(target)
+							or disasm.ObjectCmds.BranchFwd:isa(target)
 							then
 								-- branch, goto, just use the dest addr
 							else
@@ -1388,11 +1387,11 @@ end
 			-- now within objScript or lambdas
 			-- after all blocks are simplified
 			-- if there's any return at the end then toss it
-			if game.EventCmds.ObjectScript:isa(o)
+			if disasm.EventCmds.ObjectScript:isa(o)
 			or Lambda:isa(o)
 			then
 				local last = o.stmts:last()
-				if game.ObjectCmds.EndScript:isa(last)
+				if disasm.ObjectCmds.EndScript:isa(last)
 				and not disasm.whatsPointingToAddr[last.addr]
 				then
 					o.stmts:remove()
@@ -1423,7 +1422,7 @@ end
 	-- [=[
 		-- now convert any branch-back within same obj-script block into a while-loop
 		for _,o in ipairs(disasm.eventScriptCmds) do
-			if game.EventCmds.ObjectScript:isa(o)
+			if disasm.EventCmds.ObjectScript:isa(o)
 			or Lambda:isa(o)
 			then
 
@@ -1433,9 +1432,9 @@ end
 					local bb = o.stmts[i]
 					assert(bb.addr)
 					if (
-						game.ObjectCmds.BranchFwd50:isa(bb)
+						disasm.ObjectCmds.BranchFwd50:isa(bb)
 						-- doesn't exist
-						--or game.ObjectCmds.BranchFwd:isa(bb)
+						--or disasm.ObjectCmds.BranchFwd:isa(bb)
 					) then
 assert.eq(bb.parent, o)
 						local j, target = o.stmts:find(nil, function(o2) return o2.addr == bb:getDestAddr() end)
@@ -1490,8 +1489,8 @@ assert(disasm.whatsPointingToAddr[target.addr])
 					local bb = o.stmts[i]
 					assert(bb.addr)
 					if (
-						game.ObjectCmds.BranchBack:isa(bb)
-						or game.ObjectCmds.BranchBack50:isa(bb)
+						disasm.ObjectCmds.BranchBack:isa(bb)
+						or disasm.ObjectCmds.BranchBack50:isa(bb)
 					) and bb.offset ~= 0xff
 					then
 assert.eq(bb.parent, o)
@@ -1520,7 +1519,7 @@ assert(disasm.whatsPointingToAddr[target.addr])
 
 							-- now we can cut this block out and put it in a while-loop
 							local loop = Repeat()
-							if game.ObjectCmds.BranchBack50:isa(bb) then
+							if disasm.ObjectCmds.BranchBack50:isa(bb) then
 								loop.stopCond = 'math.random() < .5'
 							end
 							loop.stmts = o.stmts:sub(j,i-1)
@@ -1838,8 +1837,8 @@ end
 					if cmdobj.stmts then
 						checkBlock(cmdobj.stmts)
 					end
-					if game.EventCmds.CallSwitchNPCFlags:isa(cmdobj)
-					or game.EventCmds.GotoForDialogResult:isa(cmdobj)
+					if disasm.EventCmds.CallSwitchNPCFlags:isa(cmdobj)
+					or disasm.EventCmds.GotoForDialogResult:isa(cmdobj)
 					then
 						for optionIndex,option in ipairs(cmdobj.options) do
 							if option.stmts then
@@ -1849,7 +1848,7 @@ end
 								doInline(cmdobj, option, destAddr)
 							end
 						end
-					elseif game.EventCmds.StartTimer:isa(cmdobj) then
+					elseif disasm.EventCmds.StartTimer:isa(cmdobj) then
 						if cmdobj.stmts then
 							assert(not cmdobj.destAddrOfs)
 						else
@@ -1918,12 +1917,12 @@ end
 						i = i + 1
 					end
 				end
-				if game.EventCmds.CondBattleFlag:isa(o)
-				or game.EventCmds.Jump5050:isa(o)
+				if disasm.EventCmds.CondBattleFlag:isa(o)
+				or disasm.EventCmds.Jump5050:isa(o)
 				or game.Cmds.Cond:isa(o)
-				or (game.ObjectCmds.Branch:isa(o) and o.random)
-				or game.WorldCmds.IfKeyThenGoto:isa(o)
-				or game.WorldCmds.IfFacingThenGoto:isa(o)
+				or (disasm.ObjectCmds.Branch:isa(o) and o.random)
+				or disasm.WorldCmds.IfKeyThenGoto:isa(o)
+				or disasm.WorldCmds.IfFacingThenGoto:isa(o)
 				then
 					replace(
 						If{
@@ -1933,7 +1932,7 @@ end
 							},
 						}
 					)
-				elseif game.EventCmds.EndRepeatSwitch:isa(o) then
+				elseif disasm.EventCmds.EndRepeatSwitch:isa(o) then
 					replace(
 						If{
 							cond = o:getCond(),
@@ -2022,7 +2021,7 @@ end
 							assert.lt(startIndexes[#startIndexes-1], startIndexes:last())
 						end
 					elseif game.Cmds.EndFor:isa(cmd)
-					or game.EventCmds.EndRepeatSwitch:isa(cmd)
+					or disasm.EventCmds.EndRepeatSwitch:isa(cmd)
 					then
 						assert(not cmd.stmts)
 						if #startIndexes == 0 then
@@ -2041,7 +2040,7 @@ end
 							error("building for-loop, whatsPointingToAddr["..('%06x'):format(stmts[i].addr)..'] already exists!')
 						end
 
-						if game.EventCmds.EndRepeatSwitch:isa(cmd) then
+						if disasm.EventCmds.EndRepeatSwitch:isa(cmd) then
 							loop.stmts = stmts:sub(startIndex+1,i)
 							cmd.skipEndFor = true	-- hack, just reuse EndRepeatSwitch at the end
 							-- replace the "if mapFlagGet(436) then break end ... end--for"
@@ -2097,7 +2096,7 @@ end
 					local cmd = stmts[i]
 					if (
 						game.Cmds.Cond:isa(cmd)
-						or game.EventCmds.CondBattleFlag:isa(cmd)
+						or disasm.EventCmds.CondBattleFlag:isa(cmd)
 					)
 					and stmtsObj ~= game	-- don't do global scope, or it'll mess up on the not-yet-lambda'd global stmts...
 					then
