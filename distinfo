@@ -64,6 +64,7 @@ files = {
 deps = {
 	--"autoupdate",	-- testing this ...
 	"audio",
+	"disasm",
 	"ext",
 	"gl",
 	"gnuplot",
