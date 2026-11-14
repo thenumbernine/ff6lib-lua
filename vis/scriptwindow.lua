@@ -203,7 +203,7 @@ function EventScriptWindow:showIndexUI()
 						if cmd.cmdset == 'EventCmds' then
 							color = 0x3f007f00
 						elseif cmd.cmdset == 'ObjectCmds' then
-							if game.ObjectCmds.EndScript:isa(cmd) then
+							if game.disasm.ObjectCmds.EndScript:isa(cmd) then
 								color = 0x3f007f00
 							else
 								color = 0x3f00007f
@@ -236,24 +236,24 @@ function EventScriptWindow:showIndexUI()
 
 						-- indent object-cmds since they are blocks of cmds from event-cmds
 						if cmd.cmdset == 'ObjectCmds'
-						and not game.ObjectCmds.EndScript:isa(cmd)
+						and not game.disasm.ObjectCmds.EndScript:isa(cmd)
 						then
 							ig.igText('  ')
 							ig.igSameLine()
 						end
 
 						-- item links:
-						if game.EventCmds.GiveItem:isa(cmd) then
+						if game.disasm.EventCmds.GiveItem:isa(cmd) then
 							ig.igText'GiveItem'
 							ig.igSameLine()
 							app.itemWindow:popupButton(cmd.itemIndex)
-						elseif game.EventCmds.TakeItem:isa(cmd) then
+						elseif game.disasm.EventCmds.TakeItem:isa(cmd) then
 							ig.igText'TakeItem'
 							ig.igSameLine()
 							app.itemWindow:popupButton(cmd.itemIndex)
 
 						-- shops:
-						elseif game.EventCmds.OpenShopMenu:isa(cmd) then
+						elseif game.disasm.EventCmds.OpenShopMenu:isa(cmd) then
 							ig.igText'OpenShopMenu'
 							ig.igSameLine()
 							app.shopWindow:popupButton(cmd.shopIndex)
@@ -269,10 +269,10 @@ function EventScriptWindow:showIndexUI()
 
 						-- maps:
 						elseif game.Cmds.SetMap:isa(cmd)
-						or game.EventCmds.SetParentMap:isa(cmd)	-- maybe SetParentMap should be a SetMap?
+						or game.disasm.EventCmds.SetParentMap:isa(cmd)	-- maybe SetParentMap should be a SetMap?
 						then
 							ig.igText(
-								game.EventCmds.SetParentMap:isa(cmd)
+								game.disasm.EventCmds.SetParentMap:isa(cmd)
 								and 'setParentMap'
 								or 'setMap'
 							)
@@ -281,7 +281,7 @@ function EventScriptWindow:showIndexUI()
 								app.tileWindow:setXY(cmd.x, cmd.y)
 								app:centerView(cmd.x, cmd.y)
 							end
-						elseif game.EventCmds.MovePartyToMap:isa(cmd) then
+						elseif game.disasm.EventCmds.MovePartyToMap:isa(cmd) then
 							ig.igText('movePartyToMap '..cmd.partyIndex)
 							ig.igSameLine()
 							if app.mapWindow:popupButton(cmd.mapIndex) then
@@ -289,19 +289,19 @@ function EventScriptWindow:showIndexUI()
 							end
 
 						-- scripts:
-						elseif game.EventCmds.Call:isa(cmd) then
+						elseif game.disasm.EventCmds.Call:isa(cmd) then
 							ig.igText'call'
 							ig.igSameLine()
 							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
-						elseif game.EventCmds.CallRepeat:isa(cmd) then
+						elseif game.disasm.EventCmds.CallRepeat:isa(cmd) then
 							ig.igText('for i=1,'..cmd.count..' call')
 							ig.igSameLine()
 							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
-						elseif game.EventCmds.CondBattleFlag:isa(cmd) then
+						elseif game.disasm.EventCmds.CondBattleFlag:isa(cmd) then
 							ig.igText('if gameState.battleFlag'..cmd.flagIndex..' then goto')
 							ig.igSameLine()
 							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
-						elseif game.EventCmds.Jump5050:isa(cmd) then
+						elseif game.disasm.EventCmds.Jump5050:isa(cmd) then
 							ig.igText'if math.random() < .5 then goto'
 							ig.igSameLine()
 							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
@@ -309,35 +309,35 @@ function EventScriptWindow:showIndexUI()
 							ig.igText('if '..cmd.condCode..' then goto')
 							ig.igSameLine()
 							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
-						elseif game.ObjectCmds.Call:isa(cmd) then
+						elseif game.disasm.ObjectCmds.Call:isa(cmd) then
 							ig.igText'goto'
 							ig.igSameLine()
 							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
-						elseif game.WorldCmds.IfKeyThenGoto:isa(cmd) then
+						elseif game.disasm.WorldCmds.IfKeyThenGoto:isa(cmd) then
 							ig.igText'if keypress then goto'
 							ig.igSameLine()
 							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
-						elseif game.WorldCmds.IfFacingThenGoto:isa(cmd) then
+						elseif game.disasm.WorldCmds.IfFacingThenGoto:isa(cmd) then
 							ig.igText('if dir=='..cmd.dir..' then goto')
 							ig.igSameLine()
 							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
-						elseif game.EventCmds.GotoForDialogResult:isa(cmd) then
+						elseif game.disasm.EventCmds.GotoForDialogResult:isa(cmd) then
 							ig.igText'gotoForDialogResult'
 							for _,option in ipairs(cmd.options) do
 								ig.igSameLine()
 								self:popupButtonForAddr(scriptBaseAddr + option.addrOfs)
 							end
-						elseif game.EventCmds.StartTimer:isa(cmd) then
+						elseif game.disasm.EventCmds.StartTimer:isa(cmd) then
 							ig.igText('start timer, addr=')
 							ig.igSameLine()
 							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
 							ig.igSameLine()
 							ig.igText(' '..cmd:getDescArgsWithoutCB())
-						elseif game.EventCmds.ChangeObjectEvent:isa(cmd) then
+						elseif game.disasm.EventCmds.ChangeObjectEvent:isa(cmd) then
 							ig.igText('objs['..cmd.objIndex..'].script =')
 							ig.igSameLine()
 							self:popupButtonForAddr(scriptBaseAddr + cmd.newScriptAddrOfs)
-						elseif game.EventCmds.CallSwitchNPCFlags:isa(cmd) then
+						elseif game.disasm.EventCmds.CallSwitchNPCFlags:isa(cmd) then
 							ig.igText'gotoForCharacter'
 							for _,option in ipairs(cmd.options) do
 								ig.igSameLine()
@@ -346,15 +346,15 @@ function EventScriptWindow:showIndexUI()
 								self:popupButtonForAddr(scriptBaseAddr + option.addrOfs)
 							end
 
-						elseif game.MonsterCmds.BattleEvent:isa(cmd) then
+						elseif game.disasm.MonsterCmds.BattleEvent:isa(cmd) then
 							ig.igText'doBattleEvent'
 							ig.igSameLine()
 							self:popupButtonForAddr(0x100000 + game.battleEventScriptOfs[cmd.index])
 
 						-- event dialog and monster dialog use different text,
 						-- but in both cases I want to grep out character name tokens for links to the character window
-						elseif game.EventCmds.Dialog:isa(cmd)
-						or game.MonsterCmds.Dialog:isa(cmd)
+						elseif game.disasm.EventCmds.Dialog:isa(cmd)
+						or game.disasm.MonsterCmds.Dialog:isa(cmd)
 						then
 							local first = true
 							local text = string.trim(tostring(cmd):gsub('\n', '\\n'))

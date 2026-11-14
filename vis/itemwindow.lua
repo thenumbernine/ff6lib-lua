@@ -246,7 +246,7 @@ function ItemWindow:showIndexUI()
 		for _,cmd in ipairs(game.disasm.eventScriptCmds) do
 			local cmdname
 			for _,checkcmdname in ipairs{'GiveItem', 'TakeItem'} do
-				if game.EventCmds[checkcmdname]:isa(cmd) then
+				if game.disasm.EventCmds[checkcmdname]:isa(cmd) then
 					cmdname = checkcmdname
 					break
 				end

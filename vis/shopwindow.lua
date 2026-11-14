@@ -45,7 +45,7 @@ function ShopWindow:showIndexUI()
 	if not self.eventScriptCmdsWithThis then
 		self.eventScriptCmdsWithThis = table()
 		for _,cmd in ipairs(game.disasm.eventScriptCmds) do
-			if game.EventCmds.OpenShopMenu:isa(cmd)
+			if game.disasm.EventCmds.OpenShopMenu:isa(cmd)
 			and cmd.shopIndex == self.index
 			then
 				self.eventScriptCmdsWithThis:insert(cmd.addr)
