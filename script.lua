@@ -2488,13 +2488,21 @@ cl.classname = k
 			BattleEventCmds['CharAnim'..i] = BattleEventCmd:subclass{
 				cmd = 0x03 + i,
 				argtypes = {uint8_t, uint16_t},
-				argnames = {'char', 'addrOfs'},	-- addrOfs relative to battleAnimScriptAddr / 0x100000 / 0xd00000 probably for all battle events
+				getargs = function(self, char, addrOfs)
+					self.char = char
+					self.destAddr = battleAnimScriptAddr + addrOfs
+				end,
 				__tostring = function(self)
 					return 'charAnim('
 						..i..', '
 						..self.char..', '
-						..hex4(self.addrOfs)
+						..Cmd.getGotoStr(self.destAddr, '')
 					..')'
+				end,
+				getBranchAddrs = function(self)
+					return {
+						{addr=self.destAddr, cmdset='BattleAnimCmds'},
+					}
 				end,
 			}
 		end
@@ -2502,13 +2510,21 @@ cl.classname = k
 			BattleEventCmds['MonsterAnim'..i] = BattleEventCmd:subclass{
 				cmd = 0x07 + i,
 				argtypes = {uint8_t, uint16_t},
-				argnames = {'char', 'addrOfs'},	-- addrOfs relative to battleAnimScriptAddr / 0x100000 / 0xd00000 probably for all battle events
+				getargs = function(self, char, addrOfs)
+					self.char = char
+					self.destAddr = battleAnimScriptAddr + addrOfs
+				end,
 				__tostring = function(self)
 					return 'monsterAnim('
 						..i..', '
 						..self.char..', '
-						..hex4(self.addrOfs)
+						..Cmd.getGotoStr(self.destAddr, '')
 					..')'
+				end,
+				getBranchAddrs = function(self)
+					return {
+						{addr=self.destAddr, cmdset='BattleAnimCmds'},
+					}
 				end,
 			}
 		end
@@ -2553,7 +2569,7 @@ cl.classname = k
 			end,
 			getBranchAddrs = function(self)
 				return self.destAddrs:mapi(function(addr)
-					return {addr = addr, cmdset='BattleAnimCmds'}
+					return {addr=addr, cmdset='BattleAnimCmds'}
 				end)
 			end,
 		}
@@ -3931,31 +3947,29 @@ cl.classname = k
 					self.descstr = 'setVectorTargetFromAttacker('..hex2(x)..','..hex2(y)..')'
 				elseif subcmd == 0x09 then
 					self.descstr = 'updateCharacterActionBasedOnVectorDirectionArmsUp()'
-				elseif subcmd == 0x0A then
+				elseif subcmd == 0x0a then
 					local xx = read(uint8_t)
 					error'here'
 					self.descstr = '(unused)'
-				elseif subcmd == 0x0B then
+				elseif subcmd == 0x0b then
 					local x, y, z = read(uint8_t), read(uint8_t), read(uint8_t)
 					self.descstr = 'spc('
 						..table{hex2(x), hex2(y), hex2(z)}:concat', '..')'
-				elseif subcmd == 0x0C then
+				elseif subcmd == 0x0c then
 					local actor, graphicsIndex = read(uint8_t), read(uint8_t)
 					self.descstr = 'setActorGraphicIndex('..hex2(actor)..', '..hex2(graphicsIndex)..')'
-				elseif subcmd == 0x0D then
+				elseif subcmd == 0x0d then
 					local arg = read(uint8_t)
-					self.descstr = ''
-					error'here'
-				elseif subcmd == 0x0E then
+					self.descstr = 'cmd_c7_0d()'
+				elseif subcmd == 0x0e then
 					local arg = read(uint8_t)
 					self.descstr = 'screenShaking( '..hex2(arg)..')'	-- $6285
-				elseif subcmd == 0x0F then
+				elseif subcmd == 0x0f then
 					error'here'
 					self.descstr = '(unused)'
 				elseif subcmd == 0x10 then
-					local xx = read(uint8_t)
-					self.descstr = ''
-					error'here'
+					local x = read(uint8_t)
+					self.descstr = 'cmd_c7_10('..x..')'
 				elseif subcmd == 0x11 then
 					self.descstr = 'disable run from battle'
 				else
