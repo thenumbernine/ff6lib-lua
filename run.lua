@@ -14,10 +14,6 @@ local makePaletteSets = require 'ff6.graphics'.makePaletteSets
 local infn, outfn = ...
 assert(infn, "missing filename")
 
--- you can only load this once, from there all the types' metatables are bound to the game pointer
--- so even if you load a second game file, all the metatypes will be bound to the first pointer
--- I can't change that without associating the C data with the Lua object.
--- TODO TODO TODO fix this
 local game = require 'ff6'((assert(path(infn):read())))
 local Game = game.Game
 local rom = game.rom
