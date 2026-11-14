@@ -2487,7 +2487,7 @@ cl.classname = k
 			cmd = 0x0d,
 			argtypes = {uint8_t, uint8_t, uint8_t},
 			argnames = {'anim', 'attacker', 'targets'},
-			desc = 'battleAnim(<?=anim?>, <?=attacker?>, <?=targets?>)',
+			desc = 'runBattleAnim(<?=anim?>, <?=attacker?>, <?=targets?>)',
 		}
 		BattleEventCmds.ResetAnim = BattleEventCmd:subclass{
 			cmd = 0x0e,
@@ -3926,7 +3926,7 @@ cl.classname = k
 					local x = read(uint8_t)
 					self.descstr = 'cmd_c7_10('..x..')'
 				elseif subcmd == 0x11 then
-					self.descstr = 'disable run from battle'
+					self.descstr = 'disablerunFromBattle()'
 				else
 					self.descstr = '!!! unknown subcmd'
 				end
