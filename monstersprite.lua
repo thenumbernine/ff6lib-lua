@@ -36,8 +36,8 @@ local function readMonsterSprite(
 		local addr2 = game.monsterSpriteTileMask16Ofs + baseaddr
 		local addr3 = ffi.offsetof(Game, 'itemNames')	-- 0x12b300 = the next section, so end of addr2's space
 
-		local numTileMasks8 = bit.rshift((addr2 - addr1), 3)
-		local numTileMasks16 = bit.rshift((addr3 - addr2), 5)
+		local numTileMasks8 = (addr2 - addr1) >> 3
+		local numTileMasks16 = (addr3 - addr2) >> 5
 
 --print('addr1', addr1:hex(), 'numTileMasks8', numTileMasks8:hex())
 --print('addr2', addr2:hex(), 'numTileMasks16', numTileMasks16:hex())

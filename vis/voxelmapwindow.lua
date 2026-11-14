@@ -35,10 +35,8 @@ local fourDirs = {
 
 -- convert from 4-bit xy ff6 16x16 tilemap index to numo9 5-bit xy 8x8 tilemap index
 local function tile44to55(index)
-	return bit.bor(
-		bit.lshift(bit.band(0x0f, index), 1),
-		bit.lshift(bit.band(0xf0, index), 2)
-	)
+	return ((0xf & index) << 1)
+		| ((0xf0 & index) << 2)
 end
 
 
@@ -79,11 +77,9 @@ function FloodFillInfo:refreshTileValues()
 			self.tileInfos[i] = self.tileInfos[i] or {x=mapx, y=mapy}
 			local tileInfo = self.tileInfos[i]
 			tileInfo.tile1, tileInfo.tile2, tileInfo.tile3 = app.voxelmapWindow:getAllTile16x16s(mapx, mapy)
-			tileInfo.tileValue = bit.bor(
-				tileInfo.tile1,
-				bit.lshift(tileInfo.tile2, 8),
-				bit.lshift(tileInfo.tile3, 16)
-			)
+			tileInfo.tileValue = tileInfo.tile1
+				| (tileInfo.tile2 << 8)
+				| (tileInfo.tile3 << 16)
 		end
 	end
 
@@ -334,9 +330,9 @@ function VoxelmapWindow:updateWindow()
 				local function canTraverse(x,y)
 					local flags = data[x + mapWidth * y]
 					if mapIndex < 2 then
-						return 0 == bit.band(worldTilePropsFlagForName.blocksWalking, flags)
+						return 0 == worldTilePropsFlagForName.blocksWalking & flags
 					else
-						return 0 == bit.band(mapTilePropsFlagForName.impassible, flags)
+						return 0 == mapTilePropsFlagForName.impassible & flags
 					end
 				end
 				if canTraverse(x,y) then
@@ -354,24 +350,24 @@ function VoxelmapWindow:updateWindow()
 							-- no stairs on the world map...
 							-- only insert directions for passability flags?
 							local flags = data[x0 + mapWidth * y0]
-							if 0 ~= bit.band(flags, mapTilePropsFlagForName.passableLeft) then
+							if 0 ~= flags & mapTilePropsFlagForName.passableLeft then
 								dirs:insert{-1, 0}
 							end
-							if 0 ~= bit.band(flags, mapTilePropsFlagForName.passableRight) then
+							if 0 ~= flags & mapTilePropsFlagForName.passableRight then
 								dirs:insert{1, 0}
 							end
-							if 0 ~= bit.band(flags, mapTilePropsFlagForName.passableUp) then
+							if 0 ~= flags & mapTilePropsFlagForName.passableUp then
 								dirs:insert{0, -1}
 							end
-							if 0 ~= bit.band(flags, mapTilePropsFlagForName.passableDown) then
+							if 0 ~= flags & mapTilePropsFlagForName.passableDown then
 								dirs:insert{0, 1}
 							end
 
 							-- as long as i'm just testing current tile then I need to flood-fill from the lowest point ...
-							if 0 ~= bit.band(flags, mapTilePropsFlagForName.stairsUpLeft) then
+							if 0 ~= flags & mapTilePropsFlagForName.stairsUpLeft then
 								dirs:insert{-1, -1}
 							end
-							if 0 ~= bit.band(flags, mapTilePropsFlagForName.stairsUpRight) then
+							if 0 ~= flags & mapTilePropsFlagForName.stairsUpRight then
 								dirs:insert{1, -1}
 							end
 
@@ -381,7 +377,7 @@ function VoxelmapWindow:updateWindow()
 							if x1 >= 0 and x1 < mapWidth
 							and y1 >= 0 and y1 < mapHeight
 							then
-								if 0 ~= bit.band(data[x1 + mapWidth * y1], mapTilePropsFlagForName.stairsUpLeft) then
+								if 0 ~= data[x1 + mapWidth * y1] & mapTilePropsFlagForName.stairsUpLeft then
 									dirs:insert{1, 1}
 								end
 							end
@@ -392,7 +388,7 @@ function VoxelmapWindow:updateWindow()
 							if x1 >= 0 and x1 < mapWidth
 							and y1 >= 0 and y1 < mapHeight
 							then
-								if 0 ~= bit.band(data[x1 + mapWidth * y1], mapTilePropsFlagForName.stairsUpRight) then
+								if 0 ~= data[x1 + mapWidth * y1] & mapTilePropsFlagForName.stairsUpRight then
 									dirs:insert{-1, 1}
 								end
 							end
@@ -446,7 +442,7 @@ function VoxelmapWindow:updateWindow()
 				ffInfo.tileValues = table.keys(hist):sort(function(a,b)
 					return hist[a] > hist[b]
 				end)
-				ffInfo.floorTile = bit.band(0xff, ffInfo.tileValues[1])
+				ffInfo.floorTile = 0xff & ffInfo.tileValues[1]
 			end
 		end
 	end
@@ -800,8 +796,8 @@ function VoxelmapWindow:getFloorTile(x,y)
 	if props ~= 7
 	and props ~= 0xfff7
 	then
-		local topSpritePriority = 0 ~= bit.band(mapTilePropsFlagForName.topSpritePriority, props)
-		--local bottomSpritePriority = 0 ~= bit.band(mapTilePropsFlagForName.bottomSpritePriority, props)
+		local topSpritePriority = 0 ~= mapTilePropsFlagForName.topSpritePriority & props
+		--local bottomSpritePriority = 0 ~= mapTilePropsFlagForName.bottomSpritePriority & props
 		if topSpritePriority then
 			return self:getTile16x16(x, y, 2)
 		end

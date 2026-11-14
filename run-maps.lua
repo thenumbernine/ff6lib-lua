@@ -115,7 +115,7 @@ local function run(game, cmdline)
 		do	-- here decompress all 'mapTileGraphics' tiles irrespective of offset table
 			-- 0x30c8 tiles of 8x8x4bpp = 32 bytes in game.mapTileGraphics
 			local bpp = 4
-			local numTiles = ffi.sizeof(game.mapTileGraphics) / bit.lshift(bpp, 3)	-- = 0x30c8
+			local numTiles = ffi.sizeof(game.mapTileGraphics) / (bpp << 3)	-- = 0x30c8
 			-- 128 is just over sqrt numTiles
 			local masterTilesWide = 16 -- 128
 			local masterTilesHigh = math.ceil(numTiles / masterTilesWide)
@@ -126,7 +126,7 @@ local function run(game, cmdline)
 				readTile(im,
 					x * tileWidth,
 					y * tileHeight,
-					game.mapTileGraphics + bit.lshift(bpp, 3),
+					game.mapTileGraphics + (bpp << 3),
 					bpp)
 			end
 			-- alright where is the palette info stored?
@@ -163,7 +163,7 @@ local function run(game, cmdline)
 							(y + 16 * i) * tileHeight,
 							-- how come, for 4bpp, the tiles are 0x20 = 8*4 bytes = 8*8*4 bits = 1<<5 bytes apart
 							-- but for 2bpp the tiles are 8*16 = 8*2 bytes = 8*8*2 bits = 1<<4 bytes apart ...
-							ffi.cast('uint8_t*', gfxLayer3.data) + 0x40 + (x + 16 * y) * bit.lshift(bpp, 3),
+							ffi.cast('uint8_t*', gfxLayer3.data) + 0x40 + (x + 16 * y) * (bpp << 3),
 							bpp)
 					end
 				end
@@ -186,7 +186,7 @@ local function run(game, cmdline)
 			mappalpath,
 			game.mapPalettes,
 			ffi.sizeof(game.mapPalettes) / ffi.sizeof(game.RGBA5551),
-			function(index) return bit.band(0xf, index) == 0 end
+			function(index) return 0xf & index == 0 end
 		)
 
 		local mappalworldspath = path'mappalworld'
@@ -201,7 +201,7 @@ local function run(game, cmdline)
 				+ ffi.sizeof(game.blackjackPalette)
 				+ ffi.sizeof(game.falconPalette)
 			) / ffi.sizeof(game.RGBA5551),
-			function(index) return bit.band(0xf, index) == 0 end
+			function(index) return 0xf & index == 0 end
 		)
 
 		for i,worldInfo in ipairs(game.worldInfos) do
@@ -218,9 +218,9 @@ local function run(game, cmdline)
 					for i=0,15 do
 						game.layer1worlddrawtile16x16(
 							img,
-							bit.lshift(i, 4),
-							bit.lshift(j, 4),
-							bit.bor(i, bit.lshift(j, 4)),
+							i << 4,
+							j << 4,
+							i | (j << 4),
 							worldInfo.tilesetdata,
 							worldInfo.gfxdata
 						)
@@ -312,8 +312,8 @@ print('setting gfxstr', gfxstr, 'paletteIndex', paletteIndex)
 				local compositeImg = Image(
 					-- map size is in 16x16 tiles, right?
 					-- and should I size it by the first layer, or by the max of all layers?
-					bit.lshift(layer1Size.x, 4),
-					bit.lshift(layer1Size.y, 4),
+					layer1Size.x << 4,
+					layer1Size.y << 4,
 					1,
 					'uint8_t'
 				):clear()
@@ -344,8 +344,8 @@ print('setting gfxstr', gfxstr, 'paletteIndex', paletteIndex)
 					else
 						-- each is 0x200 in size ... draw it I guess
 						local tileLayoutVisImg = Image(
-							bit.lshift(layer1Size.x, 4),
-							bit.lshift(layer1Size.y, 4),
+							layer1Size.x << 4,
+							layer1Size.y << 4,
 							1,
 							'uint8_t'
 						):clear()
@@ -368,7 +368,7 @@ print('setting gfxstr', gfxstr, 'paletteIndex', paletteIndex)
 								for py=0,15 do
 									for px=0,15 do
 										local pix = tileLayoutVisImg.buffer + px + 16 * dstX + tileLayoutVisImg.width * (py + 16 * dstY)
-										pix[0] = ffi.cast('uint8_t*', props)[bit.band(px + py, 1)]
+										pix[0] = ffi.cast('uint8_t*', props)[(px + py) & 1]
 									end
 								end
 
@@ -385,17 +385,17 @@ print('setting gfxstr', gfxstr, 'paletteIndex', paletteIndex)
 								and props.blocksWalking == 0
 								then
 									-- black to grey
-									r = bit.rshift(r, 1)
-									g = bit.rshift(g, 1)
-									b = bit.rshift(b, 1)
+									r = r >> 1
+									g = g >> 1
+									b = b >> 1
 								elseif props.blocksChocobo == 1
 								and props.airshipCantLand == 1
 								and props.blocksWalking == 1
 								then
 									-- grey to white
-									r = bit.rshift(r, 1) + 128
-									g = bit.rshift(g, 1) + 128
-									b = bit.rshift(b, 1) + 128
+									r = (r >> 1) + 128
+									g = (g >> 1) + 128
+									b = (b >> 1) + 128
 								else
 									-- red yellow green cyan blue violet
 									if props.blocksChocobo == 0 then r = 0 end
@@ -437,10 +437,9 @@ print('setting gfxstr', gfxstr, 'paletteIndex', paletteIndex)
 					local src = ffi.cast('uint8_t*', layout1Data)
 					for y=0,layer1Size.y-1 do
 						for x=0,layer1Size.x-1 do
-							ffi.cast('uint16_t*', dst)[0] = bit.bor(
-								bit.lshift(bit.band(0xf, src[0]), 1),
-								bit.lshift(bit.band(0xf0, src[0]), 2)
-							)
+							ffi.cast('uint16_t*', dst)[0] =
+								((0xf & src[0]) << 1) |
+								((0xf0 & src[0]) << 2)
 							dst = dst + tilemap.channels
 							src = src + 1
 						end
@@ -529,9 +528,9 @@ print('setting gfxstr', gfxstr, 'paletteIndex', paletteIndex)
 						-- what is its format?
 						local tile16x16 = 0
 						for j=0,size.y-1 do
-							local y = bit.lshift(j, 4)
+							local y = j << 4
 							for i=0,size.x-1 do
-								local x = bit.lshift(i, 4)
+								local x = i << 4
 								game.layer1and2drawtile16x16(
 									img,
 									x,
@@ -576,11 +575,11 @@ print('setting gfxstr', gfxstr, 'paletteIndex', paletteIndex)
 				local tile8x8 = 0
 				for j=0,size.y-1 do
 					for i=0,size.x-1 do
-						local tileptr = rom + gfx.addr + tile8x8 * bit.lshift(bpp, 3)
+						local tileptr = rom + gfx.addr + tile8x8 * (bpp << 3)
 						readTile(
 							img,
-							bit.lshift(i, 3),
-							bit.lshift(j, 3),
+							i << 3,
+							j << 3,
 							tileptr,
 							bpp
 						)
@@ -606,8 +605,8 @@ print('setting gfxstr', gfxstr, 'paletteIndex', paletteIndex)
 					for i=0,size.x-1 do
 						game.layer3drawtile16x16(
 							img,
-							bit.lshift(i, 4),
-							bit.lshift(j, 4),
+							i << 4,
+							j << 4,
 							tile16x16,
 							gfxLayer3.data
 						)

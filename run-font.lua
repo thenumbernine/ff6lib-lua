@@ -15,12 +15,9 @@ local function run(game, cmdline)
 				local index = i + 16 * j
 				for x=0,7 do
 					for y=0,7 do
-						img.buffer[
-							(x + 8 * i) + img.width * (y + 8 * j)
-						] = bit.bor(
-							bit.band(bit.rshift(game.font[2*y + 0x10 * index], 7-x), 1),
-							bit.lshift(bit.band(bit.rshift(game.font[2*y+1 + 0x10 * index], 7-x), 1), 1)
-						)
+						img.buffer[(x + 8 * i) + img.width * (y + 8 * j)] =
+							((game.font[2*y + 0x10 * index] >> (7-x)) & 1)
+							| (((game.font[2*y+1 + 0x10 * index] >> (7-x)) & 1) << 1)
 					end
 				end
 			end

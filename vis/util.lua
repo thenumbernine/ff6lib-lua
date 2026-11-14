@@ -66,7 +66,7 @@ local worldTilePropsNames = {
 	'unused2',
 }
 local worldTilePropsFlagForName = table.map(worldTilePropsNames, function(name, index)
-	return bit.lshift(1, index-1), name
+	return 1 << (index - 1), name
 end):setmetatable(nil)
 
 
@@ -92,25 +92,25 @@ local mapTilePropsNames = {
 	'impassible',
 }
 local mapTilePropsFlagForName = table.map(mapTilePropsNames, function(name, index)
-	return bit.lshift(1, index-1), name
+	return 1 << (index - 1), name
 end):setmetatable(nil)
 
 
 local function readbit(ar, index)
-	local byteofs = bit.rshift(index, 3)
-	local bitofs = bit.band(index, 7)
-	local mask = bit.lshift(1, bitofs)
-	return 0 ~= bit.band(mask, ar[byteofs])
+	local byteofs = index >> 3
+	local bitofs = index & 7
+	local mask = 1 << bitofs
+	return 0 ~= mask & ar[byteofs]
 end
 
 local function writebit(ar, index, value)
-	local byteofs = bit.rshift(index, 3)
-	local bitofs = bit.band(index, 7)
-	local mask = bit.lshift(1, bitofs)
+	local byteofs = index >> 3
+	local bitofs = index & 7
+	local mask = 1 << bitofs
 	if value then
-		ar[byteofs] = bit.bor(ar[byteofs], mask)
+		ar[byteofs] = ar[byteofs] | mask
 	else
-		ar[byteofs] = bit.band(ar[byteofs], bit.bnot(mask))
+		ar[byteofs] = ar[byteofs] & ~mask
 	end
 end
 

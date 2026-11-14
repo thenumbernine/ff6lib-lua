@@ -80,11 +80,11 @@ function TileWindow:showIndexUI()
 			-- only show real flags, not my extra custom ones for the shader
 			for i=0,15 do
 				local name = tilePropsNames[i+1]
-				local mask = bit.lshift(1, i)
-				self.__tmp = 0 ~= bit.band(flags, mask)
-				if bit.band(i, 7) ~= 0 then ig.igSameLine() end
+				local mask = 1 << i
+				self.__tmp = 0 ~= flags & mask
+				if i & 7 ~= 0 then ig.igSameLine() end
 				if ig.luatableTooltipCheckbox('tileProp '..i..': '..name, self, '__tmp') then
-					flags = bit.bxor(mask, flags)
+					flags = mask ~ flags
 					tilePropsPtr[tilePropsIndex] = flags
 
 					if mapIndex < 2

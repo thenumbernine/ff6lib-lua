@@ -104,11 +104,11 @@ for i=saveMin, saveMax do
 
 	print()
 	print'treasures:'
-	for i=0,bit.lshift(countof(save.treasureFlags),3)-1 do
-		local byteofs = bit.rshift(i,3)
-		local bitofs = bit.band(i, 7)
-		local mask = bit.lshift(1, bitofs)
-		local enabled = 0 ~= bit.band(mask, save.treasureFlags[byteofs])
+	for i=0,(countof(save.treasureFlags) << 3)-1 do
+		local byteofs = i >> 3
+		local bitofs = i & 7
+		local mask = 1 << bitofs
+		local enabled = 0 ~= mask & save.treasureFlags[byteofs]
 		io.write(i, '\t', enabled and '✅' or '❌')
 		if treasuresForFlagIndex then
 			local sep = ''
@@ -131,12 +131,12 @@ for i=saveMin, saveMax do
 	-- so ...
 	local formationsEnabled = {}
 	local monstersEnabled = {}
-	local numFormationFlags = bit.lshift(countof(save.battleFormationFlags),3)
+	local numFormationFlags = countof(save.battleFormationFlags) << 3
 	for i=0,numFormationFlags-1 do
-		local byteofs = bit.rshift(i,3)
-		local bitofs = bit.band(i, 7)
-		local mask = bit.lshift(1, bitofs)
-		local formationEnabled = 0 ~= bit.band(mask, save.battleFormationFlags[byteofs])
+		local byteofs = i >> 3
+		local bitofs = i & 7
+		local mask = 1 << bitofs
+		local formationEnabled = 0 ~= mask & save.battleFormationFlags[byteofs]
 		formationsEnabled[i] = formationEnabled
 		if formationEnabled then
 			local formation = game.formations + i

@@ -202,11 +202,10 @@ for i=0,countof(game.monsterSprites)-1 do
 	monsterSpriteOffsetSet[monsterSprite.offset]:insert(i)
 	--monsterSpriteOffsets[i+1] = monsterSpriteOffsetSet[monsterSprite.offset][1]
 
-	local palIndex = bit.bor(
-		monsterSprite.palLo,
-		bit.lshift(monsterSprite.palHi, 8),
-		bit.lshift(monsterSprite._3bpp, 15)
-	)
+	local palIndex =
+		monsterSprite.palLo
+		| (monsterSprite.palHi << 8)
+		| (monsterSprite._3bpp << 15)
 	monsterPalettes_monsterSpriteIndexes[palIndex] = monsterPalettes_monsterSpriteIndexes[palIndex] or {}
 	monsterPalettes_monsterSpriteIndexes[palIndex][i] = true
 end
@@ -233,9 +232,9 @@ do
 	local transparents = {}
 	local opaques = {}
 	for _,pal in ipairs(monsterPalettesUnique) do
-		local indexbase = bit.lshift(bit.band(pal, 0x7fff), 3)
-		local bpp = bit.band(pal, 0x8000) ~= 0 and 3 or 4
-		local numColors = bit.lshift(bpp, 1)
+		local indexbase = (pal & 0x7fff) << 3
+		local bpp = pal & 0x8000 ~= 0 and 3 or 4
+		local numColors = bpp << 1	-- or 1 << bpp ?
 		transparents[indexbase] = true
 		assert.eq(opaques[indexbase], nil)
 		for i=indexbase+1,indexbase+numColors-1 do
@@ -275,7 +274,7 @@ do
 		game,
 		p,
 		game.monsterPalettes,
-		bit.lshift(countof(game.monsterPalettes), 3),
+		countof(game.monsterPalettes) << 3,
 		function(index)
 			return transparents[index]
 		end
@@ -385,9 +384,9 @@ end
 -- first 64 are each 32x32 tile segment in the WoB, next 64 are segments in the WoR
 for i=0,0x7f do
 	print('map sector encounter #0x'..i:hex()
-		..' world='..bit.rshift(i, 6)
-		..' x='..bit.band(i, 7)
-		..' y='..bit.band(bit.rshift(i, 3), 7)
+		..' world='..(i >> 6)
+		..' x='..(i & 7)
+		..' y='..((i >> 3) & 7)
 	)
 	local randomBattlesPerTerrain = game.worldSectorRandomBattlesPerTerrain + i
 	local encounterRatePerTerrain = game.worldSectorRandomBattleEncounterRatesPerTerrain[i]
@@ -456,7 +455,7 @@ makePaletteSets(
 	game.characterPalettes,
 	16 * game.numCharacterPalettes,
 	function(index)
-		return bit.band(0xf, index) == 0
+		return 0xf & index == 0
 	end
 )
 --]]

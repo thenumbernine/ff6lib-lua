@@ -201,12 +201,12 @@ function SRAMWindow:showIndexUI()
 	if ig.igCollapsingHeader'character fields:' then
 		ig.luatableInputInt('characterIndex', self, 'characterIndex')
 
-		local r = save.roster.s + bit.band(15, self.characterIndex)
+		local r = save.roster.s + (15 & self.characterIndex)
 		for fieldname, ctype, field in r:fielditer() do
 			self:editField(r, fieldname, ctype, field)
 		end
 
-		local character = save.characters.s + bit.band(15, self.characterIndex)
+		local character = save.characters.s + (15 & self.characterIndex)
 		for fieldname, ctype, field in character:fielditer() do
 			self:editField(character, fieldname, ctype, field)
 		end
@@ -279,7 +279,7 @@ assert.type(flagField, 'string')
 
 		local colSize = link and 8 or 16
 		local flagobj = save[flagField]	-- should be a uint8_t[] array
-		local count = bit.lshift(game.countof(flagobj), 3)
+		local count = game.countof(flagobj) << 3
 		for i=0,count-1 do
 			ig.igPushID_Int(i)
 
@@ -481,7 +481,7 @@ function SRAMWindow:recalcChecksum(i)
 	for i=0,ffi.sizeof(game.SaveSlot)-3 do
 		x = x + ptr[i]
 	end
-	save.checksum = bit.band(0xffff, x)
+	save.checksum = 0xffff & x
 end
 
 function SRAMWindow:setIndex(...)
@@ -535,7 +535,7 @@ function SRAMWindow:setIndex(...)
 	self.charTexs = range(0,15):mapi(function(charIndex)
 		local ch = save.characters.s[charIndex]
 		local img = game.getSpriteFrameImage(ch.sprite)
-		--local palette = bit.band(ch.character, 7)	-- character? sprite? palette? where to go for palette of sprite?
+		--local palette = ch.character & 7	-- character? sprite? palette? where to go for palette of sprite?
 		--local palette = game.characterPaletteIndexes[charIndex % game.countof(game.characterPaletteIndexes)]
 		--local palette = game.characterPaletteIndexes[ch.sprite % game.countof(game.characterPaletteIndexes)]
 		--img.palette = game.getCharPal(palette)
@@ -565,7 +565,7 @@ function SRAMWindow:refreshMonstersEnabled()
 	local save = app.sram.saves.s + self.index
 
 	self.monstersEnabled = {}	-- 0-based
-	local numFormationFlags = bit.lshift(game.countof(save.battleFormationFlags), 3)
+	local numFormationFlags = game.countof(save.battleFormationFlags) << 3
 	for i=0,numFormationFlags-1 do
 		if readbit(save.battleFormationFlags, i) then
 			local formation = game.formations + i

@@ -74,6 +74,7 @@ local battleAnimGraphicSetsPath = path'battleanim_graphicsets'
 battleAnimGraphicSetsPath:mkdir()
 
 local function runBattleAnim(game, cmdline)
+	cmdline = cmdline or {}
 	local rom = game.rom
 	local romsize = game.romsize
 	local countof = game.countof
@@ -192,7 +193,7 @@ local function runBattleAnim(game, cmdline)
 			or 0
 
 		local effectFrame16x16TileOffsetPtr = battleAnimFrame16x16TileOffsets + effect.frameIndexBase
-		local graphicSetIndex = bit.bor(effect.graphicSet, bit.lshift(effect.graphicSetHighBit, 8))
+		local graphicSetIndex = effect.graphicSet | (effect.graphicSetHighBit << 8)
 
 		local effectKey = table{
 			graphicSetIndex,
@@ -220,14 +221,14 @@ local function runBattleAnim(game, cmdline)
 		--local graphicSetTiles = ffi.cast(ffi.typeof('$*', game.BattleAnim8x8Tile), rom + graphicSetAddr)
 		local graphicSetTiles = battleAnimGraphicSetsPerBpp[bpp] + graphicSetOffset
 
-		local tileLen = bit.lshift(bpp, 3)
+		local tileLen = bpp << 3
 		print('\teffectAddr=0x'..number.hex(graphicSetAddr)
 			..', tileLen=0x'..number.hex(tileLen))
 
 		local numFrames = effect.numFrames
 		-- https://web.archive.org/web/20190907020126/https://www.ff6hacking.com/forums/thread-925.html
 		-- ... says dont use the last 2 bits
-		numFrames = bit.band(0x3f, numFrames)
+		numFrames = 0x3f & numFrames
 		for frameIndex=0,numFrames-1 do
 			print('\tframeIndex=0x'..number.hex(frameIndex)..':')
 
@@ -251,8 +252,8 @@ local function runBattleAnim(game, cmdline)
 			assert.le(0, animFrame16x16TileOffset)
 			assert.lt(animFrame16x16TileOffset, ffi.sizeof(game.battleAnimFrame16x16Tiles))	-- will this sizeof work?
 			-- make sure its aligned to BattleAnim16x16Tile
-			assert.eq(0, bit.band(1, animFrame16x16TileOffset))
-			local animFrame16x16TileIndex = bit.rshift(animFrame16x16TileOffset, 1)
+			assert.eq(0, 1 & animFrame16x16TileOffset)
+			local animFrame16x16TileIndex = animFrame16x16TileOffset >> 1
 
 			-- using the 0x110000 address offset:
 			--local frame16x16TilesPtr = ffi.cast(ffi.typeof('$*', game.BattleAnim16x16Tile), rom + frame16x16TilesAddr)
@@ -293,27 +294,16 @@ local function runBattleAnim(game, cmdline)
 						-- TLDR: Make a 16x8 tile display out of the 8x8 tiles pointed to by graphicSetTiles[]
 						-- You'll see they make up 16x16-pixel regions
 						-- Those are what we are indexing here, hence why you have to pick apart battleAnim16x16Tile.tile into its lower 3 bits and its upper 5
-						local graphicSetTile = graphicSetTiles + bit.bor(
+						local graphicSetTile = graphicSetTiles + (
 							-- bit 0 is xofs
-							xofs,
+							xofs
 							-- bits 123 is tile bits 012
-							bit.lshift(
-								bit.band(
-									battleAnim16x16Tile.tile,
-									7
-								),
-								1
-							),
+							| ((battleAnim16x16Tile.tile & 7) << 1)
 							-- bit 4 is yofs
-							bit.lshift(yofs, 4),
+							| (yofs << 4)
 							-- bits 567 is tile bits 345
-							bit.lshift(
-								-- .tile is 6 bits, so truncate 3 lower bits <-> & 0x38
-								bit.band(
-									battleAnim16x16Tile.tile,
-									0x38
-								),
-							2)
+							-- .tile is 6 bits, so truncate 3 lower bits <-> & 0x38
+							| ((battleAnim16x16Tile.tile & 0x38) << 2)
 						)
 						local vflip = 0 ~= graphicSetTile.vflip
 						local hflip = 0 ~= graphicSetTile.hflip
@@ -333,8 +323,8 @@ local function runBattleAnim(game, cmdline)
 						end
 						readTile(
 							im,
-							bit.bor(bit.lshift(x, 1), xformxofs)*tileWidth,
-							bit.bor(bit.lshift(y, 1), xformyofs)*tileHeight,
+							((x << 1) | xformxofs) * tileWidth,
+							((y << 1) | xformyofs) * tileHeight,
 							rom + tile8x8DataAddr,
 							bpp,
 							hflip,
@@ -344,7 +334,7 @@ local function runBattleAnim(game, cmdline)
 				end
 			end
 
-			local paltable = makePalette(game, game.battleAnimPalettes + paletteIndex, bpp, bit.lshift(1, bpp))
+			local paltable = makePalette(game, game.battleAnimPalettes + paletteIndex, bpp, 1 << bpp)
 			im.palette = paltable
 
 			-- now find smallest region of non-transparent
@@ -441,9 +431,9 @@ local function runBattleAnim(game, cmdline)
 
 		-- only plot the even graphicSetIndex tiles cuz the odd ones have a row in common
 		for graphicSetIndex=0,maxGraphicSet-1,2 do
-			assert.eq(bit.band(graphicSetIndex, 1), 0, "this wont be aligned in the master image")
+			assert.eq(graphicSetIndex & 1, 0, "this wont be aligned in the master image")
 
-			local halfGraphicsSetIndex = bit.rshift(graphicSetIndex, 1)
+			local halfGraphicsSetIndex = graphicSetIndex >> 1
 			local masterRow = halfGraphicsSetIndex % masterSetsHigh
 			local masterCol = (halfGraphicsSetIndex - masterRow) / masterSetsHigh
 
@@ -456,7 +446,7 @@ local function runBattleAnim(game, cmdline)
 				paletteIndex = palettes:last() or 0
 			end
 
-			local tileLen = bit.lshift(bpp, 3)
+			local tileLen = bpp << 3
 			local info = infoPerBpp[bpp]
 			local graphicSetTiles = battleAnimGraphicSetsPerBpp[bpp] + graphicSetIndex * 0x20
 
@@ -465,7 +455,7 @@ local function runBattleAnim(game, cmdline)
 				4*tileHeight,
 				1, uint8_t
 			)
-			im.palette = makePalette(game, game.battleAnimPalettes + paletteIndex, bpp, bit.lshift(1, bpp))
+			im.palette = makePalette(game, game.battleAnimPalettes + paletteIndex, bpp, 1 << bpp)
 			for y=0,3 do
 				for x=0,15 do
 					local graphicSetTile = graphicSetTiles + (x + 0x10 * y)
@@ -505,7 +495,7 @@ local function runBattleAnim(game, cmdline)
 	-- it's going to be 3bpp 8x8 data , so there will be 4881 of them
 	do
 		local tilesPerSheetInBits = 5
-		local tilesPerSheetSize = bit.lshift(1, tilesPerSheetInBits)
+		local tilesPerSheetSize = 1 << tilesPerSheetInBits
 		local sheetSize = tilesPerSheetSize * tileWidth	-- == tileHeight
 		local tilesPerSheetMask = tilesPerSheetSize-1
 
@@ -517,14 +507,14 @@ local function runBattleAnim(game, cmdline)
 
 			local allTileSheets = table()
 
-			local tileSizeInBytes = bit.lshift(bpp, 3)
+			local tileSizeInBytes = bpp << 3
 			local totalTiles = math.floor((info.tile8x8DataEndAddr - info.tile8x8DataBaseAddr) / tileSizeInBytes)
 
 			for tileIndex=0,totalTiles-1 do
-				local tileX = bit.band(tileIndex, tilesPerSheetMask)
-				local tileYAndSheetIndex = bit.rshift(tileIndex, tilesPerSheetInBits)
-				local tileY = bit.band(tileYAndSheetIndex, tilesPerSheetMask)
-				local sheetIndex = bit.rshift(tileYAndSheetIndex, tilesPerSheetInBits)
+				local tileX = tileIndex & tilesPerSheetMask
+				local tileYAndSheetIndex = tileIndex >> tilesPerSheetInBits
+				local tileY = tileYAndSheetIndex & tilesPerSheetMask
+				local sheetIndex = tileYAndSheetIndex >> tilesPerSheetInBits
 
 				readTile(
 					tileImg,
@@ -541,12 +531,12 @@ local function runBattleAnim(game, cmdline)
 
 				-- use whatever's last as the palette
 				local paletteIndex = paletteForTileIndex[tileIndex] or 0
-				sheet.palette = makePalette(game, game.battleAnimPalettes + paletteIndex, bpp, bit.lshift(1, bpp))
+				sheet.palette = makePalette(game, game.battleAnimPalettes + paletteIndex, bpp, 1 << bpp)
 
 				sheet:pasteInto{
 					image = tileImg,
-					x = bit.lshift(tileX, 3),	-- tx << 3 == tx * 8 == tx * tileWidth
-					y = bit.lshift(tileY, 3),
+					x = tileX << 3,	-- tx << 3 == tx * 8 == tx * tileWidth
+					y = tileY << 3,
 				}
 			end
 			for sheetIndexPlus1,sheet in ipairs(allTileSheets) do
@@ -556,15 +546,15 @@ local function runBattleAnim(game, cmdline)
 	end
 
 	local bpp = 3
-	local mask = bit.lshift(1, bpp) - 1
-	local numColors = bit.lshift(countof(game.battleAnimPalettes), bpp)
+	local mask = (1 << bpp) - 1
+	local numColors = countof(game.battleAnimPalettes) << bpp
 	makePaletteSets(
 		game,
 		battleAnimGraphicSetsPath,
 		game.battleAnimPalettes,
 		numColors,
 		function(index)
-			return bit.band(mask, index) == 0
+			return mask & index == 0
 		end
 	)
 

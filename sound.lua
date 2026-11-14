@@ -10,7 +10,7 @@ local uint16_t_p = ffi.typeof'uint16_t*'
 
 
 local function clampbits(x, b)
-	return math.clamp(x, bit.lshift(-1, b-1), bit.lshift(1, b-1)-1)
+	return math.clamp(x, ((-1) << (b-1)), (1 << (b-1))-1)
 end
 
 
@@ -29,8 +29,8 @@ return function(game)
 
 		-- addrs are in ascending order
 		local addr = game.brrSampleOfs[i]:value()
-		assert.ne(bit.band(0xc00000, addr), 0)
-		addr = bit.band(bit.bnot(0xc00000), addr)
+		assert.ne(0xc00000 & addr, 0)
+		addr = ~0xc00000 & addr
 
 		-- first two bytes fo the sampleAddr is the length-in-bytes of the brr sample
 		local brrLen = ffi.cast(uint16_t_p, rom+addr)[0]
@@ -72,31 +72,31 @@ return function(game)
 		local wavptr = wavData + 0
 		local lastSample = int16_t_2({0,0})	-- for filters
 		for j=0,numFrames-1 do
-			local endflag = bit.band(brrptr[0], 1) ~= 0
-			local loopflag = bit.band(brrptr[0], 2) ~= 0
-			local decodeFilter = bit.band(bit.rshift(brrptr[0], 2), 3)	-- 0-3 = decode filter = combine nibble with previous nibbles ...
-			local shift = bit.band(bit.rshift(brrptr[0], 4), 0xf)
+			local endflag = brrptr[0] & 1 ~= 0
+			local loopflag = brrptr[0] & 2 ~= 0
+			local decodeFilter = (brrptr[0] >> 2) & 3	-- 0-3 = decode filter = combine nibble with previous nibbles ...
+			local shift = (brrptr[0] >> 4) & 0xf
 			-- https://wiki.superfamicom.org/bit-rate-reduction-(brr)
 			-- https://github.com/Optiroc/BRRtools/blob/master/src/brr.c
 			-- https://github.com/boldowa/snesbrr/blob/master/src/brr/BrrCodec.cpp
 			for k=0,15 do
 				local sample
-				if bit.band(k,1) == 0 then
-					sample = bit.band(bit.rshift(brrptr[1+bit.rshift(k,1)], 4), 0xf)
+				if k & 1 == 0 then
+					sample = (brrptr[1 + (k >> 1)] >> 4) & 0xf
 				else
-					sample = bit.band(brrptr[1+bit.rshift(k,1)], 0xf)
+					sample = brrptr[1 + (k >> 1)] & 0xf
 				end
 
 				-- sample is now 0 to 15 , representing a 4-bit-signed -8 to +7
 				--if sample >= 8 then sample = sample - 16 end
-				sample = bit.bxor(sample, 8) - 8
+				sample = (sample ~ 8) - 8
 				-- sample is now -8 to +7
 
 				-- [[ invalid shift
 				if shift > 0xc then
-					sample = bit.band(sample, bit.bnot(0x7ff))
+					sample = sample & ~0x7ff
 				else
-					sample = bit.lshift(sample, shift)
+					sample = sample << shift
 					-- why is this? maybe to do with the filter using the post-sampled value for previous frame values?
 					sample = bit.arshift(sample, 1)
 				end
@@ -111,17 +111,17 @@ return function(game)
 						- bit.arshift(lastSample[0], 4)
 				elseif decodeFilter == 2 then
 					sample = sample
-						+ bit.lshift(lastSample[0], 1)
-						+ bit.arshift(-(lastSample[0] + bit.lshift(lastSample[0], 1)), 5)
+						+ (lastSample[0] << 1)
+						+ bit.arshift(-(lastSample[0] + (lastSample[0] << 1)), 5)
 						- lastSample[1]
 						+ bit.arshift(lastSample[1], 4)
 					sample = clampbits(sample, 16)
 				elseif decodeFilter == 3 then
 					sample = sample +
-						  bit.lshift(lastSample[0], 1)
-						+ bit.arshift(-(lastSample[0] + bit.lshift(lastSample[0], 2) + bit.lshift(lastSample[0], 3)), 6)
+						  (lastSample[0] << 1)
+						+ bit.arshift(-(lastSample[0] + (lastSample[0] << 2) + (lastSample[0] << 3)), 6)
 						- lastSample[1]
-						+ bit.arshift(lastSample[1] + bit.lshift(lastSample[1], 1), 4)
+						+ bit.arshift(lastSample[1] + (lastSample[1] << 1), 4)
 					sample = clampbits(sample, 16)
 				else
 					error'here'
@@ -129,7 +129,7 @@ return function(game)
 				--]]
 
 				-- [[ snesbrr: "wrap to 15 bits, sign-extend to 16 bits"
-				sample = bit.arshift(bit.lshift(sample, 1), 1)
+				sample = bit.arshift(sample << 1, 1)
 				sample = ffi.cast(int16_t, sample)
 				--]]
 
@@ -137,9 +137,9 @@ return function(game)
 				lastSample[0] = sample
 
 				--sample = bit.arshift(sample * 0x7f, 7)	-- volume ... ?
-				wavptr[0] = bit.lshift(sample, 1)
+				wavptr[0] = sample << 1
 
-				--wavptr[0] = bit.lshift(sample, 1)
+				--wavptr[0] = sample << 1
 				--lastSample[0], lastSample[1] = sampleBeforeFilter, lastSample[0]
 				wavptr = wavptr + 1
 			end

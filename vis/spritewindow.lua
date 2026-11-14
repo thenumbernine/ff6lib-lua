@@ -52,7 +52,7 @@ function SpriteWindow:showIndexUI()
 		local hiAndSize = game.characterSpriteOffsetHiAndSize + self.index
 		local hi = hiAndSize.hi
 		local size = hiAndSize.size
-		local addr = bit.bor(lo, bit.lshift(hi, 16))
+		local addr = lo | (hi << 16)
 		ig.igText(('addr $%06x'):format(addr))
 		ig.igText(('size 0x%02x'):format(size))
 

@@ -50,7 +50,7 @@ function TileSheetWindow:showIndexUI()
 	local y = math.clamp(math.floor(cursorY / tonumber(drawSize.y) * 16), 0, 15)
 	--]=]
 	if ig.igImageButton(self.name, tex.id, drawSize) then
-		self.index = bit.bor(x, bit.lshift(y, 4))
+		self.index = x | (y << 4)
 	end
 
 	-- ... and draw highlights ...
@@ -62,8 +62,8 @@ function TileSheetWindow:showIndexUI()
 		local maxx, maxy = max.x, max.y
 		local sizex = maxx - minx
 		local sizey = maxy - miny
-		local x = bit.band(0xf, self.index)
-		local y = bit.band(0xf, bit.rshift(self.index, 4))
+		local x = 0xf & self.index
+		local y = 0xf & (self.index >> 4)
 		min.x = x / 16 * sizex + minx
 		max.x = (x+1) / 16 * sizex + minx
 		min.y = y / 16 * sizey + miny

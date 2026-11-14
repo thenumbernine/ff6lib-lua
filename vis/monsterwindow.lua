@@ -34,10 +34,10 @@ function MonsterWindow:showIndexUI()
 				ig.igText'- can encounter in veldt'
 				ig.igPopStyleColor(1)
 
-				local byteofs = bit.rshift(self.index, 3)
-				local bitofs = bit.band(self.index, 7)
-				local mask = bit.lshift(1, bitofs)
-				local enabled = 0 ~= bit.band(mask, save.rageFlags[byteofs])
+				local byteofs = self.index >> 3
+				local bitofs = self.index & 7
+				local mask = 1 << bitofs
+				local enabled = 0 ~= mask & save.rageFlags[byteofs]
 				if enabled then
 					ig.igPushStyleColor_U32(ig.ImGuiCol_Text, 0xff00ff00)
 					ig.igText'- gau has already found'
@@ -125,8 +125,8 @@ function MonsterWindow:showIndexUI()
 		self.__tmp = monsterSprite:getPaletteIndex()
 		if ig.luatableInputInt('palette', self, '__tmp') then
 			-- then set the palette ...
-			monsterSprite.palLo = bit.band(0xff, self.__tmp)
-			monsterSprite.palHi = bit.rshift(self.__tmp, 8)	-- only 7 bits
+			monsterSprite.palLo = 0xff & self.__tmp
+			monsterSprite.palHi = self.__tmp >> 8	-- only 7 bits
 			-- if we changed the palette then regen the sprite ...
 			self:refreshTex()
 		end

@@ -9,7 +9,7 @@ local WorldEncounterSectorWindow = ArrayWindow:subclass()
 WorldEncounterSectorWindow.name = 'world encounter sectors'
 
 function WorldEncounterSectorWindow:getCount()
-	return bit.lshift(1, 7)
+	return 1 << 7
 end
 
 function WorldEncounterSectorWindow:showIndexUI()
@@ -17,12 +17,12 @@ function WorldEncounterSectorWindow:showIndexUI()
 	local game = app.game
 	local save = app.sramWindow:getCurIndex()
 
-	local x = bit.band(self.index, 7)
-	local y = bit.band(bit.rshift(self.index, 3), 7)
-	local xmin = bit.lshift(x, 5)
-	local ymin = bit.lshift(y, 5)
+	local x = self.index & 7
+	local y = (self.index >> 3) & 7
+	local xmin = x << 5
+	local ymin = y << 5
 	ig.igText(
-		'world='..bit.rshift(self.index, 6)
+		'world='..(self.index >> 6)
 		..' sector={'..x..', '..y..'}'
 		..' bbox={{'..xmin..', '..ymin..'}, {'..(xmin + 32)..', '..(ymin + 32)..'}}'
 	)
@@ -36,10 +36,9 @@ function WorldEncounterSectorWindow:showIndexUI()
 			local battleEntries = game.monsterRandomBattles + randomBattlesPerTerrain[terrain]
 			for j=0,battleEntries.dim-1 do
 				local formationEntry = battleEntries.s[j]
-				if 0 ~= bit.band(
-					bit.lshift(1, bit.band(formationEntry.formation, 7)),
-					save.battleFormationFlags[bit.rshift(formationEntry.formation, 3)]
-				) then
+				if 0 ~= save.battleFormationFlags[formationEntry.formation >> 3]
+					& (1 << (formationEntry.formation & 7))
+				then
 					numFormationsFound = numFormationsFound + 1
 				end
 			end

@@ -35,7 +35,7 @@ function TreasureWindow:showIndexUI()
 			local got
 			if fieldname == 'flag' and save then
 				local flag = t.flag
-				got = 0 ~= bit.band(bit.lshift(1, bit.band(flag, 7)), save.treasureFlags[bit.rshift(flag, 3)])
+				got = 0 ~= (1 << (flag & 7)) & save.treasureFlags[flag >> 3]
 				ig.igPushStyleColor_U32(ig.ImGuiCol_FrameBg, got and 0x5f009f00 or 0x5f00009f)
 			end
 

@@ -774,13 +774,12 @@ return function(game)
 	-- points into fieldSpriteGraphics == 0x150000-0x183000
 	local function getTileOffsetForSprite(sprite)
 		if sprite < 0 or sprite >= game.numCharacterSprites then return end
-		return bit.band(
-			bit.bnot(0xc00000),
+		return ~0xc00000 &
 			-- these are only for sprite < 87?
-			bit.bor(
-				game.characterSpriteOffsetLo[sprite],
-				bit.lshift(game.characterSpriteOffsetHiAndSize[sprite].hi, 16)
-			))
+			(
+				game.characterSpriteOffsetLo[sprite]
+				| (game.characterSpriteOffsetHiAndSize[sprite].hi << 16)
+			)
 	end
 
 	function game.getSpriteFrameCount(spriteIndex)
@@ -823,7 +822,7 @@ print('for sprite', spriteIndex, 'getting frame', frameIndex)
 		local palIndex = palIndexes and palIndexes:last()
 -- see all?
 --print('sprite', spriteNames[spriteIndex], 'using palettes', palIndexes and palIndexes:concat', ')
-		palIndex = bit.band(palIndex or 0, 0x1f)
+		palIndex = (palIndex or 0) & 0x1f
 		local palette = game.getCharPal(palIndex)
 
 		-- output all frames but assume all are 2x3

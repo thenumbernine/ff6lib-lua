@@ -400,18 +400,9 @@ local RGBA5551 = struct{
 	metatable = function(mt)
 		mt.rgba = function(self)
 			return
-				bit.bor(
-					bit.lshift(self.r, 3),
-					bit.rshift(self.r, 2)
-				),
-				bit.bor(
-					bit.lshift(self.g, 3),
-					bit.rshift(self.g, 2)
-				),
-				bit.bor(
-					bit.lshift(self.b, 3),
-					bit.rshift(self.b, 2)
-				),
+				(self.r << 3) | (self.r >> 2),
+				(self.g << 3) | (self.g >> 2),
+				(self.b << 3) | (self.b >> 2),
 				self.a == 0 and 0xff or 0
 		end
 	end,
@@ -473,7 +464,7 @@ local numMenuSpells = 54
 local numEspers = 27
 
 local function getSpellName(i)
-	i = bit.band(i, 0xff)
+	i = i & 0xff
 	-- black, grey, white
 	if i >= 0 and i < numMenuSpells then
 		return string.trim(tostring(gameC.spellNames_0to53[i]))
@@ -492,7 +483,7 @@ local function getSpellName(i)
 end
 
 local function getSpellDesc(i)
-	i = bit.band(i, 0xff)
+	i = i & 0xff
 	if i >= 0 and i < numMenuSpells then
 		return game.gamezstr(game.spellDescBase + game.spellDescOffsets[i])
 	end
@@ -989,10 +980,7 @@ local Formation = ff6struct{
 
 		-- index 1-6
 		mt.getMonsterIndex = function(self, i)
-			return bit.bor(
-				self['monster'..i],
-				bit.lshift(self['monster'..i..'hi'], 8)
-			)
+			return self['monster'..i] | (self['monster'..i..'hi'] << 8)
 		end
 
 		-- index 1-6
@@ -1297,7 +1285,7 @@ local MonsterSprite = struct{
 	metatable = function(mt)
 		mt.typeToString = fieldsToHex
 		function mt:getPaletteIndex()
-			return bit.bor(self.palLo, bit.lshift(self.palHi, 8))
+			return self.palLo | (self.palHi << 8)
 		end
 	end,
 }

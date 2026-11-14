@@ -125,8 +125,8 @@ fd-ff = terminate
 		local ptr = rom + startAddr
 		while ptr < endptr do
 			local cmd = ptr[0]
-			local lo = bit.band(0xf, cmd)
-			local hi = bit.band(0xf, bit.rshift(cmd, 4))
+			local lo = 0xf & cmd
+			local hi = 0xf & (cmd >> 4)
 			if lo < 11 and hi < 11 then
 				cmds:insert('play instrument '..lo..' at note '..hi)
 			elseif cmd >= 0xb0 and cmd <= 0xba then
@@ -544,7 +544,7 @@ print('sfx addr '..('%06x'):format(addr)..' - '..('%06x'):format(nextAddr))
 	local songAddrs = table()
 	for i=0,game.numSongs-1 do
 		local addr = game.songDataOfs[i]:value()
-		assert.ne(0, bit.band(addr, 0xc00000))
+		assert.ne(0, addr & 0xc00000)
 		addr = addr - 0xc00000
 --print('song #'..i..' addr '..('0x%06x'):format(addr))
 --assert.eq(addr, songAddrs[i+1], "song "..i)

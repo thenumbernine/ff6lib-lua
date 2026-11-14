@@ -16,21 +16,17 @@ local function readpixel(tile, x, y, bpp)
 
 	-- bit 3
 	if bpp == 2 then
-		return bit.bor(
-			bit.band(1, bit.rshift(tile[2*y], 7-x)),
-			bit.lshift(bit.band(1, bit.rshift(tile[2*y+1], 7-x)), 1)
-		)
+		return (1 & (tile[2*y] >> (7-x)))
+			| ((1 & (tile[2*y+1] >> (7-x))) << 1)
 	elseif bpp == 3 then
-		return bit.bor(
-			bit.band(1, bit.rshift(tile[2*y], 7-x)),
-			bit.lshift(bit.band(1, bit.rshift(tile[2*y+1], 7-x)), 1),
-			bit.lshift(bit.band(1, bit.rshift(tile[y+16], 7-x)), 2))
+		return (1 & (tile[2*y] >> (7-x)))
+			| ((1 & (tile[2*y+1] >> (7-x))) << 1)
+			| ((1 & (tile[y+16] >> (7-x))) << 2)
 	elseif bpp == 4 then
-		return bit.bor(
-			bit.band(1, bit.rshift(tile[2*y], 7-x)),
-			bit.lshift(bit.band(1, bit.rshift(tile[2*y+1], 7-x)), 1),
-			bit.lshift(bit.band(1, bit.rshift(tile[2*y+16], 7-x)), 2),
-			bit.lshift(bit.band(1, bit.rshift(tile[2*y+17], 7-x)), 3))
+		return (1 & (tile[2*y] >> (7-x)))
+			| ((1 & (tile[2*y+1] >> (7-x))) << 1)
+			| ((1 & (tile[2*y+16] >> (7-x))) << 2)
+			| ((1 & (tile[2*y+17] >> (7-x))) << 3)
 	end
 end
 
@@ -38,9 +34,9 @@ local function readpixellinear(tile, x, y, bpp)
 	assert.eq(bpp, 4)
 
 	local index = x + 8 * y
-	local data = tile[bit.rshift(index, 1)]
-	if bit.band(index, 1) ~= 0 then data = bit.rshift(data, 4) end
-	data = bit.band(data, 0xf)
+	local data = tile[index >> 1]
+	if index & 1 ~= 0 then data = data >> 4 end
+	data = data & 0xf
 	return data
 end
 
@@ -56,7 +52,7 @@ local function readTile(im, xofs, yofs, tile, bpp, hflip, vflip, palor)
 		local cy = vflip and tileHeight-1-y or y
 		for x=0,tileWidth-1 do
 			local cx = hflip and tileWidth-1-x or x
-			dstp[0] = bit.bor(palor, readpixel(tile, cx, cy, bpp))
+			dstp[0] = palor | readpixel(tile, cx, cy, bpp)
 			dstp = dstp + 1
 		end
 	end
@@ -77,7 +73,7 @@ local function drawTile(im, xofs, yofs, tile, bpp, hflip, vflip, palor, palette)
 				if dstx >= 0 and dstx < im.width then
 					local dstp = im.buffer + (dstx + im.width * dsty)
 					local cx = hflip and tileWidth-1-x or x
-					local colorIndex = bit.bor(palor, readpixel(tile, cx, cy, bpp))
+					local colorIndex = palor | readpixel(tile, cx, cy, bpp)
 					local color = palette[colorIndex+1]
 					if color and (not color[4] or color[4] > 0) then
 						dstp[0] = colorIndex
@@ -101,7 +97,7 @@ local function readTileLinear(im, xofs, yofs, tile, bpp, hflip, vflip, palor)
 				if dstx >= 0 and dstx < im.width then
 					local dstp = im.buffer + (dstx + im.width * dsty)
 					local cx = hflip and tileWidth-1-x or x
-					dstp[0] = bit.bor(palor, readpixellinear(tile, cx, cy, bpp))
+					dstp[0] = palor | readpixellinear(tile, cx, cy, bpp)
 				end
 			end
 		end
@@ -123,7 +119,7 @@ local function drawTileLinear(im, xofs, yofs, tile, bpp, hflip, vflip, palor, pa
 				if dstx >= 0 and dstx < im.width then
 					local dstp = im.buffer + (dstx + im.width * dsty)
 					local cx = hflip and tileWidth-1-x or x
-					local colorIndex = bit.bor(palor, readpixellinear(tile, cx, cy, bpp))
+					local colorIndex = palor | readpixellinear(tile, cx, cy, bpp)
 					local color = palette[colorIndex+1]
 					if color and (not color[4] or color[4] > 0) then
 						dstp[0] = colorIndex
@@ -137,17 +133,17 @@ end
 -- returns a Lua table of the palette
 local function makePalette(game, pal, bpp, n)
 	pal = ffi.cast(ffi.typeof('$*', game.RGBA5551), pal)
-	local mask = bit.lshift(1, bpp) - 1
+	local mask = (1 << bpp) - 1
 	return range(0,n-1):mapi(function(i)
 		-- 0 is always transparent
-		if bit.band(i, mask) == 0 then return {0,0,0,0} end
+		if i & mask == 0 then return {0,0,0,0} end
 		local c = pal + i
 		return {c:rgba()}
 	end)
 end
 
 local function readbit(byte, bitindex)
-	return bit.band(bit.rshift(byte, bitindex), 1)
+	return (byte >> bitindex) & 1
 end
 
 -- used by monsters
@@ -167,16 +163,16 @@ local function makeTiledImageWithMask(
 	-- pal better be palette_t of some kind
 
 	-- how many bits in size
-	local tileMaskStep = bit.rshift(tilesWide * tilesHigh, 3)
+	local tileMaskStep = (tilesWide * tilesHigh) >> 3
 
 	local imgwidth = 0
 	local imgheight = 0
 	for y=0,tilesHigh-1 do
 		for x=0,tilesWide-1 do
-			local tileMaskBit = bit.lshift(tileMaskIndex * tileMaskStep, 3) + x + tilesWide * y
+			local tileMaskBit = ((tileMaskIndex * tileMaskStep) << 3) + x + tilesWide * y
 			if readbit(
-				tileMaskData[bit.rshift(tileMaskBit, 3)],
-				7 - bit.band(tileMaskBit, 7)
+				tileMaskData[tileMaskBit >> 3],
+				7 - (tileMaskBit & 7)
 			) ~= 0 then
 				imgwidth = math.max(imgwidth, x)
 				imgheight = math.max(imgheight, y)
@@ -191,13 +187,13 @@ local function makeTiledImageWithMask(
 
 	-- monsters have a set of tiles, in-order (cuz there aren't many duplicates),
 	-- flagged on/off (cuz there are often 8x8 transparent holes in the sprites)
-	local tilesize = bit.rshift(tileWidth * tileHeight * bpp, 3)
+	local tilesize = (tileWidth * tileHeight * bpp) >> 3
 	for y=0,tilesHigh-1 do
 		for x=0,tilesWide-1 do
-			local tileMaskBit = bit.lshift(tileMaskIndex * tileMaskStep, 3) + x + tilesWide * y
+			local tileMaskBit = ((tileMaskIndex * tileMaskStep) << 3) + x + tilesWide * y
 			if readbit(
-				tileMaskData[bit.rshift(tileMaskBit, 3)],
-				7 - bit.band(tileMaskBit, 7)
+				tileMaskData[tileMaskBit >> 3],
+				7 - (tileMaskBit & 7)
 			) ~= 0 then
 				readTile(im, x*tileWidth, y*tileHeight, tileptr, bpp)
 				tileptr = tileptr + tilesize
@@ -205,7 +201,7 @@ local function makeTiledImageWithMask(
 		end
 	end
 
-	im.palette = makePalette(game, pal, bpp, bit.lshift(1, bpp))
+	im.palette = makePalette(game, pal, bpp, 1 << bpp)
 
 	return im
 end
@@ -219,7 +215,7 @@ local function makePaletteSets(game, dir, pal, numColors, isTransparent)
 		local palimage = Image(16, 16, 4, 'uint8_t'):clear()
 		local p = palimage.buffer + 0
 		for i=0,255 do
-			local j = bit.bor(bit.lshift(palSheetIndex, 8), i)
+			local j = (palSheetIndex << 8) | i
 			if j < numColors then
 				if not (isTransparent and isTransparent(j)) then
 					p[0], p[1], p[2], p[3] = pal[j]:rgba()

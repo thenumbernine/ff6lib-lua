@@ -101,11 +101,11 @@ function MapWindow:showIndexUI()
 		assert.len(tilePropsNames, numTilePropsBits)
 		for ip1,name in ipairs(tilePropsNames) do
 			local i = ip1-1
-			local mask = bit.lshift(1, i)
-			self.__tmp = 0 ~= bit.band(app.showTileMask, mask)
-			if bit.band(i, 7) ~= 0 then ig.igSameLine() end
+			local mask = 1 << i
+			self.__tmp = 0 ~= app.showTileMask & mask
+			if i & 7 ~= 0 then ig.igSameLine() end
 			if ig.luatableTooltipCheckbox('tileProp '..i..': '..name, self, '__tmp') then
-				app.showTileMask = bit.bxor(mask, app.showTileMask)
+				app.showTileMask = mask ~ app.showTileMask
 			end
 		end
 	end
@@ -353,7 +353,7 @@ function MapWindow:setIndex(newIndex, pushStack)
 	ffi.fill(self.origMapPalData, ffi.sizeof(self.origMapPalData))
 	for i=0,127 do
 		for j=0,3 do
-			self.origMapPalData[bit.bor(j,bit.lshift(i, 2))] = palette[i+1][j+1]
+			self.origMapPalData[j | (i << 2)] = palette[i+1][j+1]
 		end
 	end
 	self.mapPalData = uint8_t_ar(128*4)
@@ -538,9 +538,9 @@ function MapWindow:refreshTileSheet()
 			-- what is its format?
 			local tile16x16 = 0
 			for j=0,size.y-1 do
-				local y = bit.lshift(j, 4)
+				local y = j << 4
 				for i=0,size.x-1 do
-					local x = bit.lshift(i, 4)
+					local x = i << 4
 
 					if worldInfo then
 						game.layer1worlddrawtile16x16(

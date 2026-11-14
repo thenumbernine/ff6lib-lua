@@ -57,10 +57,9 @@ function BattleOptionsWindow:showIndexUI()
 
 		local hasFormation
 		if save then
-			hasFormation = 0 ~= bit.band(
-				bit.lshift(1, bit.band(formationEntry.formation, 7)),
-				save.battleFormationFlags[bit.rshift(formationEntry.formation, 3)]
-			)
+			hasFormation = 0 ~=
+				save.battleFormationFlags[formationEntry.formation >> 3]
+				& (1 << (formationEntry.formation & 7))
 			ig.igPushStyleColor_U32(ig.ImGuiCol_FrameBg, hasFormation and 0x5f009f00 or 0x5f00009f)
 		end
 
@@ -144,9 +143,9 @@ function RandomBattleOptionsWindow:showIndexUI(...)
 		for j,info in ipairs(self.worldSectorsWithThis) do
 			ig.igPushID_Int(j)
 
-			local mapIndex = bit.rshift(info.sectorIndex, 6)
-			local x = bit.lshift(bit.band(info.sectorIndex, 7), 5) + 16
-			local y = bit.lshift(bit.band(bit.rshift(info.sectorIndex, 3), 7), 5) + 16
+			local mapIndex = info.sectorIndex >> 6
+			local x = ((info.sectorIndex & 7) << 5) + 16
+			local y = (((info.sectorIndex >> 3) & 7) << 5) + 16
 
 			if lastSectorIndex ~= info.sectorIndex then
 				lastSectorIndex = info.sectorIndex

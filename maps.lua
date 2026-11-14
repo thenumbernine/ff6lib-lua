@@ -272,7 +272,7 @@ data = ffi.string(dest, #data)
 			local bpp = 4
 			local gfxData = gfxDatas[1]
 			if not gfxData then return end
-			local tileptr = gfxData + tile8x8 * bit.lshift(bpp, 3)
+			local tileptr = gfxData + tile8x8 * (bpp << 3)
 			return tileptr, bpp
 		end
 
@@ -284,8 +284,8 @@ data = ffi.string(dest, #data)
 			local bpp = 4
 			local gfxData = gfxDatas[2]
 			if not gfxData then return end
-			tile8x8 = bit.band(0x7f, tile8x8)
-			local tileptr = gfxData + tile8x8 * bit.lshift(bpp, 3)
+			tile8x8 = 0x7f & tile8x8
+			local tileptr = gfxData + tile8x8 * (bpp << 3)
 			return tileptr, bpp
 		end
 
@@ -297,8 +297,8 @@ data = ffi.string(dest, #data)
 			local gfxData = gfxDatas[3]
 			if not gfxData then return end
 			-- is it 0x180 -> 0 or 0x180 -> 0x80?
-			tile8x8 = bit.band(0xff, tile8x8 - 0x80)
-			local tileptr = gfxData + tile8x8 * bit.lshift(bpp, 3)
+			tile8x8 = 0xff & (tile8x8 - 0x80)
+			local tileptr = gfxData + tile8x8 * (bpp << 3)
 			return tileptr, bpp
 		end
 
@@ -308,8 +308,8 @@ data = ffi.string(dest, #data)
 			local bpp = 4
 			local gfxData = gfxDatas[3]
 			if not gfxData then return end
-			tile8x8 = bit.band(0x7f, tile8x8)
-			local tileptr = gfxData + tile8x8 * bit.lshift(bpp, 3)
+			tile8x8 = 0x7f & tile8x8
+			local tileptr = gfxData + tile8x8 * (bpp << 3)
 			return tileptr, bpp
 		end
 		--]]
@@ -320,8 +320,8 @@ data = ffi.string(dest, #data)
 			local bpp = 4
 			local gfxData = gfxDatas[4]
 			if not gfxData then return end
-			tile8x8 = bit.band(0x7f, tile8x8)
-			local tileptr = gfxData + tile8x8 * bit.lshift(bpp, 3)
+			tile8x8 = 0x7f & tile8x8
+			local tileptr = gfxData + tile8x8 * (bpp << 3)
 			return tileptr, bpp
 		end
 
@@ -334,12 +334,12 @@ data = ffi.string(dest, #data)
 			--[[
 			local bpp = 2
 			local gfxData = gfxLayer3Data
-			local ofs = (gfxLayer3Ofs or 0) + tile8x8 * bit.lshift(bpp, 3)
+			local ofs = (gfxLayer3Ofs or 0) + tile8x8 * (bpp << 3)
 			--]]
 			-- [[
 			local bpp = 4
 			local gfxData = gfxDatas[5]
-			local ofs = tile8x8 * bit.lshift(bpp, 3)
+			local ofs = tile8x8 * (bpp << 3)
 			--]]
 			if not gfxData then return end
 			assert.le(0, ofs)
@@ -376,27 +376,26 @@ data = ffi.string(dest, #data)
 		local tilesetptr = ffi.cast(uint8_t_p, tilesetData)
 		for yofs=0,1 do
 			for xofs=0,1 do
-				local i = bit.lshift(bit.bor(xofs, bit.lshift(yofs, 1)), 8)
-				local tilesetTile = bit.bor(
-					tilesetptr[tile16x16 + i],
-					bit.lshift(tilesetptr[tile16x16 + bit.bor(0x400, i)], 8)
-				)
-				local tileZLevel = bit.band(bit.rshift(tilesetTile, 13), 1)
-				if bit.band(bit.lshift(1, tileZLevel), zLevelFlags) ~= 0 then
-					local tile8x8 = bit.band(tilesetTile, 0x3ff)
+				local i = (xofs | (yofs << 1)) << 8
+				local tilesetTile =
+					tilesetptr[tile16x16 + i] |
+					(tilesetptr[tile16x16 + (0x400 | i)] << 8)
+				local tileZLevel = (tilesetTile >> 13) & 1
+				if (1 << tileZLevel) & zLevelFlags ~= 0 then
+					local tile8x8 = tilesetTile & 0x3ff
 					local tileptr, bpp = game.layer1and2tile8x8toptr(tile8x8, gfxDatas, gfxLayer3Data, gfxLayer3Ofs)
 					if tileptr then
-						local highPal = bit.band(7, bit.rshift(tilesetTile, 10))
-						local hFlip8 = bit.band(0x4000, tilesetTile) ~= 0
-						local vFlip8 = bit.band(0x8000, tilesetTile) ~= 0
+						local highPal = 7 & (tilesetTile >> 10)
+						local hFlip8 = 0x4000 & tilesetTile ~= 0
+						local vFlip8 = 0x8000 & tilesetTile ~= 0
 						readTile(img,
-							x + bit.lshift(xofs, 3),
-							y + bit.lshift(yofs, 3),
+							x + (xofs << 3),
+							y + (yofs << 3),
 							tileptr,
 							bpp,
 							hFlip8,
 							vFlip8,
-							bit.lshift(highPal, bpp)
+							highPal << bpp
 						)
 					end
 				end
@@ -417,7 +416,7 @@ data = ffi.string(dest, #data)
 	function game.layer3tile8x8toptr(tile8x8, gfxLayer3Data, gfxLayer3Ofs)
 		local bpp = 2
 		if not gfxLayer3Data then return end
-		local ofs = (gfxLayer3Ofs or 0) + bit.band(0xff, tile8x8) * bit.lshift(bpp, 3)
+		local ofs = (gfxLayer3Ofs or 0) + (0xff && tile8x8) * (bpp << 3)
 -- which to use ...
 -- welp looks like some tiles are truly oob, so i bet here i should be remapping them to somewhere else ...
 --ofs = ofs % #gfxLayer3Data
@@ -439,12 +438,12 @@ data = ffi.string(dest, #data)
 	function game.layer3drawtile16x16(img, x, y, tile16x16, gfxLayer3Data, gfxLayer3Ofs, layer3PalHiPtr)
 		for yofs=0,1 do
 			for xofs=0,1 do
-				local hFlip = bit.band(0x40, tile16x16) ~= 0
-				local vFlip = bit.band(0x80, tile16x16) ~= 0
+				local hFlip = 0x40 & tile16x16 ~= 0
+				local vFlip = 0x80 & tile16x16 ~= 0
 
 				-- get the tile16x16 index part without hflip/vflip
-				local tile16index = bit.band(tile16x16, 0x3f)
-				local palor = layer3PalHiPtr and bit.band(0x1c, layer3PalHiPtr[tile16index])
+				local tile16index = tile16x16 & 0x3f
+				local palor = layer3PalHiPtr and 0x1c & layer3PalHiPtr[tile16index]
 
 				--[[
 				wait because tile16x16 << 2 has to be 8 bits
@@ -458,20 +457,16 @@ data = ffi.string(dest, #data)
 				bit 1 = yofs
 				bits 2-7 = taken from tile16x16 bits 0-5
 				--]]
-				local tilesetTile = bit.bor(
-					bit.lshift(tile16index, 2),
-					bit.lshift(yofs, 1),
-					xofs
-				)
+				local tilesetTile = (tile16index << 2) | (yofs << 1) | xofs
 
-				tilesetTile = bit.band(tilesetTile, 0xff)		-- ... but it's already only 8 bits ...
-				local tile8x8 = bit.band(tilesetTile, 0x3ff)	-- ... same ...
+				tilesetTile = tilesetTile & 0xff		-- ... but it's already only 8 bits ...
+				local tile8x8 = tilesetTile & 0x3ff		-- ... same ...
 				-- bpp is always 2 for layer3
 --print('gfxLayer3 lookup index', tile8x8, 'of size', #gfxLayer3Data) --welp there is data at the end ...
 				local tileptr, bpp = game.layer3tile8x8toptr(tile8x8, gfxLayer3Data, gfxLayer3Ofs)
 				if tileptr then
-					local xofs = x + bit.lshift(hFlip and (1-xofs) or xofs, 3)
-					local yofs = y + bit.lshift(vFlip and (1-yofs) or yofs, 3)
+					local xofs = x + ((hFlip and (1-xofs) or xofs) << 3)
+					local yofs = y + ((vFlip and (1-yofs) or yofs) << 3)
 					--[[
 					readTile(img, xofs, yofs, tileptr, bpp, hFlip, vFlip)
 					--]]
@@ -483,7 +478,7 @@ data = ffi.string(dest, #data)
 							local cx = hFlip and tileWidth-1-x or x
 							dstp[0] = readpixel(tileptr, cx, cy, bpp)
 							if dstp[0] > 0 and palor then
-								dstp[0] = bit.bor(dstp[0], palor)
+								dstp[0] = dstp[0] | palor
 							end
 							dstp = dstp + 1
 						end
@@ -504,32 +499,28 @@ data = ffi.string(dest, #data)
 		local highPalData = tilesetptr + 0x2400
 		for yofs=0,1 do
 			for xofs=0,1 do
-				local tile8x8 = tilesetptr[bit.bor(
-					bit.lshift(xofs, 0),
-					bit.lshift(yofs, 1),
-					bit.lshift(tile16x16, 2)
-				)]
+				local tile8x8 = tilesetptr[xofs | (yofs << 1) | (tile16x16 << 2)]
 
 				local bpp = 4
-				local ofs = tile8x8 * bit.lshift(bpp, 3)
+				local ofs = tile8x8 * (bpp << 3)
 				assert.ge(ofs, 0)
 				assert.lt(ofs, 0x2000)
 				local tileptr = gfxData + ofs
 
-				local highPal = highPalData[bit.rshift(tile8x8, 1)]
-				if 0 ~= bit.band(1, tile8x8) then highPal = bit.rshift(highPal, 4) end
-				highPal = bit.band(0xf, highPal)
+				local highPal = highPalData[tile8x8 >> 1]
+				if 0 ~= 1 & tile8x8 then highPal = highPal >> 4 end
+				highPal = 0xf & highPal
 
 				local hFlip8 = false
 				local vFlip8 = false
 				readTileLinear(img,
-					x + bit.lshift(xofs, 3),
-					y + bit.lshift(yofs, 3),
+					x + (xofs << 3),
+					y + (yofs << 3),
 					tileptr,
 					bpp,
 					hFlip8,
 					vFlip8,
-					bit.lshift(highPal, bpp)
+					highPal << bpp
 				)
 			end
 		end
@@ -672,8 +663,8 @@ end
 					print("missing layout "..layer, layout, layoutData)
 				else
 					local layerImg = Image(
-						bit.lshift(layer1Size.x, 4),
-						bit.lshift(layer1Size.y, 4),
+						layer1Size.x << 4,
+						layer1Size.y << 4,
 						1,
 						uint8_t
 					):clear()
@@ -716,9 +707,9 @@ end
 					gfxDatas[5] = gfxAnimLayers1And2Data[1 + (animFrameIndex % 4)]
 
 					for dstY=0,layer1Size.y-1 do
-						local y = bit.lshift(dstY, 4)
+						local y = dstY << 4
 						for dstX=0,layer1Size.x-1 do
-							local x = bit.lshift(dstX, 4)
+							local x = dstX << 4
 							local srcX = (dstX + posx) % layerSize.x
 							local srcY = (dstY + posy) % layerSize.y
 							local tile16x16 = layoutptr[((srcX + layerSize.x * srcY) % #layoutData)]
@@ -747,7 +738,7 @@ end
 									x, y,
 									tile16x16,
 									self.tilesetDatas[layer],
-									bit.lshift(1, z),
+									1 << z,
 									gfxDatas,
 									gfxLayer3Data, 	-- should this be the default gfx-layer3-data, or should it be the layer3-animated data?
 									gfxLayer3Ofs
@@ -793,8 +784,8 @@ end
 		local layerSizes = table()
 		local layouts = table()
 		for i=1,3 do
-			local width = bit.lshift(1, 4 + map['layer'..i..'WidthLog2Minus4'])
-			local height = bit.lshift(1, 4 + map['layer'..i..'HeightLog2Minus4'])
+			local width = 1 << (4 + map['layer'..i..'WidthLog2Minus4'])
+			local height = 1 << (4 + map['layer'..i..'HeightLog2Minus4'])
 			layerSizes[i] = vec2i(width, height)
 			local layoutIndex = tonumber(map['layout'..i])
 			layouts[i] = layoutIndex > 0 and game.getMapLayout(layoutIndex) or nil
@@ -1099,7 +1090,7 @@ end
 		local paletteIndex = props.palette
 		-- first 0x50 palette entries are zero
 		local palette = range(0,0x4f):mapi(function(i)
-			if bit.band(i, 0xf) == 0 then return {0,0,0,0} end
+			if i & 0xf == 0 then return {0,0,0,0} end
 			return {0,0,0,255}
 		end):append(
 			makePalette(game, game.battleBgPalettes + paletteIndex * 16*3, 4, 16*3)
@@ -1116,14 +1107,14 @@ end
 				for y=0,layoutSize.y-1 do
 					for x=0,layoutSize.x-1 do
 						local tileIndex = layoutPtr[x + layoutSize.x * y]
-						local vflip = 0 ~= bit.band(0x8000, tileIndex)			-- bit 15
-						local hflip = 0 ~= bit.band(0x4000, tileIndex)			-- bit 14
-						local priority = 0 ~= bit.band(0x2000, tileIndex)		-- bit 13
-						local palhi = bit.band(7, bit.rshift(tileIndex, 10))	-- bits 10-12
+						local vflip = 0 ~= 0x8000 & tileIndex			-- bit 15
+						local hflip = 0 ~= 0x4000 & tileIndex			-- bit 14
+						local priority = 0 ~= 0x2000 & tileIndex		-- bit 13
+						local palhi = 7 & (tileIndex >> 10)				-- bits 10-12
 
 						local gfxIndex, tile8index
-						gfxIndex = bit.band(7, bit.rshift(tileIndex, 7))	-- bits 7-9
-						tile8index = bit.band(0x7f, tileIndex)				-- bits 0-6
+						gfxIndex = 7 & (tileIndex >> 7)					-- bits 7-9
+						tile8index = 0x7f & tileIndex					-- bits 0-6
 						local gfx = gfxs[gfxIndex]
 						local gfxData = gfx and gfx.data
 						local gfxDataLen = type(gfxData) == 'string' and #gfxData or nil
@@ -1145,7 +1136,7 @@ end
 									bpp,
 									hflip,
 									vflip,
-									bit.lshift(palhi, 4),
+									palhi << 4,
 									palette
 								)
 							else

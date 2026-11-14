@@ -110,8 +110,8 @@ function EventScriptWindow:showIndexUI()
 	ig.igBeginChild(
 		'ScriptWindowEvents',
 		igzero,
-		0, --ig.ImGuiChildFlags_None,
-		0 --bit.bor(ig.ImGuiWindowFlags_NoScrollbar, ig.ImGuiWindowFlags_NoScrollWithMouse)
+		0,	--ig.ImGuiChildFlags_None,
+		0	--ig.ImGuiWindowFlags_NoScrollbar | ig.ImGuiWindowFlags_NoScrollWithMouse
 	)
 
 	ig.igGetContentRegionAvail(self.availSpace)
@@ -119,7 +119,7 @@ function EventScriptWindow:showIndexUI()
 	if ig.igBeginTable(
 		'ScriptWindowEvents',
 		1,
-		bit.bor(ig.ImGuiTableFlags_ScrollX, ig.ImGuiTableFlags_RowBg, ig.ImGuiTableFlags_Borders),
+		ig.ImGuiTableFlags_ScrollX | ig.ImGuiTableFlags_RowBg | ig.ImGuiTableFlags_Borders,
 		ig.ImVec2(),
 		0
 	) then

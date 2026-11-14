@@ -29,11 +29,11 @@ local uint24_t = ff6struct{
 	},
 	metatable = function(mt)
 		mt.value = function(self)
-			return bit.bor(self.lo, bit.lshift(self.hi, 16))
+			return self.lo | (self.hi << 16)
 		end
 		mt.setValue = function(self, x)
-			self.lo = bit.band(x, 0xffff)
-			self.hi = bit.band(bit.rshift(x, 16), 0xff)
+			self.lo = x & 0xffff
+			self.hi = (x >> 16) & 0xff
 		end
 	end,
 }
@@ -250,7 +250,7 @@ local function gamestr(p, len)
 	local c = table()
 	for i=0,len-1 do
 		if p[0] >= 0x80 then
-			c:insert(gameToAscii[bit.band(p[0], 0x7f)+1])
+			c:insert(gameToAscii[(p[0] & 0x7f) + 1])
 
 		 -- guessing for these
 		elseif p[0] == 0 then			 -- end of message

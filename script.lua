@@ -233,8 +233,8 @@ return function(game)
 		argtypes = {uint8_t},
 		getargs = function(self, arg)
 			--self.objIndex = self.cmd
-			self.length = bit.band(arg, 0x7f)	-- in bytes, and the last byte is usually always 0xff <->> end-object-script
-			self.blocking = 0 ~= bit.band(arg, 0x80)
+			self.length = arg & 0x7f	-- in bytes, and the last byte is usually always 0xff <->> end-object-script
+			self.blocking = 0 ~= arg & 0x80
 		end,
 		digest = function(self, ...)
 			-- if it's an event-script command to start an object-script, then switch our opcodes...
@@ -364,9 +364,9 @@ return function(game)
 		argtypes = {uint8_t, uint8_t},
 		getargs = function(self, objIndex, arg)
 			self.objIndex = objIndex
-			self.vehicleIndex = bit.band(3, bit.rshift(arg, 5))
-			self.showRider = 0 ~= bit.band(0x80, arg)
-			assert.eq(bit.band(0x1f, arg), 0)	-- is the rest empty?
+			self.vehicleIndex = 3 & (arg >> 5)
+			self.showRider = 0 ~= 0x80 & arg
+			assert.eq(0x1f & arg, 0)	-- is the rest empty?
 		end,
 		-- why do I need 'self.' for it not to be nil? I thought 'self' was the template env ...
 		desc = 'objSetVehicle(<?=objIndex?>, <?=vehicleIndex?>, <?=self.showRider?>)',
@@ -393,9 +393,9 @@ return function(game)
 		cmd = 0x4b,
 		argtypes = {uint16_t},
 		getargs = function(self, arg)
-			self.dialogIndex = bit.band(0x3fff, arg)
-			self.hideBG = 0 ~= bit.band(0x4000, arg)
-			self.bottomOfScreen = 0 ~= bit.band(0x8000, arg)
+			self.dialogIndex = 0x3fff & arg
+			self.hideBG = 0 ~= 0x4000 & arg
+			self.bottomOfScreen = 0 ~= 0x8000 & arg
 
 			local dlg = game.dialog[self.dialogIndex]
 			if dlg then
@@ -443,14 +443,14 @@ return function(game)
 		argtypes = {uint8_t, uint8_t},
 		getargs = function(self, eventBattleOptionsIndex, arg)
 			self.eventBattleOptionsIndex = eventBattleOptionsIndex	-- index into game.monsterEventBattles[]
-			self.battleBG = bit.band(0x3f, arg)
-			self.noSound = 0 ~= bit.band(0x40, arg)
-			self.noBlur = 0 ~= bit.band(0x80, arg)
+			self.battleBG = 0x3f & arg
+			self.noSound = 0 ~= 0x40 & arg
+			self.noBlur = 0 ~= 0x80 & arg
 		end,
 		__tostring = function(self)
 			return 'eventBattle{'
 				..'eventBattleOptionsIndex='..self.eventBattleOptionsIndex
-				..', background='..bit.band(0x3f, self.battleBG)
+				..', background='..(0x3f & self.battleBG)
 				..(self.noSound and ', noSound=true' or '')
 				..(self.noBlur and ', noBlur=true' or '')
 				..(self.extra and ', '..self.extra or '')
@@ -482,9 +482,9 @@ return function(game)
 		argnames = {'arg'},
 		paletteName = 'Background',
 		desc = 'change<?=paletteName?>Palette{'
-			..'func=<?=bit.band(7, bit.rshift(arg, 5))?>'
-			..', color=<?=bit.band(7, bit.rshift(arg, 2))?>'
-			..', intensity=<?=bit.band(3, arg)?>'
+			..'func=<?=7 & (arg >> 5)?>'
+			..', color=<?=7 & (arg >> 2)?>'
+			..', intensity=<?=3 & arg?>'
 			..'<?=firstColor and ", "..firstColor or ""?>'
 			..'<?=lastColor and ", "..lastColor or ""?>'
 		..'}',
@@ -520,9 +520,9 @@ return function(game)
 	EventCmds.SetFixedColorMathOp = EventCmd:subclass{
 		argtypes = {uint8_t},
 		getargs = function(self, arg)
-			self.intensity = bit.band(7, arg)
-			self.speed = bit.band(3, bit.rshift(arg, 3))
-			self.colorFlags = bit.band(3, bit.rshift(arg, 6))
+			self.intensity = 7 & arg
+			self.speed = 3 & (arg >> 3)
+			self.colorFlags = 3 & (arg >> 6)
 		end,
 		__tostring = function(self)
 			return 'setFixedColorMath'
@@ -647,22 +647,22 @@ return function(game)
 			-- hmm why is the map index off by 1? and not always too?
 			-- off by 1 in the event entering Mt Kolts.
 			-- not off by 1 in the event when entering the figaro caves from the figaro castle basement.
-			self.mapIndex = bit.band(arg, 0x1ff)
-			self.setParentMap = 0 ~= bit.band(arg, 0x200)
-			self.zUpper = self.mapIndex >= 3 and 0 ~= bit.band(0x400, arg)
-			self.showTitle = self.mapIndex >= 3 and 0 ~= bit.band(0x800, arg)
-			self.dir = bit.band(3, bit.rshift(arg, 12))
+			self.mapIndex = arg & 0x1ff
+			self.setParentMap = 0 ~= arg & 0x200
+			self.zUpper = self.mapIndex >= 3 and 0 ~= 0x400 & arg
+			self.showTitle = self.mapIndex >= 3 and 0 ~= 0x800 & arg
+			self.dir = 3 & (arg >> 12)
 
 			-- does setting vehicle imply switching to vehicle opcodes?
 			--  if so, then does setting vehicle to nonzero in ObjectCmds.ChangeVehicle or EventCmds.ChangeObjectVehicle also do this?
 			--  also is it for event cmds, world cmds, or vehicle cmds? (ironic for vehicle cmds, you already need to be in this state...)
-			self.vehicle = bit.band(3, flags)
-			self.flag2 = 0 ~= bit.band(4, flags)
-			self.flag3 = 0 ~= bit.band(8, flags)
-			self.flag4 = 0 ~= bit.band(16, flags)
-			self.noSizeUpdate = self.mapIndex >= 3 and 0 ~= bit.band(0x20, flags)
-			self.noFadeIn = self.mapIndex >= 3 and 0 ~= bit.band(0x40, flags)
-			self.useStartEvent = self.mapIndex >= 3 and 0 ~= bit.band(0x80, flags)
+			self.vehicle = 3 & flags
+			self.flag2 = 0 ~= 4 & flags
+			self.flag3 = 0 ~= 8 & flags
+			self.flag4 = 0 ~= 16 & flags
+			self.noSizeUpdate = self.mapIndex >= 3 and 0 ~= 0x20 & flags
+			self.noFadeIn = self.mapIndex >= 3 and 0 ~= 0x40 & flags
+			self.useStartEvent = self.mapIndex >= 3 and 0 ~= 0x80 & flags
 
 			-- another 'gotcha' ...
 			-- looks like if we set-map to maps 0-2 then we should also change our (underlying, non-vehicle) cmdset to world?
@@ -748,8 +748,8 @@ return function(game)
 		digest = function(self, read)
 			self.x = read(uint8_t)
 			local y = read(uint8_t)
-			self.y = bit.band(y, 0x3f)
-			self.layer = bit.rshift(y, 6)
+			self.y = y & 0x3f
+			self.layer = y >> 6
 			self.w = read(uint8_t)
 			self.h = read(uint8_t)
 			self.data = table()
@@ -913,10 +913,10 @@ return function(game)
 		argtypes = {uint8_t, uint8_t},
 		getargs = function(self, objIndex, signedAmount)
 			self.objIndex = objIndex
-			local log2amount = bit.band(0x7f, signedAmount)
+			local log2amount = 0x7f & signedAmount
 			self.max = log2amount == 0x7f
-			self.amount = bit.lshift(1, log2amount)
-			self.take = 0 ~= bit.band(0x80, signedAmount)
+			self.amount = 1 << log2amount
+			self.take = 0 ~= 0x80 & signedAmount
 			local hpmp = self.mp and 'MP' or 'HP'
 			self.descstr = 'objInc'..hpmp
 				..'('
@@ -1000,8 +1000,8 @@ return function(game)
 		cmd = 0x99,
 		argtypes = {uint8_t, uint16_t},
 		getargs = function(self, numParties, eventIndex)
-			self.numParties = bit.band(0x7f, numParties)
-			self.reset = 0 ~= bit.band(0x80, numParties)
+			self.numParties = 0x7f & numParties
+			self.reset = 0 ~= 0x80 & numParties
 			self.eventIndex = eventIndex
 		end,
 		__tostring = function(self)
@@ -1043,15 +1043,15 @@ return function(game)
 		argnames = {'duration', 'arg'},
 		getargs = function(self, duration, arg)
 			self.duration = duration
-			self.destAddrOfs = bit.band(0x3ffff, arg)
-			self.timerIndex = bit.band(3, bit.rshift(arg, 18))		-- 0-3
-			self.showInMenu = 0 ~= bit.band(arg, bit.lshift(1, 20))	-- timer 0 only
+			self.destAddrOfs = 0x3ffff & arg
+			self.timerIndex = 3 & (arg >> 18)		-- 0-3
+			self.showInMenu = 0 ~= arg & (1 << 20)	-- timer 0 only
 			-- "banquet" in everything8215's ff6
-			self.endsBattle = 0 ~= bit.band(arg, bit.lshift(1, 21))
+			self.endsBattle = 0 ~= arg & (1 << 21)
 			-- "field visible" in everything8215's ff6
-			self.showInMap = 0 ~= bit.band(arg, bit.lshift(1, 22))	-- timer 0 only
+			self.showInMap = 0 ~= arg & (1 << 22)	-- timer 0 only
 			-- "field only" in everything8215's ff6
-			self.pauseInMenu = 0 ~= bit.band(arg, bit.lshift(1, 23))
+			self.pauseInMenu = 0 ~= arg & (1 << 23)
 		end,
 		getDescArgsWithoutCB = function(self)
 			return 'duration='..self.duration
@@ -1350,7 +1350,7 @@ return function(game)
 		cmd = 0xbe,
 		digest = function(self, read)
 			-- what's in the upper nibble here?
-			local count = bit.band(0xf, read(uint8_t))
+			local count = 0xf & read(uint8_t)
 			self.options = table()
 			for i=1,count do
 				local addr = read(uint24_t)
@@ -1358,8 +1358,8 @@ return function(game)
 				-- and then the top 4 are the character
 				-- so there's 2 more bits left ...
 				self.options:insert{
-					characterIndex = bit.rshift(addr, 20),
-					addrOfs = bit.band(0x3ffff, addr),
+					characterIndex = addr >> 20,
+					addrOfs = 0x3ffff & addr,
 				}
 			end
 		end,
@@ -1389,14 +1389,14 @@ return function(game)
 	-- common parent class for EventCmd and WorldCmd
 	local Cond = Cmd:subclass{
 		digest = function(self, read)
-			local count = 1 + bit.band(self.cmd, 7)
-			self._and = 0 ~= bit.band(self.cmd, 8)
+			local count = 1 + self.cmd & 7
+			self._and = 0 ~= self.cmd & 8
 			self.conds = table()
 			for i=1,count do
 				local arg = read(uint16_t)
 				self.conds:insert{
-					flagIndex = bit.band(0x3fff, arg),
-					value = 0 ~= bit.rshift(arg, 15),
+					flagIndex = 0x3fff & arg,
+					value = 0 ~= arg >> 15,
 				}
 			end
 			self.destAddrOfs = read(uint24_t)
@@ -1448,12 +1448,9 @@ return function(game)
 			argtypes = {uint8_t},
 			getargs = function(self, flagIndex)
 				-- 0 = set, 1 = clear
-				self.flagValue = 0 == bit.band(1, self.cmd)
+				self.flagValue = 0 == 1 & self.cmd
 				-- move cmd bits 1:3 to event bits 8:10
-				self.flagIndex = bit.bor(
-					bit.lshift(bit.band(self.cmd, 0xe), 7),
-					flagIndex
-				)
+				self.flagIndex = ((self.cmd & 0xe) << 7) | flagIndex
 			end,
 			__tostring = function(self)
 				return 'mapFlagSet('
@@ -1522,8 +1519,8 @@ return function(game)
 			-- 7th bit of song is altStart
 			-- but playSongFadeIn, 7th bit of speed is altStart
 			-- hmmm
-			self.song = bit.band(0x7f, song)
-			self.altStart = 0 ~= bit.band(0x80, song)
+			self.song = 0x7f & song
+			self.altStart = 0 ~= 0x80 & song
 			self.volume = volume
 		end,
 		__tostring = function(self)
@@ -1547,8 +1544,8 @@ return function(game)
 		argtypes = {uint8_t, uint8_t},
 		getargs = function(self, song, speed)
 			self.song = song
-			self.altStart = 0 ~= bit.band(0x80, speed)
-			self.speed = bit.band(0x7f, speed)
+			self.altStart = 0 ~= 0x80 & speed
+			self.speed = 0x7f & speed
 		end,
 		argnames = {'song', 'speed'},
 		__tostring = function(self)
@@ -1687,7 +1684,7 @@ cl.classname = k
 
 	-- also in WorldCmds
 	ObjectCmds.Action = ObjectCmd:subclass{
-		desc = "objAction(objIndex, <?=bit.band(cmd, 0x3f)?>, <?=0 ~= bit.band(0x40, cmd)?>)",
+		desc = "objAction(objIndex, <?=cmd & 0x3f?>, <?=0 ~= 0x40 & cmd?>)",
 	}
 	for cmd=0,0x7f do
 		ObjectCmds['Action '..cmd] = ObjectCmds.Action:subclass{
@@ -1697,8 +1694,8 @@ cl.classname = k
 
 	ObjectCmds.Move = ObjectCmd:subclass{
 		digest = function(self, read)
-			self.dir = bit.band(self.cmd, 3)
-			self.dist = bit.band(bit.rshift(self.cmd, 2), 7) + 1
+			self.dir = self.cmd & 3
+			self.dist = ((self.cmd >> 2) & 7) + 1
 			self.descstr = 'objMove(objIndex, '..self.dir..', '..self.dist..')'
 		end,
 	}
@@ -1731,7 +1728,7 @@ cl.classname = k
 	end
 
 	ObjectCmds.SetSpeed = ObjectCmd:subclass{
-		desc = 'objSetSpeed(objIndex, <?=bit.band(cmd, 0xf)?>)',
+		desc = 'objSetSpeed(objIndex, <?=cmd & 0xf?>)',
 	}
 	for cmd=0xc0,0xc5 do
 		ObjectCmds['SetSpeed '..cmd] = ObjectCmds.SetSpeed:subclass{cmd = cmd}
@@ -1760,15 +1757,15 @@ cl.classname = k
 		cmd = 0xc9,
 		argtypes = {uint8_t},
 		getargs = function(self, arg)
-			self.vehicleIndex = bit.band(3, bit.rshift(arg, 5))
-			self.showRider = 0 ~= bit.band(0x80, arg)
-			assert.eq(bit.band(0x1f, arg), 0)	-- is the rest empty?
+			self.vehicleIndex = 3 & (arg >> 5)
+			self.showRider = 0 ~= 0x80 & arg
+			assert.eq(0x1f & arg, 0)	-- is the rest empty?
 		end,
 		desc = 'objSetVehicle(objIndex, <?=vehicleIndex?>, <?=self.showRider?>)',
 	}
 
 	ObjectCmds.ChangeDir = ObjectCmd:subclass{
-		desc = 'objSetDir(objIndex, <?=bit.band(cmd, 3)?>)',
+		desc = 'objSetDir(objIndex, <?=cmd & 3?>)',
 	}
 	for cmd=0xcc,0xcf do
 		ObjectCmds['ChangeDir '..cmd] = ObjectCmds.ChangeDir:subclass{cmd = cmd}
@@ -1826,16 +1823,10 @@ cl.classname = k
 			getargs = function(self, flagIndex)
 				if cmd <= 0xe3 then
 					self.flagValue = true
-					self.flagIndex = bit.bor(
-						flagIndex,
-						bit.lshift(cmd-0xe1, 8)
-					)
+					self.flagIndex = flagIndex | ((cmd-0xe1) << 8)
 				else
 					self.flagValue = false
-					self.flagIndex = bit.bor(
-						flagIndex,
-						bit.lshift(cmd-0xe4, 8)
-					)
+					self.flagIndex = flagIndex | ((cmd-0xe4) << 8)
 				end
 			end,
 			__tostring = function(self)
@@ -2006,7 +1997,7 @@ cl.classname = k
 	-- same as in ObjectCmds
 	-- but what's the object in world commands?  the airship? the party?
 	WorldCmds.Action = WorldCmd:subclass{
-		desc = "objAction(objIndex, <?=bit.band(cmd, 0x3f)?>, <?=0 ~= bit.band(0x40, cmd)?>)",
+		desc = "objAction(objIndex, <?=cmd & 0x3f?>, <?=0 ~= 0x40 & cmd?>)",
 	}
 	for cmd=0,0x7f do
 		WorldCmds['Action '..cmd] = WorldCmds.Action:subclass{
@@ -2016,7 +2007,7 @@ cl.classname = k
 
 	-- same as ObjectCmds
 	WorldCmds.Move = WorldCmd:subclass{
-		desc = 'objMove(objIndex, <?=bit.band(cmd, 3)?>, <?=bit.band(bit.rshift(cmd, 2), 7)?>)',
+		desc = 'objMove(objIndex, <?=cmd & 3?>, <?=(cmd >> 2) & 7?>)',
 	}
 	for cmd=0x80,0x9f do
 		WorldCmds['Move '..cmd] = WorldCmds.Move:subclass{cmd=cmd}
@@ -2042,7 +2033,7 @@ cl.classname = k
 
 	-- same as in ObjectCmds
 	WorldCmds.SetSpeed = WorldCmd:subclass{
-		desc = 'objSetSpeed(objIndex, <?=bit.band(cmd, 0xf)?>)',
+		desc = 'objSetSpeed(objIndex, <?=cmd & 0xf?>)',
 	}
 	for cmd=0xc0,0xc5 do
 		WorldCmds['SetSpeed '..cmd] = WorldCmds.SetSpeed:subclass{cmd = cmd}
@@ -2079,7 +2070,7 @@ cl.classname = k
 
 	-- same as in ObjectCmds
 	WorldCmds.ChangeDir = WorldCmd:subclass{
-		desc = 'objSetDir(objIndex, <?=bit.band(cmd, 3)?>)',
+		desc = 'objSetDir(objIndex, <?=cmd & 3?>)',
 	}
 	for cmd=0xcc,0xcf do
 		WorldCmds['ChangeDir '..cmd] = WorldCmds.ChangeDir:subclass{cmd = cmd}
@@ -2658,7 +2649,7 @@ cl.classname = k
 			if i == 0xff then return '"all enemies"' end
 			return range(0,5)
 			:filteri(function(j)
-				return 0 ~= bit.band(i, bit.lshift(1, j))
+				return 0 ~= i & (1 << j)
 			end)
 			:mapi(function(j)
 				return 'enemyFormationSlot['..j..']'
@@ -2701,10 +2692,10 @@ cl.classname = k
 			cmd = 0xf2,
 			argtypes = {uint8_t, uint16_t},
 			getargs = function(self, x1, x23)
-				self.exitEffect = bit.band(0x7f, x1)
-				self.scrollBG = 0 ~= bit.band(0x80, x1)
-				self.battleIndex = bit.band(0x7fff, x23)
-				self.restoreMonsters = 0 ~= bit.band(0x8000, x23)
+				self.exitEffect = 0x7f & x1
+				self.scrollBG = 0 ~= 0x80 & x1
+				self.battleIndex = 0x7fff & x23
+				self.restoreMonsters = 0 ~= 0x8000 & x23
 			end,
 			__tostring = function(self)
 				return 'changeBattle{exitEffect='..self.exitEffect
@@ -2786,8 +2777,8 @@ cl.classname = k
 			argtypes = {uint8_t, uint8_t},
 			getargs = function(self, var, opval)
 				self.var = var
-				self.op = bit.band(3, bit.rshift(opval, 6))
-				self.value = bit.band(0x3f, opval)
+				self.op = 3 & (opval >> 6)
+				self.value = 0x3f & opval
 			end,
 			__tostring = function(self)
 				if self.op == 0 then
@@ -2806,11 +2797,8 @@ cl.classname = k
 			cmd = 0xf9,
 			argtypes = {uint8_t, uint8_t, uint8_t},
 			getargs = function(self, p1, p2, p3)
-				self.flagIndex = bit.bor(
-					bit.lshift(p2, 3),
-					bit.band(7, p3)
-				)
-				local rest = bit.rshift(p3, 3)
+				self.flagIndex = (p2 << 3) | (7 & p3)
+				local rest = p3 >> 3
 				assert.eq(rest, 0)	-- why even only use 3 lower bits? weird.
 				self.value = p1
 			end,
@@ -2977,19 +2965,13 @@ cl.classname = k
 					-- {p2, p3}:
 					-- {9, 1} = 0x61
 					-- {6, 1} = 0x49
-					local flagIndex = bit.bor(
-						bit.lshift(p2, 3),
-						bit.band(7, p3)
-					)
-					local rest = bit.rshift(p3, 3)
+					local flagIndex = (p2 << 3) | (7 & p3)
+					local rest = p3 >> 3
 					assert.eq(rest, 0)	-- why even only use 3 lower bits? weird.
 					return 'if battleFlagGet('..flagIndex..')'
 				elseif condIndex == 21 then
-					local flagIndex = bit.bor(
-						bit.lshift(p2, 3),
-						bit.band(7, p3)
-					)
-					local rest = bit.rshift(p3, 3)
+					local flagIndex = (p2 << 3) | (7 & p3)
+					local rest = p3 >> 3
 					assert.eq(rest, 0)	-- why even only use 3 lower bits? weird.
 					return 'if not battleFlagGet('..flagIndex..')'
 				elseif condIndex == 22 then
@@ -3011,7 +2993,7 @@ cl.classname = k
 				elseif condIndex == 26 then
 					return 'if wasHitWithElement('..p2..', '..p3..')'
 				elseif condIndex == 27 then
-					local p12 = bit.bor(p1, bit.lshift(p2, 8))
+					local p12 = p1 | (p2 << 8)
 					return 'if battleIndex['..p12..']'
 				else
 					error'here'
@@ -3178,9 +3160,7 @@ cl.classname = k
 					self.descstr = 'showCharsForEsperAttack('..tostring(arg ~= 0)..')'
 				elseif subcmd == 0x28 then
 					local arg = read(uint8_t)
-					self.descstr = 'setAllCharsSpritePriority('
-						..bit.band(3, bit.rshift(arg, 4))
-						..')'
+					self.descstr = 'setAllCharsSpritePriority('..(3 & (arg >> 4))..')'
 				elseif subcmd == 0x29 then
 					local arg = read(uint8_t)
 					self.descstr = 'showEsperAttackCursorSprite('..tostring(arg ~= 0)..')'
@@ -3282,8 +3262,8 @@ cl.classname = k
 				elseif subcmd == 0x42 then
 					local vh = read(uint8_t)
 					self.descstr = 'set_MODE7_register('
-						..tostring(0 ~= bit.band(2, vh))..', '		-- vflip
-						..tostring(0 ~= bit.band(1, vh))..')'		-- hflip
+						..tostring(0 ~= (2 & vh))..', '		-- vflip
+						..tostring(0 ~= (1 & vh))..')'		-- hflip
 				elseif subcmd == 0x43 then
 					self.descstr = 'moonSongCharm()'
 				elseif subcmd == 0x44 then
@@ -3481,8 +3461,8 @@ cl.classname = k
 			argnames = {'arg'},
 			__tostring = function(self)
 				return 'move(currentEnt, '
-					..bit.rshift(self.arg, 5)
-					..', '..(bit.band(self.arg, 0x1f)+1)
+					..(self.arg >> 5)
+					..', '..((self.arg & 0x1f)+1)
 					..')'
 			end,
 		}
@@ -3502,8 +3482,8 @@ cl.classname = k
 			argnames = {'arg'},
 			__tostring = function(self)
 				return 'move(attacker, '
-					..bit.rshift(self.arg, 5)
-					..', '..hex2(bit.band(self.arg, 0x1f)+1)..')'
+					..(self.arg >> 5)
+					..', '..hex2((self.arg & 0x1f)+1)..')'
 			end,
 		}
 		BattleAnimCmds[0x87] = BattleAnimCmd:subclass{
@@ -3512,8 +3492,8 @@ cl.classname = k
 			argnames = {'arg'},
 			__tostring = function(self)
 				return 'move(ctx().target, '
-					..bit.rshift(self.arg, 5)
-					..', '..hex2(bit.band(self.arg, 0x1f)+1)..')'
+					..(self.arg >> 5)
+					..', '..hex2((self.arg & 0x1f)+1)..')'
 			end,
 		}
 		BattleAnimCmds[0x88] = BattleAnimCmd:subclass{
@@ -3559,8 +3539,8 @@ cl.classname = k
 			argnames = {'arg'},
 			__tostring = function(self)
 				return 'if animationIsHflipped() then setDirAndMove('
-					..bit.rshift(self.arg, 5)
-					..', '..hex2(bit.band(self.arg, 0x1f)+1)..') end'
+					..(self.arg >> 5)
+					..', '..hex2((self.arg && 0x1f)+1)..') end'
 			end,
 		}
 		BattleAnimCmds[0x8E] = BattleAnimCmd:subclass{
@@ -3571,10 +3551,10 @@ cl.classname = k
 			--[[
 			__tostring = function(self)
 				return 'showThread('
-					..(0 ~= bit.band(0x80, self.arg) and ' below' or ' above')
-					..(0 ~= bit.band(0x40, self.arg) and ' front' or ' back')
+					..(0 ~= 0x80 & self.arg and ' below' or ' above')
+					..(0 ~= 0x40 & self.arg and ' front' or ' back')
 					..' other sprites (sprite priority) with'
-					..(0 ~= bit.band(1, self.arg) and '' or ' opposite')..' weapon hand'
+					..(0 ~= 1 & self.arg and '' or ' opposite')..' weapon hand'
 			end,
 			--]]
 		}
@@ -3585,8 +3565,8 @@ cl.classname = k
 			__tostring = function(self)
 				-- TODO either 0x8D or 0x8F should probably be 'vflipped'
 				return 'if animationIsHflipped() then setDirAndMove('
-					..bit.rshift(self.arg, 5)
-					..', '..hex2(bit.band(self.arg, 0x1f)+1)..') end'
+					..(self.arg >> 5)
+					..', '..hex2((self.arg & 0x1f)+1)..') end'
 			end,
 		}
 		BattleAnimCmds[0x90] = BattleAnimCmd:subclass{
@@ -3595,7 +3575,7 @@ cl.classname = k
 			argnames = {'arg'},
 			__tostring = function(self)
 				return 'setThreadSpriteTilePriorityTo('
-					..bit.band(3, bit.rshift(self.arg, 4))
+					..(3 & (self.arg >> 4))
 					..')'
 			end,
 		}
@@ -3658,7 +3638,7 @@ cl.classname = k
 			argtypes = {uint8_t},
 			argnames = {'arg'},
 			__tostring = function(self)
-				return 'setPalette('..hex2(bit.band(7, bit.rshift(self.arg, 1)))..')'
+				return 'setPalette('..hex2((7 & (self.arg >> 1)))..')'
 			end,
 		}
 		BattleAnimCmds[0x9A] = BattleAnimCmd:subclass{
@@ -3745,10 +3725,10 @@ cl.classname = k
 			argnames = {'arg', 'arg2'},
 			__tostring = function(self)
 				return 'rotatePalette{'
-					..'numcolors='..bit.band(0xf, self.arg)
-					..', offset='..bit.band(0xf, bit.rshift(self.arg, 4))
-					..', speed='..bit.band(0xf, self.arg2)
-					..', paletteIndex='..bit.band(0xf, bit.rshift(self.arg, 4))
+					..'numcolors='..(0xf & self.arg)
+					..', offset='..(0xf & (self.arg >> 4))
+					..', speed='..(0xf & self.arg2)
+					..', paletteIndex='..(0xf & (self.arg >> 4))
 					..'}'
 			end,
 		}
@@ -3797,8 +3777,8 @@ cl.classname = k
 			argtypes = {uint8_t},
 			argnames = {'arg'},
 			__tostring = function(self)
-				return 'setScrollHDMA('..bit.rshift(self.arg, 6)
-					..', '..hex2(bit.band(self.arg, 0x3f))
+				return 'setScrollHDMA('..(self.arg >> 6)
+					..', '..hex2(self.arg & 0x3f)
 					..')'
 			end,
 		}
@@ -3814,12 +3794,12 @@ cl.classname = k
 			argtypes = {uint8_t},
 			getargs = function(self, arg)
 				self.arg = arg
-				if 0 ~= bit.band(0x80, arg) then
+				if 0 ~= 0x80 & arg then
 					self.bg = 1
-					self.visible = 0 == bit.band(0x20, arg)
-				elseif 0 ~= bit.band(0x40, arg) then
+					self.visible = 0 == 0x20 & arg
+				elseif 0 ~= 0x40 & arg then
 					self.bg = 3
-					self.visible = 0 == bit.band(0x10, arg)
+					self.visible = 0 == 0x10 & arg
 				end
 			end,
 			__tostring = function(self)
@@ -3889,8 +3869,8 @@ cl.classname = k
 			argnames = {'arg'},
 			__tostring = function(self)
 				return 'moveThreadToThisThreadPos('
-					..(0 ~= bit.band(self.arg, 0x80) and '1' or '')	-- BG1
-					..(0 ~= bit.band(self.arg, 0x40) and '3' or '')	-- BG3
+					..(0 ~= self.arg & 0x80 and '1' or '')	-- BG1
+					..(0 ~= self.arg & 0x40 and '3' or '')	-- BG3
 					..')'
 			end,
 		}
@@ -4029,10 +4009,10 @@ cl.classname = k
 				__tostring = function(self)
 					local arg = self.arg
 					return 'change'..pal..'PaletteSubAbs{'
-						..'intensity='..hex2(bit.band(0x1f, arg))
-						..', red='..tostring(0 ~= bit.band(0x80, arg))
-						..', green='..tostring(0 ~= bit.band(0x40, arg))
-						..', blue='..tostring(0 ~= bit.band(0x20, arg))
+						..'intensity='..hex2(0x1f & arg)
+						..', red='..tostring(0 ~= 0x80 & arg)
+						..', green='..tostring(0 ~= 0x40 & arg)
+						..', blue='..tostring(0 ~= 0x20 & arg)
 						..'}'
 				end,
 			}
@@ -4043,10 +4023,10 @@ cl.classname = k
 				__tostring = function(self)
 					local arg = self.arg
 					return 'change'..pal..'PaletteAddAbs{'
-						..'intensity='..hex2(bit.band(0x1f, arg))
-						..', red='..tostring(0 ~= bit.band(0x80, arg))
-						..', green='..tostring(0 ~= bit.band(0x40, arg))
-						..', blue='..tostring(0 ~= bit.band(0x20, arg))
+						..'intensity='..hex2(0x1f & arg)
+						..', red='..tostring(0 ~= 0x80 & arg)
+						..', green='..tostring(0 ~= 0x40 & arg)
+						..', blue='..tostring(0 ~= 0x20 & arg)
 						..'}'
 				end,
 			}
@@ -4059,11 +4039,11 @@ cl.classname = k
 				__tostring = function(self)
 					local arg = self.arg
 					return 'change'..pal..'PaletteAdd{'
-						.."func='"..(0 ~= bit.band(0x10, arg) and 'sub' or 'add').."'"
-						..', intensity='..hex2(bit.band(0xf, arg))
-						..', red='..tostring(0 ~= bit.band(0x80, arg))
-						..', green='..tostring(0 ~= bit.band(0x40, arg))
-						..', blue='..tostring(0 ~= bit.band(0x20, arg))
+						.."func='"..(0 ~= 0x10 & arg and 'sub' or 'add').."'"
+						..', intensity='..hex2(0xf & arg)
+						..', red='..tostring(0 ~= 0x80 & arg)
+						..', green='..tostring(0 ~= 0x40 & arg)
+						..', blue='..tostring(0 ~= 0x20 & arg)
 						..'}'
 				end,
 			}
@@ -4074,11 +4054,11 @@ cl.classname = k
 				__tostring = function(self)
 					local arg = self.arg
 					return 'change'..pal..'PaletteSub{'
-						.."func='"..(0 ~= bit.band(0x10, arg) and 'sub' or 'add').."'"
-						..', intensity='..hex2(bit.band(0xf, arg))
-						..', red='..tostring(0 ~= bit.band(0x80, arg))
-						..', green='..tostring(0 ~= bit.band(0x40, arg))
-						..', blue='..tostring(0 ~= bit.band(0x20, arg))
+						.."func='"..(0 ~= 0x10 & arg and 'sub' or 'add').."'"
+						..', intensity='..hex2(0xf & arg)
+						..', red='..tostring(0 ~= 0x80 & arg)
+						..', green='..tostring(0 ~= 0x40 & arg)
+						..', blue='..tostring(0 ~= 0x20 & arg)
 						..'}'
 				end,
 			}
@@ -4120,8 +4100,8 @@ cl.classname = k
 			argnames = {'arg'},
 			__tostring = function(self)
 				return 'setMonsterFlip('..self.arg..')'
-					--..(0 ~= bit.band(1, self.arg) and ' hflip' or '')
-					--..(0 ~= bit.band(2, self.arg) and ' vflip' or '')
+					--..(0 ~= 1 & self.arg and ' hflip' or '')
+					--..(0 ~= 2 & self.arg and ' vflip' or '')
 			end,
 		}
 

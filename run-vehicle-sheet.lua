@@ -539,11 +539,11 @@ local function run(game)
 				local tileIndex = p[0] p=p+1
 				local flags = p[0] p=p+1
 --print('tile', x, y, tileIndex, flags)
-				if 0 ~= bit.band(1, flags) then tileIndex = tileIndex + 0x100 end
-				local palor = bit.band(0x70, bit.lshift(flags, 3))
-				local hflip = 0 ~= bit.band(0x40, flags)
-				local vflip = 0 ~= bit.band(0x80, flags)
-				local zIndex = bit.band(3, bit.rshift(flags, 5))
+				if 0 ~= 1 & flags then tileIndex = tileIndex + 0x100 end
+				local palor = 0x70 & (flags << 3)
+				local hflip = 0 ~= 0x40 & flags
+				local vflip = 0 ~= 0x80 & flags
+				local zIndex = 3 & (flags >> 5)
 				tiles:insert{x=x, y=y, tileIndex=tileIndex, palor=palor, hflip=hflip, vflip=vflip, zIndex=zIndex}
 			end
 
@@ -569,7 +569,7 @@ local function run(game)
 					img,
 					tile.x - xmin,
 					tile.y - ymin,
-					tileDataPtr + bit.lshift(tile.tileIndex, 5),
+					tileDataPtr + (tile.tileIndex << 5),
 					bpp,
 					tile.hflip,
 					tile.vflip,
@@ -676,7 +676,7 @@ local function run(game)
 	sheetImg:save(worldspritedir/'vehicle-sheet.png')
 	-- now save another copy for exporting that has all but the lower 4 bits zeroed
 	for i=0,sheetImg.width*sheetImg.height-1 do
-		sheetImg.buffer[i] = bit.band(0xf, sheetImg.buffer[i])
+		sheetImg.buffer[i] = 0xf & sheetImg.buffer[i]
 	end
 	sheetImg:save(worldspritedir/'vehicle-sheet-export.png')
 

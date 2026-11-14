@@ -214,10 +214,10 @@ void main() {
 	ffi.fill(tilePropPalData, ffi.sizeof(tilePropPalData))
 	for i=0,tilePropsPalSize-1 do
 		local c = colorsForBits[(i % #colorsForBits) + 1]
-		tilePropPalData[bit.bor(0, bit.lshift(i, 2))] = 255*c.x
-		tilePropPalData[bit.bor(1, bit.lshift(i, 2))] = 255*c.y
-		tilePropPalData[bit.bor(2, bit.lshift(i, 2))] = 255*c.z
-		tilePropPalData[bit.bor(3, bit.lshift(i, 2))] = 1
+		tilePropPalData[0 | (i << 2)] = 255*c.x
+		tilePropPalData[1 | (i << 2)] = 255*c.y
+		tilePropPalData[2 | (i << 2)] = 255*c.z
+		tilePropPalData[3 | (i << 2)] = 1
 	end
 	self.tilePropsPalTex = GLTex2D{
 		width = tilePropsPalSize,
@@ -721,12 +721,12 @@ function App:draw(animFrameIndex)
 		local blend = tex.image.blend
 		if self.useBlend and blend then
 			gl.glEnable(gl.GL_BLEND)
-			if bit.band(blend, 2) ~= 0 then -- sub
+			if blend & 2 ~= 0 then -- sub
 				gl.glBlendEquation(gl.GL_FUNC_REVERSE_SUBTRACT)	-- framebuffer minus sprite
 			else
 				gl.glBlendEquation(gl.GL_FUNC_ADD)
 			end
-			local half = bit.band(blend, 1) ~= 0
+			local half = blend & 1 ~= 0
 			gl.glBlendColor(1, 1, 1, half and .5 or 1)
 			if half then
 				gl.glBlendFunc(gl.GL_CONSTANT_ALPHA, gl.GL_CONSTANT_ALPHA)
@@ -765,13 +765,13 @@ function App:draw(animFrameIndex)
 						self.palAnimFrames[palAnim12Index] = self.palAnimFrames[palAnim12Index] + 1
 						-- change colors
 						modified = true
-						local numColors = bit.rshift(palAnim.numColors_x2_1, 1) + 1
-						local firstColor = bit.rshift(palAnim.firstColor_x2, 1)
+						local numColors = (palAnim.numColors_x2_1 >> 1) + 1
+						local firstColor = (palAnim.firstColor_x2 >> 1)
 						if palAnim.type == 1 then
 							-- copy between self.mapWindow.origMapPalData and .mapPalData
 							for i=0,numColors-1 do
-								local dstp = self.mapWindow.mapPalData + bit.lshift(bit.band(((i + self.palAnimFrames[palAnim12Index]) % numColors) + firstColor, 0xff), 2)
-								local srcp = self.mapWindow.origMapPalData + bit.lshift(bit.band(i + firstColor, 0xff), 2)
+								local dstp = self.mapWindow.mapPalData + (((((i + self.palAnimFrames[palAnim12Index]) % numColors) + firstColor) & 0xff) << 2)
+								local srcp = self.mapWindow.origMapPalData + (((i + firstColor) & 0xff) << 2)
 								for ch=0,3 do
 									dstp[ch] = srcp[ch]
 								end
@@ -784,20 +784,20 @@ function App:draw(animFrameIndex)
 								+ (self.palAnimFrames[palAnim12Index] % palAnim.numFrames) * 16 * 2
 							)
 							for i=0,numColors-1 do
-								local dstp = self.mapWindow.mapPalData + bit.lshift(bit.band(i + firstColor, 0xff), 2)
-								dstp[0] = bit.bor(bit.lshift(srcp.r, 3), bit.rshift(srcp.r, 2))
-								dstp[1] = bit.bor(bit.lshift(srcp.g, 3), bit.rshift(srcp.g, 2))
-								dstp[2] = bit.bor(bit.lshift(srcp.b, 3), bit.rshift(srcp.b, 2))
+								local dstp = self.mapWindow.mapPalData + (((i + firstColor) & 0xff) << 2)
+								dstp[0] = (srcp.r << 3) | (srcp.r >> 2)
+								dstp[1] = (srcp.g << 3) | (srcp.g >> 2)
+								dstp[2] = (srcp.b << 3) | (srcp.b >> 2)
 								dstp[3] = srcp.a == 0 and 0xff or 0
 								srcp = srcp + 1
 							end
 							-- but what about those magenta colors?
 						elseif palAnim.type == 3 then
 							local numPulse = ffi.sizeof(game.palAnimPulseData)
-							local intensity = bit.rshift(game.palAnimPulseData[self.palAnimFrames[palAnim12Index] % numPulse], 4) / 15
+							local intensity = (game.palAnimPulseData[self.palAnimFrames[palAnim12Index] % numPulse] >> 4) / 15
 							for i=0,numColors-1 do
-								local dstp = self.mapWindow.mapPalData + bit.lshift(bit.band(i + firstColor, 0xff), 2)
-								local srcp = self.mapWindow.origMapPalData + bit.lshift(bit.band(i + firstColor, 0xff), 2)
+								local dstp = self.mapWindow.mapPalData + (((i + firstColor) & 0xff) << 2)
+								local srcp = self.mapWindow.origMapPalData + (((i + firstColor) & 0xff) << 2)
 								for ch=0,2 do
 									dstp[ch] = srcp[ch] * intensity
 								end
@@ -968,7 +968,7 @@ print('auto-reloading sram...')
 		view.mvProjMat:mul4x4(view.projMat, view.mvMat)
 
 		-- draw layers blended together
-		self:draw(bit.band(self.frameIndex, 7))	-- mod by max anim frame gcd
+		self:draw(self.frameIndex & 7)	-- mod by max anim frame gcd
 
 		-- draw overlays of things in the map:
 
@@ -982,13 +982,13 @@ print('auto-reloading sram...')
 			--[[
 			local totalBits = 0
 			for i=0,numTilePropsBits-1 do
-				if 0 ~= bit.band(bit.lshift(1, i), self.showTileMask) then
+				if 0 ~= (1 << i) & self.showTileMask then
 					totalBits = totalBits + 1
 				end
 			end
 			--]]
 			for i=0,numTilePropsBits-1 do
-				if 0 ~= bit.band(bit.lshift(1, i), self.showTileMask) then
+				if 0 ~= (1 << i) & self.showTileMask then
 					self.flagsDrawObj.texs[1] = self.tilePropsTex
 					self.flagsDrawObj.texs[2] = self.tilePropsPalTex
 					self.flagsDrawObj.uniforms.t = 20 * t - i
@@ -1055,11 +1055,11 @@ end
 			and self.showWorldEncounterSectors
 			then
 				for sectorIndex=0,0x3f do
-					local x = bit.lshift(bit.band(sectorIndex, 7), 5)
-					local y = bit.lshift(bit.band(bit.rshift(sectorIndex, 3), 7), 5)
+					local x = (sectorIndex & 7) << 5
+					local y = ((sectorIndex >> 3) & 7) << 5
 					local w, h = 32, 32
 
-					local i = bit.bor(sectorIndex, bit.lshift(self.mapWindow.index, 6))
+					local i = sectorIndex | (self.mapWindow.index << 6)
 					if (leftPress or leftDoubleClick)
 					and x <= mx and mx < x+w
 					and y <= my and my < y+h
@@ -1169,7 +1169,7 @@ end
 					local got
 					if save then
 						local flag = t.flag
-						got = 0 ~= bit.band(bit.lshift(1, bit.band(flag, 7)), save.treasureFlags[bit.rshift(flag, 3)])
+						got = 0 ~= (1 << (flag & 7)) & save.treasureFlags[flag >> 3]
 						if got then
 							settable(uniforms.color, 0,1,0,.5)
 						else
