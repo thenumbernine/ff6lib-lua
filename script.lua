@@ -90,10 +90,6 @@ return function(game)
 		BattleAnimCmds = 'BA',
 	}
 
-	function Disasm:addrLabel(addr)
-		return ('$%06x'):format(addr)
-	end
-
 
 	Disasm.Trace = require 'disasm.trace':subclass()
 
@@ -148,13 +144,7 @@ print('!!! script oob !!! '..disasm:addrLabel(self.pc))
 
 	-- also static
 	Cmd.getGotoStr = function(addr, op)
-		local str
-		if addr == commonReturnAddr then
-			--str = 'return' 	-- "call return" is gonna look weird :shrug:
-			return 'return'
-		else
-			str = disasm:addrLabel(addr)
-		end
+		local str = disasm:addrLabel(addr)
 		if not op then
 			return 'goto '..str
 		end
@@ -3420,7 +3410,11 @@ cl.classname = k
 						..hex2(arg)..') panCenter()'
 				elseif subcmd == 0xdb then
 					local ofs = read(uint8_t)
-					self.descstr = 'jumpStep('..Cmd.getGotoStr(self.addr + ofs, '')..')'
+					self.destAddr = self.addr + ofs
+					self.descstr = 'jumpStep('..Cmd.getGotoStr(self.destAddr, '')..')'
+					self.getBranchAddrs = function(self)
+						return {{addr=self.destAddr}}
+					end
 				else
 					self.descstr = '??? 0x80 '..hex2(subcmd)
 				end

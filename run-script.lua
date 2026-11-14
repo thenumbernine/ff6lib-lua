@@ -31,24 +31,10 @@ local function run(game, cmdline)
 	local rom = game.rom
 	local disasm = game.disasm
 
-	local function fixname(s)
-		return (s:sub(1,1):gsub('[^a-zA-Z_]', '_')
-			..s:sub(2):gsub('[^a-zA-Z0-9%[%]]', '_'))
-	end
-
-	-- TODO at some point convert the traces into functions
-	-- and then convert the gotos within functions into if's or while's
-
-	local labelsForAddr = {}
 	local function addLabel(addr, name)
-		labelsForAddr[addr] = labelsForAddr[addr] or table()
-		labelsForAddr[addr]:insert(fixname(name))
-	end
-
-	local commentsForAddr = {}
-	local function addComment(addr, str)
-		commentsForAddr[addr] = commentsForAddr[addr] or table()
-		commentsForAddr[addr]:insert(str)
+		name = name:sub(1,1):gsub('[^a-zA-Z_]', '_')
+			..name:sub(2):gsub('[^a-zA-Z0-9%[%]]', '_')
+		disasm:addLabel(addr, name)
 	end
 
 	-- keep track of labels from builtin calls
@@ -503,7 +489,7 @@ local battleAnimNames = {
 			then
 				local addr = battleAnimScriptAddr + game.battleAnimScriptOffsets[effect.index]
 				--addLabel(addr, 'BattleAnim_'..i..'_'..j)
-				addComment(addr, battleAnimNames[i+1]..' '..j)
+				disasm:addComment(addr, battleAnimNames[i+1]..' '..j)
 			end
 		end
 	end
@@ -519,7 +505,7 @@ local battleAnimNames = {
 
 	-- now collect addrs and find if they are calls or not
 	-- (if they are calls then we will define them as functions)
-	local addrsIsFunc = table.map(labelsForAddr, function(v,k) return true, k end):setmetatable(nil)
+	local addrsIsFunc = table.map(disasm.labelsForAddr, function(v,k) return true, k end):setmetatable(nil)
 
 	-- map from dest-address to source instructions that goto here
 	-- similar to "whatsPointingToAddr" ? I gotta combine all these like structures...
@@ -595,14 +581,6 @@ local battleAnimNames = {
 	-- make calls gen to modern func call
 	disasm.EventCmds.Call.desc = "<?=getGotoStr(scriptBaseAddr + destAddrOfs, '')?>()"
 	disasm.EventCmds.CallRepeat.desc = "for i=1,<?=count?> do <?=getGotoStr(scriptBaseAddr + destAddrOfs, '')?>() end"
-
-	-- when call/goto getting addr, check builtin
-	disasm.addrLabel = function(_, addr)
-		local builtin = labelsForAddr[addr]
-		if builtin then return builtin[1] end
-		--return ('$%06x'):format(addr)
-		return ('_%06x'):format(addr)
-	end
 
 
 	--[[
@@ -742,8 +720,9 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		indent = indent or 0
 		local s = ''
 
-		if commentsForAddr[self.addr] then
-			s = '-- '..commentsForAddr[self.addr]:concat', '..'\n'
+		-- TODO this will output multiple for lambdas since they and their first cmd are on the same addr
+		if disasm.commentsForAddr[self.addr] then
+			s = '-- '..disasm.commentsForAddr[self.addr]:concat', '..'\n'
 		end
 
 		-- [[ labels:
@@ -768,11 +747,11 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 				if not cmdline.hideAddrs then
 					s = s .. (' '):rep(disasmcol)
 				end
-				if labelsForAddr[self.addr] then
-					if #labelsForAddr[self.addr] == 1 then
-						s = s .. labelsForAddr[self.addr][1]..'=||do\n'
+				if disasm.labelsForAddr[self.addr] then
+					if #disasm.labelsForAddr[self.addr] == 1 then
+						s = s .. disasm.labelsForAddr[self.addr][1]..'=||do\n'
 					else
-						for i,label in ipairs(labelsForAddr[self.addr]) do
+						for i,label in ipairs(disasm.labelsForAddr[self.addr]) do
 							s = s .. label .. (i == 1 and '=' or ':=')
 						end
 						s = s .. '||do\n'
@@ -787,8 +766,8 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 					or (Lambda:isa(self.parent) and self.parent.stmts[1] == self)
 				) then
 
-					if labelsForAddr[self.addr] then
-						for _,label in ipairs(labelsForAddr[self.addr]) do
+					if disasm.labelsForAddr[self.addr] then
+						for _,label in ipairs(disasm.labelsForAddr[self.addr]) do
 							s = s .. '::'..label..'::\n'
 						end
 					else
@@ -1602,9 +1581,9 @@ end
 assert.eq(lambda.stmts[1], cmdobj)
 							lambda.addr = lambda.stmts[1].addr
 -- TODO 'labels' not 'label'
-							lambda.labels = labelsForAddr[cmdobj.addr]
-							lambda.label = labelsForAddr[cmdobj.addr]
-								and labelsForAddr[cmdobj.addr][1]
+							lambda.labels = disasm.labelsForAddr[cmdobj.addr]
+							lambda.label = disasm.labelsForAddr[cmdobj.addr]
+								and disasm.labelsForAddr[cmdobj.addr][1]
 								or ('_%06x'):format(lambda.addr)
 
 
@@ -1697,9 +1676,9 @@ print(("  ... and found the previous function at %06x but !!! WARNING !!! couldn
 							n.parent = newLambda
 						end
 						newLambda.addr = newLambda.stmts[1].addr
-						newLambda.labels = labelsForAddr[addr]
-						newLambda.label = labelsForAddr[addr]
-							and labelsForAddr[addr][1]
+						newLambda.labels = disasm.labelsForAddr[addr]
+						newLambda.label = disasm.labelsForAddr[addr]
+							and disasm.labelsForAddr[addr][1]
 							or ('_%06x'):format(addr)
 						disasm.eventScriptCmds:insert(eventScriptIndex+1, newLambda)
 
