@@ -24,6 +24,33 @@ local rom = game.rom
 local romsize = game.romsize
 local countof = game.countof
 
+--print('characterMenuImages = '..game.characterMenuImages)
+do
+	local menucharpath = path'characters_menu'
+	menucharpath:mkdir()
+	local atlas = Image(256, 256, 1, 'uint8_t'):clear()
+	local atlasRGBA = Image(256, 256, 4, 'uint8_t'):clear()
+	for charIndex=0,game.numMenuChars-1 do
+		local im = game.getMenuCharImage(charIndex)
+		im:save(menucharpath/('menu'..charIndex..'.png'))
+		atlas.palette = atlas.palette or im.palette
+		atlas:pasteInto{
+			image = im,
+			x = 40 * (charIndex % 6),
+			y = 40 * math.floor(charIndex / 6),
+		}
+		atlasRGBA:pasteInto{
+			image = im:rgba(),
+			x = 40 * (charIndex % 6),
+			y = 40 * math.floor(charIndex / 6),
+		}
+	end
+
+	atlas:save(menucharpath/'atlas.png')
+	atlasRGBA:save(menucharpath/'atlas-rgba.png')
+end
+
+
 -- meh the one giant out file is too big
 -- maybe make run.lua spit out individual files?
 require 'ff6.run-script'(game)			-- all scripts: event, vehicle, world, object scripts, monsters, battle-events, battle-animations
@@ -567,18 +594,6 @@ print('blackjack palette = '..game.blackjackPalette)
 print('daryl airship palette = '..game.falconPalette)
 print('menuWindowPalettes = '..game.menuWindowPalettes)
 
---print('characterMenuImages = '..game.characterMenuImages)
-do
-	local menucharpath = path'characters_menu'
-	menucharpath:mkdir()
-	for charIndex=0,game.numMenuChars-1 do
-		local im = game.getMenuCharImage(charIndex)
-		im:save(menucharpath/('menu'..charIndex..'.png'))
-	end
-	--for charIndex=0,game.numMenuChars-1 do
-	--	print('menuPortraitPalette = '..game.menuPortraitPalette[charIndex])
-	--end
-end
 --print('handCursorGraphics = '..game.handCursorGraphics)
 print('battleWhitePalette = '..game.battleWhitePalette)
 print('battleGrayPalette = '..game.battleGrayPalette)
