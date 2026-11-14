@@ -29,6 +29,7 @@ end
 local function run(game, cmdline)
 	cmdline = cmdline or {}
 	local rom = game.rom
+	local disasm = game.disasm
 
 	local function fixname(s)
 		return (s:sub(1,1):gsub('[^a-zA-Z_]', '_')
@@ -51,8 +52,8 @@ local function run(game, cmdline)
 	end
 
 	-- keep track of labels from builtin calls
-	for _,cmdobj in ipairs(game.eventScriptCmds) do
-		local whatPointsToScriptAtAddr = game.whatsPointingToAddr[cmdobj.addr]
+	for _,cmdobj in ipairs(disasm.eventScriptCmds) do
+		local whatPointsToScriptAtAddr = disasm.whatsPointingToAddr[cmdobj.addr]
 		if whatPointsToScriptAtAddr then
 			for _,what in ipairs(whatPointsToScriptAtAddr) do
 				if what.builtin then
@@ -524,7 +525,7 @@ local battleAnimNames = {
 	-- similar to "whatsPointingToAddr" ? I gotta combine all these like structures...
 	local addrsIsGoto = {}
 
-	for _,cmdobj in ipairs(game.eventScriptCmds) do
+	for _,cmdobj in ipairs(disasm.eventScriptCmds) do
 
 		-- call
 		if game.EventCmds.Call:isa(cmdobj)
@@ -592,8 +593,8 @@ local battleAnimNames = {
 --]]
 
 	-- make calls gen to modern func call
-	game.EventCmds.Call.desc = "<?=getGotoOfsStr(destAddrOfs, '')?>()"
-	game.EventCmds.CallRepeat.desc = "for i=1,<?=count?> do <?=getGotoOfsStr(destAddrOfs, '')?>() end"
+	game.EventCmds.Call.desc = "<?=getGotoStr(scriptBaseAddr + destAddrOfs, '')?>()"
+	game.EventCmds.CallRepeat.desc = "for i=1,<?=count?> do <?=getGotoStr(scriptBaseAddr + destAddrOfs, '')?>() end"
 
 	-- when call/goto getting addr, check builtin
 	local function addrLabel(addr)
@@ -747,7 +748,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		end
 
 		-- [[ labels:
-		local whatPointsToScriptAtAddr = game.whatsPointingToAddr[self.addr]
+		local whatPointsToScriptAtAddr = disasm.whatsPointingToAddr[self.addr]
 		if whatPointsToScriptAtAddr then
 
 			-- print header
@@ -1027,17 +1028,17 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 		-- first first thing, patch any code directly
 		-- from = inclusive, to = exclusive, repl = code
 		local function patch(from, to, code)
-			local i1 = game.eventScriptCmds:find(nil, function(o) return o.addr == from end)
+			local i1 = disasm.eventScriptCmds:find(nil, function(o) return o.addr == from end)
 			assert(i1)
-			local i2 = game.eventScriptCmds:find(nil, function(o) return o.addr == to end)
+			local i2 = disasm.eventScriptCmds:find(nil, function(o) return o.addr == to end)
 			assert(i2)
 			local patch = Patch()
 			patch.addr = from
 			patch.code = code
-			game.eventScriptCmds = table():append(
-				game.eventScriptCmds:sub(1, i1-1),
+			disasm.eventScriptCmds = table():append(
+				disasm.eventScriptCmds:sub(1, i1-1),
 				{patch},
-				(game.eventScriptCmds:sub(i2))
+				(disasm.eventScriptCmds:sub(i2))
 			)
 		end
 
@@ -1159,10 +1160,10 @@ end}
 		do
 			-- TODO this  more often
 			local cmdForAddr = {}
-			for _,cmdobj in ipairs(game.eventScriptCmds) do
+			for _,cmdobj in ipairs(disasm.eventScriptCmds) do
 				cmdForAddr[cmdobj.addr] = cmdobj
 			end
-			for _,o in ipairs(game.eventScriptCmds) do
+			for _,o in ipairs(disasm.eventScriptCmds) do
 				if game.ObjectCmds.BranchBack:isa(o)
 				and o.offset ~= 0xff
 				then
@@ -1177,14 +1178,14 @@ end}
 							and nextDest.offset ~= 0xff
 						) then break end
 
-						if game.whatsPointingToAddr[nextDest.addr] then
-							for j=#game.whatsPointingToAddr[nextDest.addr],1,-1 do
-								if game.whatsPointingToAddr[nextDest.addr][j].cmdobj == dest then
-									game.whatsPointingToAddr[nextDest.addr]:remove(j)
+						if disasm.whatsPointingToAddr[nextDest.addr] then
+							for j=#disasm.whatsPointingToAddr[nextDest.addr],1,-1 do
+								if disasm.whatsPointingToAddr[nextDest.addr][j].cmdobj == dest then
+									disasm.whatsPointingToAddr[nextDest.addr]:remove(j)
 								end
 							end
-							if #game.whatsPointingToAddr[nextDest.addr] == 0 then
-								game.whatsPointingToAddr[nextDest.addr] = nil
+							if #disasm.whatsPointingToAddr[nextDest.addr] == 0 then
+								disasm.whatsPointingToAddr[nextDest.addr] = nil
 							end
 						end
 
@@ -1212,8 +1213,8 @@ end}
 							assert.eq(c:getDestAddr(), dest.addr)
 							-- and refresh whatsPointingToAddr[]
 							-- TODO why is this saying that some gotos no longer have whatsPointingHere entries?
-							game.whatsPointingToAddr[dest.addr] = game.whatsPointingToAddr[dest.addr] or table()
-							game.whatsPointingToAddr[dest.addr]:insert{
+							disasm.whatsPointingToAddr[dest.addr] = disasm.whatsPointingToAddr[dest.addr] or table()
+							disasm.whatsPointingToAddr[dest.addr]:insert{
 								cmdobj = c,
 								branchFromAddr = c.addr,
 								cmdset = c.cmdset,
@@ -1229,15 +1230,15 @@ end}
 		-- notice this will break the other reverse-refs. meh.
 		do
 			i = 1
-			while i <= #game.eventScriptCmds do
-				local cmdobj = game.eventScriptCmds[i]
+			while i <= #disasm.eventScriptCmds do
+				local cmdobj = disasm.eventScriptCmds[i]
 				if game.EventCmds.ObjectScript:isa(cmdobj) then
 					-- then trace until ObjectCmds.EndScript
 					-- and insert into cmdobj.stmts
 					assert.eq(cmdobj.stmts, nil)
 					cmdobj.stmts = table()
-					while i+1 <= #game.eventScriptCmds do
-						local nextcmd = game.eventScriptCmds:remove(i+1)
+					while i+1 <= #disasm.eventScriptCmds do
+						local nextcmd = disasm.eventScriptCmds:remove(i+1)
 						if not game.ObjectCmd:isa(nextcmd) then
 							error(("mid-obj-script found non-ObjectCmd 0x%02x addr 0x%06x"):format(nextcmd.cmd, nextcmd.addr))
 						end
@@ -1254,8 +1255,8 @@ end}
 						-- but empirically, i wonder if all FC's have immediately following either a loop or a return.
 						if game.ObjectCmds.BranchBack:isa(nextcmd) then
 							-- sometimes there's one last objscript 'return'
-							if game.ObjectCmds.EndScript:isa(game.eventScriptCmds[i+1]) then
-								local lastcmd = game.eventScriptCmds:remove(i+1)
+							if game.ObjectCmds.EndScript:isa(disasm.eventScriptCmds[i+1]) then
+								local lastcmd = disasm.eventScriptCmds:remove(i+1)
 								lastcmd.parent = cmdobj
 								cmdobj.stmts:insert(lastcmd)
 							end
@@ -1271,18 +1272,18 @@ end}
 		-- OK now sometimes objScript branches will jump outside the objScript
 		-- in those cases, you have to extract the target block contents into a preceding lambda,
 		-- so that the both blocks can use it
-		-- I think I can use game.whatsPointingToAddr[destAddr]'s to determine when to do this
+		-- I think I can use disasm.whatsPointingToAddr[destAddr]'s to determine when to do this
 		do
 			local j=1
-			while j<=#game.eventScriptCmds do
-				local o = game.eventScriptCmds[j]
+			while j<=#disasm.eventScriptCmds do
+				local o = disasm.eventScriptCmds[j]
 				if game.EventCmds.ObjectScript:isa(o) then
 					for i=#o.stmts,1,-1 do
 						local target = o.stmts[i]
 
 						local branchesTo
-						if game.whatsPointingToAddr[target.addr] then
-							for _,src in ipairs(game.whatsPointingToAddr[target.addr]) do
+						if disasm.whatsPointingToAddr[target.addr] then
+							for _,src in ipairs(disasm.whatsPointingToAddr[target.addr]) do
 								local branchSrc = src.cmdobj
 								if branchSrc
 								then
@@ -1339,7 +1340,7 @@ assert.eq(lambda.stmts[1], target)
 							o.stmts:insert(ocall)
 							lambda.whoCallsThis:insert(ocall)
 							-- o.parent.stmts is gloabl-scope...
-							game.eventScriptCmds:insert(j, lambda)
+							disasm.eventScriptCmds:insert(j, lambda)
 							j=j+1
 							--]=]
 
@@ -1360,15 +1361,15 @@ else
 									lambda.whoCallsThis:insert(bpcall)
 
 									-- no more label
-									for k=#game.whatsPointingToAddr[lambda.addr],1,-1 do
-										if game.whatsPointingToAddr[lambda.addr][k].cmdobj == branch then
-											game.whatsPointingToAddr[lambda.addr]:remove(k)
+									for k=#disasm.whatsPointingToAddr[lambda.addr],1,-1 do
+										if disasm.whatsPointingToAddr[lambda.addr][k].cmdobj == branch then
+											disasm.whatsPointingToAddr[lambda.addr]:remove(k)
 										end
 									end
 end
 							end
-							if #game.whatsPointingToAddr[lambda.addr] == 0 then
-								game.whatsPointingToAddr[lambda.addr] = nil
+							if #disasm.whatsPointingToAddr[lambda.addr] == 0 then
+								disasm.whatsPointingToAddr[lambda.addr] = nil
 								addrsIsGoto[lambda.addr] = nil
 								addrsIsFunc[lambda.addr] = nil
 							end
@@ -1383,7 +1384,7 @@ end
 			end
 		end
 
-		for j,o in ipairs(game.eventScriptCmds) do
+		for j,o in ipairs(disasm.eventScriptCmds) do
 			-- now within objScript or lambdas
 			-- after all blocks are simplified
 			-- if there's any return at the end then toss it
@@ -1392,7 +1393,7 @@ end
 			then
 				local last = o.stmts:last()
 				if game.ObjectCmds.EndScript:isa(last)
-				and not game.whatsPointingToAddr[last.addr]
+				and not disasm.whatsPointingToAddr[last.addr]
 				then
 					o.stmts:remove()
 				end
@@ -1400,8 +1401,8 @@ end
 		end
 
 	-- [=[
-		for j=#game.eventScriptCmds,1,-1 do
-			local l = game.eventScriptCmds[j]
+		for j=#disasm.eventScriptCmds,1,-1 do
+			local l = disasm.eventScriptCmds[j]
 			-- if there's any lambdas that are nothing but a TailCall that points to another lambda
 			if Lambda:isa(l) and #l.stmts == 1 then
 				local c = l.stmts[1]
@@ -1413,7 +1414,7 @@ end
 						w.func = c.func
 					end
 					-- and remove the unneeded lambda
-					game.eventScriptCmds:remove(j)
+					disasm.eventScriptCmds:remove(j)
 				end
 			end
 		end
@@ -1421,7 +1422,7 @@ end
 
 	-- [=[
 		-- now convert any branch-back within same obj-script block into a while-loop
-		for _,o in ipairs(game.eventScriptCmds) do
+		for _,o in ipairs(disasm.eventScriptCmds) do
 			if game.EventCmds.ObjectScript:isa(o)
 			or Lambda:isa(o)
 			then
@@ -1448,14 +1449,14 @@ print('!!! WARNING !!! branch-fwd at '
 assert.eq(target.parent, o)
 assert.gt(j, i)
 
-assert(game.whatsPointingToAddr[target.addr])
-							for k=#game.whatsPointingToAddr[target.addr],1,-1 do
-								if game.whatsPointingToAddr[target.addr][k].cmdobj == bb then
-									game.whatsPointingToAddr[target.addr]:remove(k)
+assert(disasm.whatsPointingToAddr[target.addr])
+							for k=#disasm.whatsPointingToAddr[target.addr],1,-1 do
+								if disasm.whatsPointingToAddr[target.addr][k].cmdobj == bb then
+									disasm.whatsPointingToAddr[target.addr]:remove(k)
 								end
 							end
-							if #game.whatsPointingToAddr[target.addr] == 0 then
-								game.whatsPointingToAddr[target.addr] = nil
+							if #disasm.whatsPointingToAddr[target.addr] == 0 then
+								disasm.whatsPointingToAddr[target.addr] = nil
 								addrsIsGoto[target.addr] = nil
 								addrsIsFunc[target.addr] = nil
 							end
@@ -1505,14 +1506,14 @@ print('!!! WARNING !!! branch-back at '
 assert.eq(target.parent, o)
 assert.lt(j, i)
 
-assert(game.whatsPointingToAddr[target.addr])
-							for k=#game.whatsPointingToAddr[target.addr],1,-1 do
-								if game.whatsPointingToAddr[target.addr][k].cmdobj == bb then
-									game.whatsPointingToAddr[target.addr]:remove(k)
+assert(disasm.whatsPointingToAddr[target.addr])
+							for k=#disasm.whatsPointingToAddr[target.addr],1,-1 do
+								if disasm.whatsPointingToAddr[target.addr][k].cmdobj == bb then
+									disasm.whatsPointingToAddr[target.addr]:remove(k)
 								end
 							end
-							if #game.whatsPointingToAddr[target.addr] == 0 then
-								game.whatsPointingToAddr[target.addr] = nil
+							if #disasm.whatsPointingToAddr[target.addr] == 0 then
+								disasm.whatsPointingToAddr[target.addr] = nil
 								addrsIsGoto[target.addr] = nil
 								addrsIsFunc[target.addr] = nil
 							end
@@ -1553,12 +1554,12 @@ assert(game.whatsPointingToAddr[target.addr])
 		-- and likewise any 'if x then goto y end' with y ending in 'return' is synonymous with an 'if x then return y() end'
 		do
 			local i=1
-			while i <= #game.eventScriptCmds do
-				local cmdobj = game.eventScriptCmds[i]
+			while i <= #disasm.eventScriptCmds do
+				local cmdobj = disasm.eventScriptCmds[i]
 				-- i think true for all global-scope function-begin commands ...? or could it not be?
 				if cmdobj.addr then
 --io.stderr:write(('gathering function at %06x\n'):format(cmdobj.addr))
-					local whatPointsToScriptAtAddr = game.whatsPointingToAddr[cmdobj.addr]
+					local whatPointsToScriptAtAddr = disasm.whatsPointingToAddr[cmdobj.addr]
 					if whatPointsToScriptAtAddr then
 						-- [[ only funcs?
 						local thisIsFunc = addrsIsFunc[cmdobj.addr]
@@ -1570,8 +1571,8 @@ assert(game.whatsPointingToAddr[target.addr])
 							-- ... then trace to the next return/endscript
 							local nextobj
 							local j=i
-							while j<=#game.eventScriptCmds do
-								nextobj = game.eventScriptCmds[j]
+							while j<=#disasm.eventScriptCmds do
+								nextobj = disasm.eventScriptCmds[j]
 								if game.Cmds.Return:isa(nextobj)
 								or game.Cmds.EndScript:isa(nextobj)
 								then
@@ -1586,8 +1587,8 @@ assert(game.whatsPointingToAddr[target.addr])
 							-- make sure the caller is outside the function
 for _,src in ipairs(whatPointsToScriptAtAddr) do
 	if src.cmdobj then
-		if game.eventScriptCmds[i].addr <= src.cmdobj.addr
-		and src.cmdobj.addr <= game.eventScriptCmds[j].addr
+		if disasm.eventScriptCmds[i].addr <= src.cmdobj.addr
+		and src.cmdobj.addr <= disasm.eventScriptCmds[j].addr
 		then
 			print('!!! WARNING !!! function at '..('%06x'):format(cmdobj.addr)..' called from '..('%06x'):format(src.cmdobj.addr)..' within the function')
 		end
@@ -1595,7 +1596,7 @@ for _,src in ipairs(whatPointsToScriptAtAddr) do
 end
 							-- now copy the stmts into our lambda-block at global-scope
 							local lambda = Lambda()
-							lambda.stmts = game.eventScriptCmds:sub(i,j)
+							lambda.stmts = disasm.eventScriptCmds:sub(i,j)
 							for _,n in ipairs(lambda.stmts) do
 								n.parent = lambda
 							end
@@ -1614,17 +1615,17 @@ assert.eq(lambda.stmts[1], cmdobj)
 								game.Cmds.Return:isa(last)
 								-- this is like a hard exit() right?
 								--or game.Cmds.EndScript:isa(last)
-							) and not game.whatsPointingToAddr[last.addr]
+							) and not disasm.whatsPointingToAddr[last.addr]
 							then
 								lambda.stmts:remove()
 							end
 							--]]
 
 
-							game.eventScriptCmds = table():append(
-								game.eventScriptCmds:sub(1,i-1),
+							disasm.eventScriptCmds = table():append(
+								disasm.eventScriptCmds:sub(1,i-1),
 								{lambda},
-								game.eventScriptCmds:sub(j+1)
+								disasm.eventScriptCmds:sub(j+1)
 							)
 						end
 					end
@@ -1645,7 +1646,7 @@ assert.eq(lambda.stmts[1], cmdobj)
 		do
 			-- build at global
 			local cmdForAddr = {}
-			for _,cmdobj in ipairs(game.eventScriptCmds) do
+			for _,cmdobj in ipairs(disasm.eventScriptCmds) do
 				cmdForAddr[cmdobj.addr] = cmdobj
 			end
 
@@ -1677,7 +1678,7 @@ assert.eq(lambda.stmts[1], cmdobj)
 					assert(start)
 					local lambda = cmdForAddr[addrs[start]]
 					assert(Lambda:isa(lambda))
-					local eventScriptIndex = game.eventScriptCmds:find(lambda)
+					local eventScriptIndex = disasm.eventScriptCmds:find(lambda)
 					assert(eventScriptIndex)
 
 					local j = lambda.stmts:find(nil, function(o)
@@ -1701,7 +1702,7 @@ print(("  ... and found the previous function at %06x but !!! WARNING !!! couldn
 						newLambda.label = labelsForAddr[addr]
 							and labelsForAddr[addr][1]
 							or ('_%06x'):format(addr)
-						game.eventScriptCmds:insert(eventScriptIndex+1, newLambda)
+						disasm.eventScriptCmds:insert(eventScriptIndex+1, newLambda)
 
 						lambda.stmts = lambda.stmts:sub(1, j-1)
 						local tailCall = TailCall{
@@ -1731,7 +1732,7 @@ print(("  ... and found the previous function at %06x but !!! WARNING !!! couldn
 					cmdForAddr[cmdobj.addr] = cmdobj
 				end
 			end
-			buildCmdForAddr(game.eventScriptCmds)
+			buildCmdForAddr(disasm.eventScriptCmds)
 
 			local checkBlock
 			--[[
@@ -1739,7 +1740,7 @@ print(("  ... and found the previous function at %06x but !!! WARNING !!! couldn
 			dst = what to assign .stmts to
 			--]]
 			local function doInline(cmdobj, dst, destAddr)
-				assert.index(game.whatsPointingToAddr, destAddr)
+				assert.index(disasm.whatsPointingToAddr, destAddr)
 
 --[[ there's a few that are >1 call and so won't be inlined
 print('!!! cmd at '
@@ -1747,9 +1748,9 @@ print('!!! cmd at '
 	..' is potential for lambda-inline, points to address '
 	..('%06x'):format(destAddr)
 	..' with '
-	..#game.whatsPointingToAddr[destAddr]
+	..#disasm.whatsPointingToAddr[destAddr]
 	..' targets: '
-	..game.whatsPointingToAddr[destAddr]:mapi(function(src)
+	..disasm.whatsPointingToAddr[destAddr]:mapi(function(src)
 		local s = '{'
 		if not src.cmdobj then
 			s=s..'cmdobj=nil'
@@ -1769,8 +1770,8 @@ setmetatable(src.cmdobj, tmp)
 )
 --]]
 				-- see if there is only one jump into the target
-				if #game.whatsPointingToAddr[destAddr] ~= 1 then return end
-				if game.whatsPointingToAddr[destAddr][1].cmdobj ~= cmdobj then return end
+				if #disasm.whatsPointingToAddr[destAddr] ~= 1 then return end
+				if disasm.whatsPointingToAddr[destAddr][1].cmdobj ~= cmdobj then return end
 
 				-- then we can inline this function
 -- 180 pokemon caught here
@@ -1798,7 +1799,7 @@ print("   !!! and it has external labels !!!")
 --[[ this happens every time, probably because the lambda's label
 for _,stmt in ipairs(lambda.stmts) do
 	if stmt.addr
-	and game.whatsPointingToAddr[stmt.addr]
+	and disasm.whatsPointingToAddr[stmt.addr]
 	then
 print('	!!! and the lambda contains goto labels !!!')
 		break
@@ -1819,11 +1820,11 @@ end
 					lambda.parent.stmts[j] = Nop()	-- don't invalidate iterators
 					lambda.parent.stmts[j].parent = lambda
 				else
-					local j = game.eventScriptCmds:find(lambda)
-					game.eventScriptCmds[j] = Nop()	-- don't invalidate iterators
+					local j = disasm.eventScriptCmds:find(lambda)
+					disasm.eventScriptCmds[j] = Nop()	-- don't invalidate iterators
 				end
 				-- 3) filter out whatsPointingToAddr to the lambda (and cmdForAddr?)
-				game.whatsPointingToAddr[destAddr] = nil
+				disasm.whatsPointingToAddr[destAddr] = nil
 
 				-- and check those stmts too
 				checkBlock(dst.stmts)
@@ -1858,7 +1859,7 @@ end
 					i=i+1
 				end
 			end
-			checkBlock(game.eventScriptCmds)
+			checkBlock(disasm.eventScriptCmds)
 
 
 			-- only now remove
@@ -1871,7 +1872,7 @@ end
 					if Nop:isa(o) then stmts:remove(j) end
 				end
 			end
-			removeNops(game.eventScriptCmds)
+			removeNops(disasm.eventScriptCmds)
 		end
 		--]=]
 
@@ -1905,15 +1906,15 @@ end
 		local convertIfs
 		do
 			local i=1
-			while i <= #game.eventScriptCmds do
-				local o = game.eventScriptCmds[i]
+			while i <= #disasm.eventScriptCmds do
+				local o = disasm.eventScriptCmds[i]
 				local function replace(...)
-					game.eventScriptCmds:remove(i)
+					disasm.eventScriptCmds:remove(i)
 					for j=1,select('#', ...) do
 						local r = select(j, ...)
 						r.addr = o.addr
 						r.parent = o.parent
-						game.eventScriptCmds:insert(i, r)
+						disasm.eventScriptCmds:insert(i, r)
 						i = i + 1
 					end
 				end
@@ -1953,9 +1954,9 @@ end
 		-- next trick, scan global-scope for goto-destinations
 		-- see who jumps into them
 		-- make sure the previous instruction is a 'return'/'endscript'
-		for i,o in ipairs(game.eventScriptCmds) do
+		for i,o in ipairs(disasm.eventScriptCmds) do
 			-- if something points here...
-			local whatPointsToScriptAtAddr = game.whatsPointingToAddr[o.addr]
+			local whatPointsToScriptAtAddr = disasm.whatsPointingToAddr[o.addr]
 			if whatPointsToScriptAtAddr
 			and #whatPointsToScriptAtAddr == 1
 			and not addrsIsFunc[o.addr]
@@ -1963,8 +1964,8 @@ end
 				-- make sure previous command isn't a 'return'
 				if (
 					i == 1
-					or game.Cmds.Return:isa(game.eventScriptCmds[i-1])
-					or game.Cmds.EndScript:isa(game.eventScriptCmds[i-1])
+					or game.Cmds.Return:isa(disasm.eventScriptCmds[i-1])
+					or game.Cmds.EndScript:isa(disasm.eventScriptCmds[i-1])
 				)
 				then
 -- happens 2776 times without filtering out function-addresses
@@ -2036,7 +2037,7 @@ end
 						loop.forCond = startCmd:getFor()
 
 						-- since we are throwing away the ending, make sure nothing points there
-						if game.whatsPointingToAddr[stmts[i].addr] then
+						if disasm.whatsPointingToAddr[stmts[i].addr] then
 							error("building for-loop, whatsPointingToAddr["..('%06x'):format(stmts[i].addr)..'] already exists!')
 						end
 
@@ -2113,14 +2114,14 @@ end
 							elseif j < i then
 								-- prev: ... if X then goto prev => repeat ... until not X
 
-								if game.whatsPointingToAddr[destAddr] then
-									for j=#game.whatsPointingToAddr[destAddr],1,-1 do
-										if game.whatsPointingToAddr[destAddr][j].cmdobj == cmd then
-											game.whatsPointingToAddr[destAddr]:remove(j)
+								if disasm.whatsPointingToAddr[destAddr] then
+									for j=#disasm.whatsPointingToAddr[destAddr],1,-1 do
+										if disasm.whatsPointingToAddr[destAddr][j].cmdobj == cmd then
+											disasm.whatsPointingToAddr[destAddr]:remove(j)
 										end
 									end
-									if #game.whatsPointingToAddr[destAddr] == 0 then
-										game.whatsPointingToAddr[destAddr] = nil
+									if #disasm.whatsPointingToAddr[destAddr] == 0 then
+										disasm.whatsPointingToAddr[destAddr] = nil
 									end
 								end
 
@@ -2201,14 +2202,14 @@ print(('!!! replacing if-goto with while-loop %06x -> %06x'):format(cmd.addr, de
 								stmtsObj[stmtsKey] = newStmts
 								stmts = newStmts
 
-								if game.whatsPointingToAddr[destAddr] then
-									for j=#game.whatsPointingToAddr[destAddr],1,-1 do
-										if game.whatsPointingToAddr[destAddr][j].cmdobj == cmd then
-											game.whatsPointingToAddr[destAddr]:remove(j)
+								if disasm.whatsPointingToAddr[destAddr] then
+									for j=#disasm.whatsPointingToAddr[destAddr],1,-1 do
+										if disasm.whatsPointingToAddr[destAddr][j].cmdobj == cmd then
+											disasm.whatsPointingToAddr[destAddr]:remove(j)
 										end
 									end
-									if #game.whatsPointingToAddr[destAddr] == 0 then
-										game.whatsPointingToAddr[destAddr] = nil
+									if #disasm.whatsPointingToAddr[destAddr] == 0 then
+										disasm.whatsPointingToAddr[destAddr] = nil
 									end
 								end
 
@@ -2356,11 +2357,11 @@ print(('!!! replacing if-goto with while-loop %06x -> %06x'):format(cmd.addr, de
 		local newCmds = table()
 		for i,dest in ipairs(destOrder) do
 			if type(dest) == 'number' then
-				local j = game.eventScriptCmds:find(nil, function(o) return o.addr == dest end)
+				local j = disasm.eventScriptCmds:find(nil, function(o) return o.addr == dest end)
 				if not j then
 					print(('!!! when reorganizing, failed to find %06x'):format(dest))
 				else
-					local o = game.eventScriptCmds:remove(j)
+					local o = disasm.eventScriptCmds:remove(j)
 					newCmds:insert(o)
 				end
 			elseif type(dest) == 'table' then
@@ -2369,11 +2370,11 @@ print(('!!! replacing if-goto with while-loop %06x -> %06x'):format(cmd.addr, de
 				assert.type(destEnd, 'number')
 				local insertLoc = #newCmds+1
 				local found
-				for j=#game.eventScriptCmds,1,-1 do
-					local o = game.eventScriptCmds[j]
+				for j=#disasm.eventScriptCmds,1,-1 do
+					local o = disasm.eventScriptCmds[j]
 					if destStart <= o.addr and o.addr < destEnd then
 						found = true
-						game.eventScriptCmds:remove(j)
+						disasm.eventScriptCmds:remove(j)
 						newCmds:insert(insertLoc, o)
 					end
 				end
@@ -2384,16 +2385,16 @@ print(('!!! replacing if-goto with while-loop %06x -> %06x'):format(cmd.addr, de
 				error'here'
 			end
 		end
-		newCmds:append(game.eventScriptCmds)
-		game.eventScriptCmds = newCmds
+		newCmds:append(disasm.eventScriptCmds)
+		disasm.eventScriptCmds = newCmds
 
 	-- END HIGH LEVEL CODE CONVERSION
 	end	-- cmdline.skipOpts
 
 	local inFunc
 	print'BEGIN EVENT SCRIPT'
-	for _,cmdobj in ipairs(game.eventScriptCmds) do
-		local whatPointsToScriptAtAddr = game.whatsPointingToAddr[cmdobj.addr]
+	for _,cmdobj in ipairs(disasm.eventScriptCmds) do
+		local whatPointsToScriptAtAddr = disasm.whatsPointingToAddr[cmdobj.addr]
 		if whatPointsToScriptAtAddr and addrsIsFunc[cmdobj.addr] then
 			inFunc = true
 		end
@@ -2429,7 +2430,7 @@ print(('!!! replacing if-goto with while-loop %06x -> %06x'):format(cmd.addr, de
 				print('-- empty region from '..addrtostr(a.endAddr)..' and '..addrtostr(b.addr))
 			end
 		end
-		local sortedTraces = table.values(game.decompileTraces)
+		local sortedTraces = table.values(disasm.decompileTraces)
 		sortedTraces:sort(function(a,b) return a.addr < b.addr end)
 		-- TODO ends as well
 		for i=1,#sortedTraces-1 do

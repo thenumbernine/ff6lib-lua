@@ -14,21 +14,12 @@ local ffi = require 'ffi'
 local assert = require 'ext.assert'
 local table = require 'ext.table'
 local range = require 'ext.range'
-local number = require 'ext.number'
-local string = require 'ext.string'
-local class = require 'ext.class'
 local tolua = require 'ext.tolua'
-local template = require 'template'
-
 
 local int8_t = ffi.typeof'int8_t'
 local uint8_t = ffi.typeof'uint8_t'
-local int16_t = ffi.typeof'int16_t'
 local uint16_t = ffi.typeof'uint16_t'
-local int32_t = ffi.typeof'int32_t'
 local uint32_t = ffi.typeof'uint32_t'
-local float = ffi.typeof'float'
-local double = ffi.typeof'double'
 
 
 local function hex2(x)
@@ -48,17 +39,10 @@ end
 local commonReturnAddr = 0x0a5eb3
 
 return function(game)
-	game.addrLabel = function(addr)
-		return ('$%06x'):format(addr)
-	end
-
 	local Game = game.Game
-	local rom = game.rom
-	local romsize = game.romsize
 	local countof = game.countof
 
 	local uint24_t = game.uint24_t
-
 
 	-- hack to fix a few obj-script branch-back out-of-function that point to bad addrs
 	game.rom[0x0a20be] = 0x15
@@ -69,6 +53,37 @@ return function(game)
 	-- hack to fix a few obj-script branch-back within-function that point to bad addresses
 	game.rom[0x0b9bf3] = 0x23	-- points to the objScript instead of to its starting command
 	game.rom[0x0b9dd1] = 0x23
+
+
+	local Disasm = require 'disasm':subclass()
+
+	Disasm.Trace = require 'disasm.trace':subclass()
+	function Disasm.Trace:getValue(o, ctype)
+		if ctype == uint24_t then
+			return o:value()
+		end
+		return Disasm.Trace.super.getValue(self, o, ctype)
+	end
+
+
+
+	local disasm = Disasm(game.rom, game.romsize)
+	game.disasm = disasm
+
+	disasm.cmdSetAbbrev = {
+		EventCmds = 'EV',
+		WorldCmds = 'WO',
+		ObjectCmds = 'OB',
+		VehicleCmds = 'VE',
+		BattleEventCmds = 'BE',
+		MonsterCmds = 'MO',
+		BattleAnimCmds = 'BA',
+	}
+
+	function disasm:addrLabel(addr)
+		return ('$%06x'):format(addr)
+	end
+
 
 
 	-- should I even bounds check?
@@ -98,50 +113,20 @@ return function(game)
 	-- one per cmd
 	-- TODO tempting to make this just a bunch of structs...
 	-- but some cmds are variable-length so ... I can have their args structs but can't have the object as a whole ... unless I make one struct per possible cmd-size ...
-	local class = require 'ext.class'
 
-	local Cmd = class()	-- parent abstract class
-	function Cmd:digest(read)
-		local args = table()
-		if self.argtypes then
-			for _,ctype in ipairs(self.argtypes) do
-				args:insert(read(ctype))
-			end
-		end
-		self:getargs(args:unpack())
-	end
-	function Cmd:getargs(...)
-		if self.argnames then
-			for i=1,math.min(#self.argnames, (select('#', ...))) do
-				self[self.argnames[i]] = select(i, ...)
-			end
-		else
-			self.args = table{...}
-		end
-	end
-	Cmd.__concat = string.concat
-	function Cmd:__tostring()
-		if self.descstr then return self.descstr end
+	local Cmd = require 'disasm.cmd':subclass()
 
-		if type(self.desc) ~= 'string' then
-			error("for cmdset="..tostring(self.classCmdSet)..' cmd='..tostring(self.cmd).." __tostring failed to find self.desc")
-		end
-
-		assert.eq(self.self, nil)
-		self.self = self	-- ugly hack for template cuz i dont want to do an ugly metatable __index hack
-		local s = template(self.desc, self)
-		self.self = nil
-
-		return s
-	end
 	-- only for template env
 	Cmd.game = game
+
 	Cmd.scriptBaseAddr = scriptBaseAddr
+
 	-- static, useful for the template env:
 	Cmd.getGotoOfsStr = function(addrOfs, op)
 		local addr = scriptBaseAddr + addrOfs
 		return Cmd.getGotoStr(addr, op)
 	end
+
 	-- also static
 	Cmd.getGotoStr = function(addr, op)
 		local str
@@ -149,7 +134,7 @@ return function(game)
 			--str = 'return' 	-- "call return" is gonna look weird :shrug:
 			return 'return'
 		else
-			str = game.addrLabel(addr)
+			str = disasm:addrLabel(addr)
 		end
 		if not op then
 			return 'goto '..str
@@ -160,45 +145,6 @@ return function(game)
 		--  such that 'call return' is a 'nop'?
 		--  or are all 'call return's erroneous, in that if the pc stack is different between invoking touch/event s and 'call ' within the script, then a 'call return' would produce some kind of error?
 		return op..str
-	end
-
-
-	-- used by run-event-script.lua (should rename to run-script since it does multiple right now)
-	-- default impl:
-	function Cmd.toCode(self, indent)
-		return tostring(self)
-	end
-
-	local cmdSetAbbrev = {
-		EventCmds = 'EV',
-		WorldCmds = 'WO',
-		ObjectCmds = 'OB',
-		VehicleCmds = 'VE',
-		BattleEventCmds = 'BE',
-		MonsterCmds = 'MO',
-		BattleAnimCmds = 'BA',
-	}
-
-	-- return comment with address, bytes, and disasm code
-	-- TODO how about a few columsn on the left instead of every-other-line ?
-	-- and if the byte dump is too big then give this a few newlines
-	function Cmd.getAsmLine(self)
-		if not self.addr then return end
-		assert.index(self, 'cmdset')
-		assert.index(self, 'sizeInBytes')
-		-- print addr
-		return
-			('%06x '):format(self.addr)
-
-			-- print shorthand cmdset
-			..cmdSetAbbrev[self.cmdset]
-
-			-- print out bytes
-			-- TODO for cmds too big, put their data on multiple lines?
-			..ffi.string(rom + self.addr, self.sizeInBytes)
-				:gsub('.', function(b)
-					return (' %02x'):format(b:byte())
-				end)
 	end
 
 
@@ -224,7 +170,7 @@ return function(game)
 
 
 	-- this will hold cmds 0-255 for event-scripts
-	game.EventCmds = EventCmds
+	disasm.EventCmds = EventCmds
 	local EventCmd = Cmd:subclass()
 	game.EventCmd = EventCmd
 
@@ -409,7 +355,7 @@ return function(game)
 			or self.hideBG
 			or self.bottomOfScreen
 			then
-				return --'show dialog[0x'..number.hex(self.dialogIndex)..']:'
+				return --'show dialog[0x'..bit.tohex(self.dialogIndex)..']:'
 					'dialog('..str
 					..', {'
 					..table()
@@ -796,7 +742,7 @@ return function(game)
 		cmd = 0x7a,
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'objIndex', 'newScriptAddrOfs'},
-		desc = "objSetScript(<?=objIndex?>, <?=getGotoOfsStr(newScriptAddrOfs, '')?>)",
+		desc = "objSetScript(<?=objIndex?>, <?=getGotoStr(scriptBaseAddr + newScriptAddrOfs, '')?>)",
 
 		getBranchAddrs = function(self)
 			return {
@@ -1172,7 +1118,7 @@ return function(game)
 		cmd = 0xb2,
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
-		desc = "<?=getGotoOfsStr(destAddrOfs, 'call ')?>",
+		desc = "<?=getGotoStr(scriptBaseAddr + destAddrOfs, 'call ')?>",
 		getDestAddr = function(self)
 			return scriptBaseAddr + self.destAddrOfs
 		end,
@@ -1187,7 +1133,7 @@ return function(game)
 		cmd = 0xb3,
 		argtypes = {uint8_t, uint24_t},
 		argnames = {'count', 'destAddrOfs'},
-		desc = "for i=1,<?=count?> do <?=getGotoOfsStr(destAddrOfs, 'call ')?> end",
+		desc = "for i=1,<?=count?> do <?=getGotoStr(scriptBaseAddr + destAddrOfs, 'call ')?> end",
 		-- helper function
 		getDestAddr = function(self)
 			return scriptBaseAddr + self.destAddrOfs
@@ -1250,7 +1196,7 @@ return function(game)
 			return 'if '
 				..self:getCond()
 				..' then '
-				..self.getGotoOfsStr(self.destAddrOfs)
+				..self.getGotoStr(scriptBaseAddr + self.destAddrOfs)
 				..' end'
 		end,
 		getDestAddr = function(self)
@@ -1327,7 +1273,7 @@ return function(game)
 			return 'if '
 				..self:getCond()
 				..' then '
-				..self.getGotoOfsStr(self.destAddrOfs)
+				..self.getGotoStr(scriptBaseAddr + self.destAddrOfs)
 				..' end'
 		end,
 		getDestAddr = function(self)
@@ -1412,7 +1358,7 @@ return function(game)
 			return 'if '
 				..self:getCond()
 				..' then '
-				..self.getGotoOfsStr(self.destAddrOfs)
+				..self.getGotoStr(scriptBaseAddr + self.destAddrOfs)
 				..' end'
 		end,
 		getCond = function(self)
@@ -1663,7 +1609,7 @@ cl.classname = k
 
 
 	-- ok now comes object-commands
-	game.ObjectCmds = ObjectCmds
+	disasm.ObjectCmds = ObjectCmds
 	local ObjectCmd = Cmd:subclass()
 	game.ObjectCmd = ObjectCmd
 
@@ -1842,7 +1788,7 @@ cl.classname = k
 		cmd = 0xf9,
 		argtypes = {uint24_t},
 		argnames = {'destAddrOfs'},
-		desc = "<?=getGotoOfsStr(destAddrOfs, 'call ')?>",
+		desc = "<?=getGotoStr(scriptBaseAddr + destAddrOfs, 'call ')?>",
 
 		getBranchAddrs = function(self)
 			return {
@@ -1850,6 +1796,8 @@ cl.classname = k
 			}
 		end,
 	}
+
+	Cmds.Branch =
 
 	--[[
 	here's a fun fact
@@ -1866,19 +1814,22 @@ cl.classname = k
 	ObjectCmds.Branch = ObjectCmd:subclass{
 		--cmd = 0xfa,
 		argtypes = {uint8_t},
-		argnames = {'offset'},
-		getDestAddr = function(self)
-			if self.offset == 0xff then return end -- return self.addr end
-			return self.dir == '-'
-				and self.addr - self.offset
-				or self.addr + self.offset
+		getargs = function(self, offset)
+			if offset == 0xff then
+				self.destAddr = self.addr
+			else
+				self.destAddr = self.dir == '-'
+					and self.addr - self.offset
+					or self.addr + self.offset
+			end
 		end,
+
 		-- TODO you will have to generate a label for this instruction, and for wherever it is going
 		__tostring = function(self)
 			-- no signed offset in any branch is >= 0x80
 			--  except branch-backwards -1 i.e. "FC FF"
 			-- in that case, insert an end.
-			if self.offset == 0xff then
+			if self.destAddr == self.addr then
 				return 'while true do yield() end'
 			end
 
@@ -1888,6 +1839,10 @@ cl.classname = k
 			end
 
 			return s
+		end,
+
+		getDestAddr = function(self)
+			return self.destAddr
 		end,
 
 		-- idk that i necessarily want a new trace, just a label...
@@ -1990,7 +1945,7 @@ cl.classname = k
 
 	-- now comes world-commands
 	-- this is the opcodes of the touch triggers in the world maps
-	game.WorldCmds = WorldCmds
+	disasm.WorldCmds = WorldCmds
 	local WorldCmd = Cmd:subclass()
 	game.WorldCmd = WorldCmd
 
@@ -2095,7 +2050,7 @@ cl.classname = k
 			return 'if '
 				..self:getCond()
 				..' then '
-				..self.getGotoOfsStr(self.destAddrOfs)
+				..self.getGotoStr(scriptBaseAddr + self.destAddrOfs)
 				..' end'
 		end,
 		getDestAddr = function(self)
@@ -2120,7 +2075,7 @@ cl.classname = k
 			return 'if '
 				..self:getCond()
 				..' then '
-				..self.getGotoOfsStr(self.destAddrOfs)
+				..self.getGotoStr(scriptBaseAddr + self.destAddrOfs)
 				..' end'
 		end,
 		getDestAddr = function(self)
@@ -2216,7 +2171,7 @@ cl.classname = k
 
 	-- now for vehicle cmds
 	-- I guess whether these vs EventCmds are used is game state based, so there's no static measure for when in the script engine to decode as one vs the other ...
-	game.VehicleCmds = VehicleCmds
+	disasm.VehicleCmds = VehicleCmds
 	local VehicleCmd = Cmd:subclass()
 	game.VehicleCmd = VehicleCmd
 
@@ -2463,7 +2418,7 @@ cl.classname = k
 
 
 	do
-		game.BattleEventCmds = BattleEventCmds
+		disasm.BattleEventCmds = BattleEventCmds
 		local BattleEventCmd = Cmd:subclass()
 		game.BattleEventCmd  = BattleEventCmd
 
@@ -2673,7 +2628,7 @@ cl.classname = k
 		end
 
 
-		game.MonsterCmds = MonsterCmds
+		disasm.MonsterCmds = MonsterCmds
 		local MonsterCmd = Cmd:subclass()
 		game.MonsterCmd = MonsterCmd
 
@@ -3071,7 +3026,7 @@ cl.classname = k
 		}
 
 
-		game.BattleAnimCmds = BattleAnimCmds
+		disasm.BattleAnimCmds = BattleAnimCmds
 		local BattleAnimCmd = Cmd:subclass()
 		game.BattleAnimCmd  = BattleAnimCmd
 
@@ -4311,6 +4266,7 @@ cl.classname = k
 		}
 
 		-- how often does this get a non-1 threads for battle anims >= 256?
+		-- TODO redundant to numThreadsForAnim
 		local numThreadsForAddr = {
 			[0x100f5f] = 8,
 			[0x10139d] = 3,
@@ -4586,309 +4542,6 @@ cl.classname = k
 	end
 
 
-	--[[
-	TODO here instead of assuming the next-in-order address marks the end ...
-	- we should be tracing until 'return'
-	- and upon branch, recursive call the trace ...
-	- and then warn if we ever trace over the same code block but offset or with a different opcode set...
-	- and then ... i should be properly decoding world-vs-events, and also not decoding extra things past 'return'
-	--]]
-
-	game.eventScriptCmds = table()
-
-	-- event code, pointed into by NPCs and maybe other things
-	game.whatsPointingToAddr = {}
-
-	-- remember where we've started from so we don't go over the same area twice
-	-- TODO this but for the state of decoding as well
-	local decompileTraces = {}
-
-	local Trace = class()
-
-	Trace.indent = 0
-
-	function Trace:init(args)
-		self.addr = assert.index(args, 'addr')
-
-		local reverseRefInfo = args.reverseRefInfo
-
---[==[ debugging
-print('decompiling from '..require'ext.tolua'(reverseRefInfo, {
-	indent = false,
-	serializeForType = {
-		number = function(state, x, tab, luapath, keyRef)
-			return game.addrLabel(x)
-		end,
-	},
-}))
---]==]
-		game.whatsPointingToAddr[self.addr] = game.whatsPointingToAddr[self.addr] or table()
-		game.whatsPointingToAddr[self.addr]:insert(reverseRefInfo)
-
-		self.cmds = table()
-		self.cmdObjForAddr = {}	-- keys are cmds[i].addr
-
-		-- optional?
-		self.lastDialogPromptCount = args.lastDialogPromptCount
-
-		local cmdset = assert.index(args, 'cmdset')
---DEBUG:assert.type(cmdset, 'string')
-
-		-- force override addrs here
-		if self.addr == 0x0a5eb4 then
-			cmdset = 'EventCmds'	-- end-script used by event and world cmds
-		end
-
-		-- not sure about this
-		self.stateStack = table()
-		self.stateStack:insert{
-			cmdset = cmdset,
-		}
-
-		if args.inVehicle then
-			self.stateStack:insert{
-				cmdset = 'VehicleCmds',
-			}
-		end
-
-		self.newBranches = table()
-
-		self.pc = self.addr
-	end
-
-	function Trace:readAndInc(ctype)
-		ctype = ffi.typeof(ctype)
-		local ptrtype = ffi.typeof('$*', ctype)
-
-		local o = ffi.cast(ptrtype, rom + self.pc)[0]
-		self.pc = self.pc + ffi.sizeof(ctype)
-
-		-- if it's a primitive and bitness <= 32
-		if ctype == uint8_t
-		or ctype == int8_t
-		or ctype == uint16_t
-		or ctype == int16_t
-		or ctype == uint32_t
-		or ctype == int32_t
-		or ctype == float
-		or ctype == double
-		then
-			o = tonumber(o)
-		elseif ctype == uint24_t then
-			o = o:value()
-		else
-			o = ctype(o)
-		end
-
-		return o
-	end
-
-	function Trace:readNext()
-		local cmdaddr = self.pc
-		local cmd = self:readAndInc(uint8_t)
-
---DEBUG:assert.gt(#self.stateStack, 0, "someone popped the last cmdset...")
-		local cmdset = self.stateStack:last().cmdset
---DEBUG:assert.type(cmdset, 'string')
-
-		return self:readInstr(cmdaddr, cmdset, cmd)
-	end
-
-	-- cmdaddr has to be abstracted because typical cmds addrs are pc-1 from args, for reading the type of cmd
-	-- but some hard-coded cmds for addrs dont have the extra byte and so they have to use pc itself
-	function Trace:readInstr(cmdaddr, cmdset, cmd)
-		local cl = game[cmdset][cmd]
-		if not cl then error("failed to find cmd "..tolua(cmd).." in cmdset "..tolua(cmdset)) end
-
-		local cmdobj = cl()
-		cmdobj.trace = self
-		cmdobj.addr = cmdaddr
-		cmdobj.cmdset = cmdset
-		cmdobj.indent = self.indent
-
-		-- self:less function to pass to cmd digest()
-		local function read(ctype)
-			local o
-			o = self:readAndInc(ctype)
-			return o
-		end
-
-		-- hmm instead of just 'read' with 'addr', how about a whole interpretation-state, with 'cmdset' too?
-		cmdobj:digest(read)
-
-		-- track all bytes used here, in case someone cares?
-		cmdobj.sizeInBytes = self.pc - cmdaddr
-
-		game.eventScriptCmds:insert(cmdobj)
-		self.cmds:insert(cmdobj)
-		self.cmdObjForAddr[cmdaddr] = cmdobj
-
---[==[ debugging print as we go
-	io.write(game.addrLabel(cmdobj.addr), '\t')
-	io.write(({
-		EventCmds = 'EV ',
-		WorldCmds = 'WO ',
-		ObjectCmds = 'OB ',
-		VehicleCmds = 'VE ',
-	})[cmdobj.cmdset])
-	local function align(n, s)
-		s = tostring(s)
-		return s..(' '):rep(n - #s)
-	end
-	io.write(align(
-		24,
-		ffi.string(rom + cmdobj.addr, cmdobj.sizeInBytes)
-			:gsub('.', function(b)
-				return ('%02x '):format(b:byte())
-			end)
-	))
-	if game.ObjectCmd:isa(cmdobj)
-	and not game.ObjectCmds.EndScript:isa(cmdobj)
-	then
-		io.write'    '
-	end
-	print((tostring(cmdobj)
-		:gsub('\t', '\\t')
-		:gsub('\r', '\\r')
-		:gsub('\n', '\\n')
-	))
---]==]
-
-		if cmdobj.getBranchAddrs then
-			-- decode branches ... now or later?
-			for _,newBranch in ipairs(cmdobj:getBranchAddrs()) do
-				newBranch.cmdset = newBranch.cmdset or self.stateStack[1].cmdset		-- make sure we record the current cmdset
-				newBranch.inVehicle = self.stateStack:last().cmdset == 'VehicleCmds'	-- right now self.stateStack is just 1 or 2 in size, and 2 is always VehicleCmds, and 1 is always not...
-				newBranch.lastDialogPromptCount = self.lastDialogPromptCount
-				newBranch.reverseRefInfo = {
-					cmdobj = cmdobj,
-					branchFromAddr = cmdaddr,
-					cmdset = newBranch.cmdset,
-				}
-				self.newBranches:insert(newBranch)
-			end
-		end
-
-		-- this is gonna go before cmds very soon
-		local newCmdSet = ({
-			-- these are all SetMap's:
-			[0x0a0096] = 'WorldCmds',	-- doomgaze defeated - the setmap sets vehicle but I guess don't?
-			[0x0a00e3] = 'WorldCmds',	-- from map touch, specifically doomgaze
-			[0x0a7a86] = 'EventCmds',	-- branch
-			[0x0a8ff0] = 'EventCmds',	-- branch
-			[0x0af4c1] = 'WorldCmds',	-- branch
-			[0x0af4d7] = 'WorldCmds',	-- branch
-			[0x0af4f3] = 'WorldCmds',	-- branch, so it matters
-			[0x0af567] = 'EventCmds',	-- branch, so it matters
-			[0x0af596] = 'EventCmds',	-- branch
-			[0x0b4505] = 'EventCmds',	-- branch
-			[0x0b67f7] = 'WorldCmds',	-- branch ... everything8215's event_main.asm says first set to World ... then after endScript set to Events ... does endScript always set cmdset to Events?
-			[0x0c3383] = 'EventCmds',	-- branch
-			-- sometimes just a goto, or a conditional-goto will change things?
-			[0x0af4c7] = 'EventCmds',	-- $0af4c7	WO b0 76 01 b4 5e 00       if not mapFlagGet(374) then goto $0a5eb4 end
-			[0x0af4dd] = 'EventCmds',	-- $0af4dd	WO b0 76 01 b4 5e 00       if not mapFlagGet(374) then goto $0a5eb4 end
-			[0x0a8ca8] = 'EventCmds',	-- $0a8ca8	VE b0 27 01 e3 8b 00       if not mapFlagGet(295) then goto $0a8be3 end
-		})[cmdaddr]
-		if newCmdSet then
-			for i=2,#self.stateStack do self.stateStack[i] = nil end	-- clear VehicleCmds too
-			self.stateStack[1].cmdset = newCmdSet
-		end
-
-		return cmdobj
-	end
-
-	function Trace:run()
-		local startCmdSet = self.stateStack:last().cmdset
-
-		--[[ special-case always for BattleAnimCmds,
-		-- whether starting from game.battleAnimScriptOffsets[]
-		-- or from BattleEventCmds.AllCharsAnim branches...
-		-- ... always use first 2 bytes as a special instruction
-		-- why is it messing things up later?
-		if startCmdSet == 'BattleAnimCmds' then
-			self:readInstr(self.pc, startCmdSet, 'SpeedAndAlign')
-		end
-		--]]
-
-		-- make sure we haven't decoded this already
-		for _,otherTrace in pairs(decompileTraces) do
-			local cmdobj = otherTrace.cmdObjForAddr[self.addr]
-			if cmdobj then
-				if cmdobj.cmdset ~= self.stateStack:last().cmdset then
-					print('!!! DANGER !!! '
-						..game.addrLabel(self.addr)
-						..' decoding address from differing cmdset!'
-						..' previous cmdset '..cmdobj.cmdset
-						..' from trace at '..game.addrLabel(otherTrace.cmds[1].addr)
-						..' vs new cmdset '..self.stateStack:last().cmdset
-					)
-				else
-					return otherTrace
-				end
-			end
-		end
-
-		decompileTraces[self.addr] = self
-
---[==[ debugging:
-print(('BEGIN '..game.addrLabel(self.addr))
---]==]
-
-		while true do
-			if not (
-				(scriptBaseAddr <= self.pc and self.pc < scriptBaseAddrEnd)
-				or (scriptBaseAddr2 <= self.pc and self.pc < scriptBaseAddrEnd2)
-				or (battleEventScriptAddr <= self.pc and self.pc < battleEventScriptAddrEnd)
-				or (monsterScriptAddr <= self.pc and self.pc < monsterScriptAddrEnd)
-				or (battleAnimScriptAddr <= self.pc and self.pc < battleAnimScriptAddrEnd)
-			) then
-print('!!! script oob !!! '..game.addrLabel(self.pc))
-				break
-			end
-
-			local cmdobj = self:readNext()
-			if cmdobj.endTrace then break end
-		end
-
-		-- set this before trying recursive, so they know this trace's address interval
-		self.endAddr = self.pc
-
---[==[ debugging:
-print('END '..game.addrLabel(self.endAddr))
-print()
---]==]
-
-		assert.ge(#self.stateStack, 1, "somehow we popped all our states...")
-
-		if self.stateStack:last().objectScriptCmd then
-			print('!!! DANGER !!! event-script ended still inside an object-script:',
-				'script start = '..game.addrLabel(self.addr),
-				'object-script start = '..game.addrLabel(self.stateStack:last().objectScriptCmd.addr)
-			)
-		end
-
-		for _,newBranch in ipairs(self.newBranches) do
-			local trace = Trace(newBranch)
-
-			-- [[ why can't I just do this in Trace:run?
-			-- because I only should do this when the previous cmdset was different
-			if startCmdSet ~= 'BattleAnimCmds'
-			and newBranch.cmdset == 'BattleAnimCmds'
-			then
-				trace:readInstr(trace.pc, newBranch.cmdset, 'SpeedAndAlign')
-			end
-			--]]
-
-			trace:run()
-		end
-
-		return self
-	end
-
-	function Trace:printInterval()
-		return game.addrLabel(self.addr)..' - '..game.addrLabel(self.endAddr)
-	end
-
 	-- collect script addrs from npcs
 	-- hmm should I use the master npc list or just which ones are in maps?
 	-- should I cache disassembled chunks and only traverse instructions that are actually used? and track memory regions used?
@@ -4911,7 +4564,7 @@ print()
 					inVehicle = true
 				end
 
-				return Trace{
+				return disasm:trace{
 					addr = startAddr,
 					cmdset = startCmdSet,
 					inVehicle = inVehicle,
@@ -4998,7 +4651,7 @@ print()
 		[0x0ce566] = "GameOver",
 		[0x0cb1e7] = "NarsheOpenSecretCave",
 	} do
-		Trace{
+		disasm:trace{
 			addr = addr,
 			cmdset = 'EventCmds',
 			reverseRefInfo = {builtin = name},
@@ -5013,7 +4666,7 @@ print()
 		[0x0a008f] = "EnterGogosLair",
 		[0x0a0096] = "DoomGazeDefeated",
 	} do
-		Trace{
+		disasm:trace{
 			addr = addr,
 			cmdset = 'WorldCmds',
 			reverseRefInfo = {builtin = name},
@@ -5023,7 +4676,7 @@ print()
 		[0x0a007f] = "enter kefka's tower",
 		[0x0aa6c0] = "BlackjackManual",
 	} do
-		Trace{
+		disasm:trace{
 			addr = addr,
 			cmdset = 'EventCmds',
 			inVehicle = true,
@@ -5035,7 +4688,7 @@ print()
 	-- they will have a different base-offset than the other 4 cmdsets
 	for i=0,countof(game.battleEventScriptOfs)-1 do
 		local addr = battleAnimScriptAddr + game.battleEventScriptOfs[i]
-		Trace{
+		disasm:trace{
 			addr = addr,
 			cmdset = 'BattleEventCmds',
 			reverseRefInfo = {builtin = 'battleEvent'..i},
@@ -5066,7 +4719,7 @@ print()
 			--local name = string.trim(tostring(game.monsterNames[monsterIndex]))
 			--if name ~= '' then name = ' '..name end
 			--print('\t['..monsterIndex..'] = {\t-- '..(' 0x%06x'):format(actAddr)..'-'..('0x%06x'):format(nextAddr)..name)
-			local trace = Trace{
+			local trace = disasm:trace{
 				addr = actAddr,
 				cmdset = 'MonsterCmds',
 				reverseRefInfo = {builtin = 'monsters_'..monsterIndex..'_act'},
@@ -5077,7 +4730,7 @@ print()
 				-- but some (monster 243 etc) don't even have this
 				reactAddr = nil
 			else
-				Trace{
+				disasm:trace{
 					addr = reactAddr,
 					cmdset = 'MonsterCmds',
 					reverseRefInfo = {builtin = 'monsters_'..monsterIndex..'_react'},
@@ -5103,7 +4756,7 @@ print()
 		for i=1,#scriptAddrs do
 			local addr = scriptAddrs[i]
 
-			local trace = Trace{
+			local trace = disasm:trace{
 				addr = addr,
 				cmdset = 'BattleAnimCmds',
 			}
@@ -5113,7 +4766,7 @@ print()
 			trace:run()
 
 			-- and fix a bug...
-			local t = decompileTraces[0x104cc2]
+			local t = disasm.decompileTraces[0x104cc2]
 			if t then
 				-- this'll inc .pc past .endAddr
 				-- and put an instruction in overlapping memory
@@ -5126,7 +4779,7 @@ print()
 				cmdobj.addr = lastcmd.addr - .5	-- very cheap trick
 				cmdobj.sizeInBytes = 0
 				lastcmd.indent = lastcmd.indent - 1
-				game.eventScriptCmds:insert(cmdobj)
+				disasm.eventScriptCmds:insert(cmdobj)
 				t.cmds:insert(#t.cmds-1, cmdobj)
 			end
 
@@ -5136,135 +4789,10 @@ print()
 				local cmdobj = trace.cmds:remove(#trace.cmds-1)
 				assert.eq(cmdobj.addr, 0x105e5e)
 				trace.cmdObjForAddr[cmdobj.addr] = nil
-				game.eventScriptCmds:removeObject(cmdobj)
+				disasm.eventScriptCmds:removeObject(cmdobj)
 			end
 		end
 	end
 
-	-- is this a good idea, or should I double-check by storing trace address ranges and make sure none overlap so that i'm not inserting cmds between/ontop one another?
-	game.eventScriptCmds:sort(function(a,b) return a.addr < b.addr end)
-
--- [=[ remove subsets
-	local sortedTraces = table.values(decompileTraces)
-	sortedTraces:sort(function(a,b) return a.addr < b.addr end)
-	for i=#sortedTraces-1,1,-1 do
-		local a = sortedTraces[i]
-		local b = sortedTraces[i+1]
-		-- if they have the same ending
-		-- then chances are the smaller half decoded first then the larger earlier half
-		if a.addr < b.addr
-		and a.endAddr == b.endAddr
-		then
---DEBUG:print('found possible subset trace '..game.addrLabel(a.addr)..' - '..game.addrLabel(a.endAddr)..' vs range '..game.addrLabel(b.addr)..' - '..game.addrLabel(b.endAddr))
-			-- but first verify
-			-- make sure all the cmds match
-			local allmatch = true
-			for j,bcmd in ipairs(b.cmds) do
-				local acmd = a.cmds[#a.cmds-#b.cmds+j]
-				if acmd.addr ~= bcmd.addr then
---DEBUG:print('...but cmd addr at '..game.addrLabel(acmd.addr)..' vs '..game.addrLabel(bcmd.addr).." didn't match")
-					allmatch = false
-					break
-				end
-				if acmd.cmdset ~= bcmd.cmdset then
-					allmatch = false
-					break
-				end
-				if getmetatable(acmd) ~= getmetatable(bcmd) then
---DEBUG:print('...but cmd metatable at '..game.addrLabel(acmd.addr).." didn't match")
-					allmatch = false
-					break
-				end
-			end
-			if allmatch then
---DEBUG:print('removing subset trace '..game.addrLabel(b.addr)..' - '..game.addrLabel(b.endAddr))
-				decompileTraces[b.addr] = nil
-				sortedTraces:remove(i+1)
-			end
-		end
-	end
---]=]
-
-	-- double-check collisions
-	local sortedTraces = table.values(decompileTraces)
-	sortedTraces:sort(function(a,b) return a.addr < b.addr end)
-	for i=2,#sortedTraces do
-		local a = sortedTraces[i-1]
-		local b = sortedTraces[i]
-		if b.addr < a.endAddr then
-			print('!!! collision detected between '..a:printInterval()..' and '..b:printInterval())
-		end
-	end
-
-	game.decompileTraces = decompileTraces
-
-	-- calculate eventScriptCmdIndexForAddr
-	-- and remove duplicates
-	game.eventScriptCmdIndexForAddr = {}
-	do
-		local i = 1
-		while i <= #game.eventScriptCmds do
-			local cmd = game.eventScriptCmds[i]
-			if game.eventScriptCmdIndexForAddr[cmd.addr] then
-				-- then we have duplicates ....
-				assert.lt(game.eventScriptCmdIndexForAddr[cmd.addr], i)
-				local ocmd = game.eventScriptCmds[game.eventScriptCmdIndexForAddr[cmd.addr]]
-				assert.ne(rawequal(cmd, ocmd))
-				game.eventScriptCmds:remove(i)	-- removing cmd, keeping ocmd
-
-				-- also remove duplicate callbacks anywhere that this might have pointed...
-				-- [=[
-				if cmd.getBranchAddrs then
-					for _,branch in ipairs(cmd:getBranchAddrs()) do
-						local branchAddr = branch.addr
-						assert(game.whatsPointingToAddr[branchAddr])
-
-						-- duplicate equal cmds, so remove only one
-						local found
-						for j=#game.whatsPointingToAddr[branchAddr],1,-1 do
-							if game.whatsPointingToAddr[branchAddr][j].cmdobj == cmd then
-								game.whatsPointingToAddr[branchAddr]:remove(j)
-							elseif game.whatsPointingToAddr[branchAddr][j].cmdobj == ocmd then
-								found = true
-							end
-						end
-						assert(found)
-						-- shouldn't be zero because we should have a duplicate entry
-						assert.gt(#game.whatsPointingToAddr[branchAddr], 0)
-					end
-				end
-				--]=]
-			else
-				game.eventScriptCmdIndexForAddr[cmd.addr] = i
-				i = i + 1
-			end
-		end
-	end
-
-	-- addr -> cmd
-	local cmdForAddr = {}
-	for _,cmdobj in ipairs(game.eventScriptCmds) do
-		cmdForAddr[cmdobj.addr] = cmdobj
-	end
-
-	for _,cmdobj in ipairs(game.eventScriptCmds) do
-		if game.ObjectCmds.Branch:isa(cmdobj) then
-			local destAddr = cmdobj:getDestAddr()
-			if destAddr then
-				game.whatsPointingToAddr[destAddr] = game.whatsPointingToAddr[destAddr] or table()
-				local destCmdObj = cmdForAddr[destAddr]
-				if not destCmdObj then
-print("!!! WARNING !!!! branch from "
-	..('_%06x'):format(cmdobj.addr)
-	..' to unknown location '
-	..('_%06x'):format(destAddr))
-				end
-				game.whatsPointingToAddr[destAddr]:insert{
-					cmdobj = cmdobj,
-					branchFromAddr = cmdobj.addr,
-					cmdset = cmdobj.cmdset,
-				}
-			end
-		end
-	end
+	disasm:done()
 end
