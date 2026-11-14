@@ -19,6 +19,7 @@ files = {
 	"monstersprite.lua",
 	"reftype.lua",
 	"run-battleanim.lua",
+	"run-font.lua",
 	"run-items.lua",
 	"run-maps.lua",
 	"run-monsters.lua",

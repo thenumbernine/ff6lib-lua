@@ -619,36 +619,7 @@ end
 --]=]
 
 require 'ff6.run-battleanim'(game)
-
-do
-	local img = Image(8*16, 8*16, 1, 'uint8_t')
-	for j=0,15 do
-		for i=0,15 do
-			local index = i + 16 * j
-			for x=0,7 do
-				for y=0,7 do
-					img.buffer[
-						(x + 8 * i) + img.width * (y + 8 * j)
-					] = bit.bor(
-						bit.band(bit.rshift(game.font[2*y + 0x10 * index], 7-x), 1),
-						bit.lshift(bit.band(bit.rshift(game.font[2*y+1 + 0x10 * index], 7-x), 1), 1)
-					)
-				end
-			end
-		end
-	end
-	img.palette = range(0,3):mapi(function(i)
-		local l = math.floor(i/3*255)
-		return {l,l,l}
-	end)
-	img:save'font.png'
-
-	-- TODO output font ... font16_20_to_7f
-	print('font16 widths: '..range(0,0x7f):mapi(function(i)
-		return ('%02x'):format(game.font16_widths[i])
-	end):concat' ')
-end
-
+require 'ff6.run-font'(game)
 require 'ff6.run-sound'(game)
 
 print'end of rom output'

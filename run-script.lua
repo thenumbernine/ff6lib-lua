@@ -26,7 +26,7 @@ local function align(n, s)
 end
 
 -- cmdline is defined at the end for when you run this standalone
-local function runEventScript(game, cmdline)
+local function run(game, cmdline)
 	cmdline = cmdline or {}
 	local rom = game.rom
 
@@ -2447,7 +2447,7 @@ if select('#', ...) > 0 then	-- luajit #... == 0 <-> this file was require'd
 	local game = require 'ff6'((
 		assert(path((...)):read())
 	))
-	runEventScript(game, cmdline)
+	run(game, cmdline)
 end
 
-return runEventScript
+return run
