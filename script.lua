@@ -4682,7 +4682,7 @@ cl.classname = k
 		}:run()
 	end
 	for addr,name in pairs{
-		[0x0a007f] = "enter kefka's tower",
+		[0x0a007f] = "EnterKefkasTower",
 		[0x0aa6c0] = "BlackjackManual",
 	} do
 		disasm:trace{
@@ -4759,6 +4759,10 @@ cl.classname = k
 		for i=0,game.countof(game.battleAnimEffects)-1 do
 			local addr = battleAnimScriptAddr + game.battleAnimScriptOffsets[i]
 			scriptAddrs[addr] = true
+
+			-- do we need the labels for enumeration in battleAnimScriptOffsets?
+			-- a few of these don't seem like they are in the BattleAnim effects[] list...
+			disasm:addLabel(addr, 'BattleAnimEffect['..i..']')
 		end
 		scriptAddrs = table.keys(scriptAddrs):sort()
 

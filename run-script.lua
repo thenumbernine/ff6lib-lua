@@ -37,18 +37,6 @@ local function run(game, cmdline)
 		disasm:addLabel(addr, name)
 	end
 
-	-- keep track of labels from builtin calls
-	for _,cmdobj in ipairs(disasm.eventScriptCmds) do
-		local whatPointsToScriptAtAddr = disasm.whatsPointingToAddr[cmdobj.addr]
-		if whatPointsToScriptAtAddr then
-			for _,what in ipairs(whatPointsToScriptAtAddr) do
-				if what.builtin then
-					addLabel(cmdobj.addr, what.builtin)
-				end
-			end
-		end
-	end
-
 	-- keep track of labels from map npc and touch-trigger addresses
 	for i=0,game.countof(game.maps)-1 do
 		local mapInfo = game.getMap(i)
@@ -492,12 +480,6 @@ local battleAnimNames = {
 				disasm:addComment(addr, battleAnimNames[i+1]..' '..j)
 			end
 		end
-	end
-	-- do we need the labels for enumeration in battleAnimScriptOffsets?
-	-- a few of these don't seem like they are in the BattleAnim effects[] list...
-	for i=0,game.countof(game.battleAnimEffects)-1 do
-		local addr = battleAnimScriptAddr + game.battleAnimScriptOffsets[i]
-		addLabel(addr, 'BattleAnimEffect['..i..']')
 	end
 
 	local scriptBaseAddr = ffi.offsetof(game.Game, 'eventScript')	-- 0xa0000
