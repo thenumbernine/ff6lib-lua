@@ -1270,7 +1270,7 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 			end
 		end,
 		getCond = function(self)
-			return 'mapFlagGet('..self.cond..')'
+			return 'eventFlagGet('..self.cond..')'
 		end,
 	}
 
@@ -1359,8 +1359,7 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 			-- precache:
 			self.condCode = self.conds:mapi(function(cond)
 					return (not cond.value and 'not ' or '')
-						-- which flag? npc flag? map flag? treasure flag? etc flag?
-						..'mapFlagGet('..cond.flagIndex..')'
+						..'eventFlagGet('..cond.flagIndex..')'
 				end):concat(self._and and ' and ' or ' or ')
 		end,
 		__tostring = function(self)
@@ -1408,7 +1407,7 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 				self.flagIndex = ((self.cmd & 0xe) << 7) | flagIndex
 			end,
 			__tostring = function(self)
-				return 'mapFlagSet('
+				return 'eventFlagSet('
 					..self.flagIndex..', '
 					..tostring(self.flagValue)
 					..')'
@@ -1785,7 +1784,7 @@ cl.classname = k
 				end
 			end,
 			__tostring = function(self)
-				return 'mapFlagSet('
+				return 'eventFlagSet('
 					..self.flagIndex..', '
 					..tostring(self.flagValue)
 					..')'
@@ -2013,7 +2012,7 @@ cl.classname = k
 		argtypes = {uint16_t},
 		argnames = {'flagIndex'},
 		__tostring = function(self)
-			return 'mapFlagSet('
+			return 'eventFlagSet('
 				..self.flagIndex
 				..', '
 				..tostring(self.flagValue)
@@ -2249,7 +2248,7 @@ cl.classname = k
 		argtypes = {uint16_t},
 		argnames = {'flagIndex'},
 		__tostring = function(self)
-			return 'mapFlagSet('
+			return 'eventFlagSet('
 				..self.flagIndex
 				..', '
 				..tostring(self.flagValue)

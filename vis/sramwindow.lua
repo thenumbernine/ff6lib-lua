@@ -160,7 +160,7 @@ function SRAMWindow:showIndexUI()
 			or fieldname == 'loreFlags'
 			or fieldname == 'rageFlags'
 			or fieldname == 'danceFlags'
-			or fieldname == 'mapFlags'
+			or fieldname == 'eventFlags'
 			or fieldname == 'npcFlags'
 			or fieldname == 'treasureFlags'
 			or fieldname == 'battleFormationFlags'
@@ -187,7 +187,7 @@ function SRAMWindow:showIndexUI()
 			or field == 'parentMapPos'
 			or field == 'worldPos'
 			then
-				local inWoR = readbit(save.mapFlags, 164)
+				local inWoR = readbit(save.eventFlags, 164)
 				app.mapWindow:open(inWoR and 1 or 0)
 			else
 				app.mapWindow:open(save.map)
@@ -378,9 +378,9 @@ assert.type(flagField, 'string')
 	end
 
 	ig.igSeparator()
-	if ig.igCollapsingHeader'map flags:' then
+	if ig.igCollapsingHeader'event flags:' then
 		showFlags{
-			flagField = 'mapFlags',
+			flagField = 'eventFlags',
 		}
 	end
 

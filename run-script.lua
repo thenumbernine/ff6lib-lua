@@ -2022,8 +2022,8 @@ end
 						if disasm.EventCmds.EndRepeatSwitch:isa(cmd) then
 							loop.stmts = stmts:sub(startIndex+1,i)
 							cmd.skipEndFor = true	-- hack, just reuse EndRepeatSwitch at the end
-							-- replace the "if mapFlagGet(436) then break end ... end--for"
-							-- with just "if mapFlagGet(436) then break end"
+							-- replace the "if eventFlagGet(436) then break end ... end--for"
+							-- with just "if eventFlagGet(436) then break end"
 						else
 							loop.stmts = stmts:sub(startIndex+1,i-1)
 						end
@@ -2218,11 +2218,13 @@ print(('!!! replacing if-goto with while-loop %06x -> %06x'):format(cmd.addr, de
 		end
 		--]]
 
--- [[
+--[[
 		-- now rearrange to match the generated ff6t3d script
 		-- eventually it's gonna be a matter of chopping it into scene/map pieces ...
 		-- from-to segments of how to arrange everything:
 		-- this will be just the addrs of the lambdas
+		--
+		-- I think I gave up on this after already splitting out and organizing all EventCmds
 		local destOrder = {
 			-- generic
 			0x0aca64,	-- SetCharFlagForDir
@@ -2330,8 +2332,6 @@ print(('!!! replacing if-goto with while-loop %06x -> %06x'):format(cmd.addr, de
 			0x0c87a6,	-- map244_npc24
 			0x0c92b1,	-- map244_npc25
 		}
---]]
-
 		local newCmds = table()
 		for i,dest in ipairs(destOrder) do
 			if type(dest) == 'number' then
@@ -2365,6 +2365,8 @@ print(('!!! replacing if-goto with while-loop %06x -> %06x'):format(cmd.addr, de
 		end
 		newCmds:append(disasm.eventScriptCmds)
 		disasm.eventScriptCmds = newCmds
+--]]
+
 
 	-- END HIGH LEVEL CODE CONVERSION
 	end	-- cmdline.skipOpts

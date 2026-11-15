@@ -80,8 +80,8 @@ for i=saveMin, saveMax do
 	print()
 	print('save', i)
 
-	print('map flag hex data')
-	print((string.hex(ffi.string(save.mapFlags, 0x60)):gsub('..', '%0 ')))
+	print('event flag hex data')
+	print((string.hex(ffi.string(save.eventFlags, 0x60)):gsub('..', '%0 ')))
 
 	print('npc flag hex data')
 	print((string.hex(ffi.string(save.npcFlags, 0x80)):gsub('..', '%0 ')))
