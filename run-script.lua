@@ -642,7 +642,7 @@ end}
 			end
 			for _,o in ipairs(disasm.eventScriptCmds) do
 				if disasm.ObjectCmds.BranchBack:isa(o)
-				and o.offset ~= 0xff
+				and o.addr ~= o.destAddr
 				then
 					local chain = table()
 
@@ -652,7 +652,7 @@ end}
 
 						if not (
 							disasm.ObjectCmds.BranchBack:isa(nextDest)
-							and nextDest.offset ~= 0xff
+							and nextDest.addr ~= nextDest.destAddr
 						) then break end
 
 						if disasm.whatsPointingToAddr[nextDest.addr] then
@@ -672,17 +672,17 @@ end}
 
 					if dest ~= o
 					and disasm.ObjectCmds.BranchBack:isa(dest)
-					and dest.offset ~= 0xff
+					and dest.addr ~= dest.nextAddr
 					then
 -- caught 41 pokemon here
 --print('!!! goto-to-goto at '..('%06x'):format(dest.addr))
 						for _,c in ipairs(chain) do
 							-- make sure it's a branch-back...
 							if dest.addr < c.addr then
-								c.offset = c.addr - dest.addr
+								c.destAddr = dest.addr
 								--setmetatable(c, disasm.ObjectCmds.BranchBack)
 							elseif dest.addr > c.addr then
-								c.offset = dest.addr - c.addr
+								c.destAddr = dest.addr
 								--setmetatable(c, disasm.ObjectCmds.BranchFwd)
 							else
 								error'here'
@@ -969,7 +969,7 @@ assert(disasm.whatsPointingToAddr[target.addr])
 					if (
 						disasm.ObjectCmds.BranchBack:isa(bb)
 						or disasm.ObjectCmds.BranchBack50:isa(bb)
-					) and bb.offset ~= 0xff
+					) and bb.addr ~= bb.destAddr
 					then
 assert.eq(bb.parent, o)
 						local j, target = o.stmts:find(nil, function(o2) return o2.addr == bb:getDestAddr() end)

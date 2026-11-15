@@ -1824,9 +1824,6 @@ cl.classname = k
 		-- TODO hmm why isn't this isCall ?
 	}
 
-	-- TODO ... have to generalize things up front a bit more now
-	--Cmds.Branch =
-
 	--[[
 	here's a fun fact
 	branch-backwards is only ever with signed positive values
@@ -1843,20 +1840,24 @@ cl.classname = k
 		--cmd = 0xfa,
 		argtypes = {uint8_t},
 		argnames = {'offset'},
-		getDestAddr = function(self)
-			if self.offset == 0xff then
-				return self.addr
+		getargs = function(self, offset)
+			if offset == 0xff then
+				self.destAddr = self.addr
+			else
+				self.destAddr = self.dir == '-'
+					and self.addr - offset
+					or self.addr + offset
 			end
-			return self.dir == '-'
-				and self.addr - self.offset
-				or self.addr + self.offset
+		end,
+		getDestAddr = function(self)
+			return self.destAddr
 		end,
 		-- TODO you will have to generate a label for this instruction, and for wherever it is going
 		__tostring = function(self)
 			-- no signed offset in any branch is >= 0x80
 			--  except branch-backwards -1 i.e. "FC FF"
 			-- in that case, insert an end.
-			if self.offset == 0xff then
+			if self.addr == self.destAddr then
 				return 'while true do yield() end'
 			end
 
@@ -1917,7 +1918,7 @@ cl.classname = k
 			if objectScriptCmd
 			and (
 				self.addr == objectScriptCmd.addr + objectScriptCmd.length
-				or self.offset == 0xff
+				or self.addr == self.destAddr
 			)
 			then
 				popObjectCmdSet(self.trace, self.addr, true)
