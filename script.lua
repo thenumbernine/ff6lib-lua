@@ -4550,68 +4550,8 @@ cl.classname = k
 		end
 	end
 
-
-	-- collect script addrs from npcs
-	-- hmm should I use the master npc list or just which ones are in maps?
-	-- should I cache disassembled chunks and only traverse instructions that are actually used? and track memory regions used?
-	for mapIndex=0,countof(game.maps)-1 do
-		local mapInfo = game.getMap(mapIndex)
-		if mapInfo then
-
-			local function decodeForMap(startAddr, reverseRefInfo)
-				local startCmdSet = mapIndex < 3 and 'WorldCmds' or 'EventCmds'
-
-				-- even if world-map is using commonReturnAddr, stillu se EventCmds, cuz I think this is the only address that could either be EventCmds or WorldCmds
-				if startAddr == commonReturnAddr then
-					startCmdSet = 'EventCmds'
-				end
-
-				-- BlackjackManual starts as 'inVehicle':
-				-- needed especially for scripts that branch into this address
-				local inVehicle
-				if startAddr == 0x0aa6c0 then
-					inVehicle = true
-				end
-
-				return disasm:trace{
-					addr = startAddr,
-					cmdset = startCmdSet,
-					inVehicle = inVehicle,
-					reverseRefInfo = reverseRefInfo,
-				}:run()
-			end
-
-			-- if the mapIndex < 3 then it's a world-script, otherwise it's an event-script
-			-- ... right?
-			decodeForMap(mapInfo.startEventScriptAddr, {
-				type = 'startEventScriptAddr',
-				mapIndex = mapIndex,
-			})
-
-			for npcIndex,n in ipairs(mapInfo.npcs) do
-				local scriptAddr = n:getScriptAddr()
-				if scriptAddr then
-					decodeForMap(scriptAddr, {
-						npcIndex = npcIndex-1,
-						mapIndex = mapIndex,
-					})
-				end
-			end
-
-			for touchTriggerIndex,t in ipairs(mapInfo.touchTriggers) do
-				local scriptAddr = t:getScriptAddr()
-				if scriptAddr then
-					-- if the mapIndex < 3 then it's a world-script, otherwise it's an event-script
-					decodeForMap(scriptAddr, {
-						touchTriggerIndex = touchTriggerIndex-1,
-						mapIndex = mapIndex,
-					})
-				end
-			end
-		end
-	end
-
 	-- [[ add builtins?
+	-- do these before maps so that Return is labeled before map0_start
 	for addr,name in pairs{
 		[0x0a0000] = "NoEvent",
 		[0x0a0001] = "WaitForDialogWindow",
@@ -4691,6 +4631,71 @@ cl.classname = k
 			inVehicle = true,
 			reverseRefInfo = {builtin = name},
 		}:run()
+	end
+	--]]
+
+
+	-- collect script addrs from npcs
+	-- hmm should I use the master npc list or just which ones are in maps?
+	-- should I cache disassembled chunks and only traverse instructions that are actually used? and track memory regions used?
+	for mapIndex=0,countof(game.maps)-1 do
+		local mapInfo = game.getMap(mapIndex)
+		if mapInfo then
+
+			local function decodeForMap(startAddr, reverseRefInfo)
+				local startCmdSet = mapIndex < 3 and 'WorldCmds' or 'EventCmds'
+
+				-- even if world-map is using commonReturnAddr, stillu se EventCmds, cuz I think this is the only address that could either be EventCmds or WorldCmds
+				if startAddr == commonReturnAddr then
+					startCmdSet = 'EventCmds'
+				end
+
+				-- BlackjackManual starts as 'inVehicle':
+				-- needed especially for scripts that branch into this address
+				local inVehicle
+				if startAddr == 0x0aa6c0 then
+					inVehicle = true
+				end
+
+				return disasm:trace{
+					addr = startAddr,
+					cmdset = startCmdSet,
+					inVehicle = inVehicle,
+					reverseRefInfo = reverseRefInfo,
+				}:run()
+			end
+
+			-- if the mapIndex < 3 then it's a world-script, otherwise it's an event-script
+			-- ... right?
+			decodeForMap(mapInfo.startEventScriptAddr, {
+				type = 'startEventScriptAddr',
+				mapIndex = mapIndex,
+				builtin = 'map'..mapIndex..'_start',
+			})
+
+			for touchTriggerIndex,t in ipairs(mapInfo.touchTriggers) do
+				local scriptAddr = t:getScriptAddr()
+				if scriptAddr then
+					-- if the mapIndex < 3 then it's a world-script, otherwise it's an event-script
+					decodeForMap(scriptAddr, {
+						touchTriggerIndex = touchTriggerIndex-1,
+						mapIndex = mapIndex,
+						builtin = 'map'..mapIndex..'_touch'..(touchTriggerIndex-1),
+					})
+				end
+			end
+
+			for npcIndex,n in ipairs(mapInfo.npcs) do
+				local scriptAddr = n:getScriptAddr()
+				if scriptAddr then
+					decodeForMap(scriptAddr, {
+						npcIndex = npcIndex-1,
+						mapIndex = mapIndex,
+						builtin = 'map'..mapIndex..'_npc'..(npcIndex-1),
+					})
+				end
+			end
+		end
 	end
 
 	-- battle-event scripts here too?

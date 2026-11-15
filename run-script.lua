@@ -37,7 +37,7 @@ local function run(game, cmdline)
 		disasm:addLabel(addr, name)
 	end
 
-	-- keep track of labels from map npc and touch-trigger addresses
+	--[[ keep track of labels from map npc and touch-trigger addresses
 	for i=0,game.countof(game.maps)-1 do
 		local mapInfo = game.getMap(i)
 		if mapInfo.startEventScriptAddr then
@@ -56,6 +56,7 @@ local function run(game, cmdline)
 			end
 		end
 	end
+	--]]
 
 -- using everything8215/ff6/src/data/attack_anim_prop.asm list of names for now:
 local battleAnimNames = {
