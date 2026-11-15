@@ -1030,6 +1030,7 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 				{addr=self:getDestAddr()},
 			}
 		end,
+		isCall = true,
 	}
 
 	EventCmds.StopTimer = EventCmd:subclass{
@@ -1136,6 +1137,7 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 				{addr=self:getDestAddr()},
 			}
 		end,
+		isCall = true,
 	}
 
 	EventCmds.CallRepeat = EventCmd:subclass{
@@ -1153,6 +1155,7 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 				{addr=self:getDestAddr()},
 			}
 		end,
+		isCall = true,
 	}
 
 	EventCmds.Sleep = EventCmd:subclass{
@@ -1195,6 +1198,9 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 				return {addr = scriptBaseAddr + option.addrOfs}
 			end)
 		end,
+
+		-- TODO TODO TODO this is a GOTO not a CALL!
+		isCall = true,
 	}
 
 	EventCmds.CondBattleFlag = EventCmd:subclass{
@@ -1216,6 +1222,7 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 				{addr=self:getDestAddr()},
 			}
 		end,
+		isGoto = true,	-- not sure where I'm going with these ...
 		getCond = function(self)
 			return 'battleFlagGet('..self.flagIndex..')'
 		end,
@@ -1293,6 +1300,7 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 				{addr=self:getDestAddr()},
 			}
 		end,
+		isGoto = true,
 		getCond = function(self)
 			return 'math.random() < .5'
 		end,
@@ -1334,6 +1342,7 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 				return {addr=scriptBaseAddr + option.addrOfs}
 			end)
 		end,
+		isCall = true,
 	}
 
 	EventCmds.ShowAirshipEndingCutscene = EventCmd:subclass{
@@ -1380,6 +1389,14 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 				{addr=self:getDestAddr()},
 			}
 		end,
+
+		-- Branch is goto, fwd = skip code, backwards = loop
+		--  50/50 = 'if math.random() < .5 then...' cond on loop or if
+		-- TODO for branch, if the target is *only* this goto
+		-- and it's backwards
+		-- and there's no other labels within the address range
+		-- then turn it into a loop
+		isGoto = true,
 	}
 	Cmds.Cond = Cond
 
@@ -2066,6 +2083,7 @@ cl.classname = k
 				{addr=self:getDestAddr()},
 			}
 		end,
+		isGoto = true,
 		getCond = function(self)
 			return 'keypress()'
 		end,
@@ -2091,6 +2109,7 @@ cl.classname = k
 				{addr=self:getDestAddr()},
 			}
 		end,
+		isGoto = true,
 		getCond = function(self)
 			return 'dir=='..self.dir
 		end,
@@ -3810,6 +3829,7 @@ cl.classname = k
 					{addr=self:getDestAddr()},
 				}
 			end,
+			isCall = true,
 		}
 
 		BattleAnimCmds[0xC0] = BattleAnimCmd:subclass(Return, {cmd=0xC0})

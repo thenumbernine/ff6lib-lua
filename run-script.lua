@@ -43,49 +43,16 @@ local function run(game, cmdline)
 	local addrsIsGoto = {}
 
 	for _,cmdobj in ipairs(disasm.eventScriptCmds) do
-
-		-- call
-		if disasm.EventCmds.Call:isa(cmdobj)
-		or disasm.EventCmds.CallRepeat:isa(cmdobj)
-		or disasm.EventCmds.StartTimer:isa(cmdobj)	-- it is a function call right?  that gets returned from, right?
-		or disasm.BattleAnimCmds.Call:isa(cmdobj)
-		then
-			addrsIsFunc[cmdobj:getDestAddr()] = true
-
-		-- call (right?)
-		-- TODO TODO TODO this is a GOTO not a CALL!
-		elseif disasm.EventCmds.CallSwitchNPCFlags:isa(cmdobj)
-		or disasm.EventCmds.GotoForDialogResult:isa(cmdobj)
-		then
-			for _,option in ipairs(cmdobj.options) do
-				addrsIsFunc[scriptBaseAddr + option.addrOfs] = true
+		if cmdobj.isCall then
+			for _,branchAddr in ipairs(cmdobj:getBranchAddrs()) do
+				addrsIsFunc[branchAddr.addr] = true
 			end
 
-		elseif disasm.EventCmds.CondBattleFlag:isa(cmdobj)
-		or disasm.EventCmds.Jump5050:isa(cmdobj)
-		-- Branch is goto, fwd = skip code, backwards = loop
-		--  50/50 = 'if math.random() < .5 then...' cond on loop or if
-		-- TODO for branch, if the target is *only* this goto
-		-- and it's backwards
-		-- and there's no other labels within the address range
-		-- then turn it into a loop
-		or game.Cmds.Cond:isa(cmdobj)
-		-- are these even used?
-		or disasm.WorldCmds.IfKeyThenGoto:isa(cmdobj)
-		or disasm.WorldCmds.IfFacingThenGoto:isa(cmdobj)
-		then
-			local destAddr = cmdobj:getDestAddr()
-			addrsIsGoto[destAddr] = addrsIsGoto[destAddr] or table()
-			addrsIsGoto[destAddr]:insert(cmdobj)
-
-		elseif disasm.ObjectCmds.Branch:isa(cmdobj) then
-			local destAddr = cmdobj:getDestAddr()
-			-- branch will return nil when it's an infinite-loop
-			if destAddr then
-				--`addrsIsGoto` is only used for converting gotos to funcs,
-				-- and ObjectCmds gotos are already converted by the time I start on non-object-cmds, so ...
-				--addrsIsGoto[destAddr] = addrsIsGoto[destAddr] or table()
-				--addrsIsGoto[destAddr]:insert(cmdobj)
+		elseif cmdobj.isGoto then
+			for _,branchAddr in ipairs(cmdobj:getBranchAddrs()) do
+				local destAddr = branchAddr.addr
+				addrsIsGoto[destAddr] = addrsIsGoto[destAddr] or table()
+				addrsIsGoto[destAddr]:insert(cmdobj)
 			end
 		end
 	end
