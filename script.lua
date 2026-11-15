@@ -759,6 +759,7 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 				{addr = scriptBaseAddr + self.newScriptAddrOfs, cmdset = 'EventCmds'},
 			}
 		end,
+		--isCall ?
 	}
 
 	EventCmds.RestoreDefaultParty = EventCmd:subclass{
@@ -1820,6 +1821,7 @@ cl.classname = k
 				{addr=scriptBaseAddr + self.destAddrOfs},
 			}
 		end,
+		-- TODO hmm why isn't this isCall ?
 	}
 
 	-- TODO ... have to generalize things up front a bit more now
@@ -2483,6 +2485,7 @@ cl.classname = k
 						{addr=self.destAddr, cmdset='BattleAnimCmds'},
 					}
 				end,
+				isCall = true,
 			}
 		end
 		for i=0,5 do
@@ -2505,6 +2508,7 @@ cl.classname = k
 						{addr=self.destAddr, cmdset='BattleAnimCmds'},
 					}
 				end,
+				isCall = true,
 			}
 		end
 		BattleEventCmds.BattleAnim = BattleEventCmd:subclass{
@@ -2551,6 +2555,7 @@ cl.classname = k
 					return {addr=addr, cmdset='BattleAnimCmds'}
 				end)
 			end,
+			isCall = true,
 		}
 		BattleEventCmds.AddCharTarget = BattleEventCmd:subclass{
 			cmd = 0x13,
@@ -3184,6 +3189,7 @@ cl.classname = k
 							{addr=z},
 						}
 					end
+					self.isGoto = true
 				elseif subcmd == 0x2E then
 					local x = read(uint8_t)
 					local y = read(uint8_t)
@@ -3204,6 +3210,7 @@ cl.classname = k
 						self.getBranchAddrs = function(self)
 							return {{addr=destAddr1}}
 						end
+						self.isGoto = true
 					else
 						self.descstr = 'gotoForLRDir('
 							..Cmd.getGotoStr(destAddr1, '')..', '
@@ -3214,6 +3221,7 @@ cl.classname = k
 								{addr=destAddr2},
 							}
 						end
+						self.isGoto = true
 					end
 					self.endTrace = true
 				elseif subcmd == 0x33 then
@@ -3367,6 +3375,7 @@ cl.classname = k
 					self.getBranchAddrs = function(self)
 						return {{addr=addr}}
 					end
+					self.isGoto = true
 				elseif subcmd == 0x73 then
 					local arg = read(uint8_t)
 					self.descstr = 'setDiceGraphics('..hex2(arg)..')'
@@ -3394,6 +3403,7 @@ cl.classname = k
 					self.getBranchAddrs = function(self)
 						return {{addr=addr}}
 					end
+					self.isGoto = true
 				elseif subcmd == 0x7E then
 					self.descstr = 'vflipTargetChar()'
 				elseif subcmd == 0x7F then
@@ -3436,6 +3446,7 @@ cl.classname = k
 					self.getBranchAddrs = function(self)
 						return {{addr=self.destAddr}}
 					end
+					self.isGoto = true
 				else
 					self.descstr = '??? 0x80 '..hex2(subcmd)
 				end
@@ -3599,6 +3610,7 @@ cl.classname = k
 			getBranchAddrs = function(self)
 				return {{addr=self.destAddr}}
 			end,
+			isGoto = true,
 		}
 		BattleAnimCmds[0x93] = BattleAnimCmd:subclass{
 			cmd = 0x93,
@@ -3689,6 +3701,7 @@ cl.classname = k
 			getBranchAddrs = function(self)
 				return {{addr=self.destAddr}}
 			end,
+			isGoto = true,
 		}
 		BattleAnimCmds[0xa1] = BattleAnimCmd:subclass{
 			cmd = 0xa1,
@@ -3706,6 +3719,7 @@ cl.classname = k
 			getBranchAddrs = function(self)
 				return {{addr=self.destAddr}}
 			end,
+			isGoto = true,
 		}
 		BattleAnimCmds[0xA2] = BattleAnimCmd:subclass{
 			cmd = 0xA2,
@@ -3852,6 +3866,7 @@ cl.classname = k
 			getBranchAddrs = function(self)
 				return {{addr=self.destAddr}}
 			end,
+			isGoto = true,
 		}
 		BattleAnimCmds[0xc2] = BattleAnimCmd:subclass{
 			cmd = 0xc2,
@@ -3894,6 +3909,7 @@ cl.classname = k
 					return {addr=addr}
 				end)
 			end,
+			isGoto = true,
 		}
 		BattleAnimCmds[0xC6] = BattleAnimCmd:subclass{
 			cmd = 0xC6,
@@ -4159,6 +4175,7 @@ cl.classname = k
 			getCond = function(self)
 				return 'currentEntHasSteppedForwardToAttack()'
 			end,
+			isGoto = true,
 		}
 		BattleAnimCmds[0xDC] = BattleAnimCmd:subclass{
 			cmd = 0xDC,
@@ -4233,6 +4250,7 @@ cl.classname = k
 			getBranchAddrs = function(self)
 				return {{addr=self.destAddr}}
 			end,
+			isGoto = true,
 		}
 		BattleAnimCmds[0xe6] = BattleAnimCmd:subclass{
 			cmd = 0xe6,
@@ -4363,12 +4381,13 @@ cl.classname = k
 					end):concat', '
 					..')'
 			end,
-			endTrace = true,
 			getBranchAddrs = function(self)
 				return self.destAddrs:mapi(function(addr)
 					return {addr = addr}
 				end)
 			end,
+			isGoto = true,
+			endTrace = true,
 		}
 		BattleAnimCmds[0xEC] = BattleAnimCmd:subclass{
 			cmd = 0xEC,
@@ -4420,6 +4439,7 @@ cl.classname = k
 					return {addr=addr}
 				end)
 			end,
+			isGoto = true,
 			endTrace = true,
 		}
 
@@ -4451,6 +4471,7 @@ cl.classname = k
 					return {addr=addr}
 				end)
 			end,
+			isGoto = true,
 			endTrace = true,
 		}
 		BattleAnimCmds[0xF4] = BattleAnimCmd:subclass{
@@ -4497,6 +4518,7 @@ cl.classname = k
 					{addr=self.gotoElseAddr},
 				}
 			end,
+			isGoto = true,
 		}
 
 		BattleAnimCmds[0xf9] = BattleAnimCmd:subclass{
@@ -4507,7 +4529,7 @@ cl.classname = k
 		}
 
 		BattleAnimCmds.Goto = BattleAnimCmd:subclass{
-			cmd = 0xFA,
+			cmd = 0xfa,
 			argtypes = {uint16_t},
 			getargs = function(self, gotoAddr)
 				self.gotoAddr = gotoAddr + battleAnimScriptAddr
@@ -4521,6 +4543,7 @@ cl.classname = k
 					{addr = self.gotoAddr},
 				}
 			end,
+			isGoto = true,
 		}
 
 		BattleAnimCmds.EndScript = BattleAnimCmd:subclass(EndScript, {cmd=0xff})

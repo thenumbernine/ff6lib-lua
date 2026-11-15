@@ -43,6 +43,7 @@ local function run(game, cmdline)
 	local addrsIsGoto = {}
 
 	for _,cmdobj in ipairs(disasm.eventScriptCmds) do
+		-- TODO isCall / isGoto should be per-branch
 		if cmdobj.isCall then
 			for _,branchAddr in ipairs(cmdobj:getBranchAddrs()) do
 				addrsIsFunc[branchAddr.addr] = true
