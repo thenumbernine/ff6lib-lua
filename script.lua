@@ -4802,4 +4802,35 @@ cl.classname = k
 	end
 
 	disasm:done()
+
+
+	-- TODO somehow merge this in with the Disasm:done()
+	-- so that it just uses getBranchAddrs (which ironically ObjectCmds.Branch does not use...)
+
+	-- addr -> cmd
+	local cmdForAddr = {}
+	for _,cmdobj in ipairs(disasm.eventScriptCmds) do
+		cmdForAddr[cmdobj.addr] = cmdobj
+	end
+
+	for _,cmdobj in ipairs(disasm.eventScriptCmds) do
+		if disasm.ObjectCmds.Branch:isa(cmdobj) then
+			local destAddr = cmdobj:getDestAddr()
+			if destAddr then
+				disasm.whatsPointingToAddr[destAddr] = disasm.whatsPointingToAddr[destAddr] or table()
+				local destCmdObj = cmdForAddr[destAddr]
+				if not destCmdObj then
+print("!!! WARNING !!!! branch from "
+	..('_%06x'):format(cmdobj.addr)
+	..' to unknown location '
+	..('_%06x'):format(destAddr))
+				end
+				disasm.whatsPointingToAddr[destAddr]:insert{
+					cmdobj = cmdobj,
+					branchFromAddr = cmdobj.addr,
+					cmdset = cmdobj.cmdset,
+				}
+			end
+		end
+	end
 end
