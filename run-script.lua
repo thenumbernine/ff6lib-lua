@@ -77,11 +77,6 @@ local function run(game, cmdline)
 	end
 --]]
 
-	-- make calls gen to modern func call
-	disasm.EventCmds.Call.desc = "<?=getGotoStr(scriptBaseAddr + destAddrOfs, '')?>()"
-	disasm.EventCmds.CallRepeat.desc = "for i=1,<?=count?> do <?=getGotoStr(scriptBaseAddr + destAddrOfs, '')?>() end"
-
-
 	--[[
 	TODO while iterating
 	if we get a Cond cmd
@@ -191,7 +186,7 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 
 	local function EventCmds_StartTimer_toCode(self, indent)
 		if not self.stmts then return tostring(self) end
-		assert(not self.destAddrOfs)
+		assert(not self.destAddr)
 
 		indent = indent or 0
 		local tab = ('\t'):rep(indent)
@@ -648,7 +643,7 @@ end}
 
 					local dest = o
 					while true do
-						local nextDest = assert.index(cmdForAddr, dest:getDestAddr())
+						local nextDest = assert.index(cmdForAddr, dest.destAddr)
 
 						if not (
 							disasm.ObjectCmds.BranchBack:isa(nextDest)
@@ -687,7 +682,7 @@ end}
 							else
 								error'here'
 							end
-							assert.eq(c:getDestAddr(), dest.addr)
+							assert.eq(c.destAddr, dest.addr)
 							-- and refresh whatsPointingToAddr[]
 							-- TODO why is this saying that some gotos no longer have whatsPointingHere entries?
 							disasm.whatsPointingToAddr[dest.addr] = disasm.whatsPointingToAddr[dest.addr] or table()
@@ -764,7 +759,7 @@ end}
 								local branchSrc = src.cmdobj
 								if branchSrc
 								then
-assert.eq(branchSrc:getDestAddr(), target.addr)
+assert.eq(branchSrc.destAddr, target.addr)
 									if branchSrc.parent ~= target.parent then
 -- happens 118 times
 --print(('inter-obj-script-block jump from _%06x to _%06x'):format(branchSrc.addr, target.addr))
@@ -915,12 +910,12 @@ end
 						--or disasm.ObjectCmds.BranchFwd:isa(bb)
 					) then
 assert.eq(bb.parent, o)
-						local j, target = o.stmts:find(nil, function(o2) return o2.addr == bb:getDestAddr() end)
+						local j, target = o.stmts:find(nil, function(o2) return o2.addr == bb.destAddr end)
 						if not target then
 print('!!! WARNING !!! branch-fwd at '
 	..('_%06x'):format(bb.addr)
 	..' points to unknown dest '
-	..(bb:getDestAddr() and ('_%06x'):format(bb:getDestAddr()) or 'nil')
+	..(bb.destAddr and ('_%06x'):format(bb.destAddr) or 'nil')
 )
 						else
 assert.eq(target.parent, o)
@@ -972,12 +967,12 @@ assert(disasm.whatsPointingToAddr[target.addr])
 					) and bb.addr ~= bb.destAddr
 					then
 assert.eq(bb.parent, o)
-						local j, target = o.stmts:find(nil, function(o2) return o2.addr == bb:getDestAddr() end)
+						local j, target = o.stmts:find(nil, function(o2) return o2.addr == bb.destAddr end)
 						if not target then
 print('!!! WARNING !!! branch-back at '
 	..('_%06x'):format(bb.addr)
 	..' points to unknown dest '
-	..(bb:getDestAddr() and ('_%06x'):format(bb:getDestAddr()) or 'nil')
+	..(bb.destAddr and ('_%06x'):format(bb.destAddr) or 'nil')
 )
 						else
 assert.eq(target.parent, o)
@@ -1290,7 +1285,7 @@ end
 				end
 				-- whichever one it is ...
 				dst.addrOfs = nil
-				dst.destAddrOfs = nil
+				dst.destAddr = nil
 				-- 2) remove the lambda from its parent
 				if lambda.parent then
 					local j = lambda.parent.stmts:find(lambda)
@@ -1328,9 +1323,9 @@ end
 						end
 					elseif disasm.EventCmds.StartTimer:isa(cmdobj) then
 						if cmdobj.stmts then
-							assert(not cmdobj.destAddrOfs)
+							assert(not cmdobj.destAddr)
 						else
-							doInline(cmdobj, cmdobj, cmdobj:getDestAddr())
+							doInline(cmdobj, cmdobj, cmdobj.destAddr)
 						end
 					end
 					i=i+1
@@ -1406,7 +1401,7 @@ end
 						If{
 							cond = o:getCond(),
 							stmts = {
-								Goto{dest=disasm:addrLabel(o:getDestAddr())},
+								Goto{dest=disasm:addrLabel(o.destAddr)},
 							},
 						}
 					)
@@ -1578,7 +1573,7 @@ end
 					)
 					and stmtsObj ~= game	-- don't do global scope, or it'll mess up on the not-yet-lambda'd global stmts...
 					then
-						local destAddr = cmd:getDestAddr()
+						local destAddr = cmd.destAddr
 						if destAddr ~= commonReturnAddr then
 --print(('!!! cond %06x -> %06x'):format(cmd.addr, destAddr))
 							-- then look for the goto in our stmts ...

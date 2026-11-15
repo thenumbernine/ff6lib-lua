@@ -999,7 +999,7 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 		argnames = {'duration', 'arg'},
 		getargs = function(self, duration, arg)
 			self.duration = duration
-			self.destAddrOfs = 0x3ffff & arg
+			self.destAddr = scriptBaseAddr + (0x3ffff & arg)
 			self.timerIndex = 3 & (arg >> 18)		-- 0-3
 			self.showInMenu = 0 ~= arg & (1 << 20)	-- timer 0 only
 			-- "banquet" in everything8215's ff6
@@ -1020,15 +1020,12 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 		__tostring = function(self)
 			return 'startTimer{'
 				..self:getDescArgsWithoutCB()
-				..', cb='..disasm:addrLabel(self:getDestAddr())
+				..', cb='..disasm:addrLabel(self.destAddr)
 			..'}'
-		end,
-		getDestAddr = function(self)
-			return scriptBaseAddr + self.destAddrOfs
 		end,
 		getBranchAddrs = function(self)
 			return {
-				{addr=self:getDestAddr()},
+				{addr=self.destAddr},
 			}
 		end,
 		isCall = true,
@@ -1128,14 +1125,19 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 	EventCmds.Call = EventCmd:subclass{
 		cmd = 0xb2,
 		argtypes = {uint24_t},
-		argnames = {'destAddrOfs'},
-		desc = "<?=getGotoStr(scriptBaseAddr + destAddrOfs, 'call ')?>",
-		getDestAddr = function(self)
-			return scriptBaseAddr + self.destAddrOfs
+		getargs = function(self, destAddrOfs)
+			self.destAddr = scriptBaseAddr + destAddrOfs
+		end,
+		-- impl as a tostring instead of caching so that labels can dynamically change after trace is run
+		__tostring = function(self)
+			-- TODO call _addr vs _addr()
+			-- one for asm output, one for script output
+			-- here and CallRepeat (and elsewhere)
+			return Cmd.getGotoStr(self.destAddr, '')..'()'
 		end,
 		getBranchAddrs = function(self)
 			return {
-				{addr=self:getDestAddr()},
+				{addr=self.destAddr},
 			}
 		end,
 		isCall = true,
@@ -1144,16 +1146,19 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 	EventCmds.CallRepeat = EventCmd:subclass{
 		cmd = 0xb3,
 		argtypes = {uint8_t, uint24_t},
-		argnames = {'count', 'destAddrOfs'},
-		desc = "for i=1,<?=count?> do <?=getGotoStr(scriptBaseAddr + destAddrOfs, 'call ')?> end",
-		-- helper function
-		getDestAddr = function(self)
-			return scriptBaseAddr + self.destAddrOfs
+		getargs = function(self, count, destAddrOfs)
+			self.count = count
+			self.destAddr = scriptBaseAddr + destAddrOfs
+		end,
+		__tostring = function(self)
+			return "for i=1,"..self.count.." do "
+				..Cmd.getGotoStr(self.destAddr, '').."()"
+				.." end"
 		end,
 		-- used by decompiler to determine where else to go
 		getBranchAddrs = function(self)
 			return {
-				{addr=self:getDestAddr()},
+				{addr=self.destAddr},
 			}
 		end,
 		isCall = true,
@@ -1207,20 +1212,20 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 	EventCmds.CondBattleFlag = EventCmd:subclass{
 		cmd = 0xb7,
 		argtypes = {uint8_t, uint24_t},
-		argnames = {'flagIndex', 'destAddrOfs'},
+		getargs = function(self, flagIndex, destAddrOfs)
+			self.flagIndex = flagIndex
+			self.destAddr = scriptBaseAddr + destAddrOfs
+		end,
 		__tostring = function(self)
 			return 'if '
 				..self:getCond()
 				..' then '
-				..self.getGotoStr(scriptBaseAddr + self.destAddrOfs)
+				..self.getGotoStr(self.destAddr)
 				..' end'
-		end,
-		getDestAddr = function(self)
-			return scriptBaseAddr + self.destAddrOfs
 		end,
 		getBranchAddrs = function(self)
 			return {
-				{addr=self:getDestAddr()},
+				{addr=self.destAddr},
 			}
 		end,
 		isGoto = true,	-- not sure where I'm going with these ...
@@ -1285,20 +1290,19 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 	EventCmds.Jump5050 = EventCmd:subclass{
 		cmd = 0xbd,
 		argtypes = {uint24_t},
-		argnames = {'destAddrOfs'},
+		getargs = function(self, destAddrOfs)
+			self.destAddr = scriptBaseAddr + destAddrOfs
+		end,
 		__tostring = function(self)
 			return 'if '
 				..self:getCond()
 				..' then '
-				..self.getGotoStr(scriptBaseAddr + self.destAddrOfs)
+				..self.getGotoStr(self.destAddr)
 				..' end'
-		end,
-		getDestAddr = function(self)
-			return scriptBaseAddr + self.destAddrOfs
 		end,
 		getBranchAddrs = function(self)
 			return {
-				{addr=self:getDestAddr()},
+				{addr=self.destAddr},
 			}
 		end,
 		isGoto = true,
@@ -1364,7 +1368,7 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 					value = 0 ~= arg >> 15,
 				}
 			end
-			self.destAddrOfs = read(uint24_t)
+			self.destAddr = scriptBaseAddr + read(uint24_t)
 
 			-- precache:
 			self.condCode = self.conds:mapi(function(cond)
@@ -1376,18 +1380,15 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 			return 'if '
 				..self:getCond()
 				..' then '
-				..self.getGotoStr(scriptBaseAddr + self.destAddrOfs)
+				..self.getGotoStr(self.destAddr)
 				..' end'
 		end,
 		getCond = function(self)
 			return self.condCode
 		end,
-		getDestAddr = function(self)
-			return scriptBaseAddr + self.destAddrOfs
-		end,
 		getBranchAddrs = function(self)
 			return {
-				{addr=self:getDestAddr()},
+				{addr=self.destAddr},
 			}
 		end,
 
@@ -1813,12 +1814,14 @@ cl.classname = k
 	ObjectCmds.Call = ObjectCmd:subclass{
 		cmd = 0xf9,
 		argtypes = {uint24_t},
-		argnames = {'destAddrOfs'},
-		desc = "<?=getGotoStr(scriptBaseAddr + destAddrOfs, 'call ')?>",
+		getargs = function(self, destAddrOfs)
+			self.destAddr = scriptBaseAddr + destAddrOfs
+		end,
+		desc = "<?=getGotoStr(destAddr, 'call ')?>",
 
 		getBranchAddrs = function(self)
 			return {
-				{addr=scriptBaseAddr + self.destAddrOfs},
+				{addr=self.destAddr},
 			}
 		end,
 		-- TODO hmm why isn't this isCall ?
@@ -1849,9 +1852,6 @@ cl.classname = k
 					or self.addr + offset
 			end
 		end,
-		getDestAddr = function(self)
-			return self.destAddr
-		end,
 		-- TODO you will have to generate a label for this instruction, and for wherever it is going
 		__tostring = function(self)
 			-- no signed offset in any branch is >= 0x80
@@ -1861,7 +1861,7 @@ cl.classname = k
 				return 'while true do yield() end'
 			end
 
-			local s = Cmd.getGotoStr(self:getDestAddr())
+			local s = Cmd.getGotoStr(self.destAddr)
 			if self.random then
 				s = 'if math.random() < .5 then '..s..' end'
 			end
@@ -1874,7 +1874,7 @@ cl.classname = k
 		-- [[
 		getBranchAddrs = function(self)
 			return {
-				{addr=self:getDestAddr(), cmdset='ObjectCmds'},
+				{addr=self.destAddr, cmdset='ObjectCmds'},
 			}
 		end,
 		--]]
@@ -2070,20 +2070,19 @@ cl.classname = k
 	WorldCmds.IfKeyThenGoto = WorldCmd:subclass{
 		cmd = 0xd4,
 		argtypes = {uint24_t},
-		argnames = {'destAddrOfs'},
+		getargs = function(self, destAddrOfs)
+			self.destAddr = scriptBaseAddr + self.destAddrOfs
+		end,
 		__tostring = function(self)
 			return 'if '
 				..self:getCond()
 				..' then '
-				..self.getGotoStr(scriptBaseAddr + self.destAddrOfs)
+				..self.getGotoStr(self.destAddr)
 				..' end'
-		end,
-		getDestAddr = function(self)
-			return scriptBaseAddr + self.destAddrOfs
 		end,
 		getBranchAddrs = function(self)
 			return {
-				{addr=self:getDestAddr()},
+				{addr=self.destAddr},
 			}
 		end,
 		isGoto = true,
@@ -2096,20 +2095,20 @@ cl.classname = k
 	WorldCmds.IfFacingThenGoto = WorldCmd:subclass{
 		cmd = 0xd5,
 		argtypes = {uint8_t, uint24_t},
-		argnames = {'dir', 'destAddrOfs'},
+		getargs = function(self, dir, destAddrOfs)
+			self.dir = dir
+			self.destAddr = scriptBaseAddr + self.destAddr
+		end,
 		__tostring = function(self)
 			return 'if '
 				..self:getCond()
 				..' then '
-				..self.getGotoStr(scriptBaseAddr + self.destAddrOfs)
+				..self.getGotoStr(self.destAddr)
 				..' end'
-		end,
-		getDestAddr = function(self)
-			return scriptBaseAddr + self.destAddrOfs
 		end,
 		getBranchAddrs = function(self)
 			return {
-				{addr=self:getDestAddr()},
+				{addr=self.destAddr},
 			}
 		end,
 		isGoto = true,
@@ -3204,22 +3203,26 @@ cl.classname = k
 				elseif subcmd == 0x32 then
 					-- TODO argument for emitting separate cmd objs
 					-- / make a recursive emit() that does table lookup and class obj generation
-					local destAddr1 = battleAnimScriptAddr + read(uint16_t)
-					local destAddr2 = battleAnimScriptAddr + read(uint16_t)
-					if destAddr1 == destAddr2 then
-						self.descstr = 'goto '..Cmd.getGotoStr(destAddr1, '')
+					self.destAddr1 = battleAnimScriptAddr + read(uint16_t)
+					self.destAddr2 = battleAnimScriptAddr + read(uint16_t)
+					if self.destAddr1 == self.destAddr2 then
 						self.getBranchAddrs = function(self)
-							return {{addr=destAddr1}}
+							return {{addr=self.destAddr1}}
 						end
+						--[[function self:__tostring()
+							return Cmd.getGotoStr(self.destAddr1)
+						end
+						--]]
+						-- [[
+						self.desc = "<?=getGotoStr(destAddr1)?>"
+						--]]
 						self.isGoto = true
 					else
-						self.descstr = 'gotoForLRDir('
-							..Cmd.getGotoStr(destAddr1, '')..', '
-							..Cmd.getGotoStr(destAddr2, '')..')'
+						self.desc = "gotoForLRDir(<?=getGotoStr(destAddr1, '')?>, <?=getGotoStr(destAddr2, '')?>)"
 						self.getBranchAddrs = function(self)
 							return {
-								{addr=destAddr1},
-								{addr=destAddr2},
+								{addr=self.destAddr1},
+								{addr=self.destAddr2},
 							}
 						end
 						self.isGoto = true
@@ -3371,10 +3374,17 @@ cl.classname = k
 					self.descstr = 'restoreCharPals()'
 				elseif subcmd == 0x72 then
 					local ofs = read(uint8_t)
-					local addr = self.trace.pc + ofs
-					self.descstr = 'if attackHit() then goto '..disasm:addrLabel(addr)..' end'
+					self.destAddr = self.trace.pc + ofs
+					--[[
+					function self:__tostring()
+						return 'if attackHit() then '..Cmd.getGotoStr(self.destAddr)..' end'
+					end
+					--]]
+					-- [[
+					self.desc = "if attackHit() then <?=getGotoStr(destAddr), ''?> end"
+					--]]
 					self.getBranchAddrs = function(self)
-						return {{addr=addr}}
+						return {{addr=self.destAddr}}
 					end
 					self.isGoto = true
 				elseif subcmd == 0x73 then
@@ -3399,10 +3409,17 @@ cl.classname = k
 					self.descstr = 'swapTargetAndAttacker()'	--'swap target and attacker'
 				elseif subcmd == 0x7D then
 					local arg = read(uint8_t)
-					local addr = self.trace.pc + arg
-					self.descstr = 'if dragonHornEffectIsActive() then goto '..disasm:addrLabel(addr)..' end'
+					self.destAddr = self.trace.pc + arg
+					--[[
+					function self:__tostring()
+						return 'if dragonHornEffectIsActive() then '..Cmd.getGotoStr(self.destAddr)..' end'
+					end
+					--]]
+					-- [[
+					self.desc = "if dragonHornEffectIsActive() then <?=getGotoStr(destAddr)?> end"
+					--]]
 					self.getBranchAddrs = function(self)
-						return {{addr=addr}}
+						return {{addr=self.destAddr}}
 					end
 					self.isGoto = true
 				elseif subcmd == 0x7E then
@@ -3443,7 +3460,14 @@ cl.classname = k
 				elseif subcmd == 0xdb then
 					local ofs = read(uint8_t)
 					self.destAddr = self.addr + ofs
-					self.descstr = 'jumpStep('..Cmd.getGotoStr(self.destAddr, '')..')'
+					--[[
+					function self:__tostring()
+						return 'jumpStep('..Cmd.getGotoStr(self.destAddr, '')..')'
+					end
+					--]]
+					-- [[
+					self.desc = "jumpStep(<?=getGotoStr(self.destAddr, '')?>)"
+					--]]
 					self.getBranchAddrs = function(self)
 						return {{addr=self.destAddr}}
 					end
@@ -3833,15 +3857,15 @@ cl.classname = k
 			cmd = 0xBF,
 			argtypes = {uint16_t},
 			argnames = {'destAddr'},
-			__tostring = function(self)
-				return Cmd.getGotoStr(self:getDestAddr(), 'call ')
+			getargs = function(self, destAddrOfs)
+				self.destAddr = battleAnimScriptAddr + destAddrOfs
 			end,
-			getDestAddr = function(self)
-				return battleAnimScriptAddr + self.destAddr
+			__tostring = function(self)
+				return Cmd.getGotoStr(self.destAddr, '')..'()'
 			end,
 			getBranchAddrs = function(self)
 				return {
-					{addr=self:getDestAddr()},
+					{addr=self.destAddr},
 				}
 			end,
 			isCall = true,
@@ -4165,9 +4189,6 @@ cl.classname = k
 					..' then '..Cmd.getGotoStr(self.destAddr)
 					..' end'
 			end,
-			getDestAddr = function(self)
-				return self.destAddr
-			end,
 			getBranchAddrs = function(self)
 				return {
 					{addr=self.destAddr},
@@ -4387,8 +4408,10 @@ cl.classname = k
 					return {addr = addr}
 				end)
 			end,
-			isGoto = true,
 			endTrace = true,
+			-- yeah its a goto, but its targets all end in return, and I'm passing them as lambdas, soooo...
+			--isGoto = true,
+			isCall = true,
 		}
 		BattleAnimCmds[0xEC] = BattleAnimCmd:subclass{
 			cmd = 0xEC,
