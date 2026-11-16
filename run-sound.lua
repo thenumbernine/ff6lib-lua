@@ -318,20 +318,19 @@ print('sfx addr '..('%06x'):format(addr)..' - '..('%06x'):format(nextAddr))
 	--[[
 	TODO
 	output audio ...
-		spcMainCodeLoopLen
+		spcMainCodeLen
 		spcMainCode
 		spcMainCode
-		brrSampleOfs
+		brrSampleAddrs
 		brrLoopStartOfs
 		brrPitchMults
 		adsrData
 		brrSampleBase	... this also has instrument data etc in it?
 	--]]
-
-	print('spcMainCodeLoopLen = '..game.spcMainCodeLoopLen)
 	--[[
+	print('spcMainCodeLen = '..game.spcMainCodeLen)
 	print('spcMainCode = '..
-		range(0,math.min(game.spcMainCodeLoopLen, ffi.sizeof(game.spcMainCode))-1)
+		range(0,math.min(game.spcMainCodeLen, ffi.sizeof(game.spcMainCode))-1)
 		:mapi(function(i) return (' %02x'):format(game.spcMainCode[i]) end):concat()
 	)
 	--]]
@@ -543,7 +542,7 @@ print('sfx addr '..('%06x'):format(addr)..' - '..('%06x'):format(nextAddr))
 
 	local songAddrs = table()
 	for i=0,game.numSongs-1 do
-		local addr = game.songDataOfs[i]:value()
+		local addr = game.songAddrs[i]:value()
 		assert.ne(0, addr & 0xc00000)
 		addr = addr - 0xc00000
 --print('song #'..i..' addr '..('0x%06x'):format(addr))
@@ -578,15 +577,14 @@ print('song #'..i
 	..' len', '0x'..bit.tohex(endAddr - lenAddr))
 		-- there should be no more than 11 instruments per song
 		local maxInstruments = 11
-		local instrumentsPtr = ffi.cast('uint16_t*', game.songInstruments + i)
+		local instrumentsPtr = game.songInstruments[i]+0
 		local instruments = table()
-		for i=0,15 do
-			local value = instrumentsPtr[i]
-			if i >= maxInstruments then
-				assert.eq(value, 0)
-			else
-				instruments:insert(value)
-			end
+		for i=0,maxInstruments-1 do
+			instruments:insert(instrumentsPtr[i])
+		end
+		-- 15+1 == countof(game.songInstruments[songIndex])
+		for i=maxInstruments,15 do
+			assert.eq(instrumentsPtr[i], 0)
 		end
 		assert.len(instruments, maxInstruments)
 print('instruments: '..instruments:mapi(function(value) return ('%04x'):format(value) end):concat' ')
@@ -602,7 +600,7 @@ print('instruments: '..instruments:mapi(function(value) return ('%04x'):format(v
 		-- to port this over to numo9 all I gotta do is remap the instruments, then convert note freq to freq time scalar
 	end
 
--- [=[ testing
+--[=[ testing
 	local samplesPerSec = 32000	-- hz
 	local secondsPerNote = .5
 	local samplesPerNote = math.floor(samplesPerSec * secondsPerNote)
@@ -646,6 +644,132 @@ print('instruments: '..instruments:mapi(function(value) return ('%04x'):format(v
 		freq = samplesPerSec,
 	}
 --]=]
+
+--[[ build a SPC file?
+	do
+		local fpath = path'out.spc'
+		local f = assert(fpath:open'w')
+		local spcfdata = ffi.new('uint8_t[?]', 0x10200)
+		-- TODO copy in from a base spc file?
+		ffi.fill(spcfdata, 0, ffi.sizeof(spcfdata))
+
+		local s = 'SNES-SPC700 Sound File Data v0.30'
+		ffi.copy(spcfdata, s, #s)
+		ffi.cast('uint16_t*', spcfdata + 0x21)[0] = 0x1a1a	-- separator
+		spcfdata[0x23] = 0x1b	-- no id666 tag
+		spcfdata[0x24] = 0x1e	-- version
+		ffi.cast('uint16_t*', spcfdata + 0x25)[0] = 0x2bf	-- entry point
+		spcfdata[0x27] = 0		-- A
+		spcfdata[0x28] = 0x22	-- X
+		spcfdata[0x29] = 0		-- Y
+		spcfdata[0x2a] = 2		-- PSW
+		spcfdata[0x2b] = 0xff	-- SP
+		-- next 2 is reserved, rest is id666 metadata
+
+		local aram = spcfdata + 0x100
+
+		local src = ffi.cast('uint8_t*', rom + ffi.offsetof(Game, 'spcMainCodeLen'))
+		local dst = aram
+
+		-- seems size is present but dest is not ... somewhere else?
+		local function writeBlock(destAddr, checkSize)
+			if destAddr then
+				dst = aram + destAddr
+			else
+				destAddr = dst - aram
+			end
+print('writing blob size '
+	..('%x'):format(checkSize)
+	..(' from $%x-$%x to $%x-$%x'):format(
+		(src-rom)+2, (src-rom)+2+checkSize,
+		destAddr, destAddr+checkSize
+	))
+			local size = ffi.cast('uint16_t*', src)[0]
+			assert.eq(size, checkSize)
+			src=src+2
+			assert.lt((src - rom) + size, game.romsize)
+			assert.lt(destAddr + size, ffi.sizeof(spcfdata)-0x100)
+			ffi.copy(dst, src, size)
+			src = src + size
+		end
+
+		-- spc block 1
+		-- source: $050710-$051ec7
+		-- file dest: $300-$1ab7
+		-- ARAM dest: $200-$19b7
+		writeBlock(0x200, 0x17b7)
+
+		-- spc block 2
+		-- source: $051ec9-$0c2016
+		-- file dest: $4900-$4a4d
+		-- ARAM dest: $4800-$494d
+		writeBlock(0x4800, 0x14d)
+
+		-- spc block 3
+		-- source: $52018-$52038
+		-- file dest: $1c00-$1c20
+		-- ARAM dest: $1b00-$1b20
+		writeBlock(0x1b00, 0x20)
+
+		-- spc block 4
+		-- source: $5203a-$5204a
+		-- file dest: $1b80-$1b90
+		-- ARAM dest: $1a80-$1a90
+		writeBlock(0x1a80, 0x10)
+
+		-- spc block 5
+		-- source $5204a-$5205a
+		-- file dest: $1b00-$1b10
+		-- ARAM dest: $1a00-$1a10
+		writeBlock(0x1a00, 0x10)
+
+		-- spc block 6
+		-- source $5205e-$53c5e
+		-- file dest: $2d00-$4900
+		-- ARAM dest: $2c00-$4800
+		writeBlock(0x2c00, 0x1c00)
+
+
+		-- pick our song
+		local songIndex = 2
+		local songAddr = game.songAddrs[songIndex]:value() & 0x3fffff
+		src = rom + songAddr
+		-- copy over song data
+		writeBlock(0x1c00, ffi.cast('uint16_t*', rom + songAddr)[0])
+
+
+		-- set dst ptr to right after spc block 2...
+		dst = aram + 0x494d
+		for i=0,maxInstruments-1 do
+			local instrument = game.songInstruments[songIndex][i]
+			if instrument > 0 then
+				local brr = game.getBRR(instrument-1)
+				local destAddr = dst - aram
+				ffi.cast('uint16_t*', aram + 0x1b80)[i << 1] = destAddr
+				ffi.cast('uint16_t*', aram + 0x1b80)[(i << 1) + 2] = destAddr + brr.loopStartOfs
+				ffi.cast('uint16_t*', aram + 0x1a40)[i] = brr.pitchMult
+				ffi.cast('uint16_t*', aram + 0x1ac0)[i] = brr.adsrDataAddr	--wait is it an addr or?
+				-- write brr's starting after spc block 2 i.e. $4a4d
+				writeBlock()
+			end
+		end
+		-- ex, song 2 uses 36, 57, 55, 11
+
+		f:write(ffi.string(spcfdata, ffi.sizeof(spcfdata)))
+
+		local regs = ffi.new'uint8_t[128]'
+		ffi.fill(regs, 0, ffi.sizeof(regs))
+		-- ...
+		f:write(ffi.string(regs, ffi.sizeof(regs)))
+
+		f:write(('\0'):rep(64))	-- zero-filled
+
+		local iplrom = ffi.new'uint8_t[64]'
+		ffi.fill(iplrom, 0, ffi.sizeof(iplrom))
+		-- ...
+		f:write(ffi.string(iplrom, ffi.sizeof(iplrom)))
+	end
+--]]
 end
 
 --print('...', select('#', ...), ...)

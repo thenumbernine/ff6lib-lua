@@ -28,7 +28,7 @@ return function(game)
 		if i < 0 or i >= game.numBRRSamples then return end
 
 		-- addrs are in ascending order
-		local addr = game.brrSampleOfs[i]:value()
+		local addr = game.brrSampleAddrs[i]:value()
 		assert.ne(0xc00000 & addr, 0)
 		addr = ~0xc00000 & addr
 
