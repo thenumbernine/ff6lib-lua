@@ -34,6 +34,10 @@ SPC song data:
 A0-AA       Play note, frequency 10
 	-- "play note at frequency" but notes are frequencies.  they are a frequency of `f0 * 2^(i/12)`
 	-- does 'note' in this case mean 'instrument'?
+
+(from everything8215/ff6/src/spc/spc_main.asm)
+note duration table: $c0,$60,$40,$48,$30,$20,$24,$18,$10,$0c,$08,$06,$04,$03
+
 B0-BA       Play silence
 C4 xx       Set volume of channel to xx (00-7F), higher values == greater volume.
 	-- how to change channel? or can you?
