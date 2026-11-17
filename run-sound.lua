@@ -678,7 +678,7 @@ print('instruments: '..instruments:mapi(function(value) return ('%04x'):format(v
 
 		local aram = spcfdata + 0x100
 
-		local src = ffi.cast('uint8_t*', rom + ffi.offsetof(Game, 'spcMainCodeLen'))
+		local src = rom + 0
 		local dst = aram
 
 		-- seems size is present but dest is not ... somewhere else?
@@ -710,41 +710,48 @@ end
 		-- source: $050710-$051ec7
 		-- file dest: $300-$1ab7
 		-- ARAM dest: $200-$19b7
+		src = ffi.cast('uint8_t*', rom + ffi.offsetof(Game, 'spcMainCode'))
 		writeBlock(0x200, 0x17b7)
+
+		-- spc block 6
+		-- source $5205e-$53c5e
+		-- file dest: $2d00-$4900
+		-- ARAM dest: $2c00-$4800
+		src = ffi.cast('uint8_t*', rom + ffi.offsetof(Game, 'sfxOfsLen'))
+		writeBlock(0x2c00, 0x1c00)
 
 		-- spc block 2
 		-- source: $051ec9-$0c2016
 		-- file dest: $4900-$4a4d
 		-- ARAM dest: $4800-$494d
+		src = ffi.cast('uint8_t*', rom + ffi.offsetof(Game, 'sfxBRRData'))
 		writeBlock(0x4800, 0x14d)
+		-- (then immediately after comes the song brr data...)
 
 		-- spc block 3
 		-- source: $52018-$52038
 		-- file dest: $1c00-$1c20
 		-- ARAM dest: $1b00-$1b20
+		src = ffi.cast('uint8_t*', rom + ffi.offsetof(Game, 'sfxLoopStart'))
 		writeBlock(0x1b00, 0x20)
 
 		-- spc block 4
 		-- source: $5203a-$5204a
 		-- file dest: $1b80-$1b90
 		-- ARAM dest: $1a80-$1a90
+		src = ffi.cast('uint8_t*', rom + ffi.offsetof(Game, 'sfxADSR'))
 		writeBlock(0x1a80, 0x10)
 
 		-- spc block 5
 		-- source $5204a-$5205a
 		-- file dest: $1b00-$1b10
 		-- ARAM dest: $1a00-$1a10
+		src = ffi.cast('uint8_t*', rom + ffi.offsetof(Game, 'sfxFreqMult'))
 		writeBlock(0x1a00, 0x10)
-
-		-- spc block 6
-		-- source $5205e-$53c5e
-		-- file dest: $2d00-$4900
-		-- ARAM dest: $2c00-$4800
-		writeBlock(0x2c00, 0x1c00)
 
 
 		-- pick our song
-		local songIndex = 4
+		local songIndex = 2
 		local songAddr = game.songAddrs[songIndex]:value() & 0x3fffff
 		src = rom + songAddr
 		-- copy over song data

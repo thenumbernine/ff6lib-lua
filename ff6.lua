@@ -2947,11 +2947,14 @@ Game = struct{
 		-- 0x04f6fb-0x04ffff = Ending Sprite Graphics (compressed)
 		{name = 'unknown_049900', type = arrayType(uint8_t, -(0x049900 - 0x05070e))},							-- 0x049900 - 0x05070e
 
-		{name = 'spcMainCodeLen', type = uint16_t},																-- 0x05070e - 0x050710 -- length of main SPC code loop
-		{name = 'spcMainCode', type = arrayType(uint8_t, -(0x050710 - 0x051ec7))},								-- 0x050710 - 0x051ec7 -- main SPC code loop
+		{name = 'spcMainCode', type = arrayType(uint8_t, -(0x05070e - 0x051ec7))},								-- 0x05070e - 0x051ec7 -- main SPC code loop, first 2 bytes are length
 
-		{name = 'unknown_051ec7', type = arrayType(uint8_t, -(0x051ec7 - 0x05205e))},							-- 0x051ec7 - 0x05205e = 407 bytes...
+		{name = 'sfxBRRData', type = arrayType(uint8_t, -(0x051ec7 - 0x052016))},								-- 0x051ec7 - 0x052016 = first 2 bytes are length.
+		{name = 'sfxLoopStart', type = arrayType(uint8_t, -(0x052016 - 0x052038))},								-- 0x052016 - 0x052038 = first 2 bytes are length.
+		{name = 'sfxADSR', type=arrayType(uint8_t, -(0x052038 - 0x05204a))},									-- 0x052038 - 0x05204a = first 2 bytes are length.
+		{name = 'sfxFreqMult', type=arrayType(uint8_t, -(0x05204a - 0x05205c))},								-- 0x05204a - 0x05205c = first 2 bytes are length.
 
+		{name = 'sfxOfsLen', type=uint16_t},																	-- 0x05205c - 0x05205e = ... these are the first 2 bytes are length of the sfxOfs
 		{name = 'sfxOfs', type=arrayType(arrayType(uint16_t, 2), 256)},											-- 0x05205e - 0x05245e = sfxData + sfxOfs[i][l/r] - 0x3000.  descriptions listed in everything8215/src/sound/sfx.inc
 		{name = 'sfxData', type=arrayType(uint8_t, -(0x05245e - 0x053c4e))},									-- 0x05245e - 0x053c4e
 
@@ -3300,8 +3303,7 @@ assertOffset('metamorphSets', 0x047f40)
 assertOffset('font', 0x047fc0)
 assertOffset('font16_widths', 0x048fc0)
 assertOffset('font16_20_to_7f', 0x0490c0)
-assertOffset('spcMainCodeLen', 0x05070e)
-assertOffset('spcMainCode', 0x050710)
+assertOffset('spcMainCode', 0x05070e)
 assertOffset('brrSampleAddrs', 0x053c5f)
 assertOffset('brrLoopStartOfs', 0x053d1c)
 assertOffset('brrPitchMults', 0x053d9a)
