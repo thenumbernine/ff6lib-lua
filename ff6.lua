@@ -2945,7 +2945,12 @@ Game = struct{
 		-- 0x04c008-0x04f476 = Ending BG Graphics and Tile Formation (compressed)
 		-- 0x04f477-0x04f6fa = Ending Sprite Graphics (compressed)
 		-- 0x04f6fb-0x04ffff = Ending Sprite Graphics (compressed)
-		{name = 'unknown_049900', type = arrayType(uint8_t, -(0x049900 - 0x05070e))},							-- 0x049900 - 0x05070e
+		{name = 'unknown_049900', type = arrayType(uint8_t, -(0x049900 - 0x050010))},							-- 0x049900 - 0x050010
+
+		{name = 'spcSrcAddrs', type = arrayType(uint16_t, 6)},													-- 0x050010 - 0x05001c	-- +0x050000
+		{name = 'spcDstAddrs', type = arrayType(uint16_t, 6)},													-- 0x05001c - 0x050028
+
+		{name = 'unknown_050028', type = arrayType(uint8_t, -(0x050028 - 0x05070e))},							-- 0x050028 - 0x05070e
 
 		{name = 'spcMainCode', type = arrayType(uint8_t, -(0x05070e - 0x051ec7))},								-- 0x05070e - 0x051ec7 -- main SPC code loop, first 2 bytes are length
 

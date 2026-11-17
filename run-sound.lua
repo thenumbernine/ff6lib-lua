@@ -706,6 +706,13 @@ end
 			dst = dst + size
 		end
 
+		for i=0,countof(game.spcSrcAddrs)-1 do
+			src = rom + game.spcSrcAddrs[i] + 0x050000
+			dst = aram + game.spcDstAddrs[i]
+			writeBlock()
+		end
+
+--[=[
 		-- spc block 1
 		-- source: $050710-$051ec7
 		-- file dest: $300-$1ab7
@@ -748,7 +755,7 @@ end
 		-- ARAM dest: $1a00-$1a10
 		src = ffi.cast('uint8_t*', rom + ffi.offsetof(Game, 'sfxFreqMult'))
 		writeBlock(0x1a00, 0x10)
-
+--]=]
 
 		-- pick our song
 		local songIndex = 2
