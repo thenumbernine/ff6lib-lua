@@ -8,6 +8,8 @@ local math = require 'ext.math'
 local range = require 'ext.range'
 local assert = require 'ext.assert'
 
+local maxInstruments = 11
+
 local function runSound(game, cmdline)
 	cmdline = cmdline or {}
 	local rom = game.rom
@@ -576,7 +578,6 @@ print('song #'..i
 	..' addr '..('0x%06x'):format(lenAddr)..' - '..('0x%06x'):format(endAddr)
 	..' len', '0x'..bit.tohex(endAddr - lenAddr))
 		-- there should be no more than 11 instruments per song
-		local maxInstruments = 11
 		local instrumentsPtr = game.songInstruments[i]+0
 		local instruments = table()
 		for i=0,maxInstruments-1 do
@@ -645,13 +646,22 @@ print('instruments: '..instruments:mapi(function(value) return ('%04x'):format(v
 	}
 --]=]
 
---[[ build a SPC file?
+-- [=[ build a SPC file?
 	do
 		local fpath = path'out.spc'
 		local f = assert(fpath:open'w')
 		local spcfdata = ffi.new('uint8_t[?]', 0x10200)
-		-- TODO copy in from a base spc file?
+
+		--[[ init as zeroes, or ...
 		ffi.fill(spcfdata, 0, ffi.sizeof(spcfdata))
+		--]]
+		-- [[ ... copy in from a base spc file
+		do
+			local base = assert(path'ff3usa.spc':read())
+			assert.len(base, ffi.sizeof(spcfdata))
+			ffi.copy(spcfdata, base, ffi.sizeof(spcfdata))
+		end
+		--]]
 
 		local s = 'SNES-SPC700 Sound File Data v0.30'
 		ffi.copy(spcfdata, s, #s)
@@ -678,19 +688,22 @@ print('instruments: '..instruments:mapi(function(value) return ('%04x'):format(v
 			else
 				destAddr = dst - aram
 			end
-print('writing blob size '
-	..('%x'):format(checkSize)
-	..(' from $%x-$%x to $%x-$%x'):format(
-		(src-rom)+2, (src-rom)+2+checkSize,
-		destAddr, destAddr+checkSize
-	))
 			local size = ffi.cast('uint16_t*', src)[0]
+if checkSize then
+	print('writing blob size '
+		..('%x'):format(checkSize)
+		..(' from $%x-$%x to $%x-$%x'):format(
+			(src-rom)+2, (src-rom)+2+checkSize,
+			destAddr, destAddr+checkSize
+		))
 			assert.eq(size, checkSize)
+end
 			src=src+2
 			assert.lt((src - rom) + size, game.romsize)
 			assert.lt(destAddr + size, ffi.sizeof(spcfdata)-0x100)
 			ffi.copy(dst, src, size)
 			src = src + size
+			dst = dst + size
 		end
 
 		-- spc block 1
@@ -731,7 +744,7 @@ print('writing blob size '
 
 
 		-- pick our song
-		local songIndex = 2
+		local songIndex = 4
 		local songAddr = game.songAddrs[songIndex]:value() & 0x3fffff
 		src = rom + songAddr
 		-- copy over song data
@@ -745,31 +758,34 @@ print('writing blob size '
 			if instrument > 0 then
 				local brr = game.getBRR(instrument-1)
 				local destAddr = dst - aram
-				ffi.cast('uint16_t*', aram + 0x1b80)[i << 1] = destAddr
-				ffi.cast('uint16_t*', aram + 0x1b80)[(i << 1) + 2] = destAddr + brr.loopStartOfs
+				ffi.cast('uint16_t*', aram + 0x1b80)[2*i] = destAddr
+				ffi.cast('uint16_t*', aram + 0x1b80)[2*i+1] = destAddr + brr.loopStartOfs
 				ffi.cast('uint16_t*', aram + 0x1a40)[i] = brr.pitchMult
 				ffi.cast('uint16_t*', aram + 0x1ac0)[i] = brr.adsrDataAddr	--wait is it an addr or?
 				-- write brr's starting after spc block 2 i.e. $4a4d
+				src = brr.ptr	-- put src at brr ptr where the size is...
 				writeBlock()
 			end
 		end
 		-- ex, song 2 uses 36, 57, 55, 11
 
-		f:write(ffi.string(spcfdata, ffi.sizeof(spcfdata)))
-
-		local regs = ffi.new'uint8_t[128]'
+		--[[
+		local regs = spcfdata + 0x10100
 		ffi.fill(regs, 0, ffi.sizeof(regs))
 		-- ...
 		f:write(ffi.string(regs, ffi.sizeof(regs)))
 
-		f:write(('\0'):rep(64))	-- zero-filled
+		-- then 64 zeroes
 
-		local iplrom = ffi.new'uint8_t[64]'
+		local iplrom = spcfdata + 0x101c0
 		ffi.fill(iplrom, 0, ffi.sizeof(iplrom))
 		-- ...
 		f:write(ffi.string(iplrom, ffi.sizeof(iplrom)))
+		--]]
+
+		f:write(ffi.string(spcfdata, ffi.sizeof(spcfdata)))
 	end
---]]
+--]=]
 end
 
 --print('...', select('#', ...), ...)
