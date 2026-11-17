@@ -416,7 +416,7 @@ data = ffi.string(dest, #data)
 	function game.layer3tile8x8toptr(tile8x8, gfxLayer3Data, gfxLayer3Ofs)
 		local bpp = 2
 		if not gfxLayer3Data then return end
-		local ofs = (gfxLayer3Ofs or 0) + (0xff && tile8x8) * (bpp << 3)
+		local ofs = (gfxLayer3Ofs or 0) + (0xff & tile8x8) * (bpp << 3)
 -- which to use ...
 -- welp looks like some tiles are truly oob, so i bet here i should be remapping them to somewhere else ...
 --ofs = ofs % #gfxLayer3Data

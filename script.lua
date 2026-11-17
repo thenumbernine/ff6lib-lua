@@ -3575,7 +3575,7 @@ cl.classname = k
 			__tostring = function(self)
 				return 'if animationIsHflipped() then setDirAndMove('
 					..(self.arg >> 5)
-					..', '..hex2((self.arg && 0x1f)+1)..') end'
+					..', '..hex2((self.arg & 0x1f)+1)..') end'
 			end,
 		}
 		BattleAnimCmds[0x8E] = BattleAnimCmd:subclass{
