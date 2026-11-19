@@ -24,13 +24,16 @@ return function(game)
 	--[[
 	get info associated with a single BRR
 	--]]
-	function game.getBRR(i)
-		if i < 0 or i >= game.numBRRSamples then return end
+	function game.getSongInstrumentBRR(i)
+		if i < 0 or i >= game.numInstrumentBRRs then return end
 
 		-- addrs are in ascending order
-		local addr = game.brrSampleAddrs[i]:value()
+		local addr = game.instrumentBRRAddrs[i]:value()
 		assert.ne(0xc00000 & addr, 0)
 		addr = ~0xc00000 & addr
+
+		assert.ge(addr, ffi.offsetof(game.Game, 'instrumentBRRData'))
+		assert.lt(addr, ffi.offsetof(game.Game, 'instrumentBRRData') + ffi.sizeof(game.instrumentBRRData))
 
 		-- first two bytes fo the sampleAddr is the length-in-bytes of the brr sample
 		local brrLen = ffi.cast(uint16_t_p, rom+addr)[0]
@@ -40,7 +43,7 @@ return function(game)
 
 		-- if loopStartPtr is only 16bit then it can't span the full range of the brrSample data, which covers 0x31245 bytes
 		-- so it must be an offset into the structure
-		assert.eq(game.brrLoopStartOfs[i] % 9, 0, "why isn't the brr loop aligned to brr frames?")
+		assert.eq(game.instrumentBRRLoopStartOfs[i] % 9, 0, "why isn't the brr loop aligned to brr frames?")
 
 		-- then the brr data should decode until it gets to a loop frame, and ideally that'll be right before the next brr's address
 
@@ -52,9 +55,9 @@ return function(game)
 			ptr = rom + addr,
 			len = brrLen,
 
-			loopStartOfs = tonumber(game.brrLoopStartOfs[i]),	-- offset into the brr sample, or offset to more info relative to some base address?
-			pitchMult = tonumber(game.brrPitchMults[i]),
-			adsrDataAddr = tonumber(game.adsrData[i]),	-- offset relative to something?
+			loopStartOfs = tonumber(game.instrumentBRRLoopStartOfs[i]),	-- offset into the brr sample, or offset to more info relative to some base address?
+			pitchMult = tonumber(game.instrumentBRRFreqMults[i]),
+			adsrDataAddr = tonumber(game.instrumentBRRADSRs[i]),	-- offset relative to something?
 		}, BRR)
 	end
 

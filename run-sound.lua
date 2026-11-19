@@ -316,7 +316,6 @@ fd-ff = terminate
 print('sfx addr '..('%06x'):format(addr)..' - '..('%06x'):format(nextAddr))
 				-- so I guess this is MML instructions, and uses the same 63 samples of BRR data as the music does...
 				sfxDir('sfx'..i..'-'..j..'-cmds.txt'):write(readMML(addr, nextAddr):concat'\n'..'\n')
-
 			end
 		end
 	end
@@ -327,11 +326,11 @@ print('sfx addr '..('%06x'):format(addr)..' - '..('%06x'):format(nextAddr))
 		spcMainCodeLen
 		spcMainCode
 		spcMainCode
-		brrSampleAddrs
-		brrLoopStartOfs
-		brrPitchMults
-		adsrData
-		brrSampleBase	... this also has instrument data etc in it?
+		instrumentBRRAddrs
+		instrumentBRRLoopStartOfs
+		instrumentBRRFreqMults
+		instrumentBRRADSRs
+		instrumentBRRData	... this also has instrument data etc in it?
 	--]]
 	--[[
 	print('spcMainCodeLen = '..game.spcMainCodeLen)
@@ -343,9 +342,9 @@ print('sfx addr '..('%06x'):format(addr)..' - '..('%06x'):format(nextAddr))
 
 	local brrs = table()
 	print'brr info:'
-	for i=0,game.numBRRSamples-1 do
+	for i=0,game.numInstrumentBRRs-1 do
 		-- addrs are in ascending order
-		local brr = game.getBRR(i)
+		local brr = game.getSongInstrumentBRR(i)
 		brrs[i+1] = brr
 
 		io.write(('#%02d: '):format(i))
@@ -361,10 +360,10 @@ print('sfx addr '..('%06x'):format(addr)..' - '..('%06x'):format(nextAddr))
 
 		-- if loopStartPtr is only 16bit then it can't span the full range of the brrSample data, which covers 0x31245 bytes
 		-- so it must be an offset into the structure
-		assert.eq(game.brrLoopStartOfs[i] % 9, 0, "why isn't the brr loop aligned to brr frames?")
+		assert.eq(game.instrumentBRRLoopStartOfs[i] % 9, 0, "why isn't the brr loop aligned to brr frames?")
 		io.write(' loopStartOfs: '..('0x%04x'):format(brr.loopStartOfs))
 		io.write(' pitchMult: '..('0x%04x'):format(brr.pitchMult))
-		io.write(' adsrData: '..('0x%04x'):format(brr.adsrDataAddr))
+		io.write(' instrumentBRRADSRs: '..('0x%04x'):format(brr.adsrDataAddr))
 
 		print()
 		-- then the brr data should decode until it gets to a loop frame, and ideally that'll be right before the next brr's address
@@ -377,7 +376,7 @@ print('sfx addr '..('%06x'):format(addr)..' - '..('%06x'):format(nextAddr))
 	wavpath:mkdir()
 	local wavSamples = table()
 	print'brr data:'
-	for i=0,game.numBRRSamples-1 do
+	for i=0,game.numInstrumentBRRs-1 do
 		local brr = brrs[i+1]
 
 		local startAddr = brr.addr + 2			-- skip past the length info
@@ -385,10 +384,10 @@ print('sfx addr '..('%06x'):format(addr)..' - '..('%06x'):format(nextAddr))
 		local numFrames = len / 9
 		local endAddr = startAddr + len
 		local calcdEndAddr
-		if i < game.numBRRSamples-1 then
+		if i < game.numInstrumentBRRs-1 then
 			calcdEndAddr = brrs[i+2].addr
 		else
-			calcdEndAddr = (ffi.cast('uint8_t*', game.brrSampleBase) + ffi.sizeof(game.brrSampleBase) - rom)
+			calcdEndAddr = (ffi.cast('uint8_t*', game.instrumentBRRData) + ffi.sizeof(game.instrumentBRRData) - rom)
 		end
 		assert.eq(endAddr, calcdEndAddr)	-- perfectly fits
 		print(('#%02d: '):format(i)
@@ -435,7 +434,7 @@ print('sfx addr '..('%06x'):format(addr)..' - '..('%06x'):format(nextAddr))
 				range(0,numSamples-1):mapi(function(j) return tonumber(wavData[j])/32768 end),
 				range(0,numSamples-1):mapi(function(j)
 					local brraddr = j/16*9
-					return brraddr >= game.brrLoopStartOfs[i] and .5 or 0
+					return brraddr >= game.instrumentBRRLoopStartOfs[i] and .5 or 0
 				end)
 			},
 			{using='1:2:3', notitle=true, palette=true},
@@ -735,7 +734,7 @@ end
 		-- source: $051ec9-$0c2016
 		-- file dest: $4900-$4a4d
 		-- ARAM dest: $4800-$494d
-		src = ffi.cast('uint8_t*', rom + ffi.offsetof(Game, 'sfxBRRData'))
+		src = ffi.cast('uint8_t*', rom + ffi.offsetof(Game, 'sfxBRRDataLen'))
 		writeBlock(0x4800, 0x14d)
 		-- (then immediately after comes the song brr data...)
 
@@ -743,21 +742,21 @@ end
 		-- source: $52018-$52038
 		-- file dest: $1c00-$1c20
 		-- ARAM dest: $1b00-$1b20
-		src = ffi.cast('uint8_t*', rom + ffi.offsetof(Game, 'sfxLoopStart'))
+		src = ffi.cast('uint8_t*', rom + ffi.offsetof(Game, 'sfxBRRLoopStartsLen'))
 		writeBlock(0x1b00, 0x20)
 
 		-- spc block 4
 		-- source: $5203a-$5204a
 		-- file dest: $1b80-$1b90
 		-- ARAM dest: $1a80-$1a90
-		src = ffi.cast('uint8_t*', rom + ffi.offsetof(Game, 'sfxADSR'))
+		src = ffi.cast('uint8_t*', rom + ffi.offsetof(Game, 'sfxBRRADSRsLen'))
 		writeBlock(0x1a80, 0x10)
 
 		-- spc block 5
 		-- source $5204a-$5205a
 		-- file dest: $1b00-$1b10
 		-- ARAM dest: $1a00-$1a10
-		src = ffi.cast('uint8_t*', rom + ffi.offsetof(Game, 'sfxFreqMult'))
+		src = ffi.cast('uint8_t*', rom + ffi.offsetof(Game, 'sfxBRRFreqMultsLen'))
 		writeBlock(0x1a00, 0x10)
 --]=]
 
@@ -774,7 +773,7 @@ end
 		for i=0,maxInstruments-1 do
 			local instrument = game.songInstruments[songIndex][i]
 			if instrument > 0 then
-				local brr = game.getBRR(instrument-1)
+				local brr = game.getSongInstrumentBRR(instrument-1)
 				local destAddr = dst - aram
 				ffi.cast('uint16_t*', aram + 0x1b80)[2*i] = destAddr
 				ffi.cast('uint16_t*', aram + 0x1b80)[2*i+1] = destAddr + brr.loopStartOfs

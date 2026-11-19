@@ -455,8 +455,10 @@ local numMenuChars = 19
 
 ---------------- AUDIO ----------------
 
-local numBRRSamples = 63
+local numInstrumentBRRs = 63
 local numSongs = 85
+local numSPCBlocks = 6
+local numSFXBRRs = 8
 
 ---------------- SPELLS ----------------
 
@@ -2947,32 +2949,30 @@ Game = struct{
 		-- 0x04f6fb-0x04ffff = Ending Sprite Graphics (compressed)
 		{name = 'unknown_049900', type = arrayType(uint8_t, -(0x049900 - 0x050010))},							-- 0x049900 - 0x050010
 
-		{name = 'spcSrcAddrs', type = arrayType(uint16_t, 6)},													-- 0x050010 - 0x05001c	-- +0x050000
-		{name = 'spcDstAddrs', type = arrayType(uint16_t, 6)},													-- 0x05001c - 0x050028
+		{name = 'spcSrcAddrs', type = arrayType(uint16_t, numSPCBlocks)},										-- 0x050010 - 0x05001c	-- +0x050000
+		{name = 'spcDstAddrs', type = arrayType(uint16_t, numSPCBlocks)},										-- 0x05001c - 0x050028
 
 		{name = 'unknown_050028', type = arrayType(uint8_t, -(0x050028 - 0x05070e))},							-- 0x050028 - 0x05070e
 
 		{name = 'spcMainCode', type = arrayType(uint8_t, -(0x05070e - 0x051ec7))},								-- 0x05070e - 0x051ec7 -- main SPC code loop, first 2 bytes are length
-
-		{name = 'sfxBRRData', type = arrayType(uint8_t, -(0x051ec7 - 0x052016))},								-- 0x051ec7 - 0x052016 = first 2 bytes are length.
-		{name = 'sfxLoopStart', type = arrayType(uint8_t, -(0x052016 - 0x052038))},								-- 0x052016 - 0x052038 = first 2 bytes are length.
-		{name = 'sfxADSR', type=arrayType(uint8_t, -(0x052038 - 0x05204a))},									-- 0x052038 - 0x05204a = first 2 bytes are length.
-		{name = 'sfxFreqMult', type=arrayType(uint8_t, -(0x05204a - 0x05205c))},								-- 0x05204a - 0x05205c = first 2 bytes are length.
-
-		{name = 'sfxOfsLen', type=uint16_t},																	-- 0x05205c - 0x05205e = ... these are the first 2 bytes are length of the sfxOfs
-		{name = 'sfxOfs', type=arrayType(arrayType(uint16_t, 2), 256)},											-- 0x05205e - 0x05245e = sfxData + sfxOfs[i][l/r] - 0x3000.  descriptions listed in everything8215/src/sound/sfx.inc
-		{name = 'sfxData', type=arrayType(uint8_t, -(0x05245e - 0x053c4e))},									-- 0x05245e - 0x053c4e
-
-		{name = 'unknown_053c4e', type = arrayType(uint8_t, -(0x053c4e - 0x053c5f))},							-- 0x053c4e - 0x053c5f	-- 15 bytes of ... padding?
-
-		{name = 'brrSampleAddrs', type = arrayType(uint24_t, numBRRSamples)},									-- 0x053c5f - 0x053d1c -- BRR sample pointers (x63, 3 bytes each)
-		{name = 'brrLoopStartOfs', type = arrayType(uint16_t, numBRRSamples)},									-- 0x053d1c - 0x053d9a -- loop start pointers (x63, 2 bytes each)
-		{name = 'brrPitchMults', type = arrayType(uint16_t, numBRRSamples)},									-- 0x053d9a - 0x053e18 -- pitch multipliers (x63, 2 bytes each)
-		{name = 'adsrData', type = arrayType(uint16_t, numBRRSamples)},											-- 0x053e18 - 0x053e96 -- ADSR data (x63, 2 bytes each)
+		{name = 'sfxBRRDataLen', type = uint16_t},																-- 0x051ec7 - 0x052019
+		{name = 'sfxBRRData', type = arrayType(uint8_t, -(0x051ec9 - 0x052016))},								-- 0x051ec9 - 0x052016 = first 2 bytes are length.
+		{name = 'sfxBRRLoopStartsLen', type = uint16_t},														-- 0x052016 - 0x052018
+		{name = 'sfxBRRLoopStarts', type = arrayType(arrayType(uint16_t, 2), numSFXBRRs)},						-- 0x052018 - 0x052038 = uint16_t[8][l/r]
+		{name = 'sfxBRRADSRsLen', type = uint16_t},																-- 0x052038 - 0x05203a
+		{name = 'sfxBRRADSRs', type = arrayType(uint16_t, numSFXBRRs)},											-- 0x05203a - 0x05204a
+		{name = 'sfxBRRFreqMultsLen', type = uint16_t},															-- 0x05204a - 0x05204c
+		{name = 'sfxBRRFreqMults', type = arrayType(uint16_t, numSFXBRRs)},										-- 0x05204c - 0x05205c
+		{name = 'sfxOfsLen', type = uint16_t},																	-- 0x05205c - 0x05205e
+		{name = 'sfxOfs', type = arrayType(arrayType(uint16_t, 2), 256)},										-- 0x05205e - 0x05245e = sfxData + sfxOfs[i][l/r] - 0x3000.  descriptions listed in everything8215/src/sound/sfx.inc
+		{name = 'sfxData', type = arrayType(uint8_t, -(0x05245e - 0x053c5f))},									-- 0x05245e - 0x053c5f
+		{name = 'instrumentBRRAddrs', type = arrayType(uint24_t, numInstrumentBRRs)},							-- 0x053c5f - 0x053d1c -- BRR sample pointers for song instruments (x63, 3 bytes each)
+		{name = 'instrumentBRRLoopStartOfs', type = arrayType(uint16_t, numInstrumentBRRs)},					-- 0x053d1c - 0x053d9a -- loop start pointers (x63, 2 bytes each)
+		{name = 'instrumentBRRFreqMults', type = arrayType(uint16_t, numInstrumentBRRs)},						-- 0x053d9a - 0x053e18 -- pitch multipliers (x63, 2 bytes each)
+		{name = 'instrumentBRRADSRs', type = arrayType(uint16_t, numInstrumentBRRs)},							-- 0x053e18 - 0x053e96 -- ADSR data (x63, 2 bytes each)
 		{name = 'songAddrs', type = arrayType(uint24_t, numSongs)},												-- 0x053e96 - 0x053f95
-		{name = 'songInstruments', type = arrayType(arrayType(uint16_t, 16), numSongs)},						-- 0x053f95 - 0x054a35
-		{name = 'brrSampleBase', type = arrayType(uint8_t, -(0x054a35 - 0x085c7a))},							-- 0x054a35 - 0x085c7a -- BRR samples (does divide evenly by 3195 x63...)
-
+		{name = 'songInstruments', type = arrayType(arrayType(uint16_t, 16), numSongs)},						-- 0x053f95 - 0x054a35 - 1-based indexes of which 'brrSamples' to use
+		{name = 'instrumentBRRData', type = arrayType(uint8_t, -(0x054a35 - 0x085c7a))},						-- 0x054a35 - 0x085c7a -- BRR samples (does divide evenly by 3195 x63...)
 		{name = 'songData', type = arrayType(uint8_t, -(0x085c7a - 0x09fe00))},									-- 0x085c7a - 0x09fe00
 
 		{name = 'theEndGraphics2', type = arrayType(uint8_t, -(0x09fe00 - 0x09ff00))},							-- 0x09fe00 - 0x09ff00 = 4bpp
@@ -3309,11 +3309,11 @@ assertOffset('font', 0x047fc0)
 assertOffset('font16_widths', 0x048fc0)
 assertOffset('font16_20_to_7f', 0x0490c0)
 assertOffset('spcMainCode', 0x05070e)
-assertOffset('brrSampleAddrs', 0x053c5f)
-assertOffset('brrLoopStartOfs', 0x053d1c)
-assertOffset('brrPitchMults', 0x053d9a)
-assertOffset('adsrData', 0x053e18)
-assertOffset('brrSampleBase', 0x054a35)
+assertOffset('instrumentBRRAddrs', 0x053c5f)
+assertOffset('instrumentBRRLoopStartOfs', 0x053d1c)
+assertOffset('instrumentBRRFreqMults', 0x053d9a)
+assertOffset('instrumentBRRADSRs', 0x053e18)
+assertOffset('instrumentBRRData', 0x054a35)
 assertOffset('dialogOffsets', 0x0ce602)
 assertOffset('dialogBase', 0x0d0000)
 assertOffset('mapNameBase', 0x0ef100)
@@ -3415,7 +3415,7 @@ game.numBattleMessages = numBattleMessages
 game.numFormations = numFormations
 game.numFormationSizeOffsets = numFormationSizeOffsets
 game.numPositionedText = numPositionedText
-game.numBRRSamples = numBRRSamples
+game.numInstrumentBRRs = numInstrumentBRRs
 game.numSongs = numSongs
 game.numMenuChars = numMenuChars
 

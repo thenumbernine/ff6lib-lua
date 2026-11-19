@@ -10,8 +10,8 @@ local dst = path'..'
 local game = assert(require 'ff6'((assert(path'../../../ff6/ff3usa.sfc':read()))))
 
 -- writes out 0-62
-for i=0,game.numBRRSamples-1 do
-	local brr = game.getBRR(i)
+for i=0,game.numInstrumentBRRs-1 do
+	local brr = game.getSongInstrumentBRR(i)
 
 	local wavArgs = brr:getWAV()
 	local basename = ('%02X'):format(i+1)
