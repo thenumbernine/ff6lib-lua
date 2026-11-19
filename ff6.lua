@@ -3417,6 +3417,8 @@ game.numFormationSizeOffsets = numFormationSizeOffsets
 game.numPositionedText = numPositionedText
 game.numInstrumentBRRs = numInstrumentBRRs
 game.numSongs = numSongs
+game.numSPCBlocks = numSPCBlocks
+game.numSFXBRRs = numSFXBRRs
 game.numMenuChars = numMenuChars
 
 game.findu8 = findu8
