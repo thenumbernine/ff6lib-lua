@@ -292,58 +292,58 @@ function EventScriptWindow:showIndexUI()
 						elseif game.disasm.EventCmds.Call:isa(cmd) then
 							ig.igText'call'
 							ig.igSameLine()
-							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
+							self:popupButtonForAddr(cmd.destAddr)
 						elseif game.disasm.EventCmds.CallRepeat:isa(cmd) then
 							ig.igText('for i=1,'..cmd.count..' call')
 							ig.igSameLine()
-							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
+							self:popupButtonForAddr(cmd.destAddr)
 						elseif game.disasm.EventCmds.CondBattleFlag:isa(cmd) then
 							ig.igText('if gameState.battleFlag'..cmd.flagIndex..' then goto')
 							ig.igSameLine()
-							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
+							self:popupButtonForAddr(cmd.destAddr)
 						elseif game.disasm.EventCmds.Jump5050:isa(cmd) then
 							ig.igText'if math.random() < .5 then goto'
 							ig.igSameLine()
-							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
+							self:popupButtonForAddr(cmd.destAddr)
 						elseif game.Cmds.Cond:isa(cmd) then
 							ig.igText('if '..cmd.condCode..' then goto')
 							ig.igSameLine()
-							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
+							self:popupButtonForAddr(cmd.destAddr)
 						elseif game.disasm.ObjectCmds.Call:isa(cmd) then
 							ig.igText'goto'
 							ig.igSameLine()
-							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
+							self:popupButtonForAddr(cmd.destAddr)
 						elseif game.disasm.WorldCmds.IfKeyThenGoto:isa(cmd) then
 							ig.igText'if keypress then goto'
 							ig.igSameLine()
-							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
+							self:popupButtonForAddr(cmd.destAddr)
 						elseif game.disasm.WorldCmds.IfFacingThenGoto:isa(cmd) then
 							ig.igText('if dir=='..cmd.dir..' then goto')
 							ig.igSameLine()
-							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
+							self:popupButtonForAddr(cmd.destAddr)
 						elseif game.disasm.EventCmds.GotoForDialogResult:isa(cmd) then
 							ig.igText'gotoForDialogResult'
 							for _,option in ipairs(cmd.options) do
 								ig.igSameLine()
-								self:popupButtonForAddr(scriptBaseAddr + option.addrOfs)
+								self:popupButtonForAddr(option.addr)
 							end
 						elseif game.disasm.EventCmds.StartTimer:isa(cmd) then
 							ig.igText('start timer, addr=')
 							ig.igSameLine()
-							self:popupButtonForAddr(scriptBaseAddr + cmd.destAddrOfs)
+							self:popupButtonForAddr(cmd.destAddr)
 							ig.igSameLine()
 							ig.igText(' '..cmd:getDescArgsWithoutCB())
 						elseif game.disasm.EventCmds.ChangeObjectEvent:isa(cmd) then
 							ig.igText('objs['..cmd.objIndex..'].script =')
 							ig.igSameLine()
-							self:popupButtonForAddr(scriptBaseAddr + cmd.newScriptAddrOfs)
+							self:popupButtonForAddr(cmd.newScriptAddr)
 						elseif game.disasm.EventCmds.CallSwitchNPCFlags:isa(cmd) then
 							ig.igText'gotoForCharacter'
 							for _,option in ipairs(cmd.options) do
 								ig.igSameLine()
 								app.charWindow:popupButton(option.characterIndex)
 								ig.igSameLine()
-								self:popupButtonForAddr(scriptBaseAddr + option.addrOfs)
+								self:popupButtonForAddr(option.addr)
 							end
 
 						elseif game.disasm.MonsterCmds.BattleEvent:isa(cmd) then

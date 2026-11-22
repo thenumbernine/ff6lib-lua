@@ -114,11 +114,11 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 			s = s ..
 				tab..'\t{'
 				..option.characterIndex..', '
-			if option.addrOfs then
+			if option.addr then
 				assert(not option.stmts)
-				s = s .. disasm:addrLabel(scriptBaseAddr + option.addrOfs)
+				s = s .. disasm:addrLabel(option.addr)
 			elseif option.stmts then
-				assert(not option.addrOfs)
+				assert(not option.addr)
 				s = s .. '||do\n'
 				for _,stmt in ipairs(option.stmts) do
 					s = s .. stmt:toCodeLine(indent+2) .. '\n'
@@ -154,15 +154,15 @@ in all cases, function-blocks or in-blocks, we can collect commands into block s
 				s = s .. (' '):rep(disasmcol)
 			end
 			s = s ..tab..'\t'
-			if option.addrOfs then
+			if option.addr then
 				assert(not option.stmts)
-				if scriptBaseAddr + option.addrOfs == commonReturnAddr then	-- call return <-> do nothing
+				if scriptBaseAddr + option.addr == commonReturnAddr then	-- call return <-> do nothing
 					s = s .. '||do end'
 				else
-					s = s .. disasm:addrLabel(scriptBaseAddr + option.addrOfs)
+					s = s .. disasm:addrLabel(option.addr)
 				end
 			elseif option.stmts then
-				assert(not option.addrOfs)
+				assert(not option.addr)
 				s = s .. '||do\n'
 				for _,stmt in ipairs(option.stmts) do
 					s = s .. stmt:toCodeLine(indent+2) .. '\n'
@@ -1284,7 +1284,7 @@ end
 					stmt.parent = cmdobj
 				end
 				-- whichever one it is ...
-				dst.addrOfs = nil
+				dst.addr = nil
 				dst.destAddr = nil
 				-- 2) remove the lambda from its parent
 				if lambda.parent then
@@ -1315,9 +1315,9 @@ end
 					then
 						for optionIndex,option in ipairs(cmdobj.options) do
 							if option.stmts then
-								assert(not option.addrOfs)
+								assert(not option.addr)
 							else
-								local destAddr = scriptBaseAddr + option.addrOfs
+								local destAddr = option.addr
 								doInline(cmdobj, option, destAddr)
 							end
 						end

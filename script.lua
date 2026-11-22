@@ -750,13 +750,16 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 	EventCmds.ChangeObjectEvent = EventCmd:subclass{
 		cmd = 0x7a,
 		argtypes = {uint8_t, uint24_t},
-		argnames = {'objIndex', 'newScriptAddrOfs'},
-		desc = "objSetScript(<?=objIndex?>, <?=getGotoStr(scriptBaseAddr + newScriptAddrOfs, '')?>)",
+		getargs = function(self, objIndex, newScriptAddrOfs)
+			self.objIndex = objIndex
+			self.newScriptAddr = scriptBaseAddr + newScriptAddrOfs
+		end,
+		desc = "objSetScript(<?=objIndex?>, <?=getGotoStr(newScriptAddr, '')?>)",
 
 		getBranchAddrs = function(self)
 			return {
 				-- this will always use event-cmds, whereas typical getBranchAddrs for branch/goto/call will preserve cmdset
-				{addr = scriptBaseAddr + self.newScriptAddrOfs, cmdset = 'EventCmds'},
+				{addr = self.newScriptAddr, cmdset = 'EventCmds'},
 			}
 		end,
 		--isCall ?
@@ -1187,21 +1190,21 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 			self.options = table()
 			if not self.trace.lastDialogPromptCount then error("required choices but no dialog at "..disasm:addrLabel(self.addr)) end
 			for i=1,self.trace.lastDialogPromptCount do
-				self.options:insert{addrOfs = read(uint24_t)}
+				self.options:insert{addr = scriptBaseAddr + read(uint24_t)}
 			end
 		end,
 		__tostring = function(self)
 			-- it's a goto, so return
 			return 'return callForDialogResult('
 				..self.options:mapi(function(option)
-					return disasm:addrLabel(scriptBaseAddr + option.addrOfs, '')
+					return disasm:addrLabel(option.addr, '')
 				end):concat', '
 				..')'
 		end,
 
 		getBranchAddrs = function(self)
 			return self.options:mapi(function(option)
-				return {addr = scriptBaseAddr + option.addrOfs}
+				return {addr = option.addr}
 			end)
 		end,
 
@@ -1327,7 +1330,7 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 				-- so there's 2 more bits left ...
 				self.options:insert{
 					characterIndex = addr >> 20,
-					addrOfs = 0x3ffff & addr,
+					addr = scriptBaseAddr + (0x3ffff & addr),
 				}
 			end
 		end,
@@ -1335,8 +1338,8 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 			return 'charSwitch{'
 			..self.options:mapi(function(option)
 				return '{'..option.characterIndex..', '
-					..(option.addrOfs
-						and disasm:addrLabel(scriptBaseAddr + option.addrOfs)
+					..(option.addr
+						and disasm:addrLabel(option.addr)
 						or 'stmts=...'
 					)..'}'
 			end):concat', '..'}'
@@ -1344,7 +1347,7 @@ print('!!! script oob !!! '..self.disasm:addrLabel(self.pc))
 
 		getBranchAddrs = function(self)
 			return self.options:mapi(function(option)
-				return {addr=scriptBaseAddr + option.addrOfs}
+				return {addr=option.addr}
 			end)
 		end,
 		isCall = true,
