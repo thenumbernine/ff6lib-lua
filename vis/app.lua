@@ -67,7 +67,7 @@ function App:initGL(...)
 	App.super.initGL(self, ...)
 
 	self.view.ortho = true
-	self.view.orthoSize = 16
+	self.view.orthoSize = .5 * self.height / 16
 	self.animSpeed = 15
 	self.useBlend = true
 	self.showTileMask = 0	--0xffff
@@ -1354,7 +1354,7 @@ function App:updateGUI()
 
 			if ig.igButton'Reset View' then
 				self.view.ortho = true
-				self.view.orthoSize = 256
+				self.view.orthoSize = .5 * self.height / 16
 				self.view.pos:set(0,0,10)
 				self.view.orbit:set(0,0,0)
 				self.view.angle:set(0,0,0,1)
