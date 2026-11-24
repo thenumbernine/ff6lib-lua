@@ -41,6 +41,8 @@ local App = ImGuiAppWithOrbit()
 App.hasFocus = true
 App.title = 'FF6 Data Visualizer'
 
+App.yFlipMouseToolTip = false
+
 --[[
 where is wave info stored in ROM?
 351, thamasa house on fire, ampl = 4, len = 16, freq = 1
@@ -1035,12 +1037,17 @@ print('auto-reloading sram...')
 
 			local mx, my, mz, mw = self:invTransform(self.mouse.pos.x * self.width, self.mouse.pos.y * self.height)
 	mx = mx + self.view.pos.x
-	my = my + self.view.pos.y	-- why isn't htis in the matrix and therefore in invTransform ?
-	my = -my	-- oonce again, why ???? it's like i'm uisng the wrong mv matrix
+	my = my + self.view.pos.y	-- why isn't this in the matrix and therefore in invTransform ?
+	my = -my	-- oonce again, why ???? it's like i'm using the wrong mv matrix
 
 -- if we're not mouse over a imgui window...
 if self.canHandleMouse then
-	self.tooltipText = math.floor(mx)..', '..math.floor(my)
+	local dispmx = math.floor(mx)
+	local dispmy = math.floor(my)
+	if self.yFlipMouseToolTip then
+		dispmy = mapHeight-1 - dispmy
+	end
+	self.tooltipText = dispmx..', '..dispmy
 end
 
 			local leftPress = self.mouse.leftPress
@@ -1359,6 +1366,8 @@ function App:updateGUI()
 				self.view.orbit:set(0,0,0)
 				self.view.angle:set(0,0,0,1)
 			end
+
+			ig.luatableCheckbox('y-flip mouse tooltip', self, 'yFlipMouseToolTip')
 
 			for _,info in ipairs(self.waveInfos) do
 				ig.luatableInputFloat('layer'..info.prefix..' waveAmpl', info, 'ampl')
