@@ -31,6 +31,7 @@ local uint32_t_ar = ffi.typeof'uint32_t[?]'
 local MapWindow = ArrayWindow:subclass()
 
 MapWindow.name = 'map'
+MapWindow.currentLayer = 1
 
 function MapWindow:init(...)
 	self.npcTexs = table()
@@ -59,6 +60,14 @@ function MapWindow:showIndexUI()
 
 	local map = mapInfo and mapInfo.map
 	if map then
+		local oldCurrentLayer = self.currentLayer
+		if ig.luatableInputInt('currentLayer', self, 'currentLayer') then
+			self.currentLayer = ((self.currentLayer-1) % 3) + 1
+			if self.currentLayer ~= oldCurrentLayer then
+				self:refreshTilePropsTex()
+			end
+		end
+
 		ig.luatableTooltipCheckbox('useBlend', app, 'useBlend')
 
 		ig.igSameLine()
@@ -414,18 +423,50 @@ function MapWindow:setIndex(newIndex, pushStack)
 		app.mapSize:set(app.layerTexs[1].width, app.layerTexs[1].height)
 	end
 
+	self:refreshTilePropsTex()
+
+	self:refreshTileSheet()
+
+	-- start us off centered at the first door we find
+	if mapInfo.doors then
+		local e = mapInfo.doors[1]
+		if e then
+			app:centerView(e.pos.x, e.pos.y)
+		end
+	end
+
+	self:refreshBattleBgTex()
+
+	self:refreshNPCTexs()
+end
+
+function MapWindow:refreshTilePropsTex()
+	local app = self.app
+	local game = app.game
+
 	if app.tilePropsTex then
 		app.tilePropsTex:delete()
 	end
 	app.tilePropsTex = nil
-	-- maybe another layout other than 1?
-	local layout1Data = layouts[1] and layouts[1].data
-	if layout1Data
+
+	local mapIndex = self.index
+	local mapInfo = game.getMap(mapIndex)
+	if not mapInfo then return end
+
+	local layouts = mapInfo.layouts
+	local tilePropsData = mapInfo.tilePropsData
+	local layerSizes = mapInfo.layerSizes
+
+	local layout = layouts[self.currentLayer]
+	local layoutData = layout and layout.data
+
+	if layoutData
 	and tilePropsData
 	then
 		-- uint8_t into the tilePropsPtr table, which is a table of 2-byte-sized either WorldTileProps or MapTileProps
-		local layoutptr = ffi.cast(uint8_t_p, layout1Data)
+		local layoutptr = ffi.cast(uint8_t_p, layoutData)
 		local tilePropsPtr = ffi.cast(uint16_t_p, tilePropsData)
+		-- TODO layerSizes uses 1 or use currentLayer?
 		local volume = layerSizes[1].x * layerSizes[1].y
 		local data = uint32_t_ar(volume)
 		ffi.fill(data, 0, volume * ffi.sizeof(uint32_t))
@@ -455,20 +496,6 @@ function MapWindow:setIndex(newIndex, pushStack)
 			data = data,
 		}:unbind()
 	end
-
-	self:refreshTileSheet()
-
-	-- start us off centered at the first door we find
-	if mapInfo.doors then
-		local e = mapInfo.doors[1]
-		if e then
-			app:centerView(e.pos.x, e.pos.y)
-		end
-	end
-
-	self:refreshBattleBgTex()
-
-	self:refreshNPCTexs()
 end
 
 -- load/show the 16x16 tiles
