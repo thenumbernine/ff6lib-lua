@@ -223,7 +223,7 @@ local function makePaletteSets(game, dir, pal, numColors, isTransparent)
 				p = p + 4
 			end
 		end
-		palimage:save(dir('palette'..(palSheetIndex+1)..'.png').path)
+		palimage:save(dir('palette'..palSheetIndex..'.png').path)
 	end
 end
 
